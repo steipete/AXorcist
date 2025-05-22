@@ -145,7 +145,7 @@ public func axValue<T>(
 
     dLog(
         "axValue: Fallback cast attempt for attribute '\(attr)' to type \(T.self) FAILED. " +
-        "Unwrapped value was \(type(of: value)): \(value)"
+            "Unwrapped value was \(type(of: value)): \(value)"
     )
     return nil
 }

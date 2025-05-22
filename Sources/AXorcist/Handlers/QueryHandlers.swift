@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - Query Handler Methods Extension
 extension AXorcist {
-    
+
     // Handle getting attributes for a specific element using locator
     @MainActor
     public func handleGetAttributes(

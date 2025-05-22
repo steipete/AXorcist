@@ -106,8 +106,8 @@ public func getPermissionsStatus(
                         if isDebugLoggingEnabled {
                             dLog(
                                 "AppleScript execution against \(bundleID) succeeded " +
-                                "(no errorDict, descriptor type: \(descriptor.descriptorType.description)). " +
-                                "Automation permitted."
+                                    "(no errorDict, descriptor type: \(descriptor.descriptorType.description)). " +
+                                    "Automation permitted."
                             )
                         }
                     } else {
@@ -119,7 +119,7 @@ public func getPermissionsStatus(
                                 "Descriptor was typeNull (type: \(descriptor.descriptorType.description)) but no errorDict." : ""
                             currentDebugLogs.append(
                                 "AppleScript execution against \(bundleID) failed. " +
-                                "Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
+                                    "Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
                             )
                         }
                     }
@@ -141,7 +141,7 @@ public func getPermissionsStatus(
         if isDebugLoggingEnabled {
             dLog(
                 "Skipping automation permission checks because basic accessibility " +
-                "(isProcessTrusted: \(isProcessTrusted)) is not met."
+                    "(isProcessTrusted: \(isProcessTrusted)) is not met."
             )
         }
     }
@@ -154,7 +154,7 @@ public func getPermissionsStatus(
     )
     dLog(
         "Finished permission status check. isAccessibilityApiEnabled: \(finalStatus.isAccessibilityApiEnabled), " +
-        "isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)"
+            "isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)"
     )
     return finalStatus
 }

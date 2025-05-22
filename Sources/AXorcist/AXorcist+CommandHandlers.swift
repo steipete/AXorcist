@@ -6,7 +6,7 @@ import Foundation
 
 // MARK: - Command Handlers Extension
 extension AXorcist {
-    
+
     // Placeholder for getting the focused element.
     // It should accept debug logging parameters and update logs.
     @MainActor

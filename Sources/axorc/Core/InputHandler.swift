@@ -3,27 +3,27 @@
 import Foundation
 
 struct InputHandler {
-    
+
     static func parseInput(
         stdin: Bool,
         file: String?,
         directPayload: String?,
         debug: Bool
     ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
-        
+
         var localDebugLogs: [String] = []
         if debug {
             localDebugLogs.append("Debug logging enabled by --debug flag.")
         }
-        
+
         var receivedJsonString: String?
         var inputSourceDescription: String = "Unspecified"
         var detailedInputError: String?
-        
+
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0)
         let positionalPayloadProvided = directPayload != nil &&
             !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-        
+
         if activeInputFlags > 1 {
             detailedInputError = "Error: Multiple input flags specified (--stdin, --file). Only one is allowed."
             inputSourceDescription = detailedInputError!
@@ -78,7 +78,7 @@ struct InputHandler {
                 localDebugLogs.append("No input method specified and no direct payload provided.")
             }
         }
-        
+
         return (receivedJsonString, inputSourceDescription, detailedInputError, localDebugLogs)
     }
 }
