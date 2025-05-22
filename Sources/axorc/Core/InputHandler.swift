@@ -72,8 +72,16 @@ struct InputHandler {
         let sourceDescription = "File: \(filePath)"
         
         do {
-            let str = try String(contentsOfFile: filePath, encoding: .utf8)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            let rawFileContent = try String(contentsOfFile: filePath, encoding: .utf8) // Read raw
+            if debug {
+                debugLogs.append("HFI_DEBUG: Raw file content for [\(filePath)]: '\(rawFileContent)' (length: \(rawFileContent.count))")
+            }
+
+            let str = rawFileContent.trimmingCharacters(in: .whitespacesAndNewlines)
+            if debug {
+                debugLogs.append("HFI_DEBUG: Trimmed file content: '\(str)' (length: \(str.count))")
+            }
+            
             if !str.isEmpty {
                 if debug {
                     debugLogs.append("Successfully read \(str.count) characters from file: \(filePath)")

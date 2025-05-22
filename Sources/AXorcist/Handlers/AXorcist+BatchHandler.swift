@@ -103,26 +103,34 @@ extension AXorcist {
                 )
 
             case .performAction:
-                guard let locator = subCommandEnvelope.locator else {
-                    let errorMsg = "Locator missing for performAction in batch (sub-command ID: \(subCmdID))"
+                // Check if either locator or path_hint is provided
+                let hasLocator = subCommandEnvelope.locator != nil
+                let hasPathHint = subCommandEnvelope.path_hint != nil && !(subCommandEnvelope.path_hint?.isEmpty ?? true)
+
+                guard hasLocator || hasPathHint else {
+                    let errorMsg = "Locator or path_hint missing for performAction in batch (sub-command ID: \(subCmdID))"
                     dLog(errorMsg, subCommandID: subCmdID)
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
+                
                 guard let actionName = subCommandEnvelope.action_name else {
                     let errorMsg = "Action name missing for performAction in batch (sub-command ID: \(subCmdID))"
                     dLog(errorMsg, subCommandID: subCmdID)
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
+
+                // If only path_hint is provided, locator will be nil, which is fine for handlePerformAction.
+                // If only locator is provided, pathHint will be nil or empty, also fine.
+                // If both, handlePerformAction can use pathHint as root_element_path_hint for the locator.
                 subCommandResponse = self.handlePerformAction(
                     for: subCommandEnvelope.application,
-                    locator: locator,
-                    pathHint: subCommandEnvelope.path_hint,
+                    locator: subCommandEnvelope.locator, // Pass along, might be nil
+                    pathHint: subCommandEnvelope.path_hint, // Pass along, might be nil or empty
                     actionName: actionName,
                     actionValue: subCommandEnvelope.action_value,
                     maxDepth: subCommandEnvelope.max_elements,
-                    // Added maxDepth, though performAction doesn't currently use it directly, for consistency
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )

@@ -1,7 +1,7 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
 import ArgumentParser
-import AXorcist
+import AXorcistLib
 import Foundation
 
 @main
@@ -77,6 +77,11 @@ struct AXORCCommand: AsyncParsableCommand {
         guard let jsonData = jsonString.data(using: .utf8) else {
             print("{\"error\": \"Failed to convert JSON string to data\"}")
             return
+        }
+
+        if debug {
+            localDebugLogs.append("AXORCMain: jsonString before decode: [\(jsonString)]")
+            localDebugLogs.append("AXORCMain: jsonData.count before decode: \(jsonData.count)")
         }
 
         do {

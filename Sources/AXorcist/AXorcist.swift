@@ -66,6 +66,46 @@ public class AXorcist {
 
     // handleCollectAll method is implemented in AXorcist+ActionHandlers.swift
 
+    // MARK: - Path Navigation
+
+    // Helper to check if the current element matches a specific attribute-value pair
+    @MainActor
+    private static func currentElementMatchesPathComponent(
+        _ element: Element,
+        attributeName: String,
+        expectedValue: String,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String] // For logging
+    ) -> Bool {
+        // Helper to log directly to currentDebugLogs for this function
+        func logLocal(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+            if isDebugLoggingEnabled { // Check if logging is enabled for this specific call context
+                let logMessage = AXorcist.formatDebugLogMessage(
+                    message,
+                    applicationName: nil, // Or pass from navigateToElement if needed
+                    commandID: nil,       // Or pass from navigateToElement if needed
+                    file: file,
+                    function: function,
+                    line: line
+                )
+                currentDebugLogs.append(logMessage)
+            }
+        }
+
+        if attributeName.isEmpty { // Should not happen if parsePathComponent is robust
+            logLocal("currentElementMatchesPathComponent: attributeName is empty, cannot match.")
+            return false
+        }
+        if let actualValue = element.attribute(Attribute<String>(attributeName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+            // logLocal("currentElementMatchesPathComponent: Element \(element.briefDescription(option: .minimal, isDebugLoggingEnabled: false, currentDebugLogs: &currentDebugLogs)) has '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])")
+            if actualValue == expectedValue {
+                return true
+            }
+        }
+        return false
+    }
+
+    // Updated navigateToElement to prioritize children
     @MainActor
     internal func navigateToElement(
         from startElement: Element,
@@ -73,26 +113,11 @@ public class AXorcist {
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
     ) -> Element? {
-        // let navigationDebugEnabled = isDebugLoggingEnabled // Create local constant // REMOVE THIS
+        let pathHintString = pathHint.joined(separator: ", ")
+        currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Entered. isDebugLoggingEnabled: \(isDebugLoggingEnabled). pathHint: [\(pathHintString)]", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
 
-        // VERY EARLY DEBUG LOG
-        let pathHintString = pathHint.joined(separator: ", ") // Pre-calculate
-        let earlyLogMsg = AXorcist.formatDebugLogMessage(
-            "navigateToElement: Entered. isDebugLoggingEnabled: \\(isDebugLoggingEnabled). pathHint: [\\(pathHintString)]", // Use pre-calculated string
-            applicationName: nil, commandID: nil, file: #file, function: #function, line: #line
-        )
-        currentDebugLogs.append(earlyLogMsg)
-
-        func dLog(_ message: String) { // Removed isLoggingActive parameter
-            let logMessage = AXorcist.formatDebugLogMessage(
-                message,
-                applicationName: nil, 
-                commandID: nil, 
-                file: #file,
-                function: #function,
-                line: #line
-            )
-            currentDebugLogs.append(logMessage) 
+        func dLog(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+            currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: file, function: function, line: line))
         }
 
         var currentElement = startElement
@@ -100,101 +125,104 @@ public class AXorcist {
 
         for (index, pathComponentString) in pathHint.enumerated() {
             currentPathSegmentForLog += (index > 0 ? " -> " : "") + pathComponentString
-            let briefDesc = currentElement.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
+            let briefDesc = currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             dLog("Navigating: Processing path component '\(pathComponentString)' from current element: \(briefDesc)")
 
-            let trimmedPathComponentString = pathComponentString.trimmingCharacters(in: .whitespacesAndNewlines)
-            dLog("Trimmed path component string: '\(trimmedPathComponentString)' (Count: \(trimmedPathComponentString.count))")
-            let parts = trimmedPathComponentString.split(separator: ":", maxSplits: 1)
-            dLog("Split parts: \(parts) (Count: \(parts.count))")
-
-            guard parts.count == 2 else {
-                currentDebugLogs.append("CRITICAL_NAV_PARSE_FAILURE_MARKER")
+            let (attributeName, expectedValue) = PathUtils.parsePathComponent(pathComponentString)
+            guard !attributeName.isEmpty else {
+                dLog("CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty attribute name from pathComponentString '\(pathComponentString)'")
                 return nil
             }
 
-            let attributeName = String(parts[0])
-            let expectedValue = String(parts[1])
+            var foundMatchForThisComponent = false
+            var newElementForNextStep: Element? = nil
 
-            var foundMatchForPathComponent = false
-
-            // Check current element first
-            if let actualValueOnCurrent = currentElement.attribute(
-                Attribute<String>(attributeName),
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) {
-                if actualValueOnCurrent == expectedValue {
-                    let briefDesc = currentElement.briefDescription(
-                        option: .default,
-                        isDebugLoggingEnabled: isDebugLoggingEnabled,
-                        currentDebugLogs: &currentDebugLogs
-                    )
-                    dLog("Current element \(briefDesc) matches path component '\(attributeName):\(expectedValue)'.")
-                    foundMatchForPathComponent = true
-                    // No change to currentElement, this component is satisfied.
-                }
-            }
-
-            // If current element didn't match, search children
-            if !foundMatchForPathComponent {
-                // Attempt to get children. If this element has no children, it can't match a path component.
-                // Note: children() can be expensive.
-                let children = currentElement.children(
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                )
-                
-                dLog("Child count: \(children?.count ?? 0)")
-
-                // Search children for the matching attribute and value
-                for child in children ?? [] {
-                    if let actualValue = child.attribute(
-                        Attribute<String>(attributeName),
-                        isDebugLoggingEnabled: isDebugLoggingEnabled,
-                        currentDebugLogs: &currentDebugLogs
-                    ) {
+            // Priority 1: Check children using Element.children()
+            if let childrenFromElementDotChildren = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+                dLog("Child count from Element.children(): \(childrenFromElementDotChildren.count)")
+                for child in childrenFromElementDotChildren {
+                    let childBriefDescForLog = child.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+                    if let actualValue = child.attribute(Attribute<String>(attributeName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+                        // dLog("Child (from Element.children) \(childBriefDescForLog) has '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])")
                         if actualValue == expectedValue {
-                            let childDesc = child.briefDescription(
-                                option: .default,
-                                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                currentDebugLogs: &currentDebugLogs
-                            )
-                            let matchMsg = "Matched child: \(childDesc) for '\(attributeName):\(expectedValue)'"
-                            dLog(matchMsg)
-                            currentElement = child
-                            foundMatchForPathComponent = true
-                            break // Found match for this path component, move to next in pathHint
+                            dLog("Matched child (from Element.children): \(childBriefDescForLog) for '\(attributeName):\(expectedValue)'")
+                            newElementForNextStep = child
+                            foundMatchForThisComponent = true
+                            break
                         }
+                    } else {
+                        // dLog("Attribute '\(attributeName)' was nil for child (from Element.children): \(childBriefDescForLog)")
                     }
                 }
+            } else {
+                dLog("Current element \(briefDesc) has no children from Element.children() or children array was nil.")
             }
 
-            if !foundMatchForPathComponent {
-                // All descriptive logging happens FIRST
-                let briefDesc = currentElement.briefDescription(
-                    option: .default,
+            // FALLBACK: If no child matched via Element.children(), try direct kAXChildrenAttribute call (Heisenbug workaround)
+            if !foundMatchForThisComponent {
+                // Log entry for this fallback block, without using currentElement.briefDescription() before the critical call.
+                currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: No match from Element.children(). Trying direct kAXChildrenAttribute fallback.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                
+                var directChildrenValue: CFTypeRef?
+                let directChildrenError = AXUIElementCopyAttributeValue(currentElement.underlyingElement, kAXChildrenAttribute as CFString, &directChildrenValue)
+
+                // Now, after the critical call, we can get the description for logging.
+                let currentElementDescForFallbackLog = isDebugLoggingEnabled ? currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) : "Element(debug_off)"
+                currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Fallback is for element: \(currentElementDescForFallbackLog)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+
+                if directChildrenError == .success, let cfArray = directChildrenValue, CFGetTypeID(cfArray) == CFArrayGetTypeID() {
+                    if let directAxElements = cfArray as? [AXUIElement] {
+                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Direct kAXChildrenAttribute fallback found \(directAxElements.count) raw children for \(currentElementDescForFallbackLog).", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                        for axChild in directAxElements {
+                            let childElement = Element(axChild)
+                            // let childBriefDescForLog = childElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) // Avoid for now inside loop if too verbose or risky
+                            if let actualValue = childElement.attribute(Attribute<String>(attributeName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+                                if actualValue == expectedValue {
+                                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Matched child (from direct fallback) for '\(attributeName):\(expectedValue)' on \(currentElementDescForFallbackLog). Child: \(childElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                                    newElementForNextStep = childElement
+                                    foundMatchForThisComponent = true
+                                    break
+                                }
+                            }
+                        }
+                    } else {
+                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Direct kAXChildrenAttribute fallback: CFArray failed to cast to [AXUIElement] for \(currentElementDescForFallbackLog).", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                    }
+                } else if directChildrenError != .success {
+                     currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Direct kAXChildrenAttribute fallback: Error fetching for \(currentElementDescForFallbackLog): \(directChildrenError.rawValue)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                } else {
+                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Direct kAXChildrenAttribute fallback: No children or not an array for \(currentElementDescForFallbackLog).", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+                }
+            }
+
+            // Priority 2: If no child matched (even after fallback), check current element itself
+            if !foundMatchForThisComponent {
+                var tempLogsForMatchCheck = currentDebugLogs
+                let matchResult = AXorcist.currentElementMatchesPathComponent(
+                    currentElement,
+                    attributeName: attributeName,
+                    expectedValue: expectedValue,
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
+                    currentDebugLogs: &tempLogsForMatchCheck
                 )
-                let noMatchMsg = "Neither current element \(briefDesc) nor its children matched '\(attributeName):\(expectedValue)'. Path: \(currentPathSegmentForLog)"
-                dLog(noMatchMsg)
-                // THEN, the marker is the LAST log entry
-                currentDebugLogs.append("CHILD_MATCH_FAILURE_MARKER")
-                return nil // No match found for this path component, navigation fails
+                currentDebugLogs = tempLogsForMatchCheck
+
+                if matchResult {
+                    dLog("Current element \(briefDesc) itself matches '\(attributeName):\(expectedValue)'. Retaining current element for this step.")
+                    newElementForNextStep = currentElement
+                    foundMatchForThisComponent = true
+                }
+            }
+            
+            if foundMatchForThisComponent, let nextElement = newElementForNextStep {
+                currentElement = nextElement
+            } else {
+                dLog("Neither current element \(briefDesc) nor its children (after all checks) matched '\(attributeName):\(expectedValue)'. Path: \(currentPathSegmentForLog) // CHILD_MATCH_FAILURE_MARKER")
+                return nil
             }
         }
-        // If the loop completes, all path components were matched
-        let finalDesc = currentElement.briefDescription(
-            option: .default,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-        dLog("Navigation successful. Final element: \(finalDesc)")
+
+        dLog("Navigation successful. Final element: \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
         return currentElement
     }
 }

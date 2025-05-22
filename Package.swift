@@ -9,7 +9,7 @@ let package = Package(
         .macOS(.v13) // macOS 13.0 or later
     ],
     products: [
-        .library(name: "AXorcist", targets: ["AXorcist"]),
+        .library(name: "AXorcistLib", targets: ["AXorcistLib"]),
         .executable(name: "axorc", targets: ["axorc"]) // Product 'axorc' comes from target 'axorc'
     ],
     dependencies: [
@@ -18,14 +18,14 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AXorcist", // New library target name
+            name: "AXorcistLib",
             path: "Sources/AXorcist" // Explicit path
             // Sources will be inferred by SPM
         ),
         .executableTarget(
             name: "axorc", // Executable target name
             dependencies: [
-                "AXorcist",
+                "AXorcistLib",
                 .product(name: "ArgumentParser", package: "swift-argument-parser") // Added dependency product
             ],
             path: "Sources/axorc" // Explicit path
@@ -34,7 +34,7 @@ let package = Package(
         .testTarget(
             name: "AXorcistTests",
             dependencies: [
-                "AXorcist", // Test target depends on the library
+                "AXorcistLib",
                 .product(name: "Testing", package: "swift-testing") // Added swift-testing dependency
             ],
             path: "Tests/AXorcistTests" // Explicit path

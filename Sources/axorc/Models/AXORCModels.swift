@@ -1,7 +1,7 @@
 // AXORCModels.swift - Response models and main types for AXORC CLI
 
 import ArgumentParser
-import AXorcist
+import AXorcistLib
 import Foundation
 
 // MARK: - Version and Configuration

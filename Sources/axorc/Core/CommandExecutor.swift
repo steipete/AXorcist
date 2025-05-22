@@ -1,6 +1,6 @@
 // CommandExecutor.swift - Executes AXORC commands
 
-import AXorcist
+import AXorcistLib
 import Foundation
 
 struct CommandExecutor {

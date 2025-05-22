@@ -26,13 +26,81 @@ public struct Element: Equatable, Hashable {
     @MainActor
     public func attribute<T>(_ attribute: Attribute<T>, isDebugLoggingEnabled: Bool,
                              currentDebugLogs: inout [String]) -> T? {
-        // axValue is from ValueHelpers.swift and now expects logging parameters
-        return axValue(
-            of: self.underlyingElement,
-            attr: attribute.rawValue,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) as T?
+        func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line)) } }
+
+        if T.self == [AXUIElement].self {
+            dLog("Element.attribute: Special handling for T == [AXUIElement]. Attribute: \(attribute.rawValue)")
+            var value: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
+            if error == .success {
+                if let cfArray = value, CFGetTypeID(cfArray) == CFArrayGetTypeID() {
+                    if let axElements = cfArray as? [AXUIElement] {
+                        dLog("Element.attribute: Successfully fetched and cast \(axElements.count) AXUIElements for '\(attribute.rawValue)'.")
+                        return axElements as? T // This cast should succeed due to the T.self check
+                    } else {
+                        dLog("Element.attribute: CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement].")
+                    }
+                } else if value != nil {
+                    dLog("Element.attribute: Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(CFGetTypeID(value!))")
+                } else {
+                    dLog("Element.attribute: Value for '\(attribute.rawValue)' was nil despite .success.")
+                }
+            } else if error == .noValue {
+                 dLog("Element.attribute: Attribute '\(attribute.rawValue)' has no value.")
+            } else {
+                dLog("Element.attribute: Error fetching '\(attribute.rawValue)': \(error.rawValue)")
+            }
+            return nil // Return nil if any step above failed for [AXUIElement]
+        } else {
+            // RESTORED: Minimal survival path for common types, otherwise nil.
+            // Full ValueUnwrapper logic is still TODO.
+            dLog("Element.attribute: Using basic CFTypeRef conversion for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue).")
+            var value: CFTypeRef?
+            let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
+
+            if error != .success {
+                if error != .noValue { // Don't log for .noValue, it's common
+                    dLog("Element.attribute: Error \(error.rawValue) fetching '\(attribute.rawValue)' for basic conversion.")
+                }
+                return nil
+            }
+
+            guard let unwrappedValue = value else {
+                dLog("Element.attribute: Value was nil for '\(attribute.rawValue)' after fetch for basic conversion.")
+                return nil
+            }
+
+            // Basic unwrapping for common types
+            if T.self == String.self {
+                if CFGetTypeID(unwrappedValue) == CFStringGetTypeID() {
+                    return (unwrappedValue as! CFString) as String as? T
+                }
+            } else if T.self == Bool.self {
+                if CFGetTypeID(unwrappedValue) == CFBooleanGetTypeID() {
+                    return CFBooleanGetValue(unwrappedValue as! CFBoolean) as? T
+                }
+            } else if T.self == Int.self {
+                 if CFGetTypeID(unwrappedValue) == CFNumberGetTypeID() {
+                    var intValue: Int = 0
+                    if CFNumberGetValue(unwrappedValue as! CFNumber, .sInt64Type, &intValue) {
+                        return intValue as? T
+                    }
+                }
+            } else if T.self == AXUIElement.self { // For single AXUIElement (e.g. parent)
+                 if CFGetTypeID(unwrappedValue) == AXUIElementGetTypeID() {
+                    return unwrappedValue as? T // Direct cast should work as it's already AXUIElement
+                 }
+            } // Add other common types like NSNumber, AXValue (for CGPoint etc.) as needed
+            
+            // If no specific conversion worked, try a direct cast (might work for Any or some CF-bridged types)
+            if let directCast = unwrappedValue as? T {
+                dLog("Element.attribute: Basic conversion succeeded with direct cast for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue).")
+                return directCast
+            }
+
+            dLog("Element.attribute: Basic conversion FAILED for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue). Value type: \(CFGetTypeID(unwrappedValue))")
+            return nil
+        }
     }
 
     // Method to get the raw CFTypeRef? for an attribute
