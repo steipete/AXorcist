@@ -52,29 +52,25 @@ public func axValue<T>(
     }
 
     if T.self == String.self {
-        if let str = value as? String { return str as? T }
-        else if let attrStr = value as? NSAttributedString { return attrStr.string as? T }
+        if let str = value as? String { return str as? T } else if let attrStr = value as? NSAttributedString { return attrStr.string as? T }
         dLog("axValue: Expected String for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
 
     if T.self == Bool.self {
-        if let boolVal = value as? Bool { return boolVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.boolValue as? T }
+        if let boolVal = value as? Bool { return boolVal as? T } else if let numVal = value as? NSNumber { return numVal.boolValue as? T }
         dLog("axValue: Expected Bool for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
 
     if T.self == Int.self {
-        if let intVal = value as? Int { return intVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.intValue as? T }
+        if let intVal = value as? Int { return intVal as? T } else if let numVal = value as? NSNumber { return numVal.intValue as? T }
         dLog("axValue: Expected Int for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
 
     if T.self == Double.self {
-        if let doubleVal = value as? Double { return doubleVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.doubleValue as? T }
+        if let doubleVal = value as? Double { return doubleVal as? T } else if let numVal = value as? NSNumber { return numVal.doubleValue as? T }
         dLog("axValue: Expected Double for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
@@ -148,7 +144,8 @@ public func axValue<T>(
     }
 
     dLog(
-        "axValue: Fallback cast attempt for attribute '\(attr)' to type \(T.self) FAILED. Unwrapped value was \(type(of: value)): \(value)"
+        "axValue: Fallback cast attempt for attribute '\(attr)' to type \(T.self) FAILED. " +
+        "Unwrapped value was \(type(of: value)): \(value)"
     )
     return nil
 }
