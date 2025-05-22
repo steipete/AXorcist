@@ -10,75 +10,111 @@ struct InputHandler {
         directPayload: String?,
         debug: Bool
     ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
-
+        
         var localDebugLogs: [String] = []
         if debug {
             localDebugLogs.append("Debug logging enabled by --debug flag.")
         }
-
-        var receivedJsonString: String?
-        var inputSourceDescription: String = "Unspecified"
-        var detailedInputError: String?
-
+        
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0)
         let positionalPayloadProvided = directPayload != nil &&
             !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-
+        
         if activeInputFlags > 1 {
-            detailedInputError = "Error: Multiple input flags specified (--stdin, --file). Only one is allowed."
-            inputSourceDescription = detailedInputError!
+            return handleMultipleInputFlags(&localDebugLogs)
         } else if stdin {
-            inputSourceDescription = "STDIN"
-            let stdInputHandle = FileHandle.standardInput
-            let stdinData = stdInputHandle.readDataToEndOfFile()
-            if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !str.isEmpty {
-                receivedJsonString = str
-                if debug {
-                    localDebugLogs.append("Successfully read \\(str.count) characters from STDIN.")
-                }
-            } else {
-                detailedInputError = "No data received from STDIN or data was empty."
-                if debug {
-                    localDebugLogs.append("Failed to read from STDIN or received empty data.")
-                }
-            }
+            return handleStdinInput(debug: debug, debugLogs: &localDebugLogs)
         } else if let filePath = file {
-            inputSourceDescription = "File: \\(filePath)"
-            do {
-                let str = try String(contentsOfFile: filePath, encoding: .utf8)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                if !str.isEmpty {
-                    receivedJsonString = str
-                    if debug {
-                        localDebugLogs.append("Successfully read \\(str.count) characters from file: \\(filePath)")
-                    }
-                } else {
-                    detailedInputError = "File \\(filePath) is empty or contains only whitespace."
-                    if debug {
-                        localDebugLogs.append("File \\(filePath) was empty or contained only whitespace.")
-                    }
-                }
-            } catch {
-                detailedInputError = "Failed to read file \\(filePath): \\(error.localizedDescription)"
-                if debug {
-                    localDebugLogs.append("Error reading file \\(filePath): \\(error)")
-                }
-            }
+            return handleFileInput(filePath: filePath, debug: debug, debugLogs: &localDebugLogs)
         } else if positionalPayloadProvided {
-            inputSourceDescription = "Direct argument"
-            receivedJsonString = directPayload?.trimmingCharacters(in: .whitespacesAndNewlines)
-            if debug {
-                localDebugLogs.append("Using direct payload argument with \\(receivedJsonString?.count ?? 0) characters.")
-            }
+            return handleDirectPayload(directPayload: directPayload, debug: debug, debugLogs: &localDebugLogs)
         } else {
-            detailedInputError = "No input provided. Use --stdin, --file <path>, or provide JSON as a direct argument."
-            inputSourceDescription = "No input"
-            if debug {
-                localDebugLogs.append("No input method specified and no direct payload provided.")
-            }
+            return handleNoInput(debug: debug, debugLogs: &localDebugLogs)
         }
-
-        return (receivedJsonString, inputSourceDescription, detailedInputError, localDebugLogs)
+    }
+    
+    // MARK: - Helper Functions
+    
+    private static func handleMultipleInputFlags(
+        _ debugLogs: inout [String]
+    ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
+        let error = "Error: Multiple input flags specified (--stdin, --file). Only one is allowed."
+        return (nil, error, error, debugLogs)
+    }
+    
+    private static func handleStdinInput(
+        debug: Bool,
+        debugLogs: inout [String]
+    ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
+        let stdInputHandle = FileHandle.standardInput
+        let stdinData = stdInputHandle.readDataToEndOfFile()
+        
+        if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !str.isEmpty {
+            if debug {
+                debugLogs.append("Successfully read \(str.count) characters from STDIN.")
+            }
+            return (str, "STDIN", nil, debugLogs)
+        } else {
+            let error = "No data received from STDIN or data was empty."
+            if debug {
+                debugLogs.append("Failed to read from STDIN or received empty data.")
+            }
+            return (nil, "STDIN", error, debugLogs)
+        }
+    }
+    
+    private static func handleFileInput(
+        filePath: String,
+        debug: Bool,
+        debugLogs: inout [String]
+    ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
+        let sourceDescription = "File: \(filePath)"
+        
+        do {
+            let str = try String(contentsOfFile: filePath, encoding: .utf8)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !str.isEmpty {
+                if debug {
+                    debugLogs.append("Successfully read \(str.count) characters from file: \(filePath)")
+                }
+                return (str, sourceDescription, nil, debugLogs)
+            } else {
+                let error = "File \(filePath) is empty or contains only whitespace."
+                if debug {
+                    debugLogs.append("File \(filePath) was empty or contained only whitespace.")
+                }
+                return (nil, sourceDescription, error, debugLogs)
+            }
+        } catch {
+            let errorMsg = "Failed to read file \(filePath): \(error.localizedDescription)"
+            if debug {
+                debugLogs.append("Error reading file \(filePath): \(error)")
+            }
+            return (nil, sourceDescription, errorMsg, debugLogs)
+        }
+    }
+    
+    private static func handleDirectPayload(
+        directPayload: String?,
+        debug: Bool,
+        debugLogs: inout [String]
+    ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
+        let jsonString = directPayload?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if debug {
+            debugLogs.append("Using direct payload argument with \(jsonString?.count ?? 0) characters.")
+        }
+        return (jsonString, "Direct argument", nil, debugLogs)
+    }
+    
+    private static func handleNoInput(
+        debug: Bool,
+        debugLogs: inout [String]
+    ) -> (jsonString: String?, sourceDescription: String, error: String?, debugLogs: [String]) {
+        let error = "No input provided. Use --stdin, --file <path>, or provide JSON as a direct argument."
+        if debug {
+            debugLogs.append("No input method specified and no direct payload provided.")
+        }
+        return (nil, "No input", error, debugLogs)
     }
 }

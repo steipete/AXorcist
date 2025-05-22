@@ -90,138 +90,25 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
 @MainActor
 private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValueType, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> AXValue? {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var valueRef: AXValue?
-
+    
+    let valueRef: AXValue?
     switch targetAXValueType {
     case .cgPoint:
-        var x: Double = 0, y: Double = 0
-        let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-        if components.count == 2,
-           let xValStr = components[0].split(separator: "=").last, let xVal = Double(xValStr),
-           let yValStr = components[1].split(separator: "=").last, let yVal = Double(yValStr) {
-            x = xVal; y = yVal
-        } else if components.count == 2, let xVal = Double(components[0]), let yVal = Double(components[1]) {
-            x = xVal; y = yVal
-        } else {
-            let scanner = Scanner(string: stringValue)
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
-            let xScanned = scanner.scanDouble()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
-            let yScanned = scanner.scanDouble()
-            if let xVal = xScanned, let yVal = yScanned {
-                x = xVal; y = yVal
-            } else {
-                dLog("parseStringToAXValue: CGPoint parsing failed for '\(stringValue)' via scanner.")
-                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGPoint. Expected format like 'x=10,y=20' or '10,20'.")
-            }
-        }
-        var point = CGPoint(x: x, y: y)
-        valueRef = AXValueCreate(targetAXValueType, &point)
-
+        valueRef = try parseCGPoint(from: stringValue, dLog: dLog)
     case .cgSize:
-        var w: Double = 0, h: Double = 0
-        let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-        if components.count == 2,
-           let wValStr = components[0].split(separator: "=").last, let wVal = Double(wValStr),
-           let hValStr = components[1].split(separator: "=").last, let hVal = Double(hValStr) {
-            w = wVal; h = hVal
-        } else if components.count == 2, let wVal = Double(components[0]), let hVal = Double(components[1]) {
-            w = wVal; h = hVal
-        } else {
-            let scanner = Scanner(string: stringValue)
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "wh:, \t\n"))
-            let wScanned = scanner.scanDouble()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "wh:, \t\n"))
-            let hScanned = scanner.scanDouble()
-            if let wVal = wScanned, let hVal = hScanned {
-                w = wVal; h = hVal
-            } else {
-                dLog("parseStringToAXValue: CGSize parsing failed for '\(stringValue)' via scanner.")
-                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.")
-            }
-        }
-        var size = CGSize(width: w, height: h)
-        valueRef = AXValueCreate(targetAXValueType, &size)
-
+        valueRef = try parseCGSize(from: stringValue, dLog: dLog)
     case .cgRect:
-        var x: Double = 0, y: Double = 0, w: Double = 0, h: Double = 0
-        let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-        if components.count == 4,
-           let xStr = components[0].split(separator: "=").last, let xVal = Double(xStr),
-           let yStr = components[1].split(separator: "=").last, let yVal = Double(yStr),
-           let wStr = components[2].split(separator: "=").last, let wVal = Double(wStr),
-           let hStr = components[3].split(separator: "=").last, let hVal = Double(hStr) {
-            x = xVal; y = yVal; w = wVal; h = hVal
-        } else if components.count == 4,
-                  let xVal = Double(components[0]), let yVal = Double(components[1]),
-                  let wVal = Double(components[2]), let hVal = Double(components[3]) {
-            x = xVal; y = yVal; w = wVal; h = hVal
-        } else {
-            let scanner = Scanner(string: stringValue)
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
-            let xS_opt = scanner.scanDouble()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
-            let yS_opt = scanner.scanDouble()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
-            let wS_opt = scanner.scanDouble()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
-            let hS_opt = scanner.scanDouble()
-            if let xS = xS_opt, let yS = yS_opt, let wS = wS_opt, let hS = hS_opt {
-                x = xS; y = yS; w = wS; h = hS
-            } else {
-                dLog("parseStringToAXValue: CGRect parsing failed for '\(stringValue)' via scanner.")
-                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGRect. Expected format like 'x=0,y=0,w=100,h=50' or '0,0,100,50'.")
-            }
-        }
-        var rect = CGRect(x: x, y: y, width: w, height: h)
-        valueRef = AXValueCreate(targetAXValueType, &rect)
-
+        valueRef = try parseCGRect(from: stringValue, dLog: dLog)
     case .cfRange:
-        var loc: Int = 0, len: Int = 0
-        let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-        if components.count == 2,
-           let locStr = components[0].split(separator: "=").last, let locVal = Int(locStr),
-           let lenStr = components[1].split(separator: "=").last, let lenVal = Int(lenStr) {
-            loc = locVal; len = lenVal
-        } else if components.count == 2, let locVal = Int(components[0]), let lenVal = Int(components[1]) {
-            loc = locVal; len = lenVal
-        } else {
-            let scanner = Scanner(string: stringValue)
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "loclen:, \t\n"))
-            let locScanned: Int? = scanner.scanInteger()
-            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "loclen:, \t\n"))
-            let lenScanned: Int? = scanner.scanInteger()
-            if let locV = locScanned, let lenV = lenScanned {
-                loc = locV
-                len = lenV
-            } else {
-                dLog("parseStringToAXValue: CFRange parsing failed for '\(stringValue)' via scanner.")
-                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CFRange. Expected format like 'loc=0,len=10' or '0,10'.")
-            }
-        }
-        var range = CFRangeMake(loc, len)
-        valueRef = AXValueCreate(targetAXValueType, &range)
-
+        valueRef = try parseCFRange(from: stringValue, dLog: dLog)
     case .illegal:
         dLog("parseStringToAXValue: Attempted to parse for .illegal AXValueType.")
         throw AccessibilityError.attributeUnsupported("Cannot parse value for AXValueType .illegal")
-
     case .axError:
         dLog("parseStringToAXValue: Attempted to parse for .axError AXValueType.")
         throw AccessibilityError.attributeUnsupported("Cannot set an attribute of AXValueType .axError")
-
     default:
-        if targetAXValueType.rawValue == 4 {
-            var boolVal: DarwinBoolean
-            if stringValue.lowercased() == "true" { boolVal = true } else if stringValue.lowercased() == "false" { boolVal = false } else {
-                dLog("parseStringToAXValue: Boolean parsing failed for '\(stringValue)' for AXValue.")
-                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValue.")
-            }
-            valueRef = AXValueCreate(targetAXValueType, &boolVal)
-        } else {
-            dLog("parseStringToAXValue: Unsupported AXValueType '\(stringFromAXValueType(targetAXValueType))' (rawValue: \(targetAXValueType.rawValue)).")
-            throw AccessibilityError.attributeUnsupported("Parsing for AXValueType '\(stringFromAXValueType(targetAXValueType))' (rawValue: \(targetAXValueType.rawValue)) from string is not supported yet.")
-        }
+        valueRef = try parseDefaultAXValueType(from: stringValue, targetType: targetAXValueType, dLog: dLog)
     }
 
     if valueRef == nil {
@@ -229,4 +116,146 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
         throw AccessibilityError.valueParsingFailed(details: "AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
     }
     return valueRef
+}
+
+// MARK: - Helper Functions for AXValue Parsing
+
+@MainActor
+private func parseCGPoint(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
+    var x: Double = 0, y: Double = 0
+    let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
+    
+    if components.count == 2,
+       let xValStr = components[0].split(separator: "=").last, let xVal = Double(xValStr),
+       let yValStr = components[1].split(separator: "=").last, let yVal = Double(yValStr) {
+        x = xVal; y = yVal
+    } else if components.count == 2, let xVal = Double(components[0]), let yVal = Double(components[1]) {
+        x = xVal; y = yVal
+    } else {
+        let scanner = Scanner(string: stringValue)
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
+        let xScanned = scanner.scanDouble()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
+        let yScanned = scanner.scanDouble()
+        if let xVal = xScanned, let yVal = yScanned {
+            x = xVal; y = yVal
+        } else {
+            dLog("parseStringToAXValue: CGPoint parsing failed for '\(stringValue)' via scanner.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGPoint. Expected format like 'x=10,y=20' or '10,20'.")
+        }
+    }
+    var point = CGPoint(x: x, y: y)
+    return AXValueCreate(.cgPoint, &point)
+}
+
+@MainActor
+private func parseCGSize(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
+    var w: Double = 0, h: Double = 0
+    let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
+    
+    if components.count == 2,
+       let wValStr = components[0].split(separator: "=").last, let wVal = Double(wValStr),
+       let hValStr = components[1].split(separator: "=").last, let hVal = Double(hValStr) {
+        w = wVal; h = hVal
+    } else if components.count == 2, let wVal = Double(components[0]), let hVal = Double(components[1]) {
+        w = wVal; h = hVal
+    } else {
+        let scanner = Scanner(string: stringValue)
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "wh:, \t\n"))
+        let wScanned = scanner.scanDouble()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "wh:, \t\n"))
+        let hScanned = scanner.scanDouble()
+        if let wVal = wScanned, let hVal = hScanned {
+            w = wVal; h = hVal
+        } else {
+            dLog("parseStringToAXValue: CGSize parsing failed for '\(stringValue)' via scanner.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.")
+        }
+    }
+    var size = CGSize(width: w, height: h)
+    return AXValueCreate(.cgSize, &size)
+}
+
+@MainActor
+private func parseCGRect(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
+    var x: Double = 0, y: Double = 0, w: Double = 0, h: Double = 0
+    let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
+    
+    if components.count == 4,
+       let xStr = components[0].split(separator: "=").last, let xVal = Double(xStr),
+       let yStr = components[1].split(separator: "=").last, let yVal = Double(yStr),
+       let wStr = components[2].split(separator: "=").last, let wVal = Double(wStr),
+       let hStr = components[3].split(separator: "=").last, let hVal = Double(hStr) {
+        x = xVal; y = yVal; w = wVal; h = hVal
+    } else if components.count == 4,
+              let xVal = Double(components[0]), let yVal = Double(components[1]),
+              let wVal = Double(components[2]), let hVal = Double(components[3]) {
+        x = xVal; y = yVal; w = wVal; h = hVal
+    } else {
+        let scanner = Scanner(string: stringValue)
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
+        let xS_opt = scanner.scanDouble()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
+        let yS_opt = scanner.scanDouble()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
+        let wS_opt = scanner.scanDouble()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xywh:, \t\n"))
+        let hS_opt = scanner.scanDouble()
+        if let xS = xS_opt, let yS = yS_opt, let wS = wS_opt, let hS = hS_opt {
+            x = xS; y = yS; w = wS; h = hS
+        } else {
+            dLog("parseStringToAXValue: CGRect parsing failed for '\(stringValue)' via scanner.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGRect. Expected format like 'x=0,y=0,w=100,h=50' or '0,0,100,50'.")
+        }
+    }
+    var rect = CGRect(x: x, y: y, width: w, height: h)
+    return AXValueCreate(.cgRect, &rect)
+}
+
+@MainActor
+private func parseCFRange(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
+    var loc: Int = 0, len: Int = 0
+    let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
+    
+    if components.count == 2,
+       let locStr = components[0].split(separator: "=").last, let locVal = Int(locStr),
+       let lenStr = components[1].split(separator: "=").last, let lenVal = Int(lenStr) {
+        loc = locVal; len = lenVal
+    } else if components.count == 2, let locVal = Int(components[0]), let lenVal = Int(components[1]) {
+        loc = locVal; len = lenVal
+    } else {
+        let scanner = Scanner(string: stringValue)
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "loclen:, \t\n"))
+        let locScanned: Int? = scanner.scanInteger()
+        _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "loclen:, \t\n"))
+        let lenScanned: Int? = scanner.scanInteger()
+        if let locV = locScanned, let lenV = lenScanned {
+            loc = locV
+            len = lenV
+        } else {
+            dLog("parseStringToAXValue: CFRange parsing failed for '\(stringValue)' via scanner.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CFRange. Expected format like 'loc=0,len=10' or '0,10'.")
+        }
+    }
+    var range = CFRangeMake(loc, len)
+    return AXValueCreate(.cfRange, &range)
+}
+
+@MainActor
+private func parseDefaultAXValueType(from stringValue: String, targetType: AXValueType, dLog: (String) -> Void) throws -> AXValue? {
+    if targetType.rawValue == 4 {
+        var boolVal: DarwinBoolean
+        if stringValue.lowercased() == "true" { 
+            boolVal = true 
+        } else if stringValue.lowercased() == "false" { 
+            boolVal = false 
+        } else {
+            dLog("parseStringToAXValue: Boolean parsing failed for '\(stringValue)' for AXValue.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValue.")
+        }
+        return AXValueCreate(targetType, &boolVal)
+    } else {
+        dLog("parseStringToAXValue: Unsupported AXValueType '\(stringFromAXValueType(targetType))' (rawValue: \(targetType.rawValue)).")
+        throw AccessibilityError.attributeUnsupported("Parsing for AXValueType '\(stringFromAXValueType(targetType))' (rawValue: \(targetType.rawValue)) from string is not supported yet.")
+    }
 }

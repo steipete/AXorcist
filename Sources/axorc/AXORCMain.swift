@@ -6,7 +6,7 @@ import Foundation
 
 @main
 struct AXORCCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(
+    static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
         abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(AXORC_VERSION)"
     )

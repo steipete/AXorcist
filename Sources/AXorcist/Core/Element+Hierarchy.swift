@@ -7,9 +7,6 @@ extension Element {
     @MainActor
     public func children(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [Element]? {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-        var collectedChildren: [Element] = []
-        var uniqueChildrenSet = Set<Element>()
-        var tempLogs: [String] = [] // For inner calls
 
         let elementDescription = self.briefDescription(
             option: .default,
@@ -18,26 +15,56 @@ extension Element {
         )
         dLog("Getting children for element: \(elementDescription)")
 
-        // Primary children attribute
-        tempLogs.removeAll()
+        var childCollector = ChildCollector()
+
+        // Collect children from various sources
+        collectDirectChildren(
+            collector: &childCollector,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
+
+        collectAlternativeChildren(
+            collector: &childCollector,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
+
+        collectApplicationWindows(
+            collector: &childCollector,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
+
+        return childCollector.finalizeResults(dLog: dLog)
+    }
+
+    @MainActor
+    private func collectDirectChildren(
+        collector: inout ChildCollector,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) {
+        var tempLogs: [String] = []
+
         if let directChildrenUI: [AXUIElement] = attribute(
             Attribute<[AXUIElement]>.children,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &tempLogs
         ) {
             currentDebugLogs.append(contentsOf: tempLogs)
-            for childUI in directChildrenUI {
-                let childAX = Element(childUI)
-                if !uniqueChildrenSet.contains(childAX) {
-                    collectedChildren.append(childAX)
-                    uniqueChildrenSet.insert(childAX)
-                }
-            }
+            collector.addChildren(from: directChildrenUI)
         } else {
-            currentDebugLogs.append(contentsOf: tempLogs) // Append logs even if nil
+            currentDebugLogs.append(contentsOf: tempLogs)
         }
+    }
 
-        // Alternative children attributes
+    @MainActor
+    private func collectAlternativeChildren(
+        collector: inout ChildCollector,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) {
         let alternativeAttributes: [String] = [
             kAXVisibleChildrenAttribute, kAXWebAreaChildrenAttribute, kAXHTMLContentAttribute,
             kAXARIADOMChildrenAttribute, kAXDOMChildrenAttribute, kAXApplicationNavigationAttribute,
@@ -48,26 +75,43 @@ extension Element {
         ]
 
         for attrName in alternativeAttributes {
-            tempLogs.removeAll()
-            if let altChildrenUI: [AXUIElement] = attribute(
-                Attribute<[AXUIElement]>(attrName),
+            collectChildrenFromAttribute(
+                attributeName: attrName,
+                collector: &collector,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &tempLogs
-            ) {
-                currentDebugLogs.append(contentsOf: tempLogs)
-                for childUI in altChildrenUI {
-                    let childAX = Element(childUI)
-                    if !uniqueChildrenSet.contains(childAX) {
-                        collectedChildren.append(childAX)
-                        uniqueChildrenSet.insert(childAX)
-                    }
-                }
-            } else {
-                currentDebugLogs.append(contentsOf: tempLogs)
-            }
+                currentDebugLogs: &currentDebugLogs
+            )
         }
+    }
 
-        tempLogs.removeAll()
+    @MainActor
+    private func collectChildrenFromAttribute(
+        attributeName: String,
+        collector: inout ChildCollector,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) {
+        var tempLogs: [String] = []
+
+        if let childrenUI: [AXUIElement] = attribute(
+            Attribute<[AXUIElement]>(attributeName),
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &tempLogs
+        ) {
+            currentDebugLogs.append(contentsOf: tempLogs)
+            collector.addChildren(from: childrenUI)
+        } else {
+            currentDebugLogs.append(contentsOf: tempLogs)
+        }
+    }
+
+    @MainActor
+    private func collectApplicationWindows(
+        collector: inout ChildCollector,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) {
+        var tempLogs: [String] = []
         let currentRole = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         currentDebugLogs.append(contentsOf: tempLogs)
 
@@ -79,18 +123,33 @@ extension Element {
                 currentDebugLogs: &tempLogs
             ) {
                 currentDebugLogs.append(contentsOf: tempLogs)
-                for childUI in windowElementsUI {
-                    let childAX = Element(childUI)
-                    if !uniqueChildrenSet.contains(childAX) {
-                        collectedChildren.append(childAX)
-                        uniqueChildrenSet.insert(childAX)
-                    }
-                }
+                collector.addChildren(from: windowElementsUI)
             } else {
                 currentDebugLogs.append(contentsOf: tempLogs)
             }
         }
+    }
 
+    // generatePathString() is now fully implemented in Element.swift
+}
+
+// MARK: - Child Collection Helper
+
+private struct ChildCollector {
+    private var collectedChildren: [Element] = []
+    private var uniqueChildrenSet = Set<Element>()
+
+    mutating func addChildren(from childrenUI: [AXUIElement]) {
+        for childUI in childrenUI {
+            let childElement = Element(childUI)
+            if !uniqueChildrenSet.contains(childElement) {
+                collectedChildren.append(childElement)
+                uniqueChildrenSet.insert(childElement)
+            }
+        }
+    }
+
+    func finalizeResults(dLog: (String) -> Void) -> [Element]? {
         if collectedChildren.isEmpty {
             dLog("No children found for element.")
             return nil
@@ -99,6 +158,4 @@ extension Element {
             return collectedChildren
         }
     }
-
-    // generatePathString() is now fully implemented in Element.swift
 }

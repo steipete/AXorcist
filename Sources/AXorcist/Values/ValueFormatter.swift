@@ -1,75 +1,249 @@
-// ValueFormatter.swift - Utilities for formatting AX values into human-readable strings
-
 import ApplicationServices
-import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
+import CoreGraphics // For CGPoint, CGSize etc.
 import Foundation
 
-// debug() is assumed to be globally available from Logging.swift
-// stringFromAXValueType() is assumed to be available from ValueHelpers.swift
-// axErrorToString() is assumed to be available from AccessibilityConstants.swift
+// MARK: - Value Format Options
 
-@MainActor
 public enum ValueFormatOption {
-    case `default` // Concise, suitable for lists or brief views
-    case verbose // More detailed, suitable for focused inspection
+    case `default`
+    case verbose
+    case short
+    // Add more variants as needed, like .minimal, .debug, etc.
 }
+
+// MARK: - AXValue Formatting
 
 @MainActor
 public func formatAXValue(_ axValue: AXValue, option: ValueFormatOption = .default) -> String {
     let type = AXValueGetType(axValue)
-    var result = "AXValue (\(stringFromAXValueType(type)))"
-
-    switch type {
-    case .cgPoint:
-        var point = CGPoint.zero
-        if AXValueGetValue(axValue, .cgPoint, &point) {
-            result = "x=\(point.x) y=\(point.y)"
-            if option == .verbose { result = "<CGPoint: \(result)>" }
-        }
-    case .cgSize:
-        var size = CGSize.zero
-        if AXValueGetValue(axValue, .cgSize, &size) {
-            result = "w=\(size.width) h=\(size.height)"
-            if option == .verbose { result = "<CGSize: \(result)>" }
-        }
-    case .cgRect:
-        var rect = CGRect.zero
-        if AXValueGetValue(axValue, .cgRect, &rect) {
-            result = "x=\(rect.origin.x) y=\(rect.origin.y) w=\(rect.size.width) h=\(rect.size.height)"
-            if option == .verbose { result = "<CGRect: \(result)>" }
-        }
-    case .cfRange:
-        var range = CFRange()
-        if AXValueGetValue(axValue, .cfRange, &range) {
-            result = "pos=\(range.location) len=\(range.length)"
-            if option == .verbose { result = "<CFRange: \(result)>" }
-        }
-    case .axError:
-        var error = AXError.success
-        if AXValueGetValue(axValue, .axError, &error) {
-            result = axErrorToString(error)
-            if option == .verbose { result = "<AXError: \(result)>" }
-        }
-    case .illegal:
-        result = "Illegal AXValue"
-    default:
-        // For boolean type (rawValue 4)
-        if type.rawValue == 4 {
-            var boolResult: DarwinBoolean = false
-            if AXValueGetValue(axValue, type, &boolResult) {
-                result = boolResult.boolValue ? "true" : "false"
-                if option == .verbose {
-                    result = "<Boolean: \(result)>"
-                }
-            }
-        }
-        // Other types: return generic description.
-        // Consider if other specific AXValueTypes need custom formatting.
+    
+    // Handle special boolean type first
+    if type.rawValue == 4 {
+        return formatBooleanAXValue(axValue, type: type, option: option)
     }
-    return result
+    
+    // Handle standard AXValue types
+    return formatStandardAXValue(axValue, type: type, option: option)
 }
 
-// Helper to escape strings for display (e.g. in logs or formatted output that isn't strict JSON)
+@MainActor
+private func formatBooleanAXValue(_ axValue: AXValue, type: AXValueType, option: ValueFormatOption) -> String {
+    var boolResult: DarwinBoolean = false
+    if AXValueGetValue(axValue, type, &boolResult) {
+        let result = boolResult.boolValue ? "true" : "false"
+        return option == .verbose ? "<Boolean: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(type)))"
+}
+
+@MainActor
+private func formatStandardAXValue(_ axValue: AXValue, type: AXValueType, option: ValueFormatOption) -> String {
+    switch type {
+    case .cgPoint:
+        return formatCGPointAXValue(axValue, option: option)
+    case .cgSize:
+        return formatCGSizeAXValue(axValue, option: option)
+    case .cgRect:
+        return formatCGRectAXValue(axValue, option: option)
+    case .cfRange:
+        return formatCFRangeAXValue(axValue, option: option)
+    case .axError:
+        return formatAXErrorAXValue(axValue, option: option)
+    case .illegal:
+        return "Illegal AXValue"
+    default:
+        return "AXValue (\(stringFromAXValueType(type)))"
+    }
+}
+
+@MainActor
+private func formatCGPointAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
+    var point = CGPoint.zero
+    if AXValueGetValue(axValue, .cgPoint, &point) {
+        let result = "x=\(point.x) y=\(point.y)"
+        return option == .verbose ? "<CGPoint: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(.cgPoint)))"
+}
+
+@MainActor
+private func formatCGSizeAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
+    var size = CGSize.zero
+    if AXValueGetValue(axValue, .cgSize, &size) {
+        let result = "w=\(size.width) h=\(size.height)"
+        return option == .verbose ? "<CGSize: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(.cgSize)))"
+}
+
+@MainActor
+private func formatCGRectAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
+    var rect = CGRect.zero
+    if AXValueGetValue(axValue, .cgRect, &rect) {
+        let result = "x=\(rect.origin.x) y=\(rect.origin.y) w=\(rect.size.width) h=\(rect.size.height)"
+        return option == .verbose ? "<CGRect: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(.cgRect)))"
+}
+
+@MainActor
+private func formatCFRangeAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
+    var range = CFRange()
+    if AXValueGetValue(axValue, .cfRange, &range) {
+        let result = "pos=\(range.location) len=\(range.length)"
+        return option == .verbose ? "<CFRange: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(.cfRange)))"
+}
+
+@MainActor
+private func formatAXErrorAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
+    var error = AXError.success
+    if AXValueGetValue(axValue, .axError, &error) {
+        let result = axErrorToString(error)
+        return option == .verbose ? "<AXError: \(result)>" : result
+    }
+    return "AXValue (\(stringFromAXValueType(.axError)))"
+}
+
+// MARK: - CFTypeRef Formatting
+
+@MainActor
+public func formatCFTypeRef(
+    _ cfValue: CFTypeRef?,
+    option: ValueFormatOption = .default,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
+    guard let value = cfValue else { return "<nil>" }
+    let typeID = CFGetTypeID(value)
+
+    return formatCFTypeByID(
+        value,
+        typeID: typeID,
+        option: option,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
+        currentDebugLogs: &currentDebugLogs
+    )
+}
+
+@MainActor
+private func formatCFTypeByID(
+    _ value: CFTypeRef,
+    typeID: CFTypeID,
+    option: ValueFormatOption,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
+    switch typeID {
+    case AXUIElementGetTypeID():
+        return formatAXUIElement(
+            value,
+            option: option,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
+    case AXValueGetTypeID():
+        return formatAXValue(value as! AXValue, option: option)
+    case CFStringGetTypeID():
+        return "\"\(escapeStringForDisplay(value as! String))\""
+    case CFAttributedStringGetTypeID():
+        return "\"\(escapeStringForDisplay((value as! NSAttributedString).string))\""
+    case CFBooleanGetTypeID():
+        return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
+    case CFNumberGetTypeID():
+        return (value as! NSNumber).stringValue
+    case CFArrayGetTypeID():
+        return formatCFArray(value, option: option, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+    case CFDictionaryGetTypeID():
+        return formatCFDictionary(value, option: option, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+    default:
+        let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"
+        return "<Unhandled CFType: \(typeDescription)>"
+    }
+}
+
+@MainActor
+private func formatAXUIElement(
+    _ value: CFTypeRef,
+    option: ValueFormatOption,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
+    let element = Element(value as! AXUIElement)
+    
+    // Create a simple description using available element properties
+    let role = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "Unknown"
+    let title = element.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+    
+    if let title = title, !title.isEmpty {
+        return option == .verbose ? "<\(role): \"\(title)\">" : "\(role):\"\(title)\""
+    } else {
+        return option == .verbose ? "<\(role)>" : role
+    }
+}
+
+@MainActor
+private func formatCFArray(
+    _ value: CFTypeRef,
+    option: ValueFormatOption,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
+    let cfArray = value as! CFArray
+    let count = CFArrayGetCount(cfArray)
+    
+    if option == .verbose || count <= 5 {
+        var swiftArray: [String] = []
+        for index in 0..<count {
+            guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
+                swiftArray.append("<nil_in_array>")
+                continue
+            }
+            swiftArray.append(formatCFTypeRef(
+                Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
+                option: .default,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &currentDebugLogs
+            ))
+        }
+        return "[\(swiftArray.joined(separator: ","))]"
+    } else {
+        return "<Array of size \(count)>"
+    }
+}
+
+@MainActor
+private func formatCFDictionary(
+    _ value: CFTypeRef,
+    option: ValueFormatOption,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
+    let cfDict = value as! CFDictionary
+    let count = CFDictionaryGetCount(cfDict)
+    
+    if option == .verbose || count <= 3 {
+        var swiftDict: [String: String] = [:]
+        if let nsDict = cfDict as? [String: AnyObject] {
+            for (key, val) in nsDict {
+                swiftDict[key] = formatCFTypeRef(
+                    val,
+                    option: .default,
+                    isDebugLoggingEnabled: isDebugLoggingEnabled,
+                    currentDebugLogs: &currentDebugLogs
+                )
+            }
+        }
+        let pairs = swiftDict.map { "\($0):\($1)" }.joined(separator: ",")
+        return "{\(pairs)}"
+    } else {
+        return "<Dictionary with \(count) entries>"
+    }
+}
+
+// MARK: - String Escaping Helper
+
 private func escapeStringForDisplay(_ input: String) -> String {
     var escaped = input
     // More comprehensive escaping might be needed depending on the exact output context
@@ -80,138 +254,4 @@ private func escapeStringForDisplay(_ input: String) -> String {
     escaped = escaped.replacingOccurrences(of: "\t", with: "\\t") // Escape tabs
     escaped = escaped.replacingOccurrences(of: "\r", with: "\\r") // Escape carriage returns
     return escaped
-}
-
-@MainActor
-// Update signature to accept logging parameters
-public func formatCFTypeRef(
-    _ cfValue: CFTypeRef?,
-    option: ValueFormatOption = .default,
-    isDebugLoggingEnabled: Bool,
-    currentDebugLogs: inout [String]
-) -> String {
-    guard let value = cfValue else { return "<nil>" }
-    let typeID = CFGetTypeID(value)
-    // var tempLogs: [String] = [] // Removed as it was unused
-
-    switch typeID {
-    case AXUIElementGetTypeID():
-        let element = Element(value as! AXUIElement)
-        // Pass the received logging parameters to briefDescription
-        return element.briefDescription(
-            option: option,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-    case AXValueGetTypeID():
-        return formatAXValue(value as! AXValue, option: option)
-    case CFStringGetTypeID():
-        return "\"\(escapeStringForDisplay(value as! String))\"" // Used helper
-    case CFAttributedStringGetTypeID():
-        return "\"\(escapeStringForDisplay((value as! NSAttributedString).string ))\"" // Used helper
-    case CFBooleanGetTypeID():
-        return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
-    case CFNumberGetTypeID():
-        return (value as! NSNumber).stringValue
-    case CFArrayGetTypeID():
-        let cfArray = value as! CFArray
-        let count = CFArrayGetCount(cfArray)
-        if option == .verbose || count <= 5 { // Show contents for small arrays or if verbose
-            var swiftArray: [String] = []
-            for index in 0..<count {
-                guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
-                    swiftArray.append("<nil_in_array>")
-                    continue
-                }
-                // Pass logging parameters to recursive call
-                swiftArray.append(formatCFTypeRef(
-                    Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
-                    option: .default,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                ))
-            }
-            return "[\(swiftArray.joined(separator: ","))]"
-        } else {
-            return "<Array of size \(count)>"
-        }
-    case CFDictionaryGetTypeID():
-        let cfDict = value as! CFDictionary
-        let count = CFDictionaryGetCount(cfDict)
-        if option == .verbose || count <= 3 { // Show contents for small dicts or if verbose
-            var swiftDict: [String: String] = [:]
-            if let nsDict = cfDict as? [String: AnyObject] {
-                for (key, val) in nsDict {
-                    // Pass logging parameters to recursive call
-                    swiftDict[key] = formatCFTypeRef(
-                        val,
-                        option: .default,
-                        isDebugLoggingEnabled: isDebugLoggingEnabled,
-                        currentDebugLogs: &currentDebugLogs
-                    )
-                }
-                // Sort by key for consistent output
-                let sortedItems = swiftDict.sorted { $0.key < $1.key }
-                    .map { "\"\(escapeStringForDisplay($0.key))\": \($0.value)"
-                    } // Used helper for key, value is already formatted
-                return "{\(sortedItems.joined(separator: ","))}"
-            } else {
-                return "<Dictionary (bridging failed), size \(count)>"
-            }
-        } else {
-            return "<Dictionary of size \(count)>"
-        }
-    case CFURLGetTypeID():
-        return (value as! URL).absoluteString
-    default:
-        let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown CFType"
-        return "<CFType: \(typeDescription)>"
-    }
-}
-
-// Add a helper to Element for a brief description
-extension Element {
-    @MainActor
-    // Now a method to accept logging parameters
-    public func briefDescription(
-        option: ValueFormatOption = .default,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> String {
-        // Call the new method versions of title, identifier, value, description, role
-        if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs),
-           !titleStr.isEmpty {
-            let roleStr = self
-                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
-                "UnknownRole"
-            return "<\(roleStr): \"\(escapeStringForDisplay(titleStr))\">"
-        } else if let identifierStr = self.identifier(
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ), !identifierStr.isEmpty {
-            let roleStr = self
-                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
-                "UnknownRole"
-            return "<\(roleStr) id: \"\(escapeStringForDisplay(identifierStr))\">"
-        } else if let valueAny = self.value(
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr.count < 50 {
-            let roleStr = self
-                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
-                "UnknownRole"
-            return "<\(roleStr) val: \"\(escapeStringForDisplay(valueStr))\">"
-        } else if let descStr = self.description(
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ), !descStr.isEmpty, descStr.count < 50 {
-            let roleStr = self
-                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
-                "UnknownRole"
-            return "<\(roleStr) desc: \"\(escapeStringForDisplay(descStr))\">"
-        }
-        let roleStr = self
-            .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
-        return "<\(roleStr)>"
-    }
 }

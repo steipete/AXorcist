@@ -171,4 +171,25 @@ extension Element {
             currentDebugLogs: &currentDebugLogs
         )
     }
+
+    @MainActor
+    public func briefDescription(
+        option: ValueFormatOption = .default,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> String {
+        let role = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "Unknown"
+        let title = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        let identifier = self.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        
+        var description = role
+        
+        if let title = title, !title.isEmpty {
+            description += " '\(title)'"
+        } else if let identifier = identifier, !identifier.isEmpty {
+            description += " (\(identifier))"
+        }
+        
+        return option == .verbose ? "<\(description)>" : description
+    }
 }

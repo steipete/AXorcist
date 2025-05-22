@@ -67,24 +67,32 @@ public class AXorcist {
     // handleCollectAll method is implemented in AXorcist+ActionHandlers.swift
 
     @MainActor
-    private func navigateToElement(
+    internal func navigateToElement(
         from startElement: Element,
         pathHint: [String],
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
     ) -> Element? {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                let logMessage = AXorcist.formatDebugLogMessage(
-                    message,
-                    applicationName: nil, // App name not available for low-level navigation
-                    commandID: nil, // No specific command ID for this utility
-                    file: #file,
-                    function: #function,
-                    line: #line
-                )
-                currentDebugLogs.append(logMessage)
-            }
+        // let navigationDebugEnabled = isDebugLoggingEnabled // Create local constant // REMOVE THIS
+
+        // VERY EARLY DEBUG LOG
+        let pathHintString = pathHint.joined(separator: ", ") // Pre-calculate
+        let earlyLogMsg = AXorcist.formatDebugLogMessage(
+            "navigateToElement: Entered. isDebugLoggingEnabled: \\(isDebugLoggingEnabled). pathHint: [\\(pathHintString)]", // Use pre-calculated string
+            applicationName: nil, commandID: nil, file: #file, function: #function, line: #line
+        )
+        currentDebugLogs.append(earlyLogMsg)
+
+        func dLog(_ message: String) { // Removed isLoggingActive parameter
+            let logMessage = AXorcist.formatDebugLogMessage(
+                message,
+                applicationName: nil, 
+                commandID: nil, 
+                file: #file,
+                function: #function,
+                line: #line
+            )
+            currentDebugLogs.append(logMessage) 
         }
 
         var currentElement = startElement
@@ -92,85 +100,91 @@ public class AXorcist {
 
         for (index, pathComponentString) in pathHint.enumerated() {
             currentPathSegmentForLog += (index > 0 ? " -> " : "") + pathComponentString
-            let currentDesc = currentElement.briefDescription(
+            let briefDesc = currentElement.briefDescription(
                 option: .default,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             )
-            dLog("Navigating: Processing path component '\(pathComponentString)' from current element: \(currentDesc)")
+            dLog("Navigating: Processing path component '\(pathComponentString)' from current element: \(briefDesc)")
 
             let trimmedPathComponentString = pathComponentString.trimmingCharacters(in: .whitespacesAndNewlines)
+            dLog("Trimmed path component string: '\(trimmedPathComponentString)' (Count: \(trimmedPathComponentString.count))")
             let parts = trimmedPathComponentString.split(separator: ":", maxSplits: 1)
+            dLog("Split parts: \(parts) (Count: \(parts.count))")
+
             guard parts.count == 2 else {
-                let parseFailMsg = "Failed to parse path component: '\(pathComponentString)' " +
-                    "(trimmed: '\(trimmedPathComponentString)'). " +
-                    "Expected 'Attribute:Value'. Path traversed so far: \(currentPathSegmentForLog)"
-                dLog(parseFailMsg)
+                currentDebugLogs.append("CRITICAL_NAV_PARSE_FAILURE_MARKER")
                 return nil
             }
 
             let attributeName = String(parts[0])
             let expectedValue = String(parts[1])
 
-            // Attempt to get children. If this element has no children, it can't match a path component.
-            // Note: children() can be expensive.
-            let children = currentElement.children(
+            var foundMatchForPathComponent = false
+
+            // Check current element first
+            if let actualValueOnCurrent = currentElement.attribute(
+                Attribute<String>(attributeName),
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
-            )
-            if (children?.isEmpty ?? true) && !pathHint.isEmpty {
-                let currentDesc = currentElement.briefDescription(
-                    option: .default,
+            ) {
+                if actualValueOnCurrent == expectedValue {
+                    let briefDesc = currentElement.briefDescription(
+                        option: .default,
+                        isDebugLoggingEnabled: isDebugLoggingEnabled,
+                        currentDebugLogs: &currentDebugLogs
+                    )
+                    dLog("Current element \(briefDesc) matches path component '\(attributeName):\(expectedValue)'.")
+                    foundMatchForPathComponent = true
+                    // No change to currentElement, this component is satisfied.
+                }
+            }
+
+            // If current element didn't match, search children
+            if !foundMatchForPathComponent {
+                // Attempt to get children. If this element has no children, it can't match a path component.
+                // Note: children() can be expensive.
+                let children = currentElement.children(
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                let errorMsg = "Element \(currentDesc) has no children, " +
-                    "cannot match path component '\(attributeName):\(expectedValue)'. " +
-                    "Path traversed so far: \(currentPathSegmentForLog)"
-                dLog(errorMsg)
-                return nil
-            }
+                
+                dLog("Child count: \(children?.count ?? 0)")
 
-            var foundMatchForPathComponent = false
-            // First, check if the currentElement itself matches the component if this is the first component and we haven't advanced.
-            // This handles cases where the pathHint starts with an attribute of the startElement itself.
-            // More robust logic might be needed if path hints can be self-referential at any point.
-            // For now, this check is primarily for the very first part of a path hint.
-            // It's disabled for now as the primary logic is to search children.
-            // A more refined approach would be to check currentElement *if* it's the first path component
-            // *or* if the component explicitly targets the current level (e.g. special syntax).
-
-            // Search children for the matching attribute and value
-            for child in children ?? [] {
-                if let actualValue = child.attribute(
-                    Attribute<String>(attributeName),
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                ) {
-                    if actualValue == expectedValue {
-                        let childDesc = child.briefDescription(
-                            option: .default,
-                            isDebugLoggingEnabled: isDebugLoggingEnabled,
-                            currentDebugLogs: &currentDebugLogs
-                        )
-                        let matchMsg = "Matched child: \(childDesc) for '\(attributeName):\(expectedValue)'"
-                        dLog(matchMsg)
-                        currentElement = child
-                        foundMatchForPathComponent = true
-                        break // Found match for this path component, move to next in pathHint
+                // Search children for the matching attribute and value
+                for child in children ?? [] {
+                    if let actualValue = child.attribute(
+                        Attribute<String>(attributeName),
+                        isDebugLoggingEnabled: isDebugLoggingEnabled,
+                        currentDebugLogs: &currentDebugLogs
+                    ) {
+                        if actualValue == expectedValue {
+                            let childDesc = child.briefDescription(
+                                option: .default,
+                                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                                currentDebugLogs: &currentDebugLogs
+                            )
+                            let matchMsg = "Matched child: \(childDesc) for '\(attributeName):\(expectedValue)'"
+                            dLog(matchMsg)
+                            currentElement = child
+                            foundMatchForPathComponent = true
+                            break // Found match for this path component, move to next in pathHint
+                        }
                     }
                 }
             }
 
             if !foundMatchForPathComponent {
-                let currentDesc = currentElement.briefDescription(
+                // All descriptive logging happens FIRST
+                let briefDesc = currentElement.briefDescription(
                     option: .default,
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                let noMatchMsg = "No child matched '\(attributeName):\(expectedValue)' under element \(currentDesc). " +
-                    "Path traversed so far: \(currentPathSegmentForLog)"
+                let noMatchMsg = "Neither current element \(briefDesc) nor its children matched '\(attributeName):\(expectedValue)'. Path: \(currentPathSegmentForLog)"
                 dLog(noMatchMsg)
+                // THEN, the marker is the LAST log entry
+                currentDebugLogs.append("CHILD_MATCH_FAILURE_MARKER")
                 return nil // No match found for this path component, navigation fails
             }
         }

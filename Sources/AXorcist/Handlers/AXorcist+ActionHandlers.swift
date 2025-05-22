@@ -39,7 +39,26 @@ extension AXorcist {
         if let pathHint = pathHint, !pathHint.isEmpty {
             dLog("[AXorcist.handlePerformAction] Navigating with path_hint: \(pathHint.joined(separator: " -> "))")
             guard let navigatedElement = navigateToElement(from: effectiveElement, pathHint: pathHint, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
-                let error = "[AXorcist.handlePerformAction] Failed to navigate using path hint: \(pathHint.joined(separator: " -> "))"
+                // Check if the last log entry contains the critical navigation parse failure marker BEFORE adding debug logs
+                let lastLogBeforeDebug = currentDebugLogs.last
+                let error: String
+                if let lastLog = lastLogBeforeDebug, lastLog == "CRITICAL_NAV_PARSE_FAILURE_MARKER" {
+                    error = "Navigation parsing failed: Critical marker found."
+                } else if let lastLog = lastLogBeforeDebug, lastLog == "CHILD_MATCH_FAILURE_MARKER" {
+                    error = "Navigation child match failed: Child match marker found."
+                } else {
+                    error = "[AXorcist.handlePerformAction] Failed to navigate using path hint: \(pathHint.joined(separator: " -> "))"
+                }
+                
+                // ADD DEBUG LOGGING BLOCK FOR MARKER CHECK
+                if isDebugLoggingEnabled {
+                    if let actualLastLog = lastLogBeforeDebug {
+                        dLog("[MARKER_CHECK] Checked lastLog: '\(actualLastLog)' -> Error: '\(error)'")
+                    } else {
+                        dLog("[MARKER_CHECK] currentDebugLogs was empty or lastLog was nil -> Error: '\(error)'")
+                    }
+                }
+                // END OF ADDED LOGGING BLOCK
                 dLog(error)
                 return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
             }
@@ -191,8 +210,26 @@ extension AXorcist {
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             ) else {
-                let errorMessage =
-                    "Failed to navigate to element using path hint: \(pathHint.joined(separator: " -> "))"
+                // Check if the last log entry contains the critical navigation parse failure marker BEFORE adding debug logs
+                let lastLogBeforeDebug = currentDebugLogs.last
+                let errorMessage: String
+                if let lastLog = lastLogBeforeDebug, lastLog == "CRITICAL_NAV_PARSE_FAILURE_MARKER" {
+                    errorMessage = "Navigation parsing failed: Critical marker found."
+                } else if let lastLog = lastLogBeforeDebug, lastLog == "CHILD_MATCH_FAILURE_MARKER" {
+                    errorMessage = "Navigation child match failed: Child match marker found."
+                } else {
+                    errorMessage = "Failed to navigate to element using path hint: \(pathHint.joined(separator: " -> "))"
+                }
+                
+                // ADD DEBUG LOGGING BLOCK FOR MARKER CHECK
+                if isDebugLoggingEnabled {
+                    if let actualLastLog = lastLogBeforeDebug {
+                        dLog("[MARKER_CHECK] Checked lastLog: '\(actualLastLog)' -> Error: '\(errorMessage)'")
+                    } else {
+                        dLog("[MARKER_CHECK] currentDebugLogs was empty or lastLog was nil -> Error: '\(errorMessage)'")
+                    }
+                }
+                // END OF ADDED LOGGING BLOCK
                 dLog(errorMessage)
                 return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
             }
@@ -294,16 +331,32 @@ extension AXorcist {
         maxDepth: Int?, // This is the input from the command
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?,
+        commandId: String?,
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: [String] // No longer inout, logs from caller
     ) -> String {
         self.recursiveCallDebugLogs.removeAll()
         self.recursiveCallDebugLogs.append(contentsOf: currentDebugLogs) // Incorporate initial logs
 
-        // Local dLog now appends to self.recursiveCallDebugLogs
+        let effectiveCommandId = commandId ?? "collectAll_internal_id_error"
+
+        // Centralized JSON encoding helper for CollectAllOutput
+        func encode(_ output: CollectAllOutput) -> String {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            do {
+                let jsonData = try encoder.encode(output)
+                return String(data: jsonData, encoding: .utf8) ?? "{\"error\":\"Failed to encode CollectAllOutput to string (fallback)\"}" // Minimal fallback
+            } catch {
+                let errorMsgForLog = "Exception encoding CollectAllOutput: \\(error.localizedDescription)"
+                self.recursiveCallDebugLogs.append(errorMsgForLog) // Log it
+                // Extremely simplified fallback JSON for catastrophic failure of encoder.encode(output)
+                return "{\"command_id\":\"Unknown\", \"success\":false, \"command\":\"Unknown\", \"error_message\":\"Catastrophic JSON encoding failure for CollectAllOutput. Original error logged.\", \"collected_elements\":[], \"debug_logs\":[\"Catastrophic JSON encoding failure as well.\"]}"
+            }
+        }
+
         func dLog(
             _ message: String,
-            subCommandID: String? = nil,
             _ file: String = #file,
             _ function: String = #function,
             _ line: Int = #line
@@ -311,7 +364,7 @@ extension AXorcist {
             let logMessage = AXorcist.formatDebugLogMessage(
                 message,
                 applicationName: appIdentifierOrNil,
-                commandID: subCommandID,
+                commandID: effectiveCommandId,
                 file: file,
                 function: function,
                 line: line
@@ -319,63 +372,68 @@ extension AXorcist {
             self.recursiveCallDebugLogs.append(logMessage)
         }
 
+        let appNameForLog = appIdentifierOrNil ?? "N/A"
+        let locatorDesc = String(describing: locator)
+        let pathHintDesc = String(describing: pathHint)
+        let maxDepthDesc = String(describing: maxDepth)
         dLog(
-            "[AXorcist.handleCollectAll] Starting. App: \(appIdentifierOrNil ?? "N/A"), Locator: \(String(describing: locator)), PathHint: \(String(describing: pathHint)), MaxDepth: \(String(describing: maxDepth))"
+            "[AXorcist.handleCollectAll] Starting. App: \\(appNameForLog), Locator: \\(locatorDesc), PathHint: \\(pathHintDesc), MaxDepth: \\(maxDepthDesc)"
         )
 
-        // Determine effectiveMaxDepth based on input or default
-        // Ensure maxDepth is at least 0 if provided, otherwise use default.
-        // A negative input maxDepth doesn't make sense for collection, treat as default.
         let recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXorcist.defaultMaxDepthCollectAll
+        let attributesToFetch = requestedAttributes ?? AXorcist.defaultAttributesToFetch
+        let effectiveOutputFormat = outputFormat ?? .smart
 
         dLog(
-            "Initial input maxDepth: \(String(describing: maxDepth)), AXorcist.defaultMaxDepthCollectAll: \(AXorcist.defaultMaxDepthCollectAll). Calculated recursionDepthLimit: \(recursionDepthLimit)"
+            "Effective recursionDepthLimit: \\(recursionDepthLimit), attributesToFetch: \\(attributesToFetch.count) items, effectiveOutputFormat: \\(effectiveOutputFormat.rawValue)"
         )
 
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("Using app identifier: \(appIdentifier)")
+        dLog("Using app identifier: \\(appIdentifier)")
 
         guard let appElement = applicationElement(
             for: appIdentifier,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &self.recursiveCallDebugLogs
         ) else {
-            let errorMsg = "Failed to get app element for identifier: \(appIdentifier)"
-            dLog(errorMsg)
-            // Return error as JSON string
-            let errorResponse = QueryResponse(
-                command_id: "collectAll",
+            let errorMsg = "Failed to get app element for identifier: \\(appIdentifier)"
+            dLog(errorMsg) // errorMsg is already added to recursiveCallDebugLogs by dLog
+            return encode(CollectAllOutput(
+                command_id: effectiveCommandId,
                 success: false,
                 command: "collectAll",
-                data: nil,
-                attributes: nil,
-                error: errorMsg,
+                collected_elements: [],
+                app_bundle_id: appIdentifier,
                 debug_logs: self.recursiveCallDebugLogs
-            )
-            return (try? errorResponse.jsonString()) ?? "{\"error\":\"Failed to get app element\"}"
+            ))
         }
 
         var startElement: Element
         if let hint = pathHint, !hint.isEmpty {
-            dLog("Navigating to path hint: \(hint.joined(separator: " -> "))")
+            let pathHintString = hint.joined(separator: " -> ")
+            dLog("Navigating to path hint: \\(pathHintString)")
             guard let navigatedElement = navigateToElement(
                 from: appElement,
                 pathHint: hint,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &self.recursiveCallDebugLogs
             ) else {
-                let errorMsg = "Failed to navigate to path: \(hint.joined(separator: " -> "))"
-                dLog(errorMsg)
-                let errorResponse = QueryResponse(
-                    command_id: "collectAll",
+                let lastLogBeforeError = self.recursiveCallDebugLogs.last
+                var errorMsg = "Failed to navigate to path: \\(pathHintString)" // Use pre-calculated pathHintString
+                if let lastLog = lastLogBeforeError, lastLog == "CRITICAL_NAV_PARSE_FAILURE_MARKER" {
+                    errorMsg = "Navigation parsing failed: Critical marker found."
+                } else if let lastLog = lastLogBeforeError, lastLog == "CHILD_MATCH_FAILURE_MARKER" {
+                    errorMsg = "Navigation child match failed: Child match marker found."
+                }
+                dLog(errorMsg) // Log the specific navigation error reason
+                return encode(CollectAllOutput(
+                    command_id: effectiveCommandId,
                     success: false,
                     command: "collectAll",
-                    data: nil,
-                    attributes: nil,
-                    error: errorMsg,
+                    collected_elements: [],
+                    app_bundle_id: appIdentifier,
                     debug_logs: self.recursiveCallDebugLogs
-                )
-                return (try? errorResponse.jsonString()) ?? "{\"error\":\"Failed to navigate to path\"}"
+                ))
             }
             startElement = navigatedElement
         } else {
@@ -383,85 +441,55 @@ extension AXorcist {
             startElement = appElement
         }
 
-        var collectedAXElements: [AXElement] = []
-        let effectiveMaxDepth = maxDepth ?? 8
-        dLog("Max collection depth: \(effectiveMaxDepth)")
+        if let loc = locator {
+            dLog("Locator provided. Searching for element from current startElement: \\(startElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) with locator: \\(loc.description)")
+            if let locatedStartElement = search(element: startElement, locator: loc, requireAction: loc.requireAction, depth: 0, maxDepth: Self.defaultMaxDepthSearch, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) {
+                dLog("Locator found element: \\(locatedStartElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)). This will be the root for collectAll recursion.")
+                startElement = locatedStartElement
+            } else {
+                let errorMsg = "Failed to find element with provided locator: \\(loc.description). Cannot start collectAll."
+                dLog(errorMsg)
+                return encode(CollectAllOutput(
+                    command_id: effectiveCommandId,
+                    success: false,
+                    command: "collectAll",
+                    collected_elements: [],
+                    app_bundle_id: appIdentifier,
+                    debug_logs: self.recursiveCallDebugLogs
+                ))
+            }
+        }
 
+        var collectedAXElements: [AXElement] = []
         var collectRecursively: ((AXUIElement, Int) -> Void)!
         collectRecursively = { axUIElement, currentDepth in
-            // Use the correctly scoped recursionDepthLimit here
             if currentDepth > recursionDepthLimit {
                 dLog(
-                    "Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch."
+                    "Reached recursionDepthLimit (\\(recursionDepthLimit)) at element \\(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch."
                 )
                 return
             }
 
             let currentElement = Element(axUIElement)
+            dLog("Collecting element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \\(currentDepth)")
 
-            var shouldIncludeElement = true
-            // If we are at depth 0 (the start element itself) AND a locator was provided,
-            // then this start element must match the locator.
-            // For all children (depth > 0), or if no locator was provided at all,
-            // elements are included by default.
-            if currentDepth == 0 && locator != nil {
-                if let loc = locator {
-                    // Re-check locator, though it should be non-nil if currentDepth == 0 && locator != nil condition was met
-                    let matchStatus = evaluateElementAgainstCriteria(
-                        element: currentElement,
-                        locator: loc,
-                        actionToVerify: loc.requireAction,
-                        depth: currentDepth, // currentDepth is 0 here
-                        isDebugLoggingEnabled: isDebugLoggingEnabled,
-                        currentDebugLogs: &self.recursiveCallDebugLogs
-                    )
-                    if matchStatus != .fullMatch {
-                        shouldIncludeElement = false
-                        dLog(
-                            "Start element (depth 0) \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) did not fully match locator (status: \(matchStatus)), not collecting it. This might indicate an issue if a start element was expected."
-                        )
-                    } else {
-                        dLog(
-                            "Start element (depth 0) \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) matched locator. Collecting it."
-                        )
-                    }
-                }
-            } else if locator != nil && currentDepth > 0 {
-                // For children of the start element (depth > 0), when a locator was initially provided,
-                // we still log that we *would have* checked, but we will include them anyway.
-                dLog(
-                    "Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth) is a child of a located start element. Including it regardless of initial locator criteria."
-                )
-            }
-            // If locator was nil initially, shouldIncludeElement remains true.
-            if shouldIncludeElement {
-                dLog(
-                    "Collecting element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
-                )
+            let fetchedAttrs = getElementAttributes(
+                currentElement,
+                requestedAttributes: attributesToFetch,
+                forMultiDefault: true,
+                targetRole: nil,
+                outputFormat: effectiveOutputFormat,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &self.recursiveCallDebugLogs
+            )
 
-                let fetchedAttrs = getElementAttributes(
-                    currentElement,
-                    requestedAttributes: requestedAttributes ?? [],
-                    forMultiDefault: true,
-                    targetRole: nil as String?,
-                    outputFormat: outputFormat ?? .smart,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &self.recursiveCallDebugLogs // Pass self.recursiveCallDebugLogs
-                )
-
-                let elementPath = currentElement.generatePathArray(
-                    upTo: appElement,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &self.recursiveCallDebugLogs // Pass self.recursiveCallDebugLogs
-                )
-
-                let axElement = AXElement(attributes: fetchedAttrs, path: elementPath)
-                collectedAXElements.append(axElement)
-            } else if locator != nil {
-                dLog(
-                    "Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) did not match locator. Still checking children."
-                )
-            }
+            let elementPath = currentElement.generatePathArray(
+                upTo: appElement,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &self.recursiveCallDebugLogs
+            )
+            let axElement = AXElement(attributes: fetchedAttrs, path: elementPath)
+            collectedAXElements.append(axElement)
 
             var childrenRef: CFTypeRef?
             let childrenResult = AXUIElementCopyAttributeValue(
@@ -472,72 +500,51 @@ extension AXorcist {
 
             if childrenResult == .success, let children = childrenRef as? [AXUIElement] {
                 dLog(
-                    "Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing."
+                    "Element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \\(children.count) children at depth \\(currentDepth). Recursing."
                 )
                 for childElement in children {
                     collectRecursively(childElement, currentDepth + 1)
                 }
             } else if childrenResult != .success {
                 dLog(
-                    "Failed to get children for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \(axErrorToString(childrenResult))"
+                    "Failed to get children for element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \\(axErrorToString(childrenResult))"
                 )
             } else {
                 dLog(
-                    "No children found for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
+                    "No children found for element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \\(currentDepth)"
                 )
             }
         }
 
         dLog(
-            "Starting recursive collection from start element: \(startElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))"
+            "Starting recursive collection from start element: \\(startElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))"
         )
         collectRecursively(startElement.underlyingElement, 0)
 
-        dLog(
-            "Collection complete. Found \(collectedAXElements.count) elements matching criteria (if any). Naming them 'collected_elements' in response."
-        )
+        dLog("Collection complete. Found \\(collectedAXElements.count) elements.")
 
-        // Create and encode CollectAllOutput directly
-        let output = CollectAllOutput(
-            command_id: "collectAll", // Consider making this dynamic if original command_id is available
+        return encode(CollectAllOutput(
+            command_id: effectiveCommandId,
             success: true,
-            command: "collectAll", // Consider making this dynamic
+            command: "collectAll",
             collected_elements: collectedAXElements,
             app_bundle_id: appIdentifier,
-            debug_logs: isDebugLoggingEnabled ? self.recursiveCallDebugLogs : nil
-        )
-
-        do {
-            let encoder = JSONEncoder()
-            if #available(macOS 10.13, *) {
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            } else {
-                encoder.outputFormatting = .prettyPrinted
-            }
-            let jsonData = try encoder.encode(output)
-            return String(data: jsonData, encoding: .utf8) ?? #"{"error":"Serialization_failed_to_string"}"#
-        } catch {
-            let errorMsg = "handleCollectAll: Failed to encode CollectAllOutput to JSON: \(error.localizedDescription) - \(error)"
-            dLog(errorMsg) // Log the detailed error
-
-            // Build error response as dictionary and try to serialize it
-            var errorDict: [String: Any] = [
-                "command_id": "collectAll",
-                "success": false,
-                "command": "collectAll",
-                "error": errorMsg
-            ]
-
-            if isDebugLoggingEnabled {
-                errorDict["debug_logs"] = self.recursiveCallDebugLogs
-            }
-
-            do {
-                let errorJsonData = try JSONSerialization.data(withJSONObject: errorDict, options: [])
-                return String(data: errorJsonData, encoding: .utf8) ?? #"{"error":"handleCollectAll: Catastrophic failure to encode error response"}"#
-            } catch {
-                return #"{"error":"handleCollectAll: Catastrophic failure to encode error response"}"#
-            }
-        }
+            debug_logs: self.recursiveCallDebugLogs
+        ))
     }
+
+    // Helper to encode CollectAllOutput, ensure it exists in AXorcist or is added.
+    // If it doesn't exist, this edit will require it.
+    // For now, assuming it's available.
+    // private func encodeOutputToJSON(output: CollectAllOutput) -> String {
+    //     let encoder = JSONEncoder()
+    //     encoder.outputFormatting = .prettyPrinted
+    //     do {
+    //         let data = try encoder.encode(output)
+    //         return String(data: data, encoding: .utf8) ?? "{\\"error\\":\\"Failed to encode CollectAllOutput to JSON string\\"}"
+    //     } catch {
+    //         return "{\\"error\\":\\"Exception encoding CollectAllOutput: \\(error.localizedDescription)\\"}"
+    //     }
+    // }
 }
+
