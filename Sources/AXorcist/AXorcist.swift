@@ -48,6 +48,14 @@ public class AXorcist {
         // This init doesn't take global logging flags anymore.
     }
 
+    @MainActor
+    public static func formatDebugLogMessage(_ message: String, applicationName: String?, commandID: String?, file: String, function: String, line: Int) -> String {
+        let fileName = (file as NSString).lastPathComponent
+        let appContext = applicationName != nil ? "[\(applicationName!)]" : ""
+        let cmdContext = commandID != nil ? "[SubCmd: \(commandID!)]" : ""
+        return "\(appContext)\(cmdContext)[\(fileName):\(line) \(function)] \(message)"
+    }
+
     // Placeholder for getting the focused element.
     // It should accept debug logging parameters and update logs.
     @MainActor
