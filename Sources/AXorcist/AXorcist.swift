@@ -829,7 +829,7 @@ public class AXorcist {
         outputFormat: OutputFormat?,
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: [String] // No longer inout, logs from caller
-    ) -> HandlerResponse {
+    ) -> String {
         self.recursiveCallDebugLogs.removeAll()
         self.recursiveCallDebugLogs.append(contentsOf: currentDebugLogs) // Incorporate initial logs
 
@@ -855,8 +855,17 @@ public class AXorcist {
         guard let appElement = applicationElement(for: appIdentifier, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) else {
             let errorMsg = "Failed to get app element for identifier: \(appIdentifier)"
             dLog(errorMsg)
-            // Return all accumulated logs up to this point
-            return HandlerResponse(data: nil, error: errorMsg, debug_logs: self.recursiveCallDebugLogs)
+            // Return error as JSON string
+            let errorResponse = QueryResponse(
+                command_id: "collectAll",
+                success: false,
+                command: "collectAll",
+                data: nil,
+                attributes: nil,
+                error: errorMsg,
+                debug_logs: self.recursiveCallDebugLogs
+            )
+            return (try? errorResponse.jsonString()) ?? "{\"error\":\"Failed to get app element\"}"
         }
 
         var startElement: Element
@@ -865,7 +874,16 @@ public class AXorcist {
             guard let navigatedElement = navigateToElement(from: appElement, pathHint: hint, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) else {
                 let errorMsg = "Failed to navigate to path: \(hint.joined(separator: " -> "))"
                 dLog(errorMsg)
-                return HandlerResponse(data: nil, error: errorMsg, debug_logs: self.recursiveCallDebugLogs)
+                let errorResponse = QueryResponse(
+                    command_id: "collectAll",
+                    success: false,
+                    command: "collectAll",
+                    data: nil,
+                    attributes: nil,
+                    error: errorMsg,
+                    debug_logs: self.recursiveCallDebugLogs
+                )
+                return (try? errorResponse.jsonString()) ?? "{\"error\":\"Failed to navigate to path\"}"
             }
             startElement = navigatedElement
         } else {
