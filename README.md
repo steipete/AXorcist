@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <strong>Swift wrapper for macOS Accessibility—chainable, fuzzy-matched queries that read, click, and inspect any UI.</strong><br>
+  <strong>Swift wrapper for macOS Accessibility—chainable, fuzzy-matched queries<br>that read, click, and inspect any UI.</strong><br>
   <em>The power of Swift compels your UI to obey!</em>
 </p>
 
