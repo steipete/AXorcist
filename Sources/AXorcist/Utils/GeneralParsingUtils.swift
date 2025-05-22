@@ -13,7 +13,7 @@ public func decodeExpectedArray(fromString: String, isDebugLoggingEnabled: Bool,
     // func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
 
     let trimmedString = fromString.trimmingCharacters(in: .whitespacesAndNewlines)
-    
+
     // Try JSON deserialization first for robustness with escaped characters, etc.
     if trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]") {
         if let jsonData = trimmedString.data(using: .utf8) {
@@ -21,7 +21,7 @@ public func decodeExpectedArray(fromString: String, isDebugLoggingEnabled: Bool,
                 // Attempt to decode as [String]
                 if let array = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [String] {
                     return array
-                } 
+                }
                 // Fallback: if it decodes as [Any], convert elements to String
                 else if let anyArray = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [Any] {
                     return anyArray.compactMap { item -> String? in
@@ -39,7 +39,7 @@ public func decodeExpectedArray(fromString: String, isDebugLoggingEnabled: Bool,
             }
         }
     }
-    
+
     // Fallback to comma-separated parsing if JSON fails or string isn't JSON-like
     // Remove brackets first if they exist for comma parsing
     var stringToSplit = trimmedString
@@ -70,15 +70,15 @@ public func decodeExpectedArray(fromString: String, isDebugLoggingEnabled: Bool,
     }
 
     return stringToSplit.components(separatedBy: ",")
-                           .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                           // Do not filter out empty strings if they are explicitly part of the list e.g. "a,,b"
-                           // The original did .filter { !$0.isEmpty }, which might be too aggressive.
-                           // For now, let's keep all components and let caller decide if empty strings are valid.
-                           // Re-evaluating: if a component is empty after trimming, it usually means an empty element.
-                           // Example: "[a, ,b]" -> ["a", "", "b"]. Example "a," -> ["a", ""].
-                           // The original .filter { !$0.isEmpty } would turn "a,," into ["a"]
-                           // Let's retain the original filtering of completely empty strings after trim, 
-                           // as "[a,,b]" usually implies "[a,b]" in lenient contexts.
-                           // If explicit empty strings like `["a", "", "b"]` are needed, JSON is better.
-                           .filter { !$0.isEmpty } 
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        // Do not filter out empty strings if they are explicitly part of the list e.g. "a,,b"
+        // The original did .filter { !$0.isEmpty }, which might be too aggressive.
+        // For now, let's keep all components and let caller decide if empty strings are valid.
+        // Re-evaluating: if a component is empty after trimming, it usually means an empty element.
+        // Example: "[a, ,b]" -> ["a", "", "b"]. Example "a," -> ["a", ""].
+        // The original .filter { !$0.isEmpty } would turn "a,," into ["a"]
+        // Let's retain the original filtering of completely empty strings after trim,
+        // as "[a,,b]" usually implies "[a,b]" in lenient contexts.
+        // If explicit empty strings like `["a", "", "b"]` are needed, JSON is better.
+        .filter { !$0.isEmpty }
 }

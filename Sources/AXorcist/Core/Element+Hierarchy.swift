@@ -4,7 +4,7 @@ import ApplicationServices
 // MARK: - Element Hierarchy Logic
 
 extension Element {
-    @MainActor 
+    @MainActor
     public func children(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [Element]? {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         var collectedChildren: [Element] = []
@@ -53,7 +53,7 @@ extension Element {
                 currentDebugLogs.append(contentsOf: tempLogs)
             }
         }
-        
+
         tempLogs.removeAll()
         let currentRole = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         currentDebugLogs.append(contentsOf: tempLogs)
@@ -61,8 +61,8 @@ extension Element {
         if currentRole == kAXApplicationRole as String {
             tempLogs.removeAll()
             if let windowElementsUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>.windows, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
-                 currentDebugLogs.append(contentsOf: tempLogs)
-                 for childUI in windowElementsUI {
+                currentDebugLogs.append(contentsOf: tempLogs)
+                for childUI in windowElementsUI {
                     let childAX = Element(childUI)
                     if !uniqueChildrenSet.contains(childAX) {
                         collectedChildren.append(childAX)

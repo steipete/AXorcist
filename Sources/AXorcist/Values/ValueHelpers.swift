@@ -30,50 +30,46 @@ public func axValue<T>(of element: AXUIElement, attr: String, isDebugLoggingEnab
 
     // copyAttributeValue doesn't log, so no need to pass log params to it.
     let rawCFValue = copyAttributeValue(element: element, attribute: attr)
-    
+
     // ValueUnwrapper.unwrap also needs to be audited for logging. For now, assume it doesn't log or its logs are separate.
     let unwrappedValue = ValueUnwrapper.unwrap(rawCFValue, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
 
-    guard let value = unwrappedValue else { 
-        // It's common for attributes to be missing or have no value. 
-        // Only log if in debug mode and something was expected but not found, 
+    guard let value = unwrappedValue else {
+        // It's common for attributes to be missing or have no value.
+        // Only log if in debug mode and something was expected but not found,
         // or if rawCFValue was non-nil but unwrapped to nil (which ValueUnwrapper might handle).
         // For now, let's not log here, as Element.swift's rawAttributeValue also has checks.
-        return nil 
+        return nil
     }
 
     if T.self == String.self {
-        if let str = value as? String { return str as? T }
-        else if let attrStr = value as? NSAttributedString { return attrStr.string as? T }
+        if let str = value as? String { return str as? T } else if let attrStr = value as? NSAttributedString { return attrStr.string as? T }
         dLog("axValue: Expected String for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
-    
+
     if T.self == Bool.self {
-        if let boolVal = value as? Bool { return boolVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.boolValue as? T }
+        if let boolVal = value as? Bool { return boolVal as? T } else if let numVal = value as? NSNumber { return numVal.boolValue as? T }
         dLog("axValue: Expected Bool for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
-    
+
     if T.self == Int.self {
-        if let intVal = value as? Int { return intVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.intValue as? T }
+        if let intVal = value as? Int { return intVal as? T } else if let numVal = value as? NSNumber { return numVal.intValue as? T }
         dLog("axValue: Expected Int for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
 
     if T.self == Double.self {
-        if let doubleVal = value as? Double { return doubleVal as? T }
-        else if let numVal = value as? NSNumber { return numVal.doubleValue as? T }
+        if let doubleVal = value as? Double { return doubleVal as? T } else if let numVal = value as? NSNumber { return numVal.doubleValue as? T }
         dLog("axValue: Expected Double for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
-    
+
     if T.self == [AXUIElement].self {
         if let anyArray = value as? [Any?] {
             let result = anyArray.compactMap { item -> AXUIElement? in
-                guard let cfItem = item else { return nil } 
+                guard let cfItem = item else { return nil }
                 // Ensure correct comparison for CFTypeRef type ID
                 if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() { // Directly use AXUIElementGetTypeID()
                     return (cfItem as! AXUIElement)
@@ -89,7 +85,7 @@ public func axValue<T>(of element: AXUIElement, attr: String, isDebugLoggingEnab
     if T.self == [Element].self { // Assuming Element is a struct wrapping AXUIElement
         if let anyArray = value as? [Any?] {
             let result = anyArray.compactMap { item -> Element? in
-                guard let cfItem = item else { return nil } 
+                guard let cfItem = item else { return nil }
                 if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() { // Check underlying type
                     return Element(cfItem as! AXUIElement)
                 }
@@ -102,7 +98,7 @@ public func axValue<T>(of element: AXUIElement, attr: String, isDebugLoggingEnab
     }
 
     if T.self == [String].self {
-        if let stringArray = value as? [Any?] { 
+        if let stringArray = value as? [Any?] {
             let result = stringArray.compactMap { $0 as? String }
             // Ensure all elements were successfully cast, otherwise it's not a homogenous [String] array
             if result.count == stringArray.count { return result as? T }
@@ -123,21 +119,21 @@ public func axValue<T>(of element: AXUIElement, attr: String, isDebugLoggingEnab
         dLog("axValue: Expected CGSize for attribute '\(attr)', but got \(type(of: value)): \(value)")
         return nil
     }
-    
+
     if T.self == AXUIElement.self {
         if let cfValue = value as CFTypeRef?, CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
             return (cfValue as! AXUIElement) as? T
         }
-        let typeDescription = String(describing: type(of: value)) 
+        let typeDescription = String(describing: type(of: value))
         let valueDescription = String(describing: value)
         dLog("axValue: Expected AXUIElement for attribute '\(attr)', but got \(typeDescription): \(valueDescription)")
         return nil
     }
-    
+
     if let castedValue = value as? T {
         return castedValue
     }
-    
+
     dLog("axValue: Fallback cast attempt for attribute '\(attr)' to type \(T.self) FAILED. Unwrapped value was \(type(of: value)): \(value)")
     return nil
 }

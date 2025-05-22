@@ -52,18 +52,19 @@ public func formatAXValue(_ axValue: AXValue, option: ValueFormatOption = .defau
         }
     case .illegal:
         result = "Illegal AXValue"
-    default:
+        default:
         // For boolean type (rawValue 4)
         if type.rawValue == 4 {
             var boolResult: DarwinBoolean = false
             if AXValueGetValue(axValue, type, &boolResult) {
                 result = boolResult.boolValue ? "true" : "false"
-                if option == .verbose { result = "<Boolean: \(result)>"}
+                if option == .verbose {
+                    result = "<Boolean: \(result)>"
+                }
             }
         }
         // Other types: return generic description.
         // Consider if other specific AXValueTypes need custom formatting.
-        break 
     }
     return result
 }
@@ -98,7 +99,7 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
     case CFStringGetTypeID():
         return "\"\(escapeStringForDisplay(value as! String))\"" // Used helper
     case CFAttributedStringGetTypeID():
-         return "\"\(escapeStringForDisplay((value as! NSAttributedString).string ))\"" // Used helper
+        return "\"\(escapeStringForDisplay((value as! NSAttributedString).string ))\"" // Used helper
     case CFBooleanGetTypeID():
         return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
     case CFNumberGetTypeID():
@@ -123,7 +124,7 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
     case CFDictionaryGetTypeID():
         let cfDict = value as! CFDictionary
         let count = CFDictionaryGetCount(cfDict)
-         if option == .verbose || count <= 3 { // Show contents for small dicts or if verbose
+        if option == .verbose || count <= 3 { // Show contents for small dicts or if verbose
             var swiftDict: [String: String] = [:]
             if let nsDict = cfDict as? [String: AnyObject] {
                 for (key, val) in nsDict {
@@ -132,7 +133,7 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
                 }
                 // Sort by key for consistent output
                 let sortedItems = swiftDict.sorted { $0.key < $1.key }
-                                         .map { "\"\(escapeStringForDisplay($0.key))\": \($0.value)" } // Used helper for key, value is already formatted
+                    .map { "\"\(escapeStringForDisplay($0.key))\": \($0.value)" } // Used helper for key, value is already formatted
                 return "{\(sortedItems.joined(separator: ","))}"
             } else {
                 return "<Dictionary (bridging failed), size \(count)>"
@@ -157,14 +158,13 @@ extension Element {
         if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !titleStr.isEmpty {
             let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
             return "<\(roleStr): \"\(escapeStringForDisplay(titleStr))\">"
-        }
-        else if let identifierStr = self.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !identifierStr.isEmpty {
+        } else if let identifierStr = self.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !identifierStr.isEmpty {
             let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
             return "<\(roleStr) id: \"\(escapeStringForDisplay(identifierStr))\">"
-        } else if let valueAny = self.value(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr.count < 50 { 
+        } else if let valueAny = self.value(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr.count < 50 {
             let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
             return "<\(roleStr) val: \"\(escapeStringForDisplay(valueStr))\">"
-        } else if let descStr = self.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !descStr.isEmpty, descStr.count < 50 { 
+        } else if let descStr = self.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !descStr.isEmpty, descStr.count < 50 {
             let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
             return "<\(roleStr) desc: \"\(escapeStringForDisplay(descStr))\">"
         }

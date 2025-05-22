@@ -126,17 +126,17 @@ public struct CommandEnvelope: Codable {
     public let sub_commands: [CommandEnvelope]? // For batch command
 
     // Added a public initializer for convenience, matching fields.
-    public init(command_id: String, 
-                command: CommandType, 
-                application: String? = nil, 
-                attributes: [String]? = nil, 
-                payload: [String : String]? = nil, 
-                debug_logging: Bool? = nil, 
-                locator: Locator? = nil, 
-                path_hint: [String]? = nil, 
-                max_elements: Int? = nil, 
-                output_format: OutputFormat? = nil, 
-                action_name: String? = nil, 
+    public init(command_id: String,
+                command: CommandType,
+                application: String? = nil,
+                attributes: [String]? = nil,
+                payload: [String: String]? = nil,
+                debug_logging: Bool? = nil,
+                locator: Locator? = nil,
+                path_hint: [String]? = nil,
+                max_elements: Int? = nil,
+                output_format: OutputFormat? = nil,
+                action_name: String? = nil,
                 action_value: AnyCodable? = nil,
                 sub_commands: [CommandEnvelope]? = nil
     ) {
@@ -171,7 +171,7 @@ public struct Locator: Codable {
         case requireAction = "require_action"
         case computed_name_contains
     }
-    
+
     public init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil, requireAction: String? = nil, computed_name_contains: String? = nil) {
         self.match_all = match_all
         self.criteria = criteria
@@ -249,7 +249,6 @@ public struct TextContentResponse: Codable {
     }
 }
 
-
 // Generic error response
 public struct ErrorResponse: Codable {
     public var command_id: String
@@ -267,7 +266,7 @@ public struct ErrorResponse: Codable {
 
 public struct ErrorDetail: Codable {
     public var message: String
-    
+
     public init(message: String) {
         self.message = message
     }

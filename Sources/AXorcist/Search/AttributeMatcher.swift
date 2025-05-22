@@ -28,7 +28,7 @@ internal func attributesMatch(element: Element, matchDetails: [String: String], 
             }
             continue
         }
-        
+
         if key == kAXActionNamesAttribute || key == kAXAllowedValuesAttribute || key == kAXChildrenAttribute {
             if !matchArrayAttribute(element: element, key: key, expectedValueString: expectedValue, depth: depth, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
                 return false
@@ -76,16 +76,16 @@ internal func matchArrayAttribute(element: Element, key: String, expectedValueSt
         dLog("matchArrayAttribute [D\(depth)]: Could not decode expected array string '\(expectedValueString)' for attribute '\(key)'. No match.")
         return false
     }
-    
-    var actualArray: [String]? = nil
+
+    var actualArray: [String]?
     if key == kAXActionNamesAttribute {
         actualArray = element.supportedActions(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     } else if key == kAXAllowedValuesAttribute {
         actualArray = element.attribute(Attribute<[String]>(key), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     } else if key == kAXChildrenAttribute {
-        actualArray = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)?.map { childElement -> String in 
+        actualArray = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)?.map { childElement -> String in
             var childLogs: [String] = []
-            return childElement.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &childLogs) ?? "UnknownRole" 
+            return childElement.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &childLogs) ?? "UnknownRole"
         }
     } else {
         dLog("matchArrayAttribute [D\(depth)]: Unknown array key '\(key)'. This function needs to be extended for this key.")
@@ -121,7 +121,7 @@ internal func matchBooleanAttribute(element: Element, key: String, expectedValue
     case kAXElementBusyAttribute: currentBoolValue = element.isElementBusy(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     case isIgnoredAttributeKey: currentBoolValue = element.isIgnored(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     case kAXMainAttribute: currentBoolValue = element.attribute(Attribute<Bool>(key), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    default: 
+    default:
         dLog("matchBooleanAttribute [D\(depth)]: Unknown boolean key '\(key)'. This should not happen.")
         return false
     }
@@ -133,7 +133,7 @@ internal func matchBooleanAttribute(element: Element, key: String, expectedValue
             return false
         }
         return true
-    } else { 
+    } else {
         dLog("attributesMatch [D\(depth)]: Boolean Attribute '\(key)' (expected '\(expectedValueString)') not found in element. No match.")
         return false
     }
@@ -165,9 +165,8 @@ internal func matchComputedNameAttributes(element: Element, computedNameEquals: 
             }
         }
         return true
-    } else { 
+    } else {
         dLog("matchComputedNameAttributes [D\(depth)]: Locator requires ComputedName (equals: \(computedNameEquals ?? "nil"), contains: \(computedNameContains ?? "nil")), but element has none. No match.")
         return false
     }
 }
-

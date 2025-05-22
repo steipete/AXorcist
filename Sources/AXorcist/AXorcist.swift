@@ -80,7 +80,7 @@ public class AXorcist {
             dLog("[AXorcist.handleGetFocusedElement] Failed to copy focused element attribute or it was nil. Status: \(axErrorToString(copyAttributeStatus)). Application: \(appIdentifier)")
             return HandlerResponse(data: nil, error: "Could not get the focused UI element for \(appIdentifier). Ensure a window of the application is focused. AXError: \(axErrorToString(copyAttributeStatus))", debug_logs: currentDebugLogs)
         }
-        
+
         guard CFGetTypeID(rawAXElement) == AXUIElementGetTypeID() else {
             dLog("[AXorcist.handleGetFocusedElement] Focused element attribute was not an AXUIElement. Application: \(appIdentifier)")
             return HandlerResponse(data: nil, error: "Focused element was not a valid UI element for \(appIdentifier).", debug_logs: currentDebugLogs)
@@ -88,7 +88,7 @@ public class AXorcist {
 
         let focusedElement = Element(rawAXElement as! AXUIElement)
         dLog("[AXorcist.handleGetFocusedElement] Successfully obtained focused element: \(focusedElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) for application \(appIdentifier)")
-        
+
         let fetchedAttributes = getElementAttributes(
             focusedElement,
             requestedAttributes: requestedAttributes ?? [],
@@ -98,9 +98,9 @@ public class AXorcist {
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
         )
-        
+
         let elementPathArray = focusedElement.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        
+
         let axElement = AXElement(attributes: fetchedAttributes, path: elementPathArray)
 
         return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
@@ -180,7 +180,7 @@ public class AXorcist {
                 actualElementToQuery,
                 requestedAttributes: requestedAttributes ?? [],
                 forMultiDefault: false,
-                targetRole: locator.criteria[kAXRoleAttribute], // kAXRoleAttribute should be fine here
+                targetRole: locator.criteria[kAXRoleAttribute],
                 outputFormat: outputFormat ?? .smart,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
@@ -188,10 +188,10 @@ public class AXorcist {
             if outputFormat == .json_string {
                 attributes = encodeAttributesToJSONStringRepresentation(attributes)
             }
-            
+
             let elementPathArray = actualElementToQuery.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             let axElement = AXElement(attributes: attributes, path: elementPathArray)
-            
+
             dLog("[AXorcist.handleGetAttributes] Successfully fetched attributes for element \(actualElementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)).")
             return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
         } else {
@@ -255,7 +255,7 @@ public class AXorcist {
         } else {
             dLog("[AXorcist.handleQuery] Locator contains element-specific criteria. Proceeding with search.")
             var searchStartElementForLocator = appElement
-            
+
             if let rootPathHint = locator.root_element_path_hint, !rootPathHint.isEmpty {
                 let rootPathHintString = rootPathHint.joined(separator: " -> ")
                 _ = rootPathHintString // Silences compiler warning
@@ -275,9 +275,9 @@ public class AXorcist {
                 _ = searchDescription // Silences compiler warning
                 dLog("[AXorcist.handleQuery] Searching with locator from element (determined by main path_hint or app root): \(searchDescription)")
             }
-            
+
             let finalSearchTarget = (pathHint != nil && !pathHint!.isEmpty) ? effectiveElement : searchStartElementForLocator
-            
+
             foundElement = search(
                 element: finalSearchTarget,
                 locator: locator,
@@ -287,29 +287,29 @@ public class AXorcist {
                 currentDebugLogs: &currentDebugLogs
             )
         }
-        
+
         if let elementToQuery = foundElement {
             let elementDescription = elementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             _ = elementDescription // Silences compiler warning
             dLog("[AXorcist.handleQuery] Element found: \(elementDescription). Fetching attributes...")
-            
+
             var attributes = getElementAttributes(
                 elementToQuery,
                 requestedAttributes: requestedAttributes ?? [],
-                forMultiDefault: false, 
+                forMultiDefault: false,
                 targetRole: locator.criteria[kAXRoleAttribute],
                 outputFormat: outputFormat ?? .smart,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             )
-            
+
             if outputFormat == .json_string {
                 attributes = encodeAttributesToJSONStringRepresentation(attributes)
             }
-            
+
             let elementPathArray = elementToQuery.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             let axElement = AXElement(attributes: attributes, path: elementPathArray)
-            
+
             dLog("[AXorcist.handleQuery] Successfully found and processed element with query.")
             return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
         } else {
@@ -363,11 +363,11 @@ public class AXorcist {
         _ = rootElementDescription // Silences compiler warning
         dLog("[AXorcist.handleDescribeElement] Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)")
         let foundElement = search(
-            element: effectiveElement, 
-            locator: locator, 
-            requireAction: locator.requireAction, 
-            maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH, 
-            isDebugLoggingEnabled: isDebugLoggingEnabled, 
+            element: effectiveElement,
+            locator: locator,
+            requireAction: locator.requireAction,
+            maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
         )
 
@@ -375,25 +375,25 @@ public class AXorcist {
             let elementDescription = elementToDescribe.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             _ = elementDescription // Silences compiler warning
             dLog("[AXorcist.handleDescribeElement] Element found: \(elementDescription). Describing with verbose output...")
-            
+
             // For describe_element, we typically want ALL attributes with verbose output
             var attributes = getElementAttributes(
                 elementToDescribe,
                 requestedAttributes: [], // Empty means 'all standard' or 'all known'
-                forMultiDefault: false, 
+                forMultiDefault: false,
                 targetRole: locator.criteria[kAXRoleAttribute],
                 outputFormat: .verbose, // Describe implies verbose
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             )
-            
+
             if outputFormat == .json_string {
                 attributes = encodeAttributesToJSONStringRepresentation(attributes)
             }
-            
+
             let elementPathArray = elementToDescribe.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             let axElement = AXElement(attributes: attributes, path: elementPathArray)
-            
+
             dLog("[AXorcist.handleDescribeElement] Successfully described element \(elementToDescribe.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)).")
             return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
         } else {
@@ -418,13 +418,13 @@ public class AXorcist {
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
     ) -> HandlerResponse {
-        
+
         func dLog(_ message: String) {
             if isDebugLoggingEnabled {
                 currentDebugLogs.append(message)
             }
         }
-        
+
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
         dLog("[AXorcist.handlePerformAction] Handling for app: \(appIdentifier), action: \(actionName)")
 
@@ -433,9 +433,9 @@ public class AXorcist {
             dLog(error)
             return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
         }
-        
+
         var effectiveElement = appElement
-        
+
         if let pathHint = pathHint, !pathHint.isEmpty {
             dLog("[AXorcist.handlePerformAction] Navigating with path_hint: \(pathHint.joined(separator: " -> "))")
             guard let navigatedElement = navigateToElement(from: effectiveElement, pathHint: pathHint, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
@@ -445,14 +445,14 @@ public class AXorcist {
             }
             effectiveElement = navigatedElement
         }
-        
+
         dLog("[AXorcist.handlePerformAction] Searching for element with locator: \(locator.criteria) from root: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
         guard let foundElement = search(element: effectiveElement, locator: locator, requireAction: locator.requireAction, maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
             let error = "[AXorcist.handlePerformAction] Failed to find element with locator: \(locator)"
             dLog(error)
             return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
         }
-        
+
         dLog("[AXorcist.handlePerformAction] Found element: \(foundElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
         if let actionValue = actionValue {
             // Attempt to get a string representation of actionValue.value for logging
@@ -462,10 +462,10 @@ public class AXorcist {
         } else {
             dLog("[AXorcist.handlePerformAction] Performing action '\(actionName)'")
         }
-        
+
         var errorMessage: String?
         var axStatus: AXError = .success // Initialize to success
-        
+
         switch actionName.lowercased() {
         case "press":
             axStatus = AXUIElementPerformAction(foundElement.underlyingElement, kAXPressAction as CFString)
@@ -524,33 +524,33 @@ public class AXorcist {
                         // For other types, attempt a direct cast if possible, or log/error.
                         // This is a simplification; robust conversion is more involved.
                         if CFGetTypeID(actionValue.value as AnyObject) != 0 { // Basic check if it *might* be a CFType
-                             cfValue = actionValue.value as AnyObject // bridge from Any to AnyObject then to CFTypeRef
-                             dLog("[AXorcist.handlePerformAction] Warning: Attempting to use actionValue of type '\(type(of: actionValue.value))' directly as CFTypeRef for attribute '\(actionName)'. This might not work as expected.")
+                            cfValue = actionValue.value as AnyObject // bridge from Any to AnyObject then to CFTypeRef
+                            dLog("[AXorcist.handlePerformAction] Warning: Attempting to use actionValue of type '\(type(of: actionValue.value))' directly as CFTypeRef for attribute '\(actionName)'. This might not work as expected.")
                         } else {
                             errorMessage = "[AXorcist.handlePerformAction] Unsupported value type '\(type(of: actionValue.value))' for attribute '\(actionName)'. Cannot convert to CFTypeRef."
                             dLog(errorMessage!)
                         }
                     }
-                    
+
                     if errorMessage == nil, let finalCFValue = cfValue {
                         axStatus = AXUIElementSetAttributeValue(foundElement.underlyingElement, actionName as CFString, finalCFValue)
                         if axStatus != .success {
                             errorMessage = "[AXorcist.handlePerformAction] Failed to set attribute '\(actionName)' to value '\(String(describing: actionValue.value))': \(axErrorToString(axStatus))"
                         }
                     } else if errorMessage == nil { // cfValue was nil, means conversion failed earlier but wasn't caught by the default error
-                         errorMessage = "[AXorcist.handlePerformAction] Failed to convert value for attribute '\(actionName)' to a CoreFoundation type."
+                        errorMessage = "[AXorcist.handlePerformAction] Failed to convert value for attribute '\(actionName)' to a CoreFoundation type."
                     }
                 } else {
                     errorMessage = "[AXorcist.handlePerformAction] Unknown action '\(actionName)' and no action_value provided to interpret as an attribute."
                 }
             }
         }
-        
+
         if let currentErrorMessage = errorMessage {
             dLog(currentErrorMessage)
             return HandlerResponse(data: nil, error: currentErrorMessage, debug_logs: currentDebugLogs)
         }
-        
+
         dLog("[AXorcist.handlePerformAction] Action '\(actionName)' performed successfully.")
         return HandlerResponse(data: nil, error: nil, debug_logs: currentDebugLogs)
     }
@@ -608,18 +608,18 @@ public class AXorcist {
             if CFGetTypeID(value) == CFStringGetTypeID() {
                 extractedValueText = (value as! CFString) as String
                 if let extractedValueText = extractedValueText, !extractedValueText.isEmpty {
-                     attributes["extractedValue"] = AnyCodable(extractedValueText)
-                     dLog("Extracted text from kAXValueAttribute (length: \(extractedValueText.count)): \(extractedValueText.prefix(80))...")
+                    attributes["extractedValue"] = AnyCodable(extractedValueText)
+                    dLog("Extracted text from kAXValueAttribute (length: \(extractedValueText.count)): \(extractedValueText.prefix(80))...")
                 } else {
                     dLog("kAXValueAttribute was empty or not a string.")
                 }
             } else {
-                 dLog("kAXValueAttribute was present but not a CFString. TypeID: \(CFGetTypeID(value))")
+                dLog("kAXValueAttribute was present but not a CFString. TypeID: \(CFGetTypeID(value))")
             }
         } else {
             dLog("Failed to get kAXValueAttribute or it was nil.")
         }
-        
+
         cfValue = nil // Reset for next attribute
         if AXUIElementCopyAttributeValue(foundElement.underlyingElement, kAXSelectedTextAttribute as CFString, &cfValue) == .success, let selectedValue = cfValue {
             if CFGetTypeID(selectedValue) == CFStringGetTypeID() {
@@ -677,7 +677,7 @@ public class AXorcist {
             // or decide if currentDebugLogs should be directly mutated by sub-handlers and reflect cumulative logs.
             // For simplicity here, let's assume sub-handlers append to the main currentDebugLogs.
             dLog("Processing sub-command: \(subCmdID), type: \(subCommandEnvelope.command)", subCommandID: subCmdID)
-            
+
             var subCommandResponse: HandlerResponse
 
             switch subCommandEnvelope.command {
@@ -688,7 +688,7 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs // Pass the main log array
                 )
-            
+
             case .getAttributes:
                 guard let locator = subCommandEnvelope.locator else {
                     let errorMsg = "Locator missing for getAttributes in batch (sub-command ID: \(subCmdID))"
@@ -706,7 +706,7 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                
+
             case .query:
                 guard let locator = subCommandEnvelope.locator else {
                     let errorMsg = "Locator missing for query in batch (sub-command ID: \(subCmdID))"
@@ -724,7 +724,7 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                
+
             case .describeElement:
                 guard let locator = subCommandEnvelope.locator else {
                     let errorMsg = "Locator missing for describeElement in batch (sub-command ID: \(subCmdID))"
@@ -741,7 +741,7 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                
+
             case .performAction:
                 guard let locator = subCommandEnvelope.locator else {
                     let errorMsg = "Locator missing for performAction in batch (sub-command ID: \(subCmdID))"
@@ -765,7 +765,7 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                
+
             case .extractText:
                 guard let locator = subCommandEnvelope.locator else {
                     let errorMsg = "Locator missing for extractText in batch (sub-command ID: \(subCmdID))"
@@ -780,21 +780,21 @@ public class AXorcist {
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
                 )
-                
+
             case .ping:
                 let pingMsg = "Ping command handled within batch (sub-command ID: \(subCmdID))"
                 dLog(pingMsg, subCommandID: subCmdID)
-                // For ping, the handlerResponse itself won't carry much data from AXorcist, 
+                // For ping, the handlerResponse itself won't carry much data from AXorcist,
                 // but it should indicate success and carry the logs up to this point for this sub-command.
                 subCommandResponse = HandlerResponse(data: nil, error: nil, debug_logs: isDebugLoggingEnabled ? currentDebugLogs : nil)
-            
+
             // .batch command cannot be nested. .collectAll is also not handled by AXorcist lib directly.
             case .collectAll, .batch:
                 let errorMsg = "Command type '\(subCommandEnvelope.command)' not supported within batch execution by AXorcist (sub-command ID: \(subCmdID))"
                 dLog(errorMsg, subCommandID: subCmdID)
                 subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
-                
-            // default case for any command types that might be added to CommandType enum 
+
+            // default case for any command types that might be added to CommandType enum
             // but not handled by this switch statement within handleBatchCommands.
             // This is distinct from commands axorc itself might handle outside of AXorcist library.
             // @unknown default: // This would be better if Swift enums allowed it easily here for non-frozen enums from other modules.
@@ -866,14 +866,8 @@ public class AXorcist {
         }
 
         var collectedAXElements: [AXElement] = []
-        // The lines below were causing multiple errors and are removed.
-        // let maxDepth = commandEnvelope.maxDepth ?? defaultMaxDepthCollectAll 
-        // let timeoutPerElement = commandEnvelope.timeoutPerElement ?? defaultTimeoutPerElementCollectAll
-        // var effectiveMaxDepth = (maxDepth > 0) ? maxDepth : defaultMaxDepthCollectAll
-        // dLog("Original effectiveMaxDepth from input maxDepth (\(maxDepth)): \(effectiveMaxDepth)", commandID: commandID, &recursiveCallDebugLogs)
-        //effectiveMaxDepth = 0 // <<<< FORCED FOR TEST >>>>
-        //dLog("TESTING: Forced effectiveMaxDepth to 0 to debug collection count", commandID: commandID, &recursiveCallDebugLogs)
-
+        let effectiveMaxDepth = maxDepth ?? 8
+        dLog("Max collection depth: \(effectiveMaxDepth)")
 
         var collectRecursively: ((AXUIElement, Int) -> Void)!
         collectRecursively = { axUIElement, currentDepth in
@@ -882,10 +876,10 @@ public class AXorcist {
                 dLog("Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch.")
                 return
             }
-            
+
             let currentElement = Element(axUIElement)
-            
-            var shouldIncludeElement = true 
+
+            var shouldIncludeElement = true
             // If we are at depth 0 (the start element itself) AND a locator was provided,
             // then this start element must match the locator.
             // For all children (depth > 0), or if no locator was provided at all,
@@ -913,35 +907,34 @@ public class AXorcist {
                 dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth) is a child of a located start element. Including it regardless of initial locator criteria.")
             }
             // If locator was nil initially, shouldIncludeElement remains true.
-            
             if shouldIncludeElement {
                 dLog("Collecting element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
-                
+
                 let fetchedAttrs = getElementAttributes(
                     currentElement,
                     requestedAttributes: requestedAttributes ?? [],
-                    forMultiDefault: true, 
+                    forMultiDefault: true,
                     targetRole: nil as String?,
                     outputFormat: outputFormat ?? .smart,
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &self.recursiveCallDebugLogs // Pass self.recursiveCallDebugLogs
                 )
-                
+
                 let elementPath = currentElement.generatePathArray(
                     upTo: appElement,
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &self.recursiveCallDebugLogs // Pass self.recursiveCallDebugLogs
                 )
-                
+
                 let axElement = AXElement(attributes: fetchedAttrs, path: elementPath)
                 collectedAXElements.append(axElement)
             } else if locator != nil {
-                 dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) did not match locator. Still checking children.")
+                dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) did not match locator. Still checking children.")
             }
-            
+
             var childrenRef: CFTypeRef?
             let childrenResult = AXUIElementCopyAttributeValue(axUIElement, kAXChildrenAttribute as CFString, &childrenRef)
-            
+
             if childrenResult == .success, let children = childrenRef as? [AXUIElement] {
                 dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing.")
                 for childElement in children {
@@ -950,7 +943,7 @@ public class AXorcist {
             } else if childrenResult != .success {
                 dLog("Failed to get children for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \(axErrorToString(childrenResult))")
             } else {
-                 dLog("No children found for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
+                dLog("No children found for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
             }
         }
 
@@ -969,4 +962,4 @@ public class AXorcist {
 
         return HandlerResponse(data: responseDataElement, error: nil, debug_logs: self.recursiveCallDebugLogs)
     }
-} 
+}

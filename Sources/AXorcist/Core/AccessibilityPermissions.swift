@@ -30,17 +30,17 @@ public struct AXPermissionsStatus {
 public func checkAccessibilityPermissions(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws {
     // Define local dLog using passed-in parameters
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    
+
     let trustedOptions = [kAXTrustedCheckOptionPromptKey: true] as CFDictionary
     // tempLogs is already declared for getParentProcessName, which is good.
     // var tempLogs: [String] = [] // This would be a re-declaration error if uncommented
 
-    if !AXIsProcessTrustedWithOptions(trustedOptions) { 
+    if !AXIsProcessTrustedWithOptions(trustedOptions) {
         // Use isDebugLoggingEnabled for the call to getParentProcessName
-        let parentName = getParentProcessName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) 
+        let parentName = getParentProcessName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
         let errorDetail = parentName != nil ? "Hint: Grant accessibility permissions to '\(parentName!)'." : "Hint: Ensure the application running this tool has Accessibility permissions."
         dLog("Accessibility check failed (AXIsProcessTrustedWithOptions returned false). Details: \(errorDetail)")
-        throw AccessibilityError.notAuthorized(errorDetail) 
+        throw AccessibilityError.notAuthorized(errorDetail)
     } else {
         dLog("Accessibility permissions are granted (AXIsProcessTrustedWithOptions returned true).")
     }
@@ -50,7 +50,7 @@ public func checkAccessibilityPermissions(isDebugLoggingEnabled: Bool, currentDe
 public func getPermissionsStatus(checkAutomationFor bundleIDs: [String] = [], isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> AXPermissionsStatus {
     // Local dLog appends to currentDebugLogs
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    
+
     dLog("Starting full permission status check.")
 
     // Check overall accessibility API status and process trust
@@ -77,7 +77,7 @@ public func getPermissionsStatus(checkAutomationFor bundleIDs: [String] = [], is
                 let scriptSource = """
                 tell application id \"\(bundleID)\" to count windows
                 """
-                var errorDict: NSDictionary? = nil
+                var errorDict: NSDictionary?
                 if let script = NSAppleScript(source: scriptSource) {
                     if isDebugLoggingEnabled { dLog("Executing AppleScript against \(bundleID) to check automation status.") }
                     let descriptor = script.executeAndReturnError(&errorDict) // descriptor is non-optional
@@ -109,8 +109,8 @@ public func getPermissionsStatus(checkAutomationFor bundleIDs: [String] = [], is
 
     let finalStatus = AXPermissionsStatus(
         isAccessibilityApiEnabled: isProcessTrusted, // Base this on isProcessTrusted now
-        isProcessTrustedForAccessibility: isProcessTrusted, 
-        automationStatus: automationStatus, 
+        isProcessTrustedForAccessibility: isProcessTrusted,
+        automationStatus: automationStatus,
         overallErrorMessages: currentDebugLogs // All logs collected so far become the messages
     )
     dLog("Finished permission status check. isAccessibilityApiEnabled: \(finalStatus.isAccessibilityApiEnabled), isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)")

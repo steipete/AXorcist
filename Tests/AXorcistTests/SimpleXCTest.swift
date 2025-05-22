@@ -8,4 +8,4 @@ class SimpleXCTest: XCTestCase {
     func testAnotherExample() {
         XCTAssertTrue(true, "Another simple assertion")
     }
-} 
+}

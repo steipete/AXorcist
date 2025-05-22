@@ -14,7 +14,7 @@ public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool, cu
     var texts: [String] = []
     let textualAttributes = [
         kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute,
-        kAXPlaceholderValueAttribute, kAXLabelValueAttribute, kAXRoleDescriptionAttribute,
+        kAXPlaceholderValueAttribute, kAXLabelValueAttribute, kAXRoleDescriptionAttribute
         // Consider adding kAXStringForRangeParameterizedAttribute if dealing with large text views for performance
         // kAXSelectedTextAttribute could also be relevant depending on use case
     ]
@@ -28,7 +28,7 @@ public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool, cu
             currentDebugLogs.append(contentsOf: tempLogs) // Still collect logs if value was nil/empty
         }
     }
-    
+
     // Deduplicate while preserving order
     var uniqueTexts: [String] = []
     var seenTexts = Set<String>()

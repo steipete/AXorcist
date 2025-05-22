@@ -61,7 +61,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
             if let m = msg { return "\(base) \(m)" }
             return base
         case .invalidElement: return "The specified UI element is invalid (possibly stale)."
-        
+
         // Attribute Errors
         case .attributeUnsupported(let attr): return "Attribute '\(attr)' is not supported by this element."
         case .attributeNotReadable(let attr): return "Attribute '\(attr)' is not readable."
@@ -80,7 +80,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
 
         // Generic & System
         case .unknownAXError(let e): return "An unexpected Accessibility Framework error occurred: \(e)."
-        case .jsonEncodingFailed(let err): 
+        case .jsonEncodingFailed(let err):
             let base = "Failed to encode the response to JSON."
             if let e = err { return "\(base) Error: \(e.localizedDescription)" }
             return base

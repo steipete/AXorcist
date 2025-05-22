@@ -30,23 +30,22 @@ public func getAXValueTypeForAttribute(element: Element, attributeName: String, 
         dLog("getAXValueTypeForAttribute: Failed to get raw attribute value for '\(attributeName)'")
         return nil
     }
-    
+
     guard CFGetTypeID(rawValue) == AXValueGetTypeID() else {
         dLog("getAXValueTypeForAttribute: Attribute '\(attributeName)' is not an AXValue. TypeID: \(CFGetTypeID(rawValue))")
         return nil
     }
-    
+
     let axValue = rawValue as! AXValue
     return AXValueGetType(axValue)
 }
-
 
 // Main function to create CFTypeRef for setting an attribute
 // It determines the type of the attribute and then calls the appropriate parser.
 @MainActor
 public func createCFTypeRefFromString(stringValue: String, forElement element: Element, attributeName: String, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> CFTypeRef? {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    
+
     guard let currentRawValue = element.rawAttributeValue(named: attributeName, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
         throw AccessibilityError.attributeNotReadable("Could not read current value for attribute '\(attributeName)' to determine type.")
     }
@@ -66,7 +65,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
         if let doubleValue = Double(stringValue) {
             return NSNumber(value: doubleValue) // CFNumber is toll-free bridged to NSNumber
         } else if let intValue = Int(stringValue) {
-             return NSNumber(value: intValue)
+            return NSNumber(value: intValue)
         } else {
             throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as Double or Int for CFNumber attribute '\(attributeName)'")
         }
@@ -87,7 +86,6 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
     throw AccessibilityError.attributeUnsupported("Setting attribute '\(attributeName)' of CFTypeID \(typeID) (\(typeDescription)) from string is not supported yet.")
 }
 
-
 // Parses a string into an AXValue for struct types like CGPoint, CGSize, CGRect, CFRange
 @MainActor
 private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValueType, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> AXValue? {
@@ -105,17 +103,17 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
         } else if components.count == 2, let xVal = Double(components[0]), let yVal = Double(components[1]) {
             x = xVal; y = yVal
         } else {
-             let scanner = Scanner(string: stringValue)
-             _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
-             let xScanned = scanner.scanDouble()
-             _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
-             let yScanned = scanner.scanDouble()
-             if let xVal = xScanned, let yVal = yScanned {
-                 x = xVal; y = yVal
-              } else {
+            let scanner = Scanner(string: stringValue)
+            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
+            let xScanned = scanner.scanDouble()
+            _ = scanner.scanCharacters(in: CustomCharacterSet(charactersInString: "xy:, \t\n"))
+            let yScanned = scanner.scanDouble()
+            if let xVal = xScanned, let yVal = yScanned {
+                x = xVal; y = yVal
+            } else {
                 dLog("parseStringToAXValue: CGPoint parsing failed for '\(stringValue)' via scanner.")
                 throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGPoint. Expected format like 'x=10,y=20' or '10,20'.")
-             }
+            }
         }
         var point = CGPoint(x: x, y: y)
         valueRef = AXValueCreate(targetAXValueType, &point)
@@ -138,8 +136,8 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
             if let wVal = wScanned, let hVal = hScanned {
                 w = wVal; h = hVal
             } else {
-                 dLog("parseStringToAXValue: CGSize parsing failed for '\(stringValue)' via scanner.")
-                 throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.")
+                dLog("parseStringToAXValue: CGSize parsing failed for '\(stringValue)' via scanner.")
+                throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.")
             }
         }
         var size = CGSize(width: w, height: h)
@@ -155,8 +153,8 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
            let hStr = components[3].split(separator: "=").last, let hVal = Double(hStr) {
             x = xVal; y = yVal; w = wVal; h = hVal
         } else if components.count == 4,
-            let xVal = Double(components[0]), let yVal = Double(components[1]),
-            let wVal = Double(components[2]), let hVal = Double(components[3]) {
+                  let xVal = Double(components[0]), let yVal = Double(components[1]),
+                  let wVal = Double(components[2]), let hVal = Double(components[3]) {
             x = xVal; y = yVal; w = wVal; h = hVal
         } else {
             let scanner = Scanner(string: stringValue)
@@ -203,21 +201,19 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
         }
         var range = CFRangeMake(loc, len)
         valueRef = AXValueCreate(targetAXValueType, &range)
-        
+
     case .illegal:
         dLog("parseStringToAXValue: Attempted to parse for .illegal AXValueType.")
         throw AccessibilityError.attributeUnsupported("Cannot parse value for AXValueType .illegal")
-        
-    case .axError: 
-         dLog("parseStringToAXValue: Attempted to parse for .axError AXValueType.")
-         throw AccessibilityError.attributeUnsupported("Cannot set an attribute of AXValueType .axError")
+
+    case .axError:
+        dLog("parseStringToAXValue: Attempted to parse for .axError AXValueType.")
+        throw AccessibilityError.attributeUnsupported("Cannot set an attribute of AXValueType .axError")
 
     default:
-        if targetAXValueType.rawValue == 4 { 
+        if targetAXValueType.rawValue == 4 {
             var boolVal: DarwinBoolean
-            if stringValue.lowercased() == "true" { boolVal = true }
-            else if stringValue.lowercased() == "false" { boolVal = false }
-            else {
+            if stringValue.lowercased() == "true" { boolVal = true } else if stringValue.lowercased() == "false" { boolVal = false } else {
                 dLog("parseStringToAXValue: Boolean parsing failed for '\(stringValue)' for AXValue.")
                 throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValue.")
             }
@@ -229,8 +225,8 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
     }
 
     if valueRef == nil {
-         dLog("parseStringToAXValue: AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
-         throw AccessibilityError.valueParsingFailed(details: "AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
+        dLog("parseStringToAXValue: AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
+        throw AccessibilityError.valueParsingFailed(details: "AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
     }
     return valueRef
-} 
+}

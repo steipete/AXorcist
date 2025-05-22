@@ -31,19 +31,19 @@ public func navigateToElement(from rootElement: Element, pathHint: [String], isD
             dLog("Failed to parse path component: \(pathComponent)")
             return nil
         }
-        
+
         var tempBriefDescLogs: [String] = [] // Placeholder for briefDescription logs
 
-        if role.lowercased() == "window" || role.lowercased() == kAXWindowRole.lowercased() { 
+        if role.lowercased() == "window" || role.lowercased() == kAXWindowRole.lowercased() {
             guard let windowUIElements: [AXUIElement] = axValue(of: currentElement.underlyingElement, attr: kAXWindowsAttribute, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
                 dLog("PathUtils: AXWindows attribute could not be fetched as [AXUIElement].")
                 return nil
             }
             dLog("PathUtils: Fetched \(windowUIElements.count) AXUIElements for AXWindows.")
-            
+
             let windows: [Element] = windowUIElements.map { Element($0) }
             dLog("PathUtils: Mapped to \(windows.count) Elements.")
-            
+
             guard index < windows.count else {
                 dLog("PathUtils: Index \(index) is out of bounds for windows array (count: \(windows.count)). Component: \(pathComponent).")
                 return nil
@@ -61,15 +61,15 @@ public func navigateToElement(from rootElement: Element, pathHint: [String], isD
             dLog("PathUtils: Mapped to \(allChildren.count) Elements for children of \(currentElementDesc) for \(pathComponent).")
 
             guard !allChildren.isEmpty else {
-                 dLog("No children found for element \(currentElementDesc) while processing component: \(pathComponent)")
-                 return nil
+                dLog("No children found for element \(currentElementDesc) while processing component: \(pathComponent)")
+                return nil
             }
-            
-            let matchingChildren = allChildren.filter { 
+
+            let matchingChildren = allChildren.filter {
                 guard let childRole: String = axValue(of: $0.underlyingElement, attr: kAXRoleAttribute, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else { return false }
-                return childRole.lowercased() == role.lowercased() 
+                return childRole.lowercased() == role.lowercased()
             }
-            
+
             guard index < matchingChildren.count else {
                 dLog("Child not found for component: \(pathComponent) at index \(index). Role: \(role). For element \(currentElementDesc). Matching children count: \(matchingChildren.count)")
                 return nil

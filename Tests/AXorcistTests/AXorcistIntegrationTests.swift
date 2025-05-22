@@ -8,39 +8,39 @@ import Testing
 private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement: AXUIElement?) {
     let textEditBundleId = "com.apple.TextEdit"
     var app: NSRunningApplication? = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first
-    
+
     if app == nil {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: textEditBundleId) else {
             throw TestError.generic("Could not find URL for TextEdit application.")
         }
-        
+
         print("Attempting to launch TextEdit from URL: \(url.path)")
         // Use the older launchApplication API which sometimes is more robust in test environments
         // despite deprecation. Configure for async and no activation initially.
         let configuration: [NSWorkspace.LaunchConfigurationKey: Any] = [:] // Empty config for older API
         do {
-            app = try NSWorkspace.shared.launchApplication(at: url, 
-                                                             options: [.async, .withoutActivation], 
-                                                             configuration: configuration)
+            app = try NSWorkspace.shared.launchApplication(at: url,
+                                                           options: [.async, .withoutActivation],
+                                                           configuration: configuration)
             print("launchApplication call completed. App PID if returned: \(app?.processIdentifier ?? -1)")
         } catch {
             throw TestError.appNotRunning("Failed to launch TextEdit using launchApplication(at:options:configuration:): \(error.localizedDescription)")
         }
 
         // Wait for the app to appear in running applications list
-        var launchedApp: NSRunningApplication? = nil
+        var launchedApp: NSRunningApplication?
         for attempt in 1...10 { // Retry for up to 10 * 0.5s = 5 seconds
             launchedApp = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first
-            if launchedApp != nil { 
+            if launchedApp != nil {
                 print("TextEdit found running after launch, attempt \(attempt).")
                 break
             }
             try await Task.sleep(for: .milliseconds(500))
             print("Waiting for TextEdit to appear in running list... attempt \(attempt)")
         }
-        
+
         guard let runningAppAfterLaunch = launchedApp else {
-             throw TestError.appNotRunning("TextEdit did not appear in running applications list after launch attempt.")
+            throw TestError.appNotRunning("TextEdit did not appear in running applications list after launch attempt.")
         }
         app = runningAppAfterLaunch // Assign the found app
     }
@@ -79,7 +79,7 @@ private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement
             try await Task.sleep(for: .seconds(2)) // Wait for new document window
         }
     }
-    
+
     // Re-check activation
     if !runningApp.isActive {
         runningApp.activate(options: [.activateAllWindows])
@@ -94,7 +94,7 @@ private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement
     } else {
         print("AX API did not get a focused element during setup. Status: \(status.rawValue). This might be okay.")
     }
-    
+
     return (pid, axAppElement)
 }
 
@@ -104,14 +104,14 @@ private func closeTextEdit() async {
     guard let textEdit = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first else {
         return // Not running
     }
-    
+
     textEdit.terminate()
     // Give it a moment to terminate gracefully
     for _ in 0..<5 { // Check for up to 2.5 seconds
         if textEdit.isTerminated { break }
         try? await Task.sleep(for: .milliseconds(500))
     }
-    
+
     if !textEdit.isTerminated {
         textEdit.forceTerminate()
         try? await Task.sleep(for: .milliseconds(500)) // Brief pause after force terminate
@@ -138,10 +138,10 @@ private func runAXORCCommand(arguments: [String]) throws -> (String?, String?, I
 
     let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
     let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    
+
     // Strip the AXORC_JSON_OUTPUT_PREFIX if present
     let cleanOutput = stripJSONPrefix(from: output)
-    
+
     return (cleanOutput, errorOutput, process.terminationStatus)
 }
 
@@ -176,7 +176,7 @@ private func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) th
         effectiveArguments.append("--stdin")
     }
     process.arguments = effectiveArguments
-    
+
     let outputPipe = Pipe()
     let errorPipe = Pipe()
     let inputPipe = Pipe()
@@ -197,7 +197,7 @@ private func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) th
         // Consider throwing an error or logging
         print("Warning: Could not convert inputJSON to Data for STDIN.")
     }
-    
+
     process.waitUntilExit()
 
     let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
@@ -205,9 +205,9 @@ private func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) th
 
     let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
     let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    
+
     let cleanOutput = stripJSONPrefix(from: output)
-    
+
     return (cleanOutput, errorOutput, process.terminationStatus)
 }
 
@@ -236,7 +236,7 @@ struct Locator: Codable {
         case requireAction = "require_action"
         case computed_name_contains
     }
-    
+
     init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil, requireAction: String? = nil, computed_name_contains: String? = nil) {
         self.match_all = match_all
         self.criteria = criteria
@@ -252,9 +252,9 @@ struct CommandEnvelope: Codable {
     let application: String?
     let attributes: [String]?
     let debug_logging: Bool?
-    
+
     // Use the locally defined Locator struct that mirrors AXorcist.Locator
-    let locator: Locator? 
+    let locator: Locator?
     let path_hint: [String]? // Changed from String? to [String]? to align with AXorcist.CommandEnvelope
     let max_elements: Int?
     let output_format: OutputFormat? // Use directly from AXorcist module (OutputFormat, not AXorcist.OutputFormat)
@@ -264,10 +264,10 @@ struct CommandEnvelope: Codable {
     let payload: [String: AnyCodable]? // Use directly from AXorcist module
     let sub_commands: [CommandEnvelope]? // Recursive for batch command
 
-    init(command_id: String, 
-         command: CommandType, 
-         application: String? = nil, 
-         attributes: [String]? = nil, 
+    init(command_id: String,
+         command: CommandType,
+         application: String? = nil,
+         attributes: [String]? = nil,
          debug_logging: Bool? = nil,
          locator: Locator? = nil, // Use local Locator type
          path_hint: [String]? = nil, // Aligned to [String]?
@@ -324,9 +324,9 @@ struct ErrorResponse: Codable {
         let message: String
     }
     let debug_logs: [String]?
-    
+
     // Custom init if needed, for now relying on synthesized one after struct change
-     init(command_id: String, success: Bool = false, error: ErrorDetail, debug_logs: [String]?) {
+    init(command_id: String, success: Bool = false, error: ErrorDetail, debug_logs: [String]?) {
         self.command_id = command_id
         self.success = success
         self.error = error
@@ -334,10 +334,8 @@ struct ErrorResponse: Codable {
     }
 }
 
-
 // For AXElement.attributes which can be [String: Any]
 // Using a simplified AnyCodable for testing purposes
-
 
 struct AXElementData: Codable { // Renamed from AXElement to avoid conflict if AXorcist.AXElement is imported
     let attributes: [String: AnyCodable]? // Dictionary of attributes using AnyCodable from AXorcist module
@@ -369,7 +367,6 @@ struct BatchOperationResponse: Codable {
     let debug_logs: [String]?
 }
 
-
 // MARK: - Test Cases
 
 @Test("Test Ping via STDIN")
@@ -387,7 +384,7 @@ func testPingViaStdin() async throws {
 
     #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput!)")
-    
+
     guard let outputString = output else {
         #expect(Bool(false), "Output was nil for ping via STDIN")
         return
@@ -421,7 +418,7 @@ func testPingViaFile() async throws {
 
     #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput ?? "N/A")")
-    
+
     guard let outputString = output else {
         #expect(Bool(false), "Output was nil for ping via file")
         return
@@ -437,7 +434,6 @@ func testPingViaFile() async throws {
     #expect(decodedResponse.details == payloadMessage)
 }
 
-
 @Test("Test Ping via direct positional argument")
 func testPingViaDirectPayload() async throws {
     let payloadMessage = "Hello from testPingViaDirectPayload"
@@ -448,7 +444,7 @@ func testPingViaDirectPayload() async throws {
 
     #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput ?? "N/A")")
-    
+
     guard let outputString = output else {
         #expect(Bool(false), "Output was nil for ping via direct payload")
         return
@@ -480,7 +476,7 @@ func testErrorMultipleInputMethods() async throws {
 
     // axorc.swift now prints error to STDOUT and exits 0
     #expect(terminationStatus == 0, "axorc command should return 0 with error on stdout. Status: \(terminationStatus). Error STDOUT: \(output ?? "nil"). Error STDERR: \(errorOutput ?? "nil")")
-    
+
     guard let outputString = output, !outputString.isEmpty else {
         #expect(Bool(false), "Output was nil or empty for multiple input methods error test")
         return
@@ -494,7 +490,6 @@ func testErrorMultipleInputMethods() async throws {
     #expect(errorResponse.success == false)
     #expect(errorResponse.error.message.contains("Multiple input flags specified"), "Unexpected error message: \(errorResponse.error.message)")
 }
-
 
 @Test("Test Error: No Input Provided for Ping")
 func testErrorNoInputProvidedForPing() async throws {
@@ -532,9 +527,9 @@ func testLaunchAndQueryTextEdit() async throws {
     // Prepare the JSON command for axorc
     let commandId = "focused_textedit_test_\(UUID().uuidString)"
     let attributesToFetch: [String] = [
-        ApplicationServices.kAXRoleAttribute as String, 
-        ApplicationServices.kAXRoleDescriptionAttribute as String, 
-        ApplicationServices.kAXValueAttribute as String, 
+        ApplicationServices.kAXRoleAttribute as String,
+        ApplicationServices.kAXRoleDescriptionAttribute as String,
+        ApplicationServices.kAXValueAttribute as String,
         "AXPlaceholderValue" // Custom attribute
     ]
 
@@ -553,7 +548,7 @@ func testLaunchAndQueryTextEdit() async throws {
     guard let inputJSON = String(data: inputJSONData, encoding: .utf8) else {
         throw TestError.generic("Failed to encode CommandEnvelope to JSON string")
     }
-    
+
     print("Input JSON for axorc:\n\(inputJSON)")
 
     let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(inputJSON: inputJSON, arguments: ["--debug"])
@@ -569,10 +564,10 @@ func testLaunchAndQueryTextEdit() async throws {
     }
 
     let decoder = JSONDecoder()
-    guard let responseData = outputJSONString.data(using: .utf8) else { 
+    guard let responseData = outputJSONString.data(using: .utf8) else {
         throw TestError.generic("Failed to convert axorc output string to Data for getFocusedElement. Output: \(outputJSONString)")
     }
-    
+
     let queryResponse: QueryResponse
     do {
         queryResponse = try decoder.decode(QueryResponse.self, from: responseData)
@@ -596,7 +591,7 @@ func testLaunchAndQueryTextEdit() async throws {
     let expectedRole = ApplicationServices.kAXTextAreaRole as String
     let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.value as? String
     #expect(actualRole == expectedRole, "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. Attributes: \(elementData.attributes?.keys.map { $0 } ?? [])")
-    
+
     // Use ApplicationServices.kAXValueAttribute and cast to String for key
     #expect(elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true, "Focused element attributes should contain kAXValueAttribute as it was requested.")
 
@@ -604,7 +599,7 @@ func testLaunchAndQueryTextEdit() async throws {
         print("axorc Debug Logs:")
         logs.forEach { print($0) }
     }
-    
+
     // Clean up TextEdit
     await closeTextEdit() // Now async and @MainActor
 }
@@ -677,17 +672,17 @@ func testGetAttributesForTextEditApplication() async throws {
         let attributes = queryResponse.data?.attributes
         #expect(attributes?["AXRole"]?.value as? String == "AXApplication", "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))")
         #expect(attributes?["AXTitle"]?.value as? String == "TextEdit", "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))")
-        
+
         // AXWindows should be an array
         if let windowsAttr = attributes?["AXWindows"] {
             #expect(windowsAttr.value is [Any], "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
             if let windowsArray = windowsAttr.value as? [AnyCodable] {
                 #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
             } else if let windowsArray = windowsAttr.value as? [Any] { // More general check
-                 #expect(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
+                #expect(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
             }
         } else {
-             #expect(attributes?["AXWindows"] != nil, "AXWindows attribute should be present.")
+            #expect(attributes?["AXWindows"] != nil, "AXWindows attribute should be present.")
         }
 
         #expect(queryResponse.debug_logs != nil, "Debug logs should be present.")
@@ -768,7 +763,7 @@ func testQueryForTextEditTextArea() async throws {
 
         let attributes = queryResponse.data?.attributes
         #expect(attributes?["AXRole"]?.value as? String == textAreaRole, "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))")
-        
+
         // AXValue might be an empty string if the new document is empty, which is fine.
         #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
         #expect(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
@@ -811,7 +806,7 @@ func testDescribeTextEditTextArea() async throws {
         application: textEditBundleId,
         // No attributes explicitly requested for describeElement
         debug_logging: true,
-        locator: textAreaLocator 
+        locator: textAreaLocator
     )
 
     let encoder = JSONEncoder()
@@ -845,13 +840,13 @@ func testDescribeTextEditTextArea() async throws {
         #expect(queryResponse.command == CommandType.describeElement.rawValue)
         #expect(queryResponse.error == nil, "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
         #expect(queryResponse.data != nil, "Data field should not be nil.")
-        
+
         guard let attributes = queryResponse.data?.attributes else {
             throw TestError.generic("Attributes dictionary is nil in describeElement response.")
         }
-        
+
         #expect(attributes["AXRole"]?.value as? String == textAreaRole, "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))")
-        
+
         // describeElement should return many attributes. Check for a few common ones.
         #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
         #expect(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
@@ -916,7 +911,7 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
 
     #expect(exitCode == 0, "performAction axorc call failed. Error: \(errorOutput ?? "N/A")")
     #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR for performAction should be empty. Got: \(errorOutput ?? "")")
-    
+
     guard let actionOutputString = output, !actionOutputString.isEmpty else {
         throw TestError.generic("Output for performAction was nil/empty.")
     }
@@ -935,7 +930,7 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
     } catch {
         throw TestError.generic("Failed to decode QueryResponse for performAction: \(error.localizedDescription). JSON: \(actionOutputString)")
     }
-    
+
     // Brief pause for UI to update if necessary, though AXSetValue is often synchronous.
     try await Task.sleep(for: .milliseconds(100))
 
@@ -946,9 +941,9 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
         application: textEditBundleId,
         attributes: ["AXValue"], // Only need AXValue
         debug_logging: true,
-        locator: textAreaLocator 
+        locator: textAreaLocator
     )
-    
+
     jsonData = try encoder.encode(queryEnvelope)
     guard let queryJsonString = String(data: jsonData, encoding: .utf8) else {
         throw TestError.generic("Failed to create JSON for query (verify) command.")
@@ -967,18 +962,18 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
     guard let queryResponseData = queryOutputString.data(using: .utf8) else {
         throw TestError.generic("Could not convert query (verify) output to data. Output: \(queryOutputString)")
     }
-    
+
     do {
         let verifyResponse = try decoder.decode(QueryResponse.self, from: queryResponseData)
         #expect(verifyResponse.command_id == queryCommandId)
         #expect(verifyResponse.success == true, "Query (verify) command failed. Error: \(verifyResponse.error?.message ?? "N/A")")
-        
+
         guard let attributes = verifyResponse.data?.attributes else {
             throw TestError.generic("Attributes nil in query (verify) response.")
         }
         let retrievedValue = attributes["AXValue"]?.value as? String
         #expect(retrievedValue == textToSet, "AXValue after AXSetValue action did not match. Expected: '\(textToSet)'. Got: '\(retrievedValue ?? "nil")'")
-        
+
         #expect(verifyResponse.debug_logs != nil)
     } catch {
         throw TestError.generic("Failed to decode QueryResponse for query (verify): \(error.localizedDescription). JSON: \(queryOutputString)")
@@ -1036,7 +1031,7 @@ func testExtractTextFromTextEditTextArea() async throws {
     guard let actionOutputString = output, !actionOutputString.isEmpty else { throw TestError.generic("Output for performAction (set value) was nil/empty.") }
     let actionResponse = try JSONDecoder().decode(QueryResponse.self, from: Data(actionOutputString.utf8))
     #expect(actionResponse.success == true, "performAction (set value) was not successful. Error: \(actionResponse.error?.message ?? "N/A")")
-    
+
     try await Task.sleep(for: .milliseconds(100)) // Brief pause
 
     // 2. Perform extractText command
@@ -1047,7 +1042,7 @@ func testExtractTextFromTextEditTextArea() async throws {
         debug_logging: true,
         locator: textAreaLocator
     )
-    
+
     jsonData = try encoder.encode(extractTextEnvelope)
     guard let extractJsonString = String(data: jsonData, encoding: .utf8) else {
         throw TestError.generic("Failed to create JSON for extractText command.")
@@ -1066,25 +1061,25 @@ func testExtractTextFromTextEditTextArea() async throws {
     guard let extractResponseData = extractOutputString.data(using: .utf8) else {
         throw TestError.generic("Could not convert extractText output to data. Output: \(extractOutputString)")
     }
-    
+
     let decoder = JSONDecoder()
     do {
         let extractQueryResponse = try decoder.decode(QueryResponse.self, from: extractResponseData)
         #expect(extractQueryResponse.command_id == extractTextCommandId)
         #expect(extractQueryResponse.success == true, "extractText command failed. Error: \(extractQueryResponse.error?.message ?? "N/A")")
         #expect(extractQueryResponse.command == CommandType.extractText.rawValue)
-        
+
         guard let attributes = extractQueryResponse.data?.attributes else {
             throw TestError.generic("Attributes nil in extractText response.")
         }
-        
-        // AXorcist.handleExtractText is expected to return the text. 
+
+        // AXorcist.handleExtractText is expected to return the text.
         // The most straightforward way for it to appear in QueryResponse is via an attribute in `data.attributes`.
         // Common attribute for text content is AXValue. Let's assume extractText populates this or a specific "ExtractedText" attribute.
         // For now, checking AXValue as it's the most standard for text areas.
         let extractedValue = attributes["AXValue"]?.value as? String
         #expect(extractedValue == textToSetAndExtract, "Extracted text did not match set text. Expected: '\(textToSetAndExtract)'. Got: '\(extractedValue ?? "nil")'")
-        
+
         #expect(extractQueryResponse.debug_logs != nil)
         #expect(extractQueryResponse.debug_logs?.contains { $0.contains("Handling extractText command") || $0.contains("handleExtractText completed") } == true, "Debug logs should indicate extractText execution.")
 
@@ -1215,12 +1210,12 @@ enum TestError: Error, CustomStringConvertible {
 
 // Products directory helper (if not already present from previous steps)
 var productsDirectory: URL {
-  #if os(macOS)
+    #if os(macOS)
     // First, try the .xctest bundle method (works well in Xcode)
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return bundle.bundleURL.deletingLastPathComponent()
     }
-    
+
     // Fallback for SPM command-line tests if .xctest bundle isn't found as expected.
     // This navigates up from the test file to the package root, then to .build/debug.
     let currentFileURL = URL(fileURLWithPath: #filePath)
@@ -1229,14 +1224,14 @@ var productsDirectory: URL {
     //   .deletingLastPathComponent() // Tests directory
     //   .deletingLastPathComponent() // AXorcist package root directory
     let packageRootPath = currentFileURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-    
+
     // Try common build paths for SwiftPM
     let buildPathsToTry = [
         packageRootPath.appendingPathComponent(".build/debug"),
         packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
         packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
     ]
-    
+
     let fileManager = FileManager.default
     for path in buildPathsToTry {
         // Check if the directory exists and contains the axorc executable
@@ -1246,7 +1241,7 @@ var productsDirectory: URL {
     }
 
     fatalError("couldn\'t find the products directory via Bundle or SPM fallback. Package root guessed as: \(packageRootPath.path). Searched paths: \(buildPathsToTry.map { $0.path }.joined(separator: ", "))")
-  #else
+    #else
     return Bundle.main.bundleURL
-  #endif
-} 
+    #endif
+}

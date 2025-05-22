@@ -78,10 +78,10 @@ struct ValueUnwrapper {
                     swiftDict[key] = unwrap(val, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) // Unwrap the value
                 }
             } else {
-                 // Fallback for more complex CFDictionary structures if direct bridging fails
-                 // This part requires careful handling of CFDictionary keys and values
-                 // For now, we'll log if direct bridging fails, as full CFDictionary iteration is complex.
-                 dLog("ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here.")
+                // Fallback for more complex CFDictionary structures if direct bridging fails
+                // This part requires careful handling of CFDictionary keys and values
+                // For now, we'll log if direct bridging fails, as full CFDictionary iteration is complex.
+                dLog("ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here.")
             }
             return swiftDict
         default:

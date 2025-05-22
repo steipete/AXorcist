@@ -30,7 +30,7 @@ public func handleGetAttributes(cmd: CommandEnvelope, isDebugLoggingEnabled: Boo
             return QueryResponse(command_id: cmd.command_id, attributes: nil, error: errorMessage, debug_logs: isDebugLoggingEnabled ? handlerLogs : nil)
         }
     }
-    
+
     guard let locator = cmd.locator else {
         let errorMessage = "Locator not provided for get_attributes."
         dLog("handleGetAttributes: \(errorMessage)")
@@ -39,11 +39,11 @@ public func handleGetAttributes(cmd: CommandEnvelope, isDebugLoggingEnabled: Boo
 
     dLog("handleGetAttributes: Searching for element with locator: \(locator.criteria) from root: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &handlerLogs))")
     let foundElement = search(
-        element: effectiveElement, 
-        locator: locator, 
-        requireAction: locator.requireAction, 
-        maxDepth: cmd.max_elements ?? DEFAULT_MAX_DEPTH_SEARCH, 
-        isDebugLoggingEnabled: isDebugLoggingEnabled, 
+        element: effectiveElement,
+        locator: locator,
+        requireAction: locator.requireAction,
+        maxDepth: cmd.max_elements ?? DEFAULT_MAX_DEPTH_SEARCH,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
         currentDebugLogs: &handlerLogs
     )
 
@@ -52,7 +52,7 @@ public func handleGetAttributes(cmd: CommandEnvelope, isDebugLoggingEnabled: Boo
         var attributes = getElementAttributes(
             elementToQuery,
             requestedAttributes: cmd.attributes ?? [],
-            forMultiDefault: false, 
+            forMultiDefault: false,
             targetRole: locator.criteria[kAXRoleAttribute],
             outputFormat: cmd.output_format ?? .smart,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
@@ -68,4 +68,4 @@ public func handleGetAttributes(cmd: CommandEnvelope, isDebugLoggingEnabled: Boo
         dLog("handleGetAttributes: \(errorMessage)")
         return QueryResponse(command_id: cmd.command_id, attributes: nil, error: errorMessage, debug_logs: isDebugLoggingEnabled ? handlerLogs : nil)
     }
-} 
+}

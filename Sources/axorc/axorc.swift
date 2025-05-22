@@ -21,17 +21,17 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
     var file: String?
 
     @Argument(help: "Read JSON payload directly from this string argument. If other input flags (--stdin, --file) are used, this argument is ignored.")
-    var directPayload: String? = nil
+    var directPayload: String?
 
     mutating func run() async throws {
-        var localDebugLogs: [String] = [] 
+        var localDebugLogs: [String] = []
         if debug {
             localDebugLogs.append("Debug logging enabled by --debug flag.")
         }
 
-        var receivedJsonString: String? = nil
+        var receivedJsonString: String?
         var inputSourceDescription: String = "Unspecified"
-        var detailedInputError: String? = nil
+        var detailedInputError: String?
 
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0)
         let positionalPayloadProvided = directPayload != nil && !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
@@ -42,7 +42,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
         } else if stdin {
             inputSourceDescription = "STDIN"
             let stdInputHandle = FileHandle.standardInput
-            let stdinData = stdInputHandle.readDataToEndOfFile() 
+            let stdinData = stdInputHandle.readDataToEndOfFile()
             if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
                 receivedJsonString = str
                 localDebugLogs.append("Successfully read \(str.count) chars from STDIN.")
@@ -61,17 +61,17 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     localDebugLogs.append("Successfully read from file: \(filePath)")
                 }
             } catch {
-                detailedInputError = "Error: Failed to read from file '\(filePath)': \(error.localizedDescription)" 
+                detailedInputError = "Error: Failed to read from file '\(filePath)': \(error.localizedDescription)"
             }
             if detailedInputError != nil { localDebugLogs.append(detailedInputError!) }
         } else if let payload = directPayload, positionalPayloadProvided {
             inputSourceDescription = "Direct Argument Payload"
             receivedJsonString = payload.trimmingCharacters(in: .whitespacesAndNewlines)
             localDebugLogs.append("Using direct argument payload. Length: \(receivedJsonString?.count ?? 0)")
-        } else if directPayload != nil && !positionalPayloadProvided { 
-             detailedInputError = "Error: Direct argument payload was provided but was an empty string."
-             inputSourceDescription = detailedInputError!
-             localDebugLogs.append(detailedInputError!)
+        } else if directPayload != nil && !positionalPayloadProvided {
+            detailedInputError = "Error: Direct argument payload was provided but was an empty string."
+            inputSourceDescription = detailedInputError!
+            localDebugLogs.append(detailedInputError!)
         } else {
             detailedInputError = "No JSON input method specified or chosen method yielded no data."
             inputSourceDescription = detailedInputError!
@@ -96,10 +96,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
             if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
             return
         }
-        
+
         do {
             let commandEnvelope = try JSONDecoder().decode(CommandEnvelope.self, from: Data(jsonToProcess.utf8))
-            var currentLogs = localDebugLogs 
+            var currentLogs = localDebugLogs
             currentLogs.append("Decoded CommandEnvelope. Type: \(commandEnvelope.command), ID: \(commandEnvelope.command_id)")
 
             switch commandEnvelope.command {
@@ -108,7 +108,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                 let messageValue = inputSourceDescription
                 let successMessage = prefix + messageValue
                 currentLogs.append(successMessage)
-                
+
                 let details: String?
                 if let payloadData = jsonToProcess.data(using: .utf8),
                    let payload = try? JSONSerialization.jsonObject(with: payloadData) as? [String: Any],
@@ -118,44 +118,44 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                 } else {
                     details = nil
                 }
-                
+
                 let successResponse = SimpleSuccessResponse(
                     command_id: commandEnvelope.command_id,
                     success: true, // Explicitly true
-                    status: "pong", 
+                    status: "pong",
                     message: successMessage,
                     details: details,
                     debug_logs: debug ? currentLogs : nil
                 )
                 if let data = try? encoder.encode(successResponse), let str = String(data: data, encoding: .utf8) { print(str) }
-            
+
             case .getFocusedElement:
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs
 
                 let commandIDForResponse = commandEnvelope.command_id
-                let appIdentifierForHandler = commandEnvelope.application 
-                let requestedAttributesForHandler = commandEnvelope.attributes 
+                let appIdentifierForHandler = commandEnvelope.application
+                let requestedAttributesForHandler = commandEnvelope.attributes
 
                 // Directly await the MainActor function. operationResult is non-optional.
                 let operationResult: HandlerResponse = await axInstance.handleGetFocusedElement(
                     for: appIdentifierForHandler,
                     requestedAttributes: requestedAttributesForHandler,
-                    isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug, 
-                    currentDebugLogs: &handlerLogs 
+                    isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
+                    currentDebugLogs: &handlerLogs
                 )
                 // No semaphore needed
 
                 // operationResult is now non-optional, so we can use it directly.
-                let actualResponse = operationResult 
+                let actualResponse = operationResult
                 let finalDebugLogs = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 fputs("[axorc DEBUG] Attempting to encode QueryResponse...\n", stderr)
                 let queryResponse = QueryResponse(
                     command_id: commandIDForResponse,
                     success: actualResponse.error == nil,
-                    command: commandEnvelope.command.rawValue, 
-                    handlerResponse: actualResponse,          
+                    command: commandEnvelope.command.rawValue,
+                    handlerResponse: actualResponse,
                     debug_logs: finalDebugLogs
                 )
 
@@ -182,7 +182,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .getAttributes:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "getAttributes command requires a locator but none was provided"
@@ -191,17 +191,17 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
-                
+
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs
-                
+
                 let commandIDForResponse = commandEnvelope.command_id
                 let appIdentifierForHandler = commandEnvelope.application
                 let requestedAttributesForHandler = commandEnvelope.attributes
                 let pathHintForHandler = commandEnvelope.path_hint
                 let maxDepthForHandler = commandEnvelope.max_elements
                 let outputFormatForHandler = commandEnvelope.output_format
-                
+
                 // Call the new handleGetAttributes method
                 let operationResult: HandlerResponse = await axInstance.handleGetAttributes(
                     for: appIdentifierForHandler,
@@ -213,10 +213,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
                     currentDebugLogs: &handlerLogs
                 )
-                
+
                 let actualResponse = operationResult
                 let finalDebugLogs = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 fputs("[axorc DEBUG] Attempting to encode QueryResponse for getAttributes...\n", stderr)
                 let queryResponse = QueryResponse(
                     command_id: commandIDForResponse,
@@ -225,7 +225,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     handlerResponse: actualResponse,
                     debug_logs: finalDebugLogs
                 )
-                
+
                 do {
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
@@ -249,7 +249,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .query:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "query command requires a locator but none was provided"
@@ -258,17 +258,17 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
-                
+
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs
-                
+
                 let commandIDForResponse = commandEnvelope.command_id
                 let appIdentifierForHandler = commandEnvelope.application
                 let requestedAttributesForHandler = commandEnvelope.attributes
                 let pathHintForHandler = commandEnvelope.path_hint
                 let maxDepthForHandler = commandEnvelope.max_elements
                 let outputFormatForHandler = commandEnvelope.output_format
-                
+
                 // Call the new handleQuery method
                 let operationResult: HandlerResponse = await axInstance.handleQuery(
                     for: appIdentifierForHandler,
@@ -280,10 +280,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
                     currentDebugLogs: &handlerLogs
                 )
-                
+
                 let actualResponse = operationResult
                 let finalDebugLogs = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 fputs("[axorc DEBUG] Attempting to encode QueryResponse for query...\n", stderr)
                 let queryResponse = QueryResponse(
                     command_id: commandIDForResponse,
@@ -292,7 +292,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     handlerResponse: actualResponse,
                     debug_logs: finalDebugLogs
                 )
-                
+
                 do {
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
@@ -316,7 +316,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .describeElement:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "describeElement command requires a locator but none was provided"
@@ -325,16 +325,16 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
-                
+
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs
-                
+
                 let commandIDForResponse = commandEnvelope.command_id
                 let appIdentifierForHandler = commandEnvelope.application
                 let pathHintForHandler = commandEnvelope.path_hint
                 let maxDepthForHandler = commandEnvelope.max_elements
                 let outputFormatForHandler = commandEnvelope.output_format
-                
+
                 // Call the new handleDescribeElement method
                 let operationResult: HandlerResponse = await axInstance.handleDescribeElement(
                     for: appIdentifierForHandler,
@@ -345,10 +345,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
                     currentDebugLogs: &handlerLogs
                 )
-                
+
                 let actualResponse = operationResult
                 let finalDebugLogs = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 fputs("[axorc DEBUG] Attempting to encode QueryResponse for describeElement...\n", stderr)
                 let queryResponse = QueryResponse(
                     command_id: commandIDForResponse,
@@ -357,7 +357,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     handlerResponse: actualResponse,
                     debug_logs: finalDebugLogs
                 )
-                
+
                 do {
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
@@ -381,7 +381,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .performAction:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "performAction command requires a locator but none was provided"
@@ -397,10 +397,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
-                
+
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs
-                
+
                 let commandIDForResponse = commandEnvelope.command_id
                 let appIdentifierForHandler = commandEnvelope.application
                 let pathHintForHandler = commandEnvelope.path_hint
@@ -416,10 +416,10 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
                     currentDebugLogs: &handlerLogs
                 )
-                
+
                 let actualResponse = operationResult
                 let finalDebugLogs = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 fputs("[axorc DEBUG] Attempting to encode QueryResponse for performAction...\n", stderr)
                 let queryResponse = QueryResponse(
                     command_id: commandIDForResponse,
@@ -428,7 +428,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     handlerResponse: actualResponse,
                     debug_logs: finalDebugLogs
                 )
-                
+
                 do {
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
@@ -452,7 +452,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .extractText:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "extractText command requires a locator but none was provided"
@@ -512,7 +512,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .batch:
                 // The main commandEnvelope is for the batch itself.
                 // Sub-commands are now directly in commandEnvelope.sub_commands.
@@ -523,7 +523,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
-                
+
                 currentLogs.append("Processing batch command. Batch ID: \(commandEnvelope.command_id), Number of sub-commands: \(subCommands.count)")
 
                 let axInstance = AXorcist()
@@ -536,7 +536,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug, // Use overall debug flag
                     currentDebugLogs: &handlerLogs
                 )
-                
+
                 // Convert each HandlerResponse into a QueryResponse
                 var batchQueryResponses: [QueryResponse] = []
                 var overallSuccess = true
@@ -548,27 +548,27 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                         let errorMsg = "Mismatch between subCommands and batchHandlerResponses count."
                         currentLogs.append(errorMsg)
                         // Consider how to report this internal error
-                        continue 
+                        continue
                     }
                     let subCommandEnvelope = subCommands[index]
-                    
+
                     let subQueryResponse = QueryResponse(
                         command_id: subCommandEnvelope.command_id, // Use sub-command's ID
                         success: subHandlerResponse.error == nil,
                         command: subCommandEnvelope.command.rawValue, // Use sub-command's type
                         handlerResponse: subHandlerResponse,
                         debug_logs: nil // Individual sub-command logs are part of HandlerResponse.
-                                        // QueryResponse's init handles this for its 'error' or 'data'.
-                                        // The overall batch debug log will be separate.
+                        // QueryResponse's init handles this for its 'error' or 'data'.
+                        // The overall batch debug log will be separate.
                     )
                     batchQueryResponses.append(subQueryResponse)
                     if subHandlerResponse.error != nil {
                         overallSuccess = false
                     }
                 }
-                
+
                 let finalDebugLogsForBatch = debug || (commandEnvelope.debug_logging ?? false) ? handlerLogs : nil
-                
+
                 let batchOperationResponse = BatchOperationResponse(
                     command_id: commandEnvelope.command_id, // ID of the overall batch from the main envelope
                     success: overallSuccess,
@@ -596,7 +596,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: finalDebugLogsForBatch)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             case .collectAll:
                 let axInstance = AXorcist()
                 let handlerLogs = currentLogs // Changed var to let
@@ -657,7 +657,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
                     if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
                 }
-            
+
             default:
                 let errorMsg = "Unhandled command type: \(commandEnvelope.command)"
                 currentLogs.append(errorMsg)
@@ -668,13 +668,13 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
             var errorLogs = localDebugLogs
             let basicErrorMessage = "JSON decoding error: \(error.localizedDescription)"
             errorLogs.append(basicErrorMessage)
-            
+
             let detailedErrorMessage: String
             if let decodingError = error as? DecodingError {
-                 errorLogs.append("Decoding error details: \(decodingError.humanReadableDescription)")
-                 detailedErrorMessage = "Failed to decode JSON command (DecodingError): \(decodingError.humanReadableDescription)"
+                errorLogs.append("Decoding error details: \(decodingError.humanReadableDescription)")
+                detailedErrorMessage = "Failed to decode JSON command (DecodingError): \(decodingError.humanReadableDescription)"
             } else {
-                 detailedErrorMessage = "Failed to decode JSON command: \(error.localizedDescription)"
+                detailedErrorMessage = "Failed to decode JSON command: \(error.localizedDescription)"
             }
 
             let errResponse = ErrorResponse(command_id: "decode_error", error: ErrorResponse.ErrorDetail(message: detailedErrorMessage), debug_logs: debug ? errorLogs : nil)
@@ -727,7 +727,7 @@ struct QueryResponse: Codable {
     let data: AXElementForEncoding? // Contains the AX element's data, adapted for encoding
     let error: ErrorResponse.ErrorDetail?
     let debug_logs: [String]?
-    
+
     // Custom initializer to bridge from HandlerResponse (from AXorcist module)
     init(command_id: String, success: Bool, command: String, handlerResponse: HandlerResponse, debug_logs: [String]?) {
         self.command_id = command_id
@@ -768,6 +768,5 @@ extension DecodingError {
 }
 
 /*
-struct AXORC: ParsableCommand { ... old content ... }
-*/
-
+ struct AXORC: ParsableCommand { ... old content ... }
+ */

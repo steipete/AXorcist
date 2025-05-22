@@ -4,7 +4,7 @@ import Foundation
 import ApplicationServices // For AXUIElement related types
 import CoreGraphics // For potential future use with geometry types from attributes
 
-// Note: This file assumes Models (for ElementAttributes, AnyCodable), 
+// Note: This file assumes Models (for ElementAttributes, AnyCodable),
 // Logging (for debug), AccessibilityConstants, and Utils (for axValue) are available in the same module.
 // And now Element for the new element wrapper.
 
@@ -32,7 +32,7 @@ private func extractDirectPropertyValue(for attributeName: String, from element:
     var tempLogs: [String] = [] // For Element method calls
     var extractedValue: Any?
     var handled = true
-    
+
     // Ensure logging parameters are passed to Element methods
     switch attributeName {
     case kAXPathHintAttribute:
@@ -115,19 +115,19 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
 
     for attr in attributesToFetch {
         var tempCallLogs: [String] = [] // Logs for a specific attribute fetching call
-        if attr == kAXParentAttribute { 
+        if attr == kAXParentAttribute {
             tempCallLogs.removeAll()
             let parent = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
-            result[kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
-            currentDebugLogs.append(contentsOf: tempCallLogs)
-            continue 
-        } else if attr == kAXChildrenAttribute { 
+            result[kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // formatParentAttribute will manage its own logs now
+            currentDebugLogs.append(contentsOf: tempCallLogs) // Collect logs from element.parent and formatParentAttribute
+            continue
+        } else if attr == kAXChildrenAttribute {
             tempCallLogs.removeAll()
             let children = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
             result[attr] = formatChildrenAttribute(children, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
             currentDebugLogs.append(contentsOf: tempCallLogs)
             continue
-        } else if attr == kAXFocusedUIElementAttribute { 
+        } else if attr == kAXFocusedUIElementAttribute {
             tempCallLogs.removeAll()
             let focused = element.focusedElement(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
             result[attr] = formatFocusedUIElementAttribute(focused, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
@@ -149,24 +149,24 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
             currentDebugLogs.append(contentsOf: tempCallLogs)
             if outputFormat == .text_content {
                 finalValueToStore = formatRawCFValueForTextContent(rawCFValue)
-            } else { 
+            } else {
                 finalValueToStore = formatCFTypeRef(rawCFValue, option: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             }
             dLog("Attribute '\(attr)' fetched via rawAttributeValue, formatted value: \(String(describing: finalValueToStore))")
         }
-        
+
         if outputFormat == .smart {
             if let strVal = finalValueToStore as? String,
-               (strVal.isEmpty || strVal == "<nil>" || strVal == "AXValue (Illegal)" || strVal.contains("Unknown CFType") || strVal == kAXNotAvailableString) {
+               strVal.isEmpty || strVal == "<nil>" || strVal == "AXValue (Illegal)" || strVal.contains("Unknown CFType") || strVal == kAXNotAvailableString {
                 dLog("Smart format: Skipping attribute '\(attr)' with unhelpful value: \(strVal)")
-                continue 
+                continue
             }
         }
         result[attr] = AnyCodable(finalValueToStore)
     }
-    
+
     tempLogs.removeAll()
-    if result[computedNameAttributeKey] == nil { 
+    if result[computedNameAttributeKey] == nil {
         if let name = element.computedName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
             result[computedNameAttributeKey] = AnyCodable(name)
             dLog("Added ComputedName: \(name)")
@@ -175,16 +175,16 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
-    if result[isClickableAttributeKey] == nil { 
+    if result[isClickableAttributeKey] == nil {
         let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == kAXButtonRole)
         let hasPressAction = element.isActionSupported(kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-        if isButton || hasPressAction { 
+        if isButton || hasPressAction {
             result[isClickableAttributeKey] = AnyCodable(true)
             dLog("Added IsClickable: true (button: \(isButton), pressAction: \(hasPressAction))")
         }
     }
     currentDebugLogs.append(contentsOf: tempLogs)
-    
+
     tempLogs.removeAll()
     if outputFormat == .verbose && result[computedPathAttributeKey] == nil {
         let path = element.generatePathString(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
@@ -229,8 +229,7 @@ private func populateActionNamesAttribute(for element: Element, result: inout El
     currentDebugLogs.append(contentsOf: tempLogs)
     dLog("populateActionNamesAttribute: kAXPressAction supported: \(pressActionSupported).")
     if pressActionSupported {
-        if actionsToStore == nil { actionsToStore = [kAXPressAction] }
-        else if !actionsToStore!.contains(kAXPressAction) { actionsToStore!.append(kAXPressAction) }
+        if actionsToStore == nil { actionsToStore = [kAXPressAction] } else if !actionsToStore!.contains(kAXPressAction) { actionsToStore!.append(kAXPressAction) }
     }
 
     if let finalActions = actionsToStore, !finalActions.isEmpty {
@@ -310,7 +309,7 @@ public func encodeAttributesToJSONStringRepresentation(_ attributes: ElementAttr
     do {
         let jsonData = try encoder.encode(attributes) // attributes is [String: AnyCodable]
         if let jsonString = String(data: jsonData, encoding: .utf8) {
-            return ["json_representation": AnyCodable(jsonString)] 
+            return ["json_representation": AnyCodable(jsonString)]
         } else {
             return ["error": AnyCodable("Failed to convert encoded JSON data to string")]
         }
@@ -350,7 +349,7 @@ public func getComputedAttributes(for element: Element, isDebugLoggingEnabled: B
         attributes[isClickableAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(true), source: .computed))
         dLog("IsClickable: true (button: \(isButton), pressAction: \(hasPressAction))")
     }
-    
+
     // Ensure other computed attributes like ComputedPath also use methods with logging if they exist.
     // For now, this focuses on the direct errors.
 
@@ -364,14 +363,10 @@ public func getComputedAttributes(for element: Element, isDebugLoggingEnabled: B
 private func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) -> String {
     guard let value = rawValue else { return kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
-    if typeID == CFStringGetTypeID() { return (value as! String) }
-    else if typeID == CFAttributedStringGetTypeID() { return (value as! NSAttributedString).string }
-    else if typeID == AXValueGetTypeID() {
+    if typeID == CFStringGetTypeID() { return (value as! String) } else if typeID == CFAttributedStringGetTypeID() { return (value as! NSAttributedString).string } else if typeID == AXValueGetTypeID() {
         let axVal = value as! AXValue
         return formatAXValue(axVal, option: .default) // Assumes formatAXValue returns String
-    } else if typeID == CFNumberGetTypeID() { return (value as! NSNumber).stringValue }
-    else if typeID == CFBooleanGetTypeID() { return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false" }
-    else { return "<\(CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType")>" }
+    } else if typeID == CFNumberGetTypeID() { return (value as! NSNumber).stringValue } else if typeID == CFBooleanGetTypeID() { return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false" } else { return "<\(CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType")>" }
 }
 
 // Any other attribute-specific helper functions could go here in the future.

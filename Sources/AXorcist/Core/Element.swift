@@ -43,11 +43,11 @@ public struct Element: Equatable, Hashable {
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attributeName as CFString, &value)
         if error == .success {
             return value // Caller is responsible for CFRelease if it's a new object they own.
-                      // For many get operations, this is a copy-get rule, but some are direct gets.
-                      // Since we just return it, the caller should be aware or this function should manage it.
-                      // Given AXSwift patterns, often the raw value isn't directly exposed like this, 
-                      // or it is clearly documented. For now, let's assume this is for internal use by attributesMatch
-                      // which previously used copyAttributeValue which likely returned a +1 ref count object.
+            // For many get operations, this is a copy-get rule, but some are direct gets.
+            // Since we just return it, the caller should be aware or this function should manage it.
+            // Given AXSwift patterns, often the raw value isn't directly exposed like this,
+            // or it is clearly documented. For now, let's assume this is for internal use by attributesMatch
+            // which previously used copyAttributeValue which likely returned a +1 ref count object.
         } else if error == .attributeUnsupported {
             dLog("rawAttributeValue: Attribute \(attributeName) unsupported for element \(self.underlyingElement)")
         } else if error == .noValue {
@@ -142,18 +142,17 @@ public struct Element: Equatable, Hashable {
         }
 
         guard let resultCFValue = value else { return nil }
-        
+
         // Use axValue's unwrapping and casting logic if possible, by temporarily creating an element and attribute
         // This is a bit of a conceptual stretch, as axValue is designed for direct attributes.
         // A more direct unwrap using ValueUnwrapper might be cleaner here.
         let unwrappedValue = ValueUnwrapper.unwrap(resultCFValue, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        
+
         guard let finalValue = unwrappedValue else { return nil }
 
         // Perform type casting similar to axValue
         if T.self == String.self {
-            if let str = finalValue as? String { return str as? T }
-            else if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
+            if let str = finalValue as? String { return str as? T } else if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
             return nil
         }
         if let castedValue = finalValue as? T {
@@ -179,19 +178,19 @@ public struct Element: Equatable, Hashable {
     /// This provides a general-purpose, human-readable name.
     @MainActor
     // Convert from a computed property to a method to accept logging parameters
-    public func computedName(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? { 
+    public func computedName(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
         // Now uses the passed-in logging parameters for its internal calls
         if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !titleStr.isEmpty, titleStr != kAXNotAvailableString { return titleStr }
-        
+
         if let valueStr: String = self.value(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) as? String, !valueStr.isEmpty, valueStr != kAXNotAvailableString { return valueStr }
-        
+
         if let descStr = self.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !descStr.isEmpty, descStr != kAXNotAvailableString { return descStr }
-        
+
         if let helpStr: String = self.attribute(Attribute<String>(kAXHelpAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !helpStr.isEmpty, helpStr != kAXNotAvailableString { return helpStr }
         if let phValueStr: String = self.attribute(Attribute<String>(kAXPlaceholderValueAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !phValueStr.isEmpty, phValueStr != kAXNotAvailableString { return phValueStr }
-        
+
         let roleNameStr: String = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "Element"
-        
+
         if let roleDescStr: String = self.roleDescription(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !roleDescStr.isEmpty, roleDescStr != kAXNotAvailableString {
             return "\(roleDescStr) (\(roleNameStr))"
         }
@@ -259,27 +258,27 @@ extension Element {
             tempLogs.removeAll()
             let role = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs)
-            
+
             tempLogs.removeAll()
             let parentElement = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs)
-            
+
             tempLogs.removeAll()
             let parentRole = parentElement?.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs)
 
             if role == kAXApplicationRole || (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
                 dLog("generatePathString: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)")
-                break 
+                break
             }
-            
+
             currentElement = parentElement
             depth += 1
-            if currentElement == nil && role != kAXApplicationRole { 
-                 let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
-                 dLog("generatePathString: Unexpected orphan: \(orphanLog)")
-                 pathComponents.append(orphanLog) 
-                 break
+            if currentElement == nil && role != kAXApplicationRole {
+                let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
+                dLog("generatePathString: Unexpected orphan: \(orphanLog)")
+                pathComponents.append(orphanLog)
+                break
             }
         }
         if depth >= maxDepth {
@@ -300,7 +299,7 @@ extension Element {
         var currentElement: Element? = self
 
         var depth = 0
-        let maxDepth = 25 
+        let maxDepth = 25
         var tempLogs: [String] = []
 
         dLog("generatePathArray started for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)) upTo: \(ancestor?.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "nil")")
@@ -320,27 +319,27 @@ extension Element {
             tempLogs.removeAll()
             let role = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
-            
+
             tempLogs.removeAll()
             let parentElement = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
-            
+
             tempLogs.removeAll()
             let parentRole = parentElement?.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
             if role == kAXApplicationRole || (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
                 dLog("generatePathArray: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)")
-                break 
+                break
             }
-            
+
             currentElement = parentElement
             depth += 1
-            if currentElement == nil && role != kAXApplicationRole { 
-                 let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
-                 dLog("generatePathArray: Unexpected orphan: \(orphanLog)")
-                 pathComponents.append(orphanLog) 
-                 break
+            if currentElement == nil && role != kAXApplicationRole {
+                let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
+                dLog("generatePathArray: Unexpected orphan: \(orphanLog)")
+                pathComponents.append(orphanLog)
+                break
             }
         }
         if depth >= maxDepth {

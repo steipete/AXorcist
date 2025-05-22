@@ -50,7 +50,7 @@ public struct Attribute<T> {
     public static var mainWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXMainWindowAttribute) } // Can be nil
     public static var focusedWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedWindowAttribute) } // Can be nil
     public static var focusedElement: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedUIElementAttribute) } // Can be nil
-    
+
     // MARK: - Application Specific Attributes
     // public static var enhancedUserInterface: Attribute<Bool> { Attribute<Bool>(kAXEnhancedUserInterfaceAttribute) } // Constant not found, commenting out
     public static var frontmost: Attribute<Bool> { Attribute<Bool>(kAXFrontmostAttribute) }

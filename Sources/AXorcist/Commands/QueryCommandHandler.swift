@@ -1,15 +1,15 @@
 import Foundation
 import ApplicationServices
-import AppKit 
+import AppKit
 
-// Note: Relies on applicationElement, navigateToElement, search, getElementAttributes, 
+// Note: Relies on applicationElement, navigateToElement, search, getElementAttributes,
 // DEFAULT_MAX_DEPTH_SEARCH, CommandEnvelope, QueryResponse, Locator.
 
 @MainActor
 public func handleQuery(cmd: CommandEnvelope, isDebugLoggingEnabled: Bool) async throws -> QueryResponse {
     var handlerLogs: [String] = [] // Local logs for this handler
     func dLog(_ message: String) { if isDebugLoggingEnabled { handlerLogs.append(message) } }
-    
+
     let appIdentifier = cmd.application ?? focusedApplicationKey
     dLog("Handling query for app: \(appIdentifier)")
 
@@ -28,7 +28,7 @@ public func handleQuery(cmd: CommandEnvelope, isDebugLoggingEnabled: Bool) async
             return QueryResponse(command_id: cmd.command_id, attributes: nil, error: "Element not found via path hint: \(pathHint.joined(separator: " -> "))", debug_logs: isDebugLoggingEnabled ? handlerLogs : nil)
         }
     }
-    
+
     guard let locator = cmd.locator else {
         return QueryResponse(command_id: cmd.command_id, attributes: nil, error: "Locator not provided in command.", debug_logs: isDebugLoggingEnabled ? handlerLogs : nil)
     }
@@ -37,7 +37,7 @@ public func handleQuery(cmd: CommandEnvelope, isDebugLoggingEnabled: Bool) async
     let criteriaKeys = locator.criteria.keys
     let isAppOnlyLocator = criteriaKeys.allSatisfy { appSpecifiers.contains($0) } && criteriaKeys.count == 1
 
-    var foundElement: Element? = nil
+    var foundElement: Element?
 
     if isAppOnlyLocator {
         dLog("Locator is app-only (criteria: \(locator.criteria)). Using appElement directly.")
@@ -57,9 +57,9 @@ public func handleQuery(cmd: CommandEnvelope, isDebugLoggingEnabled: Bool) async
             searchStartElementForLocator = effectiveElement
             dLog("Searching with locator from element (determined by main path_hint or app root): \(searchStartElementForLocator.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &handlerLogs))")
         }
-        
+
         let finalSearchTarget = (cmd.path_hint != nil && !cmd.path_hint!.isEmpty) ? effectiveElement : searchStartElementForLocator
-        
+
         // Pass logging parameters to search
         foundElement = search(
             element: finalSearchTarget,
@@ -70,13 +70,13 @@ public func handleQuery(cmd: CommandEnvelope, isDebugLoggingEnabled: Bool) async
             currentDebugLogs: &handlerLogs
         )
     }
-    
+
     if let elementToQuery = foundElement {
         // Pass logging parameters to getElementAttributes
         var attributes = getElementAttributes(
             elementToQuery,
             requestedAttributes: cmd.attributes ?? [],
-            forMultiDefault: false, 
+            forMultiDefault: false,
             targetRole: locator.criteria[kAXRoleAttribute],
             outputFormat: cmd.output_format ?? .smart,
             isDebugLoggingEnabled: isDebugLoggingEnabled,

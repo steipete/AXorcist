@@ -75,7 +75,7 @@ public func pid(forAppIdentifier ident: String, isDebugLoggingEnabled: Bool, cur
     } else {
         dLog("ProcessUtils: Identifier '\(ident)' is not a valid file path or bundle info could not be read.")
     }
-    
+
     dLog("ProcessUtils: Trying by interpreting '\(ident)' as a PID string.")
     if let pidInt = Int32(ident) {
         if let appByPid = NSRunningApplication(processIdentifier: pidInt), !appByPid.isTerminated {
