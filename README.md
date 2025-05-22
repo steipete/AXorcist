@@ -261,6 +261,8 @@ MIT License - see [LICENSE](LICENSE) scroll for the complete binding agreement.
 
 ---
 
+<!-- Testing CI workflow -->
+
 <p align="center">
   <em>May your UI elements bend to your will, and may your accessibility spells never fail. 🧙‍♂️✨</em>
 </p>
