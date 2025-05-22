@@ -3,6 +3,12 @@
 import AXorcistLib
 import Foundation
 
+// TEMPORARY TEST STRUCT - REMOVED
+// struct SimpleTestResponse: Codable {
+//     var message: String
+//     var logs: [String]?
+// }
+
 struct CommandExecutor {
 
     static func execute(
@@ -12,7 +18,10 @@ struct CommandExecutor {
     ) async -> String {
 
         var localDebugLogs: [String] = []
-        if debug { localDebugLogs.append("Executing command: \(command.command) (ID: \(command.command_id))") }
+        // Determine the effective debug logging state
+        let effectiveDebugLogging = command.debug_logging ?? debug
+
+        if effectiveDebugLogging { localDebugLogs.append("Executing command: \(command.command) (ID: \(command.command_id)), effectiveDebug: \(effectiveDebugLogging), cliDebug: \(debug), jsonDebug: \(String(describing: command.debug_logging))") }
 
         let ax = axorcist // Use the passed-in instance
 
@@ -36,7 +45,7 @@ struct CommandExecutor {
                 actionName: actionName,
                 actionValue: command.action_value,
                 maxDepth: command.max_elements,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -44,7 +53,7 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding performAction response failed\"}"
 
@@ -52,7 +61,7 @@ struct CommandExecutor {
             let handlerResponse: HandlerResponse = await ax.handleGetFocusedElement(
                 for: command.application,
                 requestedAttributes: command.attributes,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -60,7 +69,7 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding getFocusedElement response failed\"}"
 
@@ -83,7 +92,7 @@ struct CommandExecutor {
                 pathHint: command.path_hint,
                 maxDepth: command.max_elements,
                 outputFormat: command.output_format,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -91,7 +100,7 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding getAttributes response failed\"}"
 
@@ -114,7 +123,7 @@ struct CommandExecutor {
                 maxDepth: command.max_elements,
                 requestedAttributes: command.attributes,
                 outputFormat: command.output_format,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -122,7 +131,7 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding query response failed\"}"
 
@@ -144,7 +153,7 @@ struct CommandExecutor {
                 pathHint: command.path_hint,
                 maxDepth: command.max_elements,
                 outputFormat: command.output_format,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -152,7 +161,7 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding describeElement response failed\"}"
 
@@ -172,7 +181,7 @@ struct CommandExecutor {
                 for: command.application,
                 locator: locator,
                 pathHint: command.path_hint,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: &localDebugLogs
             )
             let queryResponse = QueryResponse(
@@ -180,14 +189,11 @@ struct CommandExecutor {
                 success: handlerResponse.error == nil,
                 command: command.command.rawValue,
                 handlerResponse: handlerResponse,
-                debug_logs: debug ? localDebugLogs : nil
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil
             )
             return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding extractText response failed\"}"
 
         case .collectAll:
-            // AXorcist.handleCollectAll returns a String (JSON) directly.
-            // It manages its own debug logs internally via recursiveCallDebugLogs.
-            // The `currentDebugLogs` passed to it is for initial logs only.
             let jsonStringResult = await ax.handleCollectAll(
                 for: command.application,
                 locator: command.locator,
@@ -196,64 +202,59 @@ struct CommandExecutor {
                 requestedAttributes: command.attributes,
                 outputFormat: command.output_format,
                 commandId: command.command_id,
-                isDebugLoggingEnabled: debug,
+                isDebugLoggingEnabled: effectiveDebugLogging,
                 currentDebugLogs: localDebugLogs
             )
             return jsonStringResult
 
         case .batch:
             guard let subCommands = command.sub_commands else {
-                let error = "Missing sub_commands for batch"
+                let error = "Missing sub_commands for batch command"
                 localDebugLogs.append(error)
-                return encodeToJson(QueryResponse(
+                return encodeToJson(BatchResponse(
+                    command_id: command.command_id,
                     success: false,
-                    commandId: command.command_id,
-                    command: command.command.rawValue,
+                    results: [],
                     error: error,
-                    debugLogs: debug ? localDebugLogs : nil
-                )) ?? "{\"error\": \"Encoding error response failed\"}"
+                    debug_logs: effectiveDebugLogging ? localDebugLogs : nil
+                )) ?? "{\"error\": \"Encoding batch error response failed\"}"
             }
-            let batchHandlerResponses: [HandlerResponse] = await ax.handleBatchCommands(
+            
+            var batchDebugLogs = localDebugLogs
+            let batchResults: [HandlerResponse] = await ax.handleBatchCommands(
                 batchCommandID: command.command_id,
                 subCommands: subCommands,
-                isDebugLoggingEnabled: debug,
-                currentDebugLogs: &localDebugLogs
+                isDebugLoggingEnabled: effectiveDebugLogging,
+                currentDebugLogs: &batchDebugLogs
             )
-            // Convert [HandlerResponse] to an array of QueryResponse objects
-            let queryResponses = batchHandlerResponses.enumerated().map { index, hr -> QueryResponse in
-                let subCommandId = index < subCommands.count ? subCommands[index].command_id : "batch_sub_\(index)"
-                let subCommand = index < subCommands.count ? subCommands[index].command.rawValue : "unknown"
-                return QueryResponse(
-                    command_id: subCommandId,
-                    success: hr.error == nil,
-                    command: subCommand,
-                    handlerResponse: hr,
-                    debug_logs: hr.debug_logs
-                )
-            }
-            // Determine overall success of the batch
-            let overallSuccess = batchHandlerResponses.allSatisfy { $0.error == nil }
-            // Return BatchOperationResponse
-            let batchResponse = BatchOperationResponse(
+
+            let overallSuccess = batchResults.allSatisfy { $0.error == nil }
+            let batchResponse = BatchResponse(
                 command_id: command.command_id,
                 success: overallSuccess,
-                results: queryResponses,
-                debug_logs: debug ? localDebugLogs : nil
+                results: batchResults,
+                error: nil,
+                debug_logs: effectiveDebugLogging ? batchDebugLogs : nil
             )
             return encodeToJson(batchResponse) ?? "{\"error\": \"Encoding batch response failed\"}"
 
         case .ping:
-            let appName = command.application ?? "N/A"
-            let msg = "Ping received for \(appName). AXORC Version: \(AXORC_VERSION)"
-            localDebugLogs.append(msg)
-            return encodeToJson(SimpleSuccessResponse(
+            if effectiveDebugLogging { localDebugLogs.append("Ping command received. Responding with pong.") }
+            // Create an empty HandlerResponse for ping
+            let pingHandlerResponse = HandlerResponse(
+                data: nil, 
+                error: nil, 
+                debug_logs: nil // Ping-specific logs are already in localDebugLogs
+            )
+            // Construct QueryResponse using the HandlerResponse initializer
+            let queryResponse = QueryResponse(
                 command_id: command.command_id,
-                success: true,
-                status: "pong",
-                message: msg,
-                details: nil,
-                debug_logs: debug ? localDebugLogs : nil
-            )) ?? "{\"error\": \"Encoding ping response failed\"}"
+                success: true, // Ping is always a success if reached
+                command: command.command.rawValue,
+                handlerResponse: pingHandlerResponse,
+                debug_logs: effectiveDebugLogging ? localDebugLogs : nil 
+            )
+            return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding ping response failed\"}"
         }
     }
 
@@ -265,6 +266,9 @@ struct CommandExecutor {
             let data = try encoder.encode(object)
             return String(data: data, encoding: .utf8)
         } catch {
+            // PRINT THE ERROR TO STDERR
+            let errorDescription = "JSON ENCODING ERROR: \(error.localizedDescription). Details: \(error)"
+            FileHandle.standardError.write(errorDescription.data(using: .utf8)!)
             return nil
         }
     }

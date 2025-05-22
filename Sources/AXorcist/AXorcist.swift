@@ -15,8 +15,10 @@ public class AXorcist {
     internal var recursiveCallDebugLogs: [String] = [] // Added for recursive logging
 
     // Default values for collection and search if not provided by the command
-    public static let defaultMaxDepthSearch = 10 // Example, adjust as needed
-    public static let defaultMaxDepthCollectAll = 5
+    public static let defaultMaxDepthSearch = 10 // Default for general locator-based searches
+    public static let defaultMaxDepthCollectAll = 7 // Default for collectAll recursive operations
+    public static let defaultMaxDepthPathResolution = 15 // Max depth for resolving path hints
+    public static let defaultMaxDepthDescribe = 5 // ADDED: Default for description recursion
     public static let defaultTimeoutPerElementCollectAll = 0.5 // seconds
 
     // Default attributes to fetch if none are specified by the command.
@@ -114,10 +116,14 @@ public class AXorcist {
         currentDebugLogs: inout [String]
     ) -> Element? {
         let pathHintString = pathHint.joined(separator: ", ")
+        // Log with the actual isDebugLoggingEnabled value
         currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Entered. isDebugLoggingEnabled: \(isDebugLoggingEnabled). pathHint: [\(pathHintString)]", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
 
         func dLog(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: file, function: function, line: line))
+            // Use the passed-in isDebugLoggingEnabled
+            if isDebugLoggingEnabled {
+                currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: file, function: function, line: line))
+            }
         }
 
         var currentElement = startElement
@@ -143,7 +149,7 @@ public class AXorcist {
                 for child in childrenFromElementDotChildren {
                     let childBriefDescForLog = child.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
                     if let actualValue = child.attribute(Attribute<String>(attributeName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
-                        // dLog("Child (from Element.children) \(childBriefDescForLog) has '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])")
+                        dLog("  [Nav Child Check 1] Child: \(childBriefDescForLog), Attribute '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])")
                         if actualValue == expectedValue {
                             dLog("Matched child (from Element.children): \(childBriefDescForLog) for '\(attributeName):\(expectedValue)'")
                             newElementForNextStep = child
@@ -175,8 +181,9 @@ public class AXorcist {
                         currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Direct kAXChildrenAttribute fallback found \(directAxElements.count) raw children for \(currentElementDescForFallbackLog).", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
                         for axChild in directAxElements {
                             let childElement = Element(axChild)
-                            // let childBriefDescForLog = childElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) // Avoid for now inside loop if too verbose or risky
+                            let childBriefDescForLogFallback = childElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
                             if let actualValue = childElement.attribute(Attribute<String>(attributeName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+                                dLog("  [Nav Child Check 2-Fallback] Child: \(childBriefDescForLogFallback), Attribute '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])")
                                 if actualValue == expectedValue {
                                     currentDebugLogs.append(AXorcist.formatDebugLogMessage("navigateToElement: Matched child (from direct fallback) for '\(attributeName):\(expectedValue)' on \(currentElementDescForFallbackLog). Child: \(childElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
                                     newElementForNextStep = childElement

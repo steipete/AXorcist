@@ -82,14 +82,15 @@ extension AXorcist {
             dLog(
                 "[AXorcist.handleGetAttributes] Not an AXApplication-only locator or value mismatch. Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)"
             )
-            elementToQuery = search(
+            let searchResultGetAttributes = search(
                 element: effectiveElement,
                 locator: locator,
                 requireAction: locator.requireAction,
                 maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
+                isDebugLoggingEnabled: isDebugLoggingEnabled
             )
+            currentDebugLogs.append(contentsOf: searchResultGetAttributes.logs)
+            elementToQuery = searchResultGetAttributes.foundElement
         }
 
         if let actualElementToQuery = elementToQuery {
@@ -243,14 +244,15 @@ extension AXorcist {
             let finalSearchTarget = (pathHint != nil && !pathHint!.isEmpty) ? effectiveElement :
                 searchStartElementForLocator
 
-            foundElement = search(
+            let searchResultQuery = search(
                 element: finalSearchTarget,
                 locator: locator,
                 requireAction: locator.requireAction,
                 maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
+                isDebugLoggingEnabled: isDebugLoggingEnabled
             )
+            currentDebugLogs.append(contentsOf: searchResultQuery.logs)
+            foundElement = searchResultQuery.foundElement
         }
 
         if let elementToQuery = foundElement {
@@ -350,18 +352,19 @@ extension AXorcist {
         dLog(
             "[AXorcist.handleDescribeElement] Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)"
         )
-        let foundElement = search(
+        let searchResultDescribe = search(
             element: effectiveElement,
             locator: locator,
             requireAction: locator.requireAction,
             maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
+            isDebugLoggingEnabled: isDebugLoggingEnabled
         )
+        currentDebugLogs.append(contentsOf: searchResultDescribe.logs)
+        let foundElementForDescribe = searchResultDescribe.foundElement
 
-        if let elementToDescribe = foundElement {
+        if let elementToDescribe = foundElementForDescribe {
             let elementDescription = elementToDescribe.briefDescription(
-                option: .default,
+                option: ValueFormatOption.default,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             )
@@ -374,9 +377,9 @@ extension AXorcist {
             var attributes = getElementAttributes(
                 elementToDescribe,
                 requestedAttributes: [], // Empty means 'all standard' or 'all known'
-                forMultiDefault: false,
+                forMultiDefault: true,
                 targetRole: locator.criteria[kAXRoleAttribute],
-                outputFormat: .verbose, // Describe implies verbose
+                outputFormat: outputFormat ?? .smart,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             )
@@ -393,7 +396,7 @@ extension AXorcist {
             let axElement = AXElement(attributes: attributes, path: elementPathArray)
 
             dLog(
-                "[AXorcist.handleDescribeElement] Successfully described element \(elementToDescribe.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
+                "[AXorcist.handleDescribeElement] Successfully described element \(elementToDescribe.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
             )
             return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
         } else {

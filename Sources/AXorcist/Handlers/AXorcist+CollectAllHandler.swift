@@ -124,9 +124,20 @@ extension AXorcist {
         }
 
         if let loc = locator {
-            dLog("Locator provided. Searching for element from current startElement: \(startElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) with locator criteria: \(String(describing: loc.criteria))")
-            if let locatedStartElement = search(element: startElement, locator: loc, requireAction: loc.requireAction, depth: 0, maxDepth: Self.defaultMaxDepthSearch, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) {
-                dLog("Locator found element: \(locatedStartElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)). This will be the root for collectAll recursion.")
+            dLog("Locator provided. Searching for element from current startElement: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) with locator criteria: \(String(describing: loc.criteria))")
+            
+            let searchResultCollectAll = search(element: startElement, 
+                                      locator: loc, 
+                                      requireAction: loc.requireAction, 
+                                      depth: 0, 
+                                      maxDepth: Self.defaultMaxDepthSearch, 
+                                      isDebugLoggingEnabled: isDebugLoggingEnabled)
+            self.recursiveCallDebugLogs.append("HANDLER_DEBUG: searchResultCollectAll.logs.count = \(searchResultCollectAll.logs.count) before append for collectAll")
+            self.recursiveCallDebugLogs.append(contentsOf: searchResultCollectAll.logs)
+            self.recursiveCallDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_COLLECT_ALL")
+
+            if let locatedStartElement = searchResultCollectAll.foundElement {
+                dLog("Locator found element: \(locatedStartElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)). This will be the root for collectAll recursion.")
                 startElement = locatedStartElement
             } else {
                 let errorMsg = "Failed to find element with provided locator criteria: \(String(describing: loc.criteria)). Cannot start collectAll."
@@ -147,13 +158,13 @@ extension AXorcist {
         collectRecursively = { axUIElement, currentDepth in
             if currentDepth > recursionDepthLimit {
                 dLog(
-                    "Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch."
+                    "Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch."
                 )
                 return
             }
 
             let currentElement = Element(axUIElement)
-            dLog("Collecting element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
+            dLog("Collecting element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
 
             let fetchedAttrs = getElementAttributes(
                 currentElement,
@@ -182,36 +193,40 @@ extension AXorcist {
 
             if childrenResult == .success, let children = childrenRef as? [AXUIElement] {
                 dLog(
-                    "Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing."
+                    "Element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing."
                 )
                 for childElement in children {
                     collectRecursively(childElement, currentDepth + 1)
                 }
             } else if childrenResult != .success {
                 dLog(
-                    "Failed to get children for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \(axErrorToString(childrenResult))"
+                    "Failed to get children for element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \(axErrorToString(childrenResult))"
                 )
             } else {
                 dLog(
-                    "No children found for element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
+                    "No children found for element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
                 )
             }
         }
 
         dLog(
-            "Starting recursive collection from start element: \(startElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))"
+            "Starting recursive collection from start element: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))"
         )
-        collectRecursively(startElement.underlyingElement, 0)
 
-        dLog("Collection complete. Found \(collectedAXElements.count) elements.")
+        // Start recursion from the determined startElement
+        if !self.recursiveCallDebugLogs.contains(where: { $0.contains("Failed to find element with provided locator criteria") && $0.contains("Cannot start collectAll") }) {
+             // Only start if locator search (if any) didn't critically fail and try to return early.
+            collectRecursively(startElement.underlyingElement, 0)
+        }
 
-        return encode(CollectAllOutput(
+        let output = CollectAllOutput(
             command_id: effectiveCommandId,
-            success: true,
+            success: true, // Assuming success if we reach here, errors would have returned earlier
             command: "collectAll",
             collected_elements: collectedAXElements,
             app_bundle_id: appIdentifier,
             debug_logs: self.recursiveCallDebugLogs
-        ))
+        )
+        return encode(output)
     }
 }

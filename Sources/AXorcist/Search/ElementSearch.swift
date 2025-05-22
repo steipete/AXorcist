@@ -1,6 +1,7 @@
 // ElementSearch.swift - Contains search and element collection logic
 
 import ApplicationServices
+import Darwin
 import Foundation
 
 // Variable DEBUG_LOGGING_ENABLED is expected to be globally available from Logging.swift
@@ -97,14 +98,28 @@ public func search(element: Element,
                    requireAction: String?,
                    depth: Int = 0,
                    maxDepth: Int = DEFAULT_MAX_DEPTH_SEARCH,
-                   isDebugLoggingEnabled: Bool,
-                   currentDebugLogs: inout [String]) -> Element? {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var tempLogs: [String] = [] // For calls to Element methods
+                   isDebugLoggingEnabled: Bool
+                   /* REMOVED: currentDebugLogs: inout [String] */) -> (foundElement: Element?, logs: [String]) { // CHANGED RETURN TYPE
+    fputs("SEARCH_FUNCTION_RAW_PRINT_STDERR: Depth \(depth), isDebug: \(isDebugLoggingEnabled)\n", stderr)
+    var internalSearchLogs: [String] = [] // NEW: Internal log storage
+
+    // DIRECT APPEND AND LOCAL LET FOR DEBUG FLAG
+    internalSearchLogs.append("SEARCH_ENTRY_DIRECT_APPEND: Depth \(depth), isDebugLoggingEnabledParam: \(isDebugLoggingEnabled)")
+    let localDebugEnabled = isDebugLoggingEnabled
+    internalSearchLogs.append("SEARCH_ENTRY_LOCALDEBUG: localDebugEnabled is \(localDebugEnabled)")
+
+    func dLog(_ message: String) { if localDebugEnabled { internalSearchLogs.append(message) } } // Appends to internalSearchLogs
+    
+    var tempLogsForElementMethods: [String] = [] // For calls to Element methods that require inout logs
 
     let criteriaDesc = locator.criteria.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
-    let roleStr = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "nil"
-    let titleStr = element.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "N/A"
+    // Calls to element.role, element.title etc. will use tempLogsForElementMethods
+    // Their logs aren't the primary concern for *this* refactor's test, but they need a valid inout array.
+    let roleStr = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogsForElementMethods) ?? "nil"
+    let titleStr = element.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogsForElementMethods) ?? "N/A"
+    internalSearchLogs.append(contentsOf: tempLogsForElementMethods) // Append logs from element methods
+    tempLogsForElementMethods.removeAll() // Clear for next use
+
     dLog(
         "search [D\(depth)]: Visiting. Role: \(roleStr), Title: \(titleStr). Locator Criteria: [\(criteriaDesc)], Action: \(requireAction ?? "none")"
     )
@@ -113,36 +128,46 @@ public func search(element: Element,
         let briefDesc = element.briefDescription(
             option: .default,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogs
+            currentDebugLogs: &tempLogsForElementMethods
         )
+        internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
+        tempLogsForElementMethods.removeAll()
         dLog("search [D\(depth)]: Max depth \(maxDepth) reached for element \(briefDesc).")
-        return nil
+        return (nil, internalSearchLogs) // RETURN TUPLE
     }
 
+    // evaluateElementAgainstCriteria still uses inout, its logs will be added to internalSearchLogs
+    var logsFromEvaluate: [String] = []
     let matchStatus = evaluateElementAgainstCriteria(element: element,
                                                      locator: locator,
                                                      actionToVerify: requireAction,
                                                      depth: depth,
                                                      isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                                     currentDebugLogs: &currentDebugLogs) // Pass through logs
+                                                     currentDebugLogs: &logsFromEvaluate)
+    internalSearchLogs.append(contentsOf: logsFromEvaluate)
 
     if matchStatus == .fullMatch {
         let briefDesc = element.briefDescription(
             option: .default,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogs
+            currentDebugLogs: &tempLogsForElementMethods
         )
+        internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
+        tempLogsForElementMethods.removeAll()
         dLog(
             "search [D\(depth)]: evaluateElementAgainstCriteria returned .fullMatch for \(briefDesc). Returning element."
         )
-        return element
+        return (element, internalSearchLogs) // RETURN TUPLE
     }
 
     let briefDesc = element.briefDescription(
         option: .default,
         isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogs
+        currentDebugLogs: &tempLogsForElementMethods
     )
+    internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
+    tempLogsForElementMethods.removeAll()
+
     if matchStatus == .partialMatch_actionMissing {
         dLog(
             "search [D\(depth)]: Element \(briefDesc) matched criteria but missed action '\(requireAction ?? "")'. Continuing child search."
@@ -154,25 +179,31 @@ public func search(element: Element,
 
     let childrenToSearch: [Element] = element.children(
         isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogs
+        currentDebugLogs: &tempLogsForElementMethods // Pass tempLogsForElementMethods here
     ) ?? []
+    internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
+    tempLogsForElementMethods.removeAll()
+
 
     if !childrenToSearch.isEmpty {
         for childElement in childrenToSearch {
-            if let found = search(
+            // RECURSIVE CALL
+            let recursiveResult = search( // No longer passes currentDebugLogs
                 element: childElement,
                 locator: locator,
                 requireAction: requireAction,
                 depth: depth + 1,
                 maxDepth: maxDepth,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) {
-                return found
+                isDebugLoggingEnabled: isDebugLoggingEnabled
+                // Removed: currentDebugLogs: &currentDebugLogs -> now &internalSearchLogs
+            )
+            internalSearchLogs.append(contentsOf: recursiveResult.logs) // Append logs from recursive call
+            if let found = recursiveResult.foundElement {
+                return (found, internalSearchLogs) // RETURN TUPLE
             }
         }
     }
-    return nil
+    return (nil, internalSearchLogs) // RETURN TUPLE
 }
 
 @MainActor

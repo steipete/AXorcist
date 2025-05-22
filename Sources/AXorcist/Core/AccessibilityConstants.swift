@@ -120,6 +120,7 @@ public let kAXMenuItemRole = "AXMenuItem" // New
 public let kAXSplitGroupRole = "AXSplitGroup" // New
 public let kAXSplitterRole = "AXSplitter" // New
 public let kAXColorWellRole = "AXColorWell" // New
+public let kAXLinkRole = "AXLink" // New
 public let kAXUnknownRole = "AXUnknown" // New
 
 // Attributes for web content and tables/lists

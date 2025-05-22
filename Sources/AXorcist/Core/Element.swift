@@ -77,11 +77,14 @@ public struct Element: Equatable, Hashable {
                 }
             } else if T.self == Bool.self {
                 if CFGetTypeID(unwrappedValue) == CFBooleanGetTypeID() {
-                    return CFBooleanGetValue(unwrappedValue as! CFBoolean) as? T
+                    // Reverted to as! based on new compiler note
+                    let swiftBool = CFBooleanGetValue(unwrappedValue as! CFBoolean)
+                    return swiftBool as? T
                 }
             } else if T.self == Int.self {
                  if CFGetTypeID(unwrappedValue) == CFNumberGetTypeID() {
                     var intValue: Int = 0
+                    // Reverted to as! based on new compiler note
                     if CFNumberGetValue(unwrappedValue as! CFNumber, .sInt64Type, &intValue) {
                         return intValue as? T
                     }

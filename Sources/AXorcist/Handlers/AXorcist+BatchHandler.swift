@@ -173,7 +173,7 @@ extension AXorcist {
             // This is distinct from commands axorc itself might handle outside of AXorcist library.
             // @unknown default: // This would be better if Swift enums allowed it easily here for non-frozen enums from other modules.
             // Since CommandType is in axorc, this default captures any CommandType case not explicitly handled above.
-            default:
+            @unknown default:
                 let errorMsg =
                     "Unknown or unhandled command type '\(subCommandEnvelope.command)' in batch processing within AXorcist (sub-command ID: \(subCmdID))"
                 dLog(errorMsg, subCommandID: subCmdID)

@@ -2,6 +2,7 @@
 
 import AppKit
 import ApplicationServices
+import Darwin
 import Foundation
 
 // MARK: - Action & Data Handlers Extension
@@ -66,9 +67,26 @@ extension AXorcist {
         let targetElementForAction: Element
         if let actualLocator = locator {
             dLog("[AXorcist.handlePerformAction] Locator provided. Searching from current effectiveElement: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) using locator criteria: \(actualLocator.criteria)")
-            guard let foundElement = search(element: effectiveElement, locator: actualLocator, requireAction: actualLocator.requireAction, depth: 0, maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
-                let error = "[AXorcist.handlePerformAction] Failed to find element with locator: \(actualLocator) starting from \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
-                currentDebugLogs.append(error)
+            
+            let searchResult = search(
+                element: effectiveElement,
+                locator: actualLocator,
+                requireAction: actualLocator.requireAction,
+                depth: 0,
+                maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
+                isDebugLoggingEnabled: isDebugLoggingEnabled
+            )
+            fputs("HANDLER_RAW_STDERR_BEFORE_LOG_APPEND handlePerformAction: searchResult.logs.count = \(searchResult.logs.count), currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
+            currentDebugLogs.append("HANDLER_DEBUG: searchResult.logs.count = \(searchResult.logs.count) before append for performAction")
+            currentDebugLogs.append(contentsOf: searchResult.logs)
+            fputs("HANDLER_RAW_STDERR_AFTER_LOG_APPEND handlePerformAction: currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
+            currentDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_HANDLER")
+
+            guard let foundElement = searchResult.foundElement else {
+                let error = "[AXorcist.handlePerformAction] Search failed. Could not find element matching locator criteria \(actualLocator.criteria) starting from element \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
+                if !currentDebugLogs.contains(error) {
+                    currentDebugLogs.append(error)
+                }
                 return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
             }
             targetElementForAction = foundElement
@@ -236,17 +254,26 @@ extension AXorcist {
         let targetElementForExtract: Element
         if let actualLocator = locator {
             dLog("[handleExtractText] Locator provided. Searching from current effectiveElement: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) using locator criteria: \(actualLocator.criteria)")
-            guard let foundElement = search(
+            
+            let searchResult = search(
                 element: effectiveElement,
                 locator: actualLocator,
                 requireAction: nil,
                 depth: 0,
                 maxDepth: DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) else {
+                isDebugLoggingEnabled: isDebugLoggingEnabled
+            )
+            fputs("HANDLER_RAW_STDERR_BEFORE_LOG_APPEND handleExtractText: searchResult.logs.count = \(searchResult.logs.count), currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
+            currentDebugLogs.append("HANDLER_DEBUG: searchResult.logs.count = \(searchResult.logs.count) before append for extractText")
+            currentDebugLogs.append(contentsOf: searchResult.logs)
+            fputs("HANDLER_RAW_STDERR_AFTER_LOG_APPEND handleExtractText: currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
+            currentDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_EXTRACT_TEXT")
+
+            guard let foundElement = searchResult.foundElement else {
                 let errorMessage = "[handleExtractText] Target element not found for locator: \(actualLocator) starting from \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
-                currentDebugLogs.append(errorMessage)
+                if !currentDebugLogs.contains(errorMessage) {
+                    currentDebugLogs.append(errorMessage)
+                }
                 return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
             }
             targetElementForExtract = foundElement

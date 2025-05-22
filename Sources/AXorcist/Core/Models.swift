@@ -25,7 +25,7 @@ public enum CommandType: String, Codable {
 }
 
 // For encoding/decoding 'Any' type in JSON, especially for element attributes.
-public struct AnyCodable: Codable {
+public struct AnyCodable: Codable, @unchecked Sendable {
     public let value: Any
 
     public init<T>(_ value: T?) {
@@ -162,7 +162,7 @@ public struct CommandEnvelope: Codable {
 }
 
 // Locator for finding elements
-public struct Locator: Codable {
+public struct Locator: Codable, Sendable {
     public var match_all: Bool?
     public var criteria: [String: String]
     public var root_element_path_hint: [String]?
@@ -205,6 +205,18 @@ public struct QueryResponse: Codable {
         self.data = data
         self.attributes = attributes
         self.error = error
+        self.debug_logs = debug_logs
+    }
+
+    // Custom init for HandlerResponse integration
+    public init(command_id: String, success: Bool, command: String, handlerResponse: HandlerResponse, debug_logs: [String]?) {
+        self.command_id = command_id
+        self.success = success
+        self.command = command
+        self.data = handlerResponse.data
+        // If HandlerResponse has attributes, map them from its data field.
+        self.attributes = handlerResponse.data?.attributes
+        self.error = handlerResponse.error
         self.debug_logs = debug_logs
     }
 }
@@ -302,7 +314,7 @@ public struct SimpleSuccessResponse: Codable, Equatable {
 
 // Placeholder for any additional models if needed
 
-public struct AXElement: Codable {
+public struct AXElement: Codable, Sendable {
     public var attributes: ElementAttributes?
     public var path: [String]?
 
@@ -324,7 +336,7 @@ extension QueryResponse {
 
 // MARK: - Handler Response Models
 
-public struct HandlerResponse {
+public struct HandlerResponse: Codable, Sendable {
     public var data: AXElement?
     public var error: String?
     public var debug_logs: [String]?
@@ -344,4 +356,21 @@ internal struct CollectAllOutput: Encodable {
     let collected_elements: [AXElement]
     let app_bundle_id: String?
     let debug_logs: [String]?
+}
+
+// ADDED BatchResponse struct
+public struct BatchResponse: Codable {
+    public var command_id: String
+    public var success: Bool
+    public var results: [HandlerResponse] // Array of HandlerResponses for each sub-command
+    public var error: String? // For an overall batch error, if any
+    public var debug_logs: [String]?
+
+    public init(command_id: String, success: Bool, results: [HandlerResponse], error: String? = nil, debug_logs: [String]? = nil) {
+        self.command_id = command_id
+        self.success = success
+        self.results = results
+        self.error = error
+        self.debug_logs = debug_logs
+    }
 }
