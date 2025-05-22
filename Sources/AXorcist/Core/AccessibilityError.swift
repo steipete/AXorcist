@@ -66,13 +66,13 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .attributeUnsupported(let attr): return "Attribute '\(attr)' is not supported by this element."
         case .attributeNotReadable(let attr): return "Attribute '\(attr)' is not readable."
         case .attributeNotSettable(let attr): return "Attribute '\(attr)' is not settable."
-        case .typeMismatch(let expected, let actual): return "Type mismatch: Expected '\(expected)', got '\(actual)'."
+        case let .typeMismatch(expected, actual): return "Type mismatch: Expected '\(expected)', got '\(actual)'."
         case .valueParsingFailed(let details): return "Value parsing failed: \(details)."
         case .valueNotAXValue(let attr): return "Value for attribute '\(attr)' is not an AXValue type as expected."
 
         // Action Errors
         case .actionUnsupported(let action): return "Action '\(action)' is not supported by this element."
-        case .actionFailed(let msg, let axErr):
+        case let .actionFailed(msg, axErr):
             var parts: [String] = ["Action failed."]
             if let message = msg { parts.append(message) }
             if let error = axErr { parts.append("AXError: \(error).") }

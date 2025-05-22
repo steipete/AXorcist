@@ -118,8 +118,8 @@ public func formatCFTypeRef(
         let count = CFArrayGetCount(cfArray)
         if option == .verbose || count <= 5 { // Show contents for small arrays or if verbose
             var swiftArray: [String] = []
-            for i in 0..<count {
-                guard let elementPtr = CFArrayGetValueAtIndex(cfArray, i) else {
+            for index in 0..<count {
+                guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                     swiftArray.append("<nil_in_array>")
                     continue
                 }
