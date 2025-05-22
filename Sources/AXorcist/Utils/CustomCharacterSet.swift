@@ -7,7 +7,7 @@ public struct CustomCharacterSet {
         self.characters = characters
     }
     public init(charactersInString: String) {
-        self.characters = Set(charactersInString.map { $0 })
+        self.characters = Set(Array(charactersInString))
     }
     public func contains(_ character: Character) -> Bool {
         return self.characters.contains(character)

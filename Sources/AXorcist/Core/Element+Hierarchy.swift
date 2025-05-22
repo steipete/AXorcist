@@ -11,9 +11,12 @@ extension Element {
         var uniqueChildrenSet = Set<Element>()
         var tempLogs: [String] = [] // For inner calls
 
-        dLog(
-            "Getting children for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
+        let elementDescription = self.briefDescription(
+            option: .default,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
         )
+        dLog("Getting children for element: \(elementDescription)")
 
         // Primary children attribute
         tempLogs.removeAll()

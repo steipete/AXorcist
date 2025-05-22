@@ -8,8 +8,11 @@ import Foundation
 /// Decodes a string representation of an array into an array of strings.
 /// The input string can be JSON-style (e.g., "["item1", "item2"]")
 /// or a simple comma-separated list (e.g., "item1, item2", with or without brackets).
-public func decodeExpectedArray(fromString: String, isDebugLoggingEnabled: Bool,
-                                currentDebugLogs: inout [String]) -> [String]? {
+public func decodeExpectedArray(
+    fromString: String,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> [String]? {
     // This function itself does not log, but takes the parameters as it's called by functions that do.
     // func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
 

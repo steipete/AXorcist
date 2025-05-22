@@ -2,6 +2,16 @@ import AppKit
 import ApplicationServices
 import Foundation
 
+// Structure for custom JSON output of handleCollectAll
+private struct CollectAllOutput: Encodable {
+    let command_id: String
+    let success: Bool
+    let command: String
+    let collected_elements: [AXElement]
+    let app_bundle_id: String
+    let debug_logs: [String]?
+}
+
 // Placeholder for the actual accessibility logic.
 // For now, this module is very thin and AXorcist.swift is the main public API.
 // Other files like Element.swift, Models.swift, Search.swift, etc. are in Core/ Utils/ etc.
@@ -20,7 +30,7 @@ public struct HandlerResponse {
 
 public class AXorcist {
 
-    private let focusedAppKeyValue = "focused"
+    let focusedAppKeyValue = "focused"
     private var recursiveCallDebugLogs: [String] = [] // Added for recursive logging
 
     // Default values for collection and search if not provided by the command
@@ -63,89 +73,6 @@ public class AXorcist {
         return "\(appContext)\(cmdContext)[\(fileName):\(line) \(function)] \(message)"
     }
 
-    // Placeholder for getting the focused element.
-    // It should accept debug logging parameters and update logs.
-    @MainActor
-    public func handleGetFocusedElement(
-        for appIdentifierOrNil: String? = nil,
-        requestedAttributes: [String]? = nil,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                currentDebugLogs.append(message)
-            }
-        }
-
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("[AXorcist.handleGetFocusedElement] Handling for app: \(appIdentifier)")
-
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else {
-            let errorMsgText = "Application not found: \(appIdentifier)"
-            dLog("[AXorcist.handleGetFocusedElement] \(errorMsgText)")
-            return HandlerResponse(data: nil, error: errorMsgText, debug_logs: currentDebugLogs)
-        }
-        dLog("[AXorcist.handleGetFocusedElement] Successfully obtained application element for \(appIdentifier)")
-
-        var cfValue: CFTypeRef?
-        let copyAttributeStatus = AXUIElementCopyAttributeValue(
-            appElement.underlyingElement,
-            kAXFocusedUIElementAttribute as CFString,
-            &cfValue
-        )
-
-        guard copyAttributeStatus == .success, let rawAXElement = cfValue else {
-            dLog(
-                "[AXorcist.handleGetFocusedElement] Failed to copy focused element attribute or it was nil. Status: \(axErrorToString(copyAttributeStatus)). Application: \(appIdentifier)"
-            )
-            return HandlerResponse(
-                data: nil,
-                error: "Could not get the focused UI element for \(appIdentifier). Ensure a window of the application is focused. AXError: \(axErrorToString(copyAttributeStatus))",
-                debug_logs: currentDebugLogs
-            )
-        }
-
-        guard CFGetTypeID(rawAXElement) == AXUIElementGetTypeID() else {
-            dLog(
-                "[AXorcist.handleGetFocusedElement] Focused element attribute was not an AXUIElement. Application: \(appIdentifier)"
-            )
-            return HandlerResponse(
-                data: nil,
-                error: "Focused element was not a valid UI element for \(appIdentifier).",
-                debug_logs: currentDebugLogs
-            )
-        }
-
-        let focusedElement = Element(rawAXElement as! AXUIElement)
-        dLog(
-            "[AXorcist.handleGetFocusedElement] Successfully obtained focused element: \(focusedElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) for application \(appIdentifier)"
-        )
-
-        let fetchedAttributes = getElementAttributes(
-            focusedElement,
-            requestedAttributes: requestedAttributes ?? [],
-            forMultiDefault: false,
-            targetRole: nil,
-            outputFormat: .smart,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        let elementPathArray = focusedElement.generatePathArray(
-            upTo: appElement,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        let axElement = AXElement(attributes: fetchedAttributes, path: elementPathArray)
-
-        return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
-    }
 
     // Handle getting attributes for a specific element using locator
     @MainActor
@@ -1076,10 +1003,9 @@ public class AXorcist {
         )
 
         // Determine effectiveMaxDepth based on input or default
-        let initialInputMaxDepth = maxDepth ?? AXorcist.defaultMaxDepthCollectAll // Use class constant
         // Ensure maxDepth is at least 0 if provided, otherwise use default.
         // A negative input maxDepth doesn't make sense for collection, treat as default.
-        var recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXorcist.defaultMaxDepthCollectAll
+        let recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXorcist.defaultMaxDepthCollectAll
 
         dLog(
             "Initial input maxDepth: \(String(describing: maxDepth)), AXorcist.defaultMaxDepthCollectAll: \(AXorcist.defaultMaxDepthCollectAll). Calculated recursionDepthLimit: \(recursionDepthLimit)"
@@ -1250,37 +1176,47 @@ public class AXorcist {
             "Collection complete. Found \(collectedAXElements.count) elements matching criteria (if any). Naming them 'collected_elements' in response."
         )
 
-        // Create the data dictionary with collected elements and app bundle ID as requested
-        let collectAllData: [String: AnyCodable] = [
-            "collected_elements": AnyCodable(collectedAXElements),
-            "app_bundle_id": AnyCodable(appIdentifier)
-        ]
-
-        // Create QueryResponse with the collected data
-        let response = QueryResponse(
-            command_id: "collectAll",
+        // Create and encode CollectAllOutput directly
+        let output = CollectAllOutput(
+            command_id: "collectAll", // Consider making this dynamic if original command_id is available
             success: true,
-            command: "collectAll",
-            data: nil,
-            attributes: collectAllData,
-            error: nil,
-            debug_logs: self.recursiveCallDebugLogs
+            command: "collectAll",    // Consider making this dynamic
+            collected_elements: collectedAXElements,
+            app_bundle_id: appIdentifier,
+            debug_logs: isDebugLoggingEnabled ? self.recursiveCallDebugLogs : nil
         )
 
         do {
-            return try response.jsonString()
+            let encoder = JSONEncoder()
+            if #available(macOS 10.13, *) {
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            } else {
+                encoder.outputFormatting = .prettyPrinted
+            }
+            let jsonData = try encoder.encode(output)
+            return String(data: jsonData, encoding: .utf8) ?? #"{"error":"Serialization_failed_to_string"}"#
         } catch {
-            dLog("Failed to encode QueryResponse to JSON: \(error)")
-            let errorResponse = QueryResponse(
-                command_id: "collectAll",
-                success: false,
-                command: "collectAll",
-                data: nil,
-                attributes: nil,
-                error: "Failed to encode response: \(error.localizedDescription)",
-                debug_logs: self.recursiveCallDebugLogs
-            )
-            return (try? errorResponse.jsonString()) ?? "{\"error\":\"Failed to encode response\"}"
+            let errorMsg = "handleCollectAll: Failed to encode CollectAllOutput to JSON: \(error.localizedDescription) - \(error)"
+            dLog(errorMsg) // Log the detailed error
+
+            // Build error response as dictionary and try to serialize it
+            var errorDict: [String: Any] = [
+                "command_id": "collectAll",
+                "success": false,
+                "command": "collectAll",
+                "error": errorMsg
+            ]
+            
+            if isDebugLoggingEnabled {
+                errorDict["debug_logs"] = self.recursiveCallDebugLogs
+            }
+            
+            do {
+                let errorJsonData = try JSONSerialization.data(withJSONObject: errorDict, options: [])
+                return String(data: errorJsonData, encoding: .utf8) ?? #"{"error":"handleCollectAll: Catastrophic failure to encode error response"}"#
+            } catch {
+                return #"{"error":"handleCollectAll: Catastrophic failure to encode error response"}"#
+            }
         }
     }
 }

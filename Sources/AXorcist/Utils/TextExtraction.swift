@@ -8,12 +8,18 @@ import Foundation
 // axValue<T>() is assumed to be globally available from ValueHelpers.swift
 
 @MainActor
-public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool,
-                               currentDebugLogs: inout [String]) -> String {
+public func extractTextContent(
+    element: Element,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    dLog(
-        "Extracting text content for element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
+    let elementDescription = element.briefDescription(
+        option: .default,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
+        currentDebugLogs: &currentDebugLogs
     )
+    dLog("Extracting text content for element: \(elementDescription)")
     var texts: [String] = []
     let textualAttributes = [
         kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute,
@@ -40,11 +46,9 @@ public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool,
     // Deduplicate while preserving order
     var uniqueTexts: [String] = []
     var seenTexts = Set<String>()
-    for text in texts {
-        if !seenTexts.contains(text) {
-            uniqueTexts.append(text)
-            seenTexts.insert(text)
-        }
+    for text in texts where !seenTexts.contains(text) {
+        uniqueTexts.append(text)
+        seenTexts.insert(text)
     }
     return uniqueTexts.joined(separator: "\n")
 }

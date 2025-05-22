@@ -308,11 +308,9 @@ class Scanner {
     }
     // MARK: - Dictionary-based Scanning
     func scan<T>(dictionary: [String: T], options: NSString.CompareOptions = []) -> T? {
-        for (key, value) in dictionary {
-            if self.scan(string: key, options: options) != nil {
-                // Original Scanner asserts string == key, which is true if scan(string:) returns non-nil.
-                return value
-            }
+        for (key, value) in dictionary where self.scan(string: key, options: options) != nil {
+            // Original Scanner asserts string == key, which is true if scan(string:) returns non-nil.
+            return value
         }
         return nil
     }

@@ -2,8 +2,8 @@ import Foundation
 
 // String extension from Scanner
 extension String {
-    subscript (i: Int) -> Character {
-        return self[index(startIndex, offsetBy: i)]
+    subscript (offset: Int) -> Character {
+        return self[index(startIndex, offsetBy: offset)]
     }
     func range(from range: NSRange) -> Range<String.Index>? {
         return Range(range, in: self)

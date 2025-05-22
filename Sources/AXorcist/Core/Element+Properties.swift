@@ -140,7 +140,7 @@ extension Element {
             Attribute<AXUIElement?>.mainWindow,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
-        ) ?? nil else { return nil }
+        ) else { return nil }
         return Element(windowElementUI)
     }
 
@@ -149,7 +149,7 @@ extension Element {
             Attribute<AXUIElement?>.focusedWindow,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
-        ) ?? nil else { return nil }
+        ) else { return nil }
         return Element(windowElementUI)
     }
 
@@ -158,7 +158,7 @@ extension Element {
             Attribute<AXUIElement?>.focusedElement,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
-        ) ?? nil else { return nil }
+        ) else { return nil }
         return Element(elementUI)
     }
 
