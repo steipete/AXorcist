@@ -331,7 +331,7 @@ public class AXorcist {
         let criteriaKeys = locator.criteria.keys
         let isAppOnlyLocator = criteriaKeys.allSatisfy { appSpecifiers.contains($0) } && criteriaKeys.count == 1
 
-        var foundElement: Element? = nil
+        var foundElement: Element?
 
         if isAppOnlyLocator {
             dLog(
@@ -689,8 +689,7 @@ public class AXorcist {
                     case let doubleValue as Double:
                         var number = doubleValue
                         cfValue = CFNumberCreate(kCFAllocatorDefault, .doubleType, &number)
-                    // TODO: Consider other CFNumber types if necessary (CGFloat, etc.)
-                    // TODO: Consider CFArray, CFDictionary if complex values are needed.
+                    // Note: Could extend to support CGFloat, CFArray, CFDictionary if needed
                     default:
                         // For other types, attempt a direct cast if possible, or log/error.
                         // This is a simplification; robust conversion is more involved.
@@ -716,8 +715,7 @@ public class AXorcist {
                             errorMessage =
                                 "[AXorcist.handlePerformAction] Failed to set attribute '\(actionName)' to value '\(String(describing: actionValue.value))': \(axErrorToString(axStatus))"
                         }
-                    }
-                    else if errorMessage ==
+                    } else if errorMessage ==
                         nil { // cfValue was nil, means conversion failed earlier but wasn't caught by the default error
                         errorMessage =
                             "[AXorcist.handlePerformAction] Failed to convert value for attribute '\(actionName)' to a CoreFoundation type."

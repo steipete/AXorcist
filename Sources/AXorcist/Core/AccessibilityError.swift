@@ -43,13 +43,13 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .apiDisabled: return "Accessibility API is disabled. Please enable it in System Settings."
         case .notAuthorized(let axErr):
             let base = "Accessibility permissions are not granted for this process."
-            if let e = axErr { return "\(base) AXError: \(e)" }
+            if let error = axErr { return "\(base) AXError: \(error)" }
             return base
 
         // Command & Input
         case .invalidCommand(let msg):
             let base = "Invalid command specified."
-            if let m = msg { return "\(base) \(m)" }
+            if let message = msg { return "\(base) \(message)" }
             return base
         case .missingArgument(let name): return "Missing required argument: \(name)."
         case .invalidArgument(let details): return "Invalid argument: \(details)."
@@ -58,7 +58,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .appNotFound(let app): return "Application '\(app)' not found or not running."
         case .elementNotFound(let msg):
             let base = "No element matches the locator criteria or path."
-            if let m = msg { return "\(base) \(m)" }
+            if let message = msg { return "\(base) \(message)" }
             return base
         case .invalidElement: return "The specified UI element is invalid (possibly stale)."
 
@@ -74,19 +74,19 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .actionUnsupported(let action): return "Action '\(action)' is not supported by this element."
         case .actionFailed(let msg, let axErr):
             var parts: [String] = ["Action failed."]
-            if let m = msg { parts.append(m) }
-            if let e = axErr { parts.append("AXError: \(e).") }
+            if let message = msg { parts.append(message) }
+            if let error = axErr { parts.append("AXError: \(error).") }
             return parts.joined(separator: " ")
 
         // Generic & System
-        case .unknownAXError(let e): return "An unexpected Accessibility Framework error occurred: \(e)."
+        case .unknownAXError(let error): return "An unexpected Accessibility Framework error occurred: \(error)."
         case .jsonEncodingFailed(let err):
             let base = "Failed to encode the response to JSON."
-            if let e = err { return "\(base) Error: \(e.localizedDescription)" }
+            if let error = err { return "\(base) Error: \(error.localizedDescription)" }
             return base
         case .jsonDecodingFailed(let err):
             let base = "Failed to decode the JSON command input."
-            if let e = err { return "\(base) Error: \(e.localizedDescription)" }
+            if let error = err { return "\(base) Error: \(error.localizedDescription)" }
             return base
         case .genericError(let msg): return msg
         }
