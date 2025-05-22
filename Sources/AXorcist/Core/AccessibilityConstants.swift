@@ -5,11 +5,11 @@ import ApplicationServices // Added for AXError type
 import Foundation
 
 // Configuration Constants
-public let MAX_COLLECT_ALL_HITS = 200 // Default max elements for collect_all if not specified in command
-public let DEFAULT_MAX_DEPTH_SEARCH = 20 // Default max recursion depth for search
-public let DEFAULT_MAX_DEPTH_COLLECT_ALL = 15 // Default max recursion depth for collect_all
-public let AX_BINARY_VERSION = "1.1.7" // Updated version
-public let BINARY_VERSION = "1.1.7" // Updated version without AX prefix
+public let maxCollectAllHits = 200 // Default max elements for collect_all if not specified in command
+public let defaultMaxDepthSearch = 20 // Default max recursion depth for search
+public let defaultMaxDepthCollectAll = 15 // Default max recursion depth for collect_all
+public let axBinaryVersion = "1.1.7" // Updated version
+public let binaryVersion = "1.1.7" // Updated version without AX prefix
 
 // Standard Accessibility Attributes - Values should match CFSTR defined in AXAttributeConstants.h
 public let kAXRoleAttribute = "AXRole" // Reverted to String literal

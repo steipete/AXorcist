@@ -136,30 +136,30 @@ extension Element {
     }
 
     @MainActor public func mainWindow(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let windowElementUI: AXUIElement = attribute(
+        guard let windowElementUI = attribute(
             Attribute<AXUIElement?>.mainWindow,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
         ) else { return nil }
-        return Element(windowElementUI)
+        return Element(windowElementUI!)
     }
 
     @MainActor public func focusedWindow(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let windowElementUI: AXUIElement = attribute(
+        guard let windowElementUI = attribute(
             Attribute<AXUIElement?>.focusedWindow,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
         ) else { return nil }
-        return Element(windowElementUI)
+        return Element(windowElementUI!)
     }
 
     @MainActor public func focusedElement(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let elementUI: AXUIElement = attribute(
+        guard let elementUI = attribute(
             Attribute<AXUIElement?>.focusedElement,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
         ) else { return nil }
-        return Element(elementUI)
+        return Element(elementUI!)
     }
 
     // Action-related - now a method

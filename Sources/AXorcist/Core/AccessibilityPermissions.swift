@@ -105,22 +105,22 @@ public func getPermissionsStatus(
                         automationStatus[bundleID] = true
                         if isDebugLoggingEnabled {
                             dLog(
-                                "AppleScript execution against \(bundleID) succeeded (no errorDict, descriptor type: \(descriptor.descriptorType.description)). Automation permitted."
+                                "AppleScript execution against \(bundleID) succeeded " +
+                                "(no errorDict, descriptor type: \(descriptor.descriptorType.description)). " +
+                                "Automation permitted."
                             )
                         }
                     } else {
                         automationStatus[bundleID] = false
                         if isDebugLoggingEnabled {
                             let errorCode = errorDict?[NSAppleScript.errorNumber] as? Int ?? 0
-                            let errorMessage = errorDict?[NSAppleScript.errorMessage] as? String ??
-                                "Unknown AppleScript error"
+                            let errorMessage = errorDict?[NSAppleScript.errorMessage] as? String ?? "Unknown AppleScript error"
                             let descriptorDetails = errorDict == nil ?
-                                "Descriptor was typeNull (type: \(descriptor.descriptorType.description)) but no errorDict." :
-                                ""
-                            currentDebugLogs
-                                .append(
-                                    "AppleScript execution against \(bundleID) failed. Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
-                                )
+                                "Descriptor was typeNull (type: \(descriptor.descriptorType.description)) but no errorDict." : ""
+                            currentDebugLogs.append(
+                                "AppleScript execution against \(bundleID) failed. " +
+                                "Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
+                            )
                         }
                     }
                 } else {
@@ -140,7 +140,8 @@ public func getPermissionsStatus(
     } else if !bundleIDs.isEmpty {
         if isDebugLoggingEnabled {
             dLog(
-                "Skipping automation permission checks because basic accessibility (isProcessTrusted: \(isProcessTrusted)) is not met."
+                "Skipping automation permission checks because basic accessibility " +
+                "(isProcessTrusted: \(isProcessTrusted)) is not met."
             )
         }
     }
@@ -152,7 +153,8 @@ public func getPermissionsStatus(
         overallErrorMessages: currentDebugLogs // All logs collected so far become the messages
     )
     dLog(
-        "Finished permission status check. isAccessibilityApiEnabled: \(finalStatus.isAccessibilityApiEnabled), isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)"
+        "Finished permission status check. isAccessibilityApiEnabled: \(finalStatus.isAccessibilityApiEnabled), " +
+        "isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)"
     )
     return finalStatus
 }

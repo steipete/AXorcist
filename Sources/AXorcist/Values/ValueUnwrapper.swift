@@ -61,8 +61,8 @@ struct ValueUnwrapper {
         case CFArrayGetTypeID():
             let cfArray = value as! CFArray
             var swiftArray: [Any?] = []
-            for i in 0..<CFArrayGetCount(cfArray) {
-                guard let elementPtr = CFArrayGetValueAtIndex(cfArray, i) else {
+            for index in 0..<CFArrayGetCount(cfArray) {
+                guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                     swiftArray.append(nil)
                     continue
                 }
@@ -90,14 +90,14 @@ struct ValueUnwrapper {
                 // This part requires careful handling of CFDictionary keys and values
                 // For now, we'll log if direct bridging fails, as full CFDictionary iteration is complex.
                 dLog(
-                    "ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here."
+                    "ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. " +
+                    "Full CFDictionary iteration not yet implemented here."
                 )
             }
             return swiftDict
         default:
-            dLog(
-                "ValueUnwrapper: Unhandled CFTypeID: \(typeID) - \(CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"). Returning raw value."
-            )
+            let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"
+            dLog("ValueUnwrapper: Unhandled CFTypeID: \(typeID) - \(typeDescription). Returning raw value.")
             return value // Return the original value if CFType is not handled
         }
     }

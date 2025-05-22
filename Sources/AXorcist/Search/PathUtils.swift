@@ -56,7 +56,8 @@ public func navigateToElement(
 
             guard index < windows.count else {
                 dLog(
-                    "PathUtils: Index \(index) is out of bounds for windows array (count: \(windows.count)). Component: \(pathComponent)."
+                    "PathUtils: Index \(index) is out of bounds for windows array " +
+                    "(count: \(windows.count)). Component: \(pathComponent)."
                 )
                 return nil
             }
@@ -74,17 +75,20 @@ public func navigateToElement(
                 currentDebugLogs: &currentDebugLogs
             ) else {
                 dLog(
-                    "PathUtils: AXChildren attribute could not be fetched as [AXUIElement] for element \(currentElementDesc) while processing \(pathComponent)."
+                    "PathUtils: AXChildren attribute could not be fetched as [AXUIElement] " +
+                    "for element \(currentElementDesc) while processing \(pathComponent)."
                 )
                 return nil
             }
             dLog(
-                "PathUtils: Fetched \(allChildrenUIElements.count) AXUIElements for AXChildren of \(currentElementDesc) for \(pathComponent)."
+                "PathUtils: Fetched \(allChildrenUIElements.count) AXUIElements for AXChildren " +
+                "of \(currentElementDesc) for \(pathComponent)."
             )
 
             let allChildren: [Element] = allChildrenUIElements.map { Element($0) }
             dLog(
-                "PathUtils: Mapped to \(allChildren.count) Elements for children of \(currentElementDesc) for \(pathComponent)."
+                "PathUtils: Mapped to \(allChildren.count) Elements for children " +
+                "of \(currentElementDesc) for \(pathComponent)."
             )
 
             guard !allChildren.isEmpty else {
@@ -104,7 +108,9 @@ public func navigateToElement(
 
             guard index < matchingChildren.count else {
                 dLog(
-                    "Child not found for component: \(pathComponent) at index \(index). Role: \(role). For element \(currentElementDesc). Matching children count: \(matchingChildren.count)"
+                    "Child not found for component: \(pathComponent) at index \(index). " +
+                    "Role: \(role). For element \(currentElementDesc). " +
+                    "Matching children count: \(matchingChildren.count)"
                 )
                 return nil
             }
