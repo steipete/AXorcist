@@ -219,7 +219,7 @@ AXorcist requires sacred accessibility permissions to commune with the UI spirit
 # Forge the mystical artifacts
 make build
 
-# Test the enchantments
+# Test the enchantments (requires local machine - CI spirits cannot grant accessibility permissions)
 make test
 
 # Complete ritual: build and test
@@ -228,6 +228,12 @@ make all
 # Purify the workspace
 make clean
 ```
+
+### 🌙 Testing in the Shadows
+
+The test rituals require accessibility permissions to commune with the UI spirits—permissions that cannot be granted automatically on CI. While automated build specters can verify your Swift incantations compile correctly, the full test ceremonies must be performed on a local machine where you can manually grant the sacred accessibility permissions through System Preferences.
+
+*The spirits of continuous integration watch over your builds, but only mortal hands can unlock the accessibility gates.*
 
 ## ⚔️ Minimum Requirements
 
