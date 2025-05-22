@@ -321,3 +321,27 @@ extension QueryResponse {
         return String(data: data, encoding: .utf8) ?? ""
     }
 }
+
+// MARK: - Handler Response Models
+
+public struct HandlerResponse {
+    public var data: AXElement?
+    public var error: String?
+    public var debug_logs: [String]?
+
+    public init(data: AXElement? = nil, error: String? = nil, debug_logs: [String]? = nil) {
+        self.data = data
+        self.error = error
+        self.debug_logs = debug_logs
+    }
+}
+
+// Structure for custom JSON output of handleCollectAll
+internal struct CollectAllOutput: Encodable {
+    let command_id: String
+    let success: Bool
+    let command: String
+    let collected_elements: [AXElement]
+    let app_bundle_id: String?
+    let debug_logs: [String]?
+}

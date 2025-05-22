@@ -2,31 +2,12 @@ import AppKit
 import ApplicationServices
 import Foundation
 
-// Structure for custom JSON output of handleCollectAll
-private struct CollectAllOutput: Encodable {
-    let command_id: String
-    let success: Bool
-    let command: String
-    let collected_elements: [AXElement]
-    let app_bundle_id: String
-    let debug_logs: [String]?
-}
+// Global constant for backwards compatibility
+public let DEFAULT_MAX_DEPTH_SEARCH = 10
 
 // Placeholder for the actual accessibility logic.
 // For now, this module is very thin and AXorcist.swift is the main public API.
 // Other files like Element.swift, Models.swift, Search.swift, etc. are in Core/ Utils/ etc.
-
-public struct HandlerResponse {
-    public var data: AXElement?
-    public var error: String?
-    public var debug_logs: [String]?
-
-    public init(data: AXElement? = nil, error: String? = nil, debug_logs: [String]? = nil) {
-        self.data = data
-        self.error = error
-        self.debug_logs = debug_logs
-    }
-}
 
 public class AXorcist {
 
@@ -76,403 +57,6 @@ public class AXorcist {
 
     // Handle getting attributes for a specific element using locator
     @MainActor
-    public func handleGetAttributes(
-        for appIdentifierOrNil: String? = nil,
-        locator: Locator,
-        requestedAttributes: [String]? = nil,
-        pathHint: [String]? = nil,
-        maxDepth: Int? = nil,
-        outputFormat: OutputFormat? = nil,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                currentDebugLogs.append(message)
-            }
-        }
-
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("[AXorcist.handleGetAttributes] Handling for app: \(appIdentifier)")
-
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else {
-            let errorMessage = "Application not found: \(appIdentifier)"
-            dLog("[AXorcist.handleGetAttributes] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-
-        // Find element to get attributes from
-        var effectiveElement = appElement
-        if let pathHint = pathHint, !pathHint.isEmpty {
-            let pathHintString = pathHint.joined(separator: " -> ")
-            _ = pathHintString // Silences compiler warning
-            let logMessage = "[AXorcist.handleGetAttributes] Navigating with path_hint: \(pathHintString)"
-            dLog(logMessage)
-            if let navigatedElement = navigateToElement(
-                from: effectiveElement,
-                pathHint: pathHint,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) {
-                effectiveElement = navigatedElement
-            } else {
-                let pathHintStringForError = pathHint.joined(separator: " -> ")
-                _ = pathHintStringForError // Silences compiler warning
-                let errorMessageText = "Element not found via path hint: \(pathHintStringForError)"
-                dLog("[AXorcist.handleGetAttributes] \(errorMessageText)")
-                return HandlerResponse(data: nil, error: errorMessageText, debug_logs: currentDebugLogs)
-            }
-        }
-
-        var elementToQuery: Element?
-        let axApplicationKey = "AXApplication" // String literal for the attribute key
-
-        if locator.criteria.count == 1, let appCritervalue = locator.criteria[axApplicationKey],
-           (appCritervalue.uppercased() == "YES" || appCritervalue.uppercased() == "TRUE") {
-            let briefDesc = effectiveElement.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            dLog(
-                "[AXorcist.handleGetAttributes] Locator criteria is {'\(axApplicationKey)': '\(appCritervalue)'}. Using effectiveElement (\(briefDesc)) as target."
-            )
-            elementToQuery = effectiveElement
-        } else {
-            let rootElementDescription = effectiveElement.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            dLog(
-                "[AXorcist.handleGetAttributes] Not an AXApplication-only locator or value mismatch. Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)"
-            )
-            elementToQuery = search(
-                element: effectiveElement,
-                locator: locator,
-                requireAction: locator.requireAction,
-                maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-        }
-
-        if let actualElementToQuery = elementToQuery {
-            let elementDescription = actualElementToQuery.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            let attributesDescription = (requestedAttributes ?? ["all"]).description
-            dLog(
-                "[AXorcist.handleGetAttributes] Element identified/found: \(elementDescription). Fetching attributes: \(attributesDescription)..."
-            )
-
-            var attributes = getElementAttributes(
-                actualElementToQuery,
-                requestedAttributes: requestedAttributes ?? [],
-                forMultiDefault: false,
-                targetRole: locator.criteria[kAXRoleAttribute],
-                outputFormat: outputFormat ?? .smart,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            if outputFormat == .json_string {
-                attributes = encodeAttributesToJSONStringRepresentation(attributes)
-            }
-
-            let elementPathArray = actualElementToQuery.generatePathArray(
-                upTo: appElement,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            let axElement = AXElement(attributes: attributes, path: elementPathArray)
-
-            dLog(
-                "[AXorcist.handleGetAttributes] Successfully fetched attributes for element \(actualElementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
-            )
-            return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
-        } else {
-            let errorMessage = "No element found for get_attributes with locator: \(String(describing: locator))"
-            dLog("[AXorcist.handleGetAttributes] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-    }
-
-    // Handle query command - find an element matching criteria
-    @MainActor
-    public func handleQuery(
-        for appIdentifierOrNil: String? = nil,
-        locator: Locator,
-        pathHint: [String]? = nil,
-        maxDepth: Int? = nil,
-        requestedAttributes: [String]? = nil,
-        outputFormat: OutputFormat? = nil,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                currentDebugLogs.append(message)
-            }
-        }
-
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("[AXorcist.handleQuery] Handling query for app: \(appIdentifier)")
-
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else {
-            let errorMessage = "Application not found: \(appIdentifier)"
-            dLog("[AXorcist.handleQuery] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-
-        var effectiveElement = appElement
-        if let pathHint = pathHint, !pathHint.isEmpty {
-            let pathHintString = pathHint.joined(separator: " -> ")
-            _ = pathHintString // Silences compiler warning
-            dLog("[AXorcist.handleQuery] Navigating with path_hint: \(pathHintString)")
-            if let navigatedElement = navigateToElement(
-                from: effectiveElement,
-                pathHint: pathHint,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) {
-                effectiveElement = navigatedElement
-            } else {
-                let errorMessage = "Element not found via path hint: \(pathHintString)"
-                dLog("[AXorcist.handleQuery] \(errorMessage)")
-                return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-            }
-        }
-
-        // Check if this is an app-only locator (only application/bundle_id/pid/path criteria)
-        let appSpecifiers = ["application", "bundle_id", "pid", "path"]
-        let criteriaKeys = locator.criteria.keys
-        let isAppOnlyLocator = criteriaKeys.allSatisfy { appSpecifiers.contains($0) } && criteriaKeys.count == 1
-
-        var foundElement: Element?
-
-        if isAppOnlyLocator {
-            dLog(
-                "[AXorcist.handleQuery] Locator is app-only (criteria: \(locator.criteria)). Using appElement directly."
-            )
-            foundElement = effectiveElement
-        } else {
-            dLog("[AXorcist.handleQuery] Locator contains element-specific criteria. Proceeding with search.")
-            var searchStartElementForLocator = appElement
-
-            if let rootPathHint = locator.root_element_path_hint, !rootPathHint.isEmpty {
-                let rootPathHintString = rootPathHint.joined(separator: " -> ")
-                _ = rootPathHintString // Silences compiler warning
-                dLog(
-                    "[AXorcist.handleQuery] Locator has root_element_path_hint: \(rootPathHintString). Navigating from app element first."
-                )
-                guard let containerElement = navigateToElement(
-                    from: appElement,
-                    pathHint: rootPathHint,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                ) else {
-                    let errorMessage =
-                        "Container for locator not found via root_element_path_hint: \(rootPathHintString)"
-                    dLog("[AXorcist.handleQuery] \(errorMessage)")
-                    return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-                }
-                searchStartElementForLocator = containerElement
-                let containerDescription = searchStartElementForLocator.briefDescription(
-                    option: .default,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                )
-                _ = containerDescription // Silences compiler warning
-                dLog(
-                    "[AXorcist.handleQuery] Searching with locator within container found by root_element_path_hint: \(containerDescription)"
-                )
-            } else {
-                searchStartElementForLocator = effectiveElement
-                let searchDescription = searchStartElementForLocator.briefDescription(
-                    option: .default,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                )
-                _ = searchDescription // Silences compiler warning
-                dLog(
-                    "[AXorcist.handleQuery] Searching with locator from element (determined by main path_hint or app root): \(searchDescription)"
-                )
-            }
-
-            let finalSearchTarget = (pathHint != nil && !pathHint!.isEmpty) ? effectiveElement :
-                searchStartElementForLocator
-
-            foundElement = search(
-                element: finalSearchTarget,
-                locator: locator,
-                requireAction: locator.requireAction,
-                maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-        }
-
-        if let elementToQuery = foundElement {
-            let elementDescription = elementToQuery.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            _ = elementDescription // Silences compiler warning
-            dLog("[AXorcist.handleQuery] Element found: \(elementDescription). Fetching attributes...")
-
-            var attributes = getElementAttributes(
-                elementToQuery,
-                requestedAttributes: requestedAttributes ?? [],
-                forMultiDefault: false,
-                targetRole: locator.criteria[kAXRoleAttribute],
-                outputFormat: outputFormat ?? .smart,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-
-            if outputFormat == .json_string {
-                attributes = encodeAttributesToJSONStringRepresentation(attributes)
-            }
-
-            let elementPathArray = elementToQuery.generatePathArray(
-                upTo: appElement,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            let axElement = AXElement(attributes: attributes, path: elementPathArray)
-
-            dLog("[AXorcist.handleQuery] Successfully found and processed element with query.")
-            return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
-        } else {
-            let errorMessage = "No element matches query criteria with locator: \(String(describing: locator))"
-            dLog("[AXorcist.handleQuery] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-    }
-
-    // Handle describe element command - provides comprehensive details about a specific element
-    @MainActor
-    public func handleDescribeElement(
-        for appIdentifierOrNil: String? = nil,
-        locator: Locator,
-        pathHint: [String]? = nil,
-        maxDepth: Int? = nil,
-        outputFormat: OutputFormat? = nil,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                currentDebugLogs.append(message)
-            }
-        }
-
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("[AXorcist.handleDescribeElement] Handling for app: \(appIdentifier)")
-
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else {
-            let errorMessage = "Application not found: \(appIdentifier)"
-            dLog("[AXorcist.handleDescribeElement] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-
-        var effectiveElement = appElement
-        if let pathHint = pathHint, !pathHint.isEmpty {
-            let pathHintString = pathHint.joined(separator: " -> ")
-            _ = pathHintString // Silences compiler warning
-            dLog("[AXorcist.handleDescribeElement] Navigating with path_hint: \(pathHintString)")
-            if let navigatedElement = navigateToElement(
-                from: effectiveElement,
-                pathHint: pathHint,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            ) {
-                effectiveElement = navigatedElement
-            } else {
-                let errorMessage = "Element not found via path hint for describe_element: \(pathHintString)"
-                dLog("[AXorcist.handleDescribeElement] \(errorMessage)")
-                return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-            }
-        }
-
-        let rootElementDescription = effectiveElement.briefDescription(
-            option: .default,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-        _ = rootElementDescription // Silences compiler warning
-        dLog(
-            "[AXorcist.handleDescribeElement] Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)"
-        )
-        let foundElement = search(
-            element: effectiveElement,
-            locator: locator,
-            requireAction: locator.requireAction,
-            maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        if let elementToDescribe = foundElement {
-            let elementDescription = elementToDescribe.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            _ = elementDescription // Silences compiler warning
-            dLog(
-                "[AXorcist.handleDescribeElement] Element found: \(elementDescription). Describing with verbose output..."
-            )
-
-            // For describe_element, we typically want ALL attributes with verbose output
-            var attributes = getElementAttributes(
-                elementToDescribe,
-                requestedAttributes: [], // Empty means 'all standard' or 'all known'
-                forMultiDefault: false,
-                targetRole: locator.criteria[kAXRoleAttribute],
-                outputFormat: .verbose, // Describe implies verbose
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-
-            if outputFormat == .json_string {
-                attributes = encodeAttributesToJSONStringRepresentation(attributes)
-            }
-
-            let elementPathArray = elementToDescribe.generatePathArray(
-                upTo: appElement,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            let axElement = AXElement(attributes: attributes, path: elementPathArray)
-
-            dLog(
-                "[AXorcist.handleDescribeElement] Successfully described element \(elementToDescribe.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
-            )
-            return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
-        } else {
-            let errorMessage = "No element found for describe_element with locator: \(String(describing: locator))"
-            dLog("[AXorcist.handleDescribeElement] \(errorMessage)")
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
-    }
-
-    // Add other public API methods here as they are refactored or created.
     // For example:
     // public func handlePerformAction(...) async -> HandlerResponse { ... }
 
@@ -1218,5 +802,82 @@ public class AXorcist {
                 return #"{"error":"handleCollectAll: Catastrophic failure to encode error response"}"#
             }
         }
+    }
+
+    @MainActor
+    private func navigateToElement(
+        from startElement: Element,
+        pathHint: [String],
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> Element? {
+        func dLog(_ message: String) {
+            if isDebugLoggingEnabled {
+                let logMessage = AXorcist.formatDebugLogMessage(
+                    message,
+                    applicationName: nil, // Assuming app name isn't readily available here or needed for this low-level nav
+                    commandID: nil, // No specific command ID for this utility
+                    file: #file,
+                    function: #function,
+                    line: #line
+                )
+                currentDebugLogs.append(logMessage)
+            }
+        }
+
+        var currentElement = startElement
+        var currentPathSegmentForLog = ""
+
+        for (index, pathComponentString) in pathHint.enumerated() {
+            currentPathSegmentForLog += (index > 0 ? " -> " : "") + pathComponentString
+            dLog("Navigating: Processing path component '\\(pathComponentString)' from current element: \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+
+            let trimmedPathComponentString = pathComponentString.trimmingCharacters(in: .whitespacesAndNewlines)
+            let parts = trimmedPathComponentString.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2 else {
+                dLog("Failed to parse path component: '\\(pathComponentString)' (trimmed: '\\(trimmedPathComponentString)'). Expected 'Attribute:Value'. Path traversed so far: \\(currentPathSegmentForLog)")
+                return nil
+            }
+
+            let attributeName = String(parts[0])
+            let expectedValue = String(parts[1])
+
+            // Attempt to get children. If this element has no children, it can't match a path component.
+            // Note: children() can be expensive.
+            let children = currentElement.children(allChildren: true, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            if children.isEmpty && !pathHint.isEmpty { // If it's not the last component and no children, path fails.
+                 dLog("Element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) has no children, cannot match path component \'\\(attributeName):\\(expectedValue)\'. Path traversed so far: \\(currentPathSegmentForLog)")
+                return nil
+            }
+            
+            var foundMatchForPathComponent = false
+            // First, check if the currentElement itself matches the component if this is the first component and we haven't advanced.
+            // This handles cases where the pathHint starts with an attribute of the startElement itself.
+            // More robust logic might be needed if path hints can be self-referential at any point.
+            // For now, this check is primarily for the very first part of a path hint.
+            // It's disabled for now as the primary logic is to search children.
+            // A more refined approach would be to check currentElement *if* it's the first path component
+            // *or* if the component explicitly targets the current level (e.g. special syntax).
+
+            // Search children for the matching attribute and value
+            for child in children {
+                if let actualValue = child.attributeValue(forKey: attributeName, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) as? String {
+                    if actualValue == expectedValue {
+                        dLog("Matched child: \\(child.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) for \'\\(attributeName):\\(expectedValue)\'")
+                        currentElement = child
+                        foundMatchForPathComponent = true
+                        break // Found match for this path component, move to next in pathHint
+                    }
+                }
+            }
+
+            if !foundMatchForPathComponent {
+                dLog("No child matched \'\\(attributeName):\\(expectedValue)\' under element \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)). Path traversed so far: \\(currentPathSegmentForLog)")
+                return nil // No match found for this path component, navigation fails
+            }
+        }
+        // If the loop completes, all path components were matched
+        dLog("Navigation successful. Final element: \\(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+        return currentElement
     }
 }
