@@ -23,6 +23,24 @@ public class AXorcist {
     private let focusedAppKeyValue = "focused"
     private var recursiveCallDebugLogs: [String] = [] // Added for recursive logging
 
+    // Default values for collection and search if not provided by the command
+    public static let defaultMaxDepthSearch = 10 // Example, adjust as needed
+    public static let defaultMaxDepthCollectAll = 5 
+    public static let defaultTimeoutPerElementCollectAll = 0.5 // seconds
+
+    // Default attributes to fetch if none are specified by the command.
+    public static let defaultAttributesToFetch: [String] = [
+        "AXRole",
+        "AXTitle",
+        "AXSubrole",
+        "AXIdentifier",
+        "AXDescription",
+        "AXValue",
+        "AXSelectedText",
+        "AXEnabled",
+        "AXFocused"
+    ]
+
     public init() {
         // Future initialization logic can go here.
         // For now, ensure debug logs can be collected if needed.
@@ -133,31 +151,36 @@ public class AXorcist {
             }
         }
 
-        let rootElementDescription = effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        _ = rootElementDescription // Silences compiler warning
-        let searchLogMessage = "[AXorcist.handleGetAttributes] Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)"
-        dLog(searchLogMessage)
-        let foundElement = search(
-            element: effectiveElement, 
-            locator: locator, 
-            requireAction: locator.requireAction, 
-            maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH, 
-            isDebugLoggingEnabled: isDebugLoggingEnabled, 
-            currentDebugLogs: &currentDebugLogs
-        )
+        var elementToQuery: Element?
+        let axApplicationKey = "AXApplication" // String literal for the attribute key
 
-        if let elementToQuery = foundElement {
-            let elementDescription = elementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-            _ = elementDescription // Silences compiler warning
+        if locator.criteria.count == 1, let appCritervalue = locator.criteria[axApplicationKey], (appCritervalue.uppercased() == "YES" || appCritervalue.uppercased() == "TRUE") {
+            let briefDesc = effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            dLog("[AXorcist.handleGetAttributes] Locator criteria is {'\(axApplicationKey)': '\(appCritervalue)'}. Using effectiveElement (\(briefDesc)) as target.")
+            elementToQuery = effectiveElement
+        } else {
+            let rootElementDescription = effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            dLog("[AXorcist.handleGetAttributes] Not an AXApplication-only locator or value mismatch. Searching for element with locator: \(locator.criteria) from root: \(rootElementDescription)")
+            elementToQuery = search(
+                element: effectiveElement,
+                locator: locator,
+                requireAction: locator.requireAction,
+                maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &currentDebugLogs
+            )
+        }
+
+        if let actualElementToQuery = elementToQuery {
+            let elementDescription = actualElementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             let attributesDescription = (requestedAttributes ?? ["all"]).description
-            _ = attributesDescription // Silences compiler warning
-            let foundElementLogMessage = "[AXorcist.handleGetAttributes] Element found: \(elementDescription). Fetching attributes: \(attributesDescription)..."
-            dLog(foundElementLogMessage)
+            dLog("[AXorcist.handleGetAttributes] Element identified/found: \(elementDescription). Fetching attributes: \(attributesDescription)...")
+            
             var attributes = getElementAttributes(
-                elementToQuery,
+                actualElementToQuery,
                 requestedAttributes: requestedAttributes ?? [],
-                forMultiDefault: false, 
-                targetRole: locator.criteria[kAXRoleAttribute],
+                forMultiDefault: false,
+                targetRole: locator.criteria[kAXRoleAttribute], // kAXRoleAttribute should be fine here
                 outputFormat: outputFormat ?? .smart,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
@@ -166,10 +189,10 @@ public class AXorcist {
                 attributes = encodeAttributesToJSONStringRepresentation(attributes)
             }
             
-            let elementPathArray = elementToQuery.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            let elementPathArray = actualElementToQuery.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             let axElement = AXElement(attributes: attributes, path: elementPathArray)
             
-            dLog("[AXorcist.handleGetAttributes] Successfully fetched attributes for element \(elementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)).")
+            dLog("[AXorcist.handleGetAttributes] Successfully fetched attributes for element \(actualElementToQuery.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)).")
             return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
         } else {
             let errorMessage = "No element found for get_attributes with locator: \(String(describing: locator))"
@@ -793,7 +816,7 @@ public class AXorcist {
         for appIdentifierOrNil: String?,
         locator: Locator?,
         pathHint: [String]?,
-        maxDepth: Int?,
+        maxDepth: Int?, // This is the input from the command
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?,
         isDebugLoggingEnabled: Bool,
@@ -803,14 +826,20 @@ public class AXorcist {
         self.recursiveCallDebugLogs.append(contentsOf: currentDebugLogs) // Incorporate initial logs
 
         // Local dLog now appends to self.recursiveCallDebugLogs
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                let logMessage = "[AXorcist.handleCollectAll] \(message)"
-                self.recursiveCallDebugLogs.append(logMessage)
-            }
+        func dLog(_ message: String, subCommandID: String? = nil, _ file: String = #file, _ function: String = #function, _ line: Int = #line) {
+            let logMessage = AXorcist.formatDebugLogMessage(message, applicationName: appIdentifierOrNil, commandID: subCommandID, file: file, function: function, line: line)
+            self.recursiveCallDebugLogs.append(logMessage)
         }
 
-        dLog("Starting handleCollectAll")
+        dLog("[AXorcist.handleCollectAll] Starting. App: \(appIdentifierOrNil ?? "N/A"), Locator: \(String(describing: locator)), PathHint: \(String(describing: pathHint)), MaxDepth: \(String(describing: maxDepth))")
+
+        // Determine effectiveMaxDepth based on input or default
+        let initialInputMaxDepth = maxDepth ?? AXorcist.defaultMaxDepthCollectAll // Use class constant
+        // Ensure maxDepth is at least 0 if provided, otherwise use default. 
+        // A negative input maxDepth doesn't make sense for collection, treat as default.
+        var recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXorcist.defaultMaxDepthCollectAll
+        
+        dLog("Initial input maxDepth: \(String(describing: maxDepth)), AXorcist.defaultMaxDepthCollectAll: \(AXorcist.defaultMaxDepthCollectAll). Calculated recursionDepthLimit: \(recursionDepthLimit)")
 
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
         dLog("Using app identifier: \(appIdentifier)")
@@ -837,35 +866,53 @@ public class AXorcist {
         }
 
         var collectedAXElements: [AXElement] = []
-        let effectiveMaxDepth = maxDepth ?? 8 
-        dLog("Max collection depth: \(effectiveMaxDepth)")
+        // The lines below were causing multiple errors and are removed.
+        // let maxDepth = commandEnvelope.maxDepth ?? defaultMaxDepthCollectAll 
+        // let timeoutPerElement = commandEnvelope.timeoutPerElement ?? defaultTimeoutPerElementCollectAll
+        // var effectiveMaxDepth = (maxDepth > 0) ? maxDepth : defaultMaxDepthCollectAll
+        // dLog("Original effectiveMaxDepth from input maxDepth (\(maxDepth)): \(effectiveMaxDepth)", commandID: commandID, &recursiveCallDebugLogs)
+        //effectiveMaxDepth = 0 // <<<< FORCED FOR TEST >>>>
+        //dLog("TESTING: Forced effectiveMaxDepth to 0 to debug collection count", commandID: commandID, &recursiveCallDebugLogs)
+
 
         var collectRecursively: ((AXUIElement, Int) -> Void)!
         collectRecursively = { axUIElement, currentDepth in
-            if currentDepth > effectiveMaxDepth {
-                // Pass &self.recursiveCallDebugLogs to briefDescription
-                dLog("Reached max depth \(effectiveMaxDepth) at element \(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch.")
+            // Use the correctly scoped recursionDepthLimit here
+            if currentDepth > recursionDepthLimit { 
+                dLog("Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch.")
                 return
             }
             
             let currentElement = Element(axUIElement)
             
-            var shouldIncludeElement = true // Default to include if no locator
-            if let loc = locator {
-                let matchStatus = evaluateElementAgainstCriteria(
-                    element: currentElement,
-                    locator: loc,
-                    actionToVerify: loc.requireAction, // Pass requireAction from locator
-                    depth: currentDepth,               // Pass currentDepth
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &self.recursiveCallDebugLogs
-                )
-                if matchStatus != .fullMatch {
-                    shouldIncludeElement = false
-                    // Log if not a full match, but still recurse for children
-                    dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth) did not fully match locator (status: \(matchStatus)), not collecting it.")
-                 }
+            var shouldIncludeElement = true 
+            // If we are at depth 0 (the start element itself) AND a locator was provided,
+            // then this start element must match the locator.
+            // For all children (depth > 0), or if no locator was provided at all,
+            // elements are included by default.
+            if currentDepth == 0 && locator != nil {
+                if let loc = locator { // Re-check locator, though it should be non-nil if currentDepth == 0 && locator != nil condition was met
+                    let matchStatus = evaluateElementAgainstCriteria(
+                        element: currentElement,
+                        locator: loc,
+                        actionToVerify: loc.requireAction,
+                        depth: currentDepth, // currentDepth is 0 here
+                        isDebugLoggingEnabled: isDebugLoggingEnabled,
+                        currentDebugLogs: &self.recursiveCallDebugLogs
+                    )
+                    if matchStatus != .fullMatch {
+                        shouldIncludeElement = false
+                        dLog("Start element (depth 0) \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) did not fully match locator (status: \(matchStatus)), not collecting it. This might indicate an issue if a start element was expected.")
+                    } else {
+                        dLog("Start element (depth 0) \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) matched locator. Collecting it.")
+                    }
+                }
+            } else if locator != nil && currentDepth > 0 {
+                // For children of the start element (depth > 0), when a locator was initially provided,
+                // we still log that we *would have* checked, but we will include them anyway.
+                dLog("Element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth) is a child of a located start element. Including it regardless of initial locator criteria.")
             }
+            // If locator was nil initially, shouldIncludeElement remains true.
             
             if shouldIncludeElement {
                 dLog("Collecting element \(currentElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
@@ -912,49 +959,14 @@ public class AXorcist {
 
         dLog("Collection complete. Found \(collectedAXElements.count) elements matching criteria (if any). Naming them 'collected_elements' in response.")
 
+        // Explicitly map to [AnyCodable] to help the encoder
+        let encodableCollectedElements = collectedAXElements.map { AnyCodable($0) }
+
         let responseDataElement = AXElement(
-            attributes: ["collected_elements": AnyCodable(collectedAXElements)],
+            attributes: ["collected_elements": AnyCodable(encodableCollectedElements)], // Ensure this is AnyCodable([AnyCodable(AXElement)])
             path: startElement.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)
         )
 
         return HandlerResponse(data: responseDataElement, error: nil, debug_logs: self.recursiveCallDebugLogs)
     }
-
-    internal func getElementAttributes(for axElement: AXUIElement, requestedAttributes: [String]?, outputFormat: OutputFormat, pathHint: [String]?, currentDebugLogs: inout [String]) -> (attributes: ElementAttributes, collectedAttrData: [String: AttributeData]) {
-        var attributesToReturn: ElementAttributes = [:]
-        var collectedAttributesForComputedName: [String: AttributeData] = [:] // Still collect for computed name
-
-        dLog("getElementAttributes starting for element: \(axElement.descriptionForLogs), format: \(outputFormat.rawValue)", &currentDebugLogs)
-
-        // Temporarily, only process ComputedName
-        // First, we need to fetch attributes that might be used by generateComputedName, e.g., AXRole, AXTitle, AXValue, etc.
-        // This part remains similar to ensure `collectedAttributesForComputedName` is populated.
-        let attributesNeededForComputedName = [kAXRoleAttribute, kAXTitleAttribute, kAXValueAttribute, kAXDescriptionAttribute, kAXPlaceholderValueAttribute, "AXIdentifier", "AXLabel"]
-        for attrNameCFS in attributesNeededForComputedName {
-            let attrName = attrNameCFS as String
-            let (value, source) = getAttributeValueAndSource(for: axElement, attributeName: attrName, outputFormat: .smart) // Use .smart to get raw values
-            collectedAttributesForComputedName[attrName] = AttributeData(value: AnyCodable(value), source: source)
-        }
-
-        if let computedNameString = generateComputedName(for: axElement, from: collectedAttributesForComputedName) {
-            attributesToReturn["ComputedName"] = AnyCodable(computedNameString)
-            dLog("Added ComputedName: \(computedNameString)", &currentDebugLogs)
-        }
-        
-        // Skip all other attribute processing for this debug step
-        dLog("TEMPORARY DEBUG: Skipped all other attribute processing.", &currentDebugLogs)
-
-        // Still need to populate AXActionNames for consistency if other parts of axorc rely on it
-        // but ensure it uses only encodable values.
-        var actionNames: [String] = []
-        // Simplified action fetching or make it empty for now to avoid encoding issues from it
-        // Example: actionNames.append("debug_action")
-        attributesToReturn[kAXActionNamesAttribute as String] = AnyCodable(actionNames) // Ensure this is an array of strings
-
-        dLog("getElementAttributes finished. Result keys: \(attributesToReturn.keys.joined(separator: \", \"))", &currentDebugLogs)
-        return (attributesToReturn, collectedAttributesForComputedName) // Return the possibly minimal attributes
-    }
-
-    // Helper to get an attribute's value and its source (e.g., direct, placeholder, computed)
-    // ... existing code ...
 } 

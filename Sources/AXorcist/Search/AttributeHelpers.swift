@@ -118,19 +118,19 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
         if attr == kAXParentAttribute { 
             tempCallLogs.removeAll()
             let parent = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
-            result[kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // formatParentAttribute will manage its own logs now
-            currentDebugLogs.append(contentsOf: tempCallLogs) // Collect logs from element.parent and formatParentAttribute
+            result[kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
+            currentDebugLogs.append(contentsOf: tempCallLogs)
             continue 
         } else if attr == kAXChildrenAttribute { 
             tempCallLogs.removeAll()
             let children = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
-            result[attr] = formatChildrenAttribute(children, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // formatChildrenAttribute will manage its own logs
+            result[attr] = formatChildrenAttribute(children, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
             currentDebugLogs.append(contentsOf: tempCallLogs)
             continue
         } else if attr == kAXFocusedUIElementAttribute { 
             tempCallLogs.removeAll()
             let focused = element.focusedElement(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
-            result[attr] = AnyCodable(formatFocusedUIElementAttribute(focused, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs))
+            result[attr] = formatFocusedUIElementAttribute(focused, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
             currentDebugLogs.append(contentsOf: tempCallLogs)
             continue
         }
@@ -168,7 +168,7 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
     tempLogs.removeAll()
     if result[computedNameAttributeKey] == nil { 
         if let name = element.computedName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
-            result[computedNameAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(name), source: .computed))
+            result[computedNameAttributeKey] = AnyCodable(name)
             dLog("Added ComputedName: \(name)")
         }
     }
@@ -179,7 +179,7 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
         let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == kAXButtonRole)
         let hasPressAction = element.isActionSupported(kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         if isButton || hasPressAction { 
-            result[isClickableAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(true), source: .computed))
+            result[isClickableAttributeKey] = AnyCodable(true)
             dLog("Added IsClickable: true (button: \(isButton), pressAction: \(hasPressAction))")
         }
     }
