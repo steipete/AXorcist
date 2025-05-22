@@ -1,18 +1,181 @@
 // ElementSearch.swift - Contains search and element collection logic
 
 import ApplicationServices
-import Darwin
 import Foundation
 
-// Variable DEBUG_LOGGING_ENABLED is expected to be globally available from Logging.swift
-// Element is now the primary type for UI elements.
+// MARK: - Environment Variable & Global Constants
 
-// decodeExpectedArray MOVED to Utils/GeneralParsingUtils.swift
+private func getEnvVar(_ name: String) -> String? {
+    guard let value = getenv(name) else { return nil }
+    return String(cString: value)
+}
+
+private let AXORC_JSON_LOG_ENABLED: Bool = {
+    let envValue = getEnvVar("AXORC_JSON_LOG")?.lowercased()
+    fputs("[ElementSearch.swift] AXORC_JSON_LOG env var value: \(envValue ?? "not set") -> JSON logging: \(envValue == "true")\n", stderr)
+    return envValue == "true"
+}()
+
+// PathHintComponent and criteriaMatch are now in SearchCriteriaUtils.swift
+
+// MARK: - Main Search Logic (findElementViaPathAndCriteria and its helpers)
+@MainActor
+func findElementViaPathAndCriteria(
+    application: Element,
+    locator: Locator,
+    maxDepth: Int?,
+    isDebugLoggingEnabledParam: Bool,
+    currentDebugLogs: inout [String]
+) -> Element? {
+    var tempNilLogs: [String] = []
+
+    // ADDED DEBUG LOGGING
+    if isDebugLoggingEnabledParam {
+        let pathHintDebug = locator.root_element_path_hint?.joined(separator: " -> ") ?? "nil"
+        let initialMessage = "[findElementViaPathAndCriteria ENTRY] locator.criteria: \(locator.criteria), locator.root_element_path_hint: \(pathHintDebug)"
+        currentDebugLogs.append(AXorcist.formatDebugLogMessage(initialMessage, applicationName: application.pid(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs).map { String($0) }, commandID: nil, file: #file, function: #function, line: #line))
+    }
+    // END ADDED DEBUG LOGGING
+
+    func dLog(_ message: String, depth: Int? = nil, status: String? = nil, element: Element? = nil, c: [String: String]? = nil, md: Int? = nil) {
+        if !AXORC_JSON_LOG_ENABLED && isDebugLoggingEnabledParam {
+            var logMessage = message
+            if let depth_ = depth, let status_ = status, let element_ = element {
+                let role = element_.role(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs) ?? "nil"
+                let title = element_.title(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)?.truncated(to: 30) ?? "nil"
+                let id = element_.identifier(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)?.truncated(to: 30) ?? "nil"
+                let criteriaDesc = c?.description.truncated(to: 50) ?? locator.criteria.description.truncated(to: 50)
+                let maxDepthDesc = md ?? maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
+                logMessage = "search [D\(depth_)]: Path:\(element_.generatePathArray(upTo: application, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs).suffix(3).joined(separator: "/")), Status:\(status_), Elem:\(role) T:'\(title)' ID:'\(id)', Crit:\(criteriaDesc), MaxD:\(maxDepthDesc)"
+            }
+            let appPidString = application.pid(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs).map { String($0) }
+            currentDebugLogs.append(AXorcist.formatDebugLogMessage(logMessage, applicationName: appPidString, commandID: nil, file: #file, function: #function, line: #line))
+        }
+    }
+
+    func writeSearchLogEntry(depth: Int, element: Element?, criteriaForEntry: [String: String]?, maxDepthForEntry: Int, status: String, isMatch: Bool?) {
+        if AXORC_JSON_LOG_ENABLED && isDebugLoggingEnabledParam {
+            let role: String? = element?.role(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)
+            let title: String? = element?.title(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)
+            let identifier: String? = element?.identifier(isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)
+
+            let entry = SearchLogEntry(
+                d: depth,
+                eR: role?.truncatedToMaxLogAbbrev(),
+                eT: title?.truncatedToMaxLogAbbrev(),
+                eI: identifier?.truncatedToMaxLogAbbrev(),
+                mD: maxDepthForEntry,
+                c: criteriaForEntry?.mapValues { $0.truncatedToMaxLogAbbrev() } ?? locator.criteria.mapValues { $0.truncatedToMaxLogAbbrev() },
+                s: status,
+                iM: isMatch
+            )
+            if let jsonData = try? JSONEncoder().encode(entry), let jsonString = String(data: jsonData, encoding: .utf8) {
+                fputs("\(jsonString)\n", stderr)
+            }
+        }
+    }
+
+    @MainActor
+    func navigateToElementByPathHint(pathHint: [PathHintComponent], initialSearchElement: Element, pathHintMaxDepth: Int) -> Element? {
+        var currentElementInPath = initialSearchElement
+        dLog("PathHintNav: Starting with \(pathHint.count) components from \(initialSearchElement.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs))")
+
+        for (index, pathComponent) in pathHint.enumerated() {
+            let currentNavigationDepth = index
+            dLog("PathHintNav: Visiting comp #\(index)", depth: currentNavigationDepth, status: "pathVis", element: currentElementInPath, c: pathComponent.criteria, md: pathHintMaxDepth)
+            writeSearchLogEntry(depth: currentNavigationDepth, element: currentElementInPath, criteriaForEntry: pathComponent.criteria, maxDepthForEntry: pathHintMaxDepth, status: "pathVis", isMatch: nil)
+
+            if !pathComponent.matches(element: currentElementInPath, isDebugLoggingEnabled: isDebugLoggingEnabledParam, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
+                dLog("PathHintNav: No match for comp #\(index)", depth: currentNavigationDepth, status: "pathNoMatch", element: currentElementInPath, c: pathComponent.criteria, md: pathHintMaxDepth)
+                writeSearchLogEntry(depth: currentNavigationDepth, element: currentElementInPath, criteriaForEntry: pathComponent.criteria, maxDepthForEntry: pathHintMaxDepth, status: "pathNoMatch", isMatch: false)
+                return nil
+            }
+
+            dLog("PathHintNav: Matched comp #\(index)", depth: currentNavigationDepth, status: "pathMatch", element: currentElementInPath, c: pathComponent.criteria, md: pathHintMaxDepth)
+            writeSearchLogEntry(depth: currentNavigationDepth, element: currentElementInPath, criteriaForEntry: pathComponent.criteria, maxDepthForEntry: pathHintMaxDepth, status: "pathMatch", isMatch: true)
+
+            if index == pathHint.count - 1 {
+                return currentElementInPath
+            }
+
+            let nextPathComponentCriteria = pathHint[index + 1].criteria
+            var foundNextChild: Element?
+            if let children = currentElementInPath.children(isDebugLoggingEnabled: isDebugLoggingEnabledParam, currentDebugLogs: &currentDebugLogs) {
+                for child in children {
+                    let tempPathComponent = PathHintComponent(criteria: nextPathComponentCriteria)
+                    if tempPathComponent.matches(element: child, isDebugLoggingEnabled: isDebugLoggingEnabledParam, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
+                        currentElementInPath = child
+                        foundNextChild = child
+                        break
+                    }
+                }
+            }
+
+            if foundNextChild == nil {
+                dLog("PathHintNav: Could not find child for next comp #\(index + 1)", depth: currentNavigationDepth, status: "pathChildFail", element: currentElementInPath, c: nextPathComponentCriteria, md: pathHintMaxDepth)
+                writeSearchLogEntry(depth: currentNavigationDepth, element: currentElementInPath, criteriaForEntry: nextPathComponentCriteria, maxDepthForEntry: pathHintMaxDepth, status: "pathChildFail", isMatch: false)
+                return nil
+            }
+        }
+        return currentElementInPath
+    }
+
+    @MainActor
+    func traverseAndSearch(currentElement: Element, currentDepth: Int, effectiveMaxDepth: Int) -> Element? {
+        dLog("Traverse: Visiting", depth: currentDepth, status: "vis", element: currentElement, md: effectiveMaxDepth)
+        writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "vis", isMatch: nil)
+
+        if criteriaMatch(element: currentElement, criteria: locator.criteria, isDebugLoggingEnabled: isDebugLoggingEnabledParam, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
+            dLog("Traverse: Found", depth: currentDepth, status: "found", element: currentElement, md: effectiveMaxDepth)
+            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "found", isMatch: true)
+            return currentElement
+        } else {
+            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "noMatch", isMatch: false)
+        }
+
+        if currentDepth >= effectiveMaxDepth {
+            dLog("Traverse: MaxDepth", depth: currentDepth, status: "maxD", element: currentElement, md: effectiveMaxDepth)
+            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "maxD", isMatch: false)
+            return nil
+        }
+
+        if let children = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabledParam, currentDebugLogs: &currentDebugLogs) {
+            for child in children {
+                if let found = traverseAndSearch(currentElement: child, currentDepth: currentDepth + 1, effectiveMaxDepth: effectiveMaxDepth) {
+                    return found
+                }
+            }
+        }
+        return nil
+    }
+
+    var searchStartElement = application
+    let resolvedMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
+
+    if let pathHintStrings = locator.root_element_path_hint, !pathHintStrings.isEmpty {
+        let pathHintComponents = pathHintStrings.compactMap { PathHintComponent(pathSegment: $0, isDebugLoggingEnabled: isDebugLoggingEnabledParam, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) }
+        if !pathHintComponents.isEmpty && pathHintComponents.count == pathHintStrings.count {
+            dLog("Starting path hint navigation. Number of components: \(pathHintComponents.count)")
+            if let elementFromPathHint = navigateToElementByPathHint(pathHint: pathHintComponents, initialSearchElement: application, pathHintMaxDepth: pathHintComponents.count - 1) {
+                dLog("Path hint navigation successful. New start: \(elementFromPathHint.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)). Starting criteria search.")
+                searchStartElement = elementFromPathHint
+            } else {
+                dLog("Path hint navigation failed. Full search from app root.")
+            }
+        } else {
+            dLog("Path hint strings provided but failed to parse into components or some were invalid. Full search from app root.")
+        }
+    } else {
+        dLog("No path hint provided. Searching from application root.")
+    }
+
+    return traverseAndSearch(currentElement: searchStartElement, currentDepth: 0, effectiveMaxDepth: resolvedMaxDepth)
+}
 
 enum ElementMatchStatus {
-    case fullMatch // Role, attributes, and (if specified) action all match
-    case partialMatch_actionMissing // Role and attributes match, but a required action is missing
-    case noMatch // Role or attributes do not match
+    case fullMatch
+    case partialMatch_actionMissing
+    case noMatch
 }
 
 @MainActor
@@ -24,71 +187,33 @@ internal func evaluateElementAgainstCriteria(
     isDebugLoggingEnabled: Bool,
     currentDebugLogs: inout [String]
 ) -> ElementMatchStatus {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
+    func el_dLog(_ message: String) {
+        if !AXORC_JSON_LOG_ENABLED && isDebugLoggingEnabled { currentDebugLogs.append(message) }
+    }
+    var tempLogs: [String] = []
 
-    var tempLogs: [String] = [] // For calls to Element methods that need their own log scope temporarily
+    let currentElementRoleForLog: String? = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+    let wantedRoleFromCriteria = locator.criteria[AXAttributeNames.kAXRoleAttribute]
 
-    let currentElementRoleForLog: String? = element.role(
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogs
-    )
-    let wantedRoleFromCriteria = locator.criteria[kAXRoleAttribute]
     var roleMatchesCriteria = false
-
-    if let currentRole = currentElementRoleForLog, let roleToMatch = wantedRoleFromCriteria, !roleToMatch.isEmpty,
-       roleToMatch != "*" {
+    if let currentRole = currentElementRoleForLog, let roleToMatch = wantedRoleFromCriteria, !roleToMatch.isEmpty, roleToMatch != "*" {
         roleMatchesCriteria = (currentRole == roleToMatch)
     } else {
-        roleMatchesCriteria = true // Wildcard/empty/nil role in criteria is a match
-        let wantedRoleStr = wantedRoleFromCriteria ?? "any"
-        let currentRoleStr = currentElementRoleForLog ?? "nil"
-        dLog(
-            "evaluateElementAgainstCriteria [D\(depth)]: Wildcard/empty/nil role in criteria ('\(wantedRoleStr)') considered a match for element role \(currentRoleStr)."
-        )
+        roleMatchesCriteria = true
     }
 
-    if !roleMatchesCriteria {
-        dLog(
-            "evaluateElementAgainstCriteria [D\(depth)]: Role mismatch. Element role: \(currentElementRoleForLog ?? "nil"), Expected: \(wantedRoleFromCriteria ?? "any"). No match."
-        )
+    if !roleMatchesCriteria { return .noMatch }
+
+    if !criteriaMatch(element: element, criteria: locator.criteria, isDebugLoggingEnabled: isDebugLoggingEnabled, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
         return .noMatch
     }
 
-    // Role matches, now check other attributes
-    // attributesMatch will also need isDebugLoggingEnabled, currentDebugLogs
-    if !attributesMatch(
-        element: element,
-        matchDetails: locator.criteria,
-        depth: depth,
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &currentDebugLogs
-    ) {
-        // attributesMatch itself will log the specific mismatch reason
-        dLog("evaluateElementAgainstCriteria [D\(depth)]: attributesMatch returned false. No match.")
-        return .noMatch
-    }
-
-    // Role and attributes match. Now check for required action.
-    if let requiredAction = actionToVerify, !requiredAction.isEmpty {
-        if !element.isActionSupported(
-            requiredAction,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogs
-        ) {
-            dLog(
-                "evaluateElementAgainstCriteria [D\(depth)]: Role & Attributes matched, but required action '\(requiredAction)' is MISSING."
-            )
+    let actionRequirement = actionToVerify ?? locator.requireAction
+    if let requiredAction = actionRequirement, !requiredAction.isEmpty {
+        if !element.isActionSupported(requiredAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
             return .partialMatch_actionMissing
         }
-        dLog(
-            "evaluateElementAgainstCriteria [D\(depth)]: Role, Attributes, and Required Action '\(requiredAction)' all MATCH."
-        )
-    } else {
-        dLog(
-            "evaluateElementAgainstCriteria [D\(depth)]: Role & Attributes matched. No action to verify or action already included in locator.criteria for attributesMatch."
-        )
     }
-
     return .fullMatch
 }
 
@@ -97,113 +222,34 @@ public func search(element: Element,
                    locator: Locator,
                    requireAction: String?,
                    depth: Int = 0,
-                   maxDepth: Int = DEFAULT_MAX_DEPTH_SEARCH,
-                   isDebugLoggingEnabled: Bool
-                   /* REMOVED: currentDebugLogs: inout [String] */) -> (foundElement: Element?, logs: [String]) { // CHANGED RETURN TYPE
-    fputs("SEARCH_FUNCTION_RAW_PRINT_STDERR: Depth \(depth), isDebug: \(isDebugLoggingEnabled)\n", stderr)
-    var internalSearchLogs: [String] = [] // NEW: Internal log storage
+                   maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
+                   isDebugLoggingEnabled: Bool,
+                   currentDebugLogs: inout [String]) -> Element? {
+    var tempLogs: [String] = []
+    if depth > maxDepth { return nil }
 
-    // DIRECT APPEND AND LOCAL LET FOR DEBUG FLAG
-    internalSearchLogs.append("SEARCH_ENTRY_DIRECT_APPEND: Depth \(depth), isDebugLoggingEnabledParam: \(isDebugLoggingEnabled)")
-    let localDebugEnabled = isDebugLoggingEnabled
-    internalSearchLogs.append("SEARCH_ENTRY_LOCALDEBUG: localDebugEnabled is \(localDebugEnabled)")
-
-    func dLog(_ message: String) { if localDebugEnabled { internalSearchLogs.append(message) } } // Appends to internalSearchLogs
-    
-    var tempLogsForElementMethods: [String] = [] // For calls to Element methods that require inout logs
-
-    let criteriaDesc = locator.criteria.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
-    // Calls to element.role, element.title etc. will use tempLogsForElementMethods
-    // Their logs aren't the primary concern for *this* refactor's test, but they need a valid inout array.
-    let roleStr = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogsForElementMethods) ?? "nil"
-    let titleStr = element.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogsForElementMethods) ?? "N/A"
-    internalSearchLogs.append(contentsOf: tempLogsForElementMethods) // Append logs from element methods
-    tempLogsForElementMethods.removeAll() // Clear for next use
-
-    dLog(
-        "search [D\(depth)]: Visiting. Role: \(roleStr), Title: \(titleStr). Locator Criteria: [\(criteriaDesc)], Action: \(requireAction ?? "none")"
-    )
-
-    if depth > maxDepth {
-        let briefDesc = element.briefDescription(
-            option: .default,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogsForElementMethods
-        )
-        internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
-        tempLogsForElementMethods.removeAll()
-        dLog("search [D\(depth)]: Max depth \(maxDepth) reached for element \(briefDesc).")
-        return (nil, internalSearchLogs) // RETURN TUPLE
-    }
-
-    // evaluateElementAgainstCriteria still uses inout, its logs will be added to internalSearchLogs
-    var logsFromEvaluate: [String] = []
     let matchStatus = evaluateElementAgainstCriteria(element: element,
                                                      locator: locator,
-                                                     actionToVerify: requireAction,
+                                                     actionToVerify: requireAction ?? locator.requireAction,
                                                      depth: depth,
                                                      isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                                     currentDebugLogs: &logsFromEvaluate)
-    internalSearchLogs.append(contentsOf: logsFromEvaluate)
+                                                     currentDebugLogs: &currentDebugLogs)
 
-    if matchStatus == .fullMatch {
-        let briefDesc = element.briefDescription(
-            option: .default,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogsForElementMethods
-        )
-        internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
-        tempLogsForElementMethods.removeAll()
-        dLog(
-            "search [D\(depth)]: evaluateElementAgainstCriteria returned .fullMatch for \(briefDesc). Returning element."
-        )
-        return (element, internalSearchLogs) // RETURN TUPLE
-    }
+    if matchStatus == .fullMatch { return element }
 
-    let briefDesc = element.briefDescription(
-        option: .default,
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogsForElementMethods
-    )
-    internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
-    tempLogsForElementMethods.removeAll()
-
-    if matchStatus == .partialMatch_actionMissing {
-        dLog(
-            "search [D\(depth)]: Element \(briefDesc) matched criteria but missed action '\(requireAction ?? "")'. Continuing child search."
-        )
-    }
-    if matchStatus == .noMatch {
-        dLog("search [D\(depth)]: Element \(briefDesc) did not match criteria. Continuing child search.")
-    }
-
-    let childrenToSearch: [Element] = element.children(
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogsForElementMethods // Pass tempLogsForElementMethods here
-    ) ?? []
-    internalSearchLogs.append(contentsOf: tempLogsForElementMethods)
-    tempLogsForElementMethods.removeAll()
-
-
-    if !childrenToSearch.isEmpty {
-        for childElement in childrenToSearch {
-            // RECURSIVE CALL
-            let recursiveResult = search( // No longer passes currentDebugLogs
-                element: childElement,
-                locator: locator,
-                requireAction: requireAction,
-                depth: depth + 1,
-                maxDepth: maxDepth,
-                isDebugLoggingEnabled: isDebugLoggingEnabled
-                // Removed: currentDebugLogs: &currentDebugLogs -> now &internalSearchLogs
-            )
-            internalSearchLogs.append(contentsOf: recursiveResult.logs) // Append logs from recursive call
-            if let found = recursiveResult.foundElement {
-                return (found, internalSearchLogs) // RETURN TUPLE
-            }
+    let childrenToSearch: [Element] = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? []
+    for childElement in childrenToSearch {
+        if let found = search(element: childElement,
+                              locator: locator,
+                              requireAction: requireAction,
+                              depth: depth + 1,
+                              maxDepth: maxDepth,
+                              isDebugLoggingEnabled: isDebugLoggingEnabled,
+                              currentDebugLogs: &currentDebugLogs) {
+            return found
         }
     }
-    return (nil, internalSearchLogs) // RETURN TUPLE
+    return nil
 }
 
 @MainActor
@@ -218,79 +264,36 @@ public func collectAll(
     elementsBeingProcessed: inout Set<Element>,
     foundElements: inout [Element],
     isDebugLoggingEnabled: Bool,
-    currentDebugLogs: inout [String] // Added logging parameter
+    currentDebugLogs: inout [String]
 ) {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var tempLogs: [String] = [] // For calls to Element methods
-
-    let briefDescCurrent = currentElement.briefDescription(
-        option: .default,
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogs
-    )
-
-    if elementsBeingProcessed.contains(currentElement) || currentPath.contains(currentElement) {
-        dLog("collectAll [D\(depth)]: Cycle detected or element \(briefDescCurrent) already processed/in path.")
-        return
-    }
+    var tempLogs: [String] = []
+    if elementsBeingProcessed.contains(currentElement) || currentPath.contains(currentElement) { return }
     elementsBeingProcessed.insert(currentElement)
 
-    if foundElements.count >= maxElements {
-        dLog(
-            "collectAll [D\(depth)]: Max elements limit of \(maxElements) reached before processing \(briefDescCurrent)."
-        )
+    if foundElements.count >= maxElements || depth > maxDepth {
         elementsBeingProcessed.remove(currentElement)
         return
     }
-    if depth > maxDepth {
-        dLog("collectAll [D\(depth)]: Max depth \(maxDepth) reached for \(briefDescCurrent).")
-        elementsBeingProcessed.remove(currentElement)
-        return
-    }
-
-    let criteriaDesc = locator.criteria.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
-    dLog(
-        "collectAll [D\(depth)]: Visiting \(briefDescCurrent). Criteria: [\(criteriaDesc)], Action: \(locator.requireAction ?? "none")"
-    )
 
     let matchStatus = evaluateElementAgainstCriteria(element: currentElement,
                                                      locator: locator,
                                                      actionToVerify: locator.requireAction,
                                                      depth: depth,
                                                      isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                                     currentDebugLogs: &currentDebugLogs) // Pass through logs
+                                                     currentDebugLogs: &currentDebugLogs)
 
     if matchStatus == .fullMatch {
-        if foundElements.count < maxElements {
-            if !foundElements.contains(currentElement) {
-                foundElements.append(currentElement)
-                dLog("collectAll [D\(depth)]: Added \(briefDescCurrent). Hits: \(foundElements.count)/\(maxElements)")
-            } else {
-                dLog(
-                    "collectAll [D\(depth)]: Element \(briefDescCurrent) was a full match but already in foundElements."
-                )
-            }
-        } else {
-            dLog(
-                "collectAll [D\(depth)]: Element \(briefDescCurrent) was a full match but maxElements (\(maxElements)) already reached."
-            )
+        if !foundElements.contains(currentElement) {
+            foundElements.append(currentElement)
         }
     }
 
-    let childrenToExplore: [Element] = currentElement.children(
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &tempLogs
-    ) ?? []
+    let childrenToExplore: [Element] = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? []
     elementsBeingProcessed.remove(currentElement)
 
     let newPath = currentPath + [currentElement]
     for child in childrenToExplore {
-        if foundElements.count >= maxElements {
-            dLog(
-                "collectAll [D\(depth)]: Max elements (\(maxElements)) reached during child traversal of \(briefDescCurrent). Stopping further exploration for this branch."
-            )
-            break
-        }
+        if foundElements.count >= maxElements { break }
         collectAll(
             appElement: appElement,
             locator: locator,
@@ -302,7 +305,16 @@ public func collectAll(
             elementsBeingProcessed: &elementsBeingProcessed,
             foundElements: &foundElements,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs // Pass through logs
+            currentDebugLogs: &currentDebugLogs
         )
     }
 }
+
+// Notes for compilation:
+// 1. ValueUnwrapper.unwrap should be available.
+// 2. AXorcist.formatDebugLogMessage should be available.
+// 3. Element struct and its methods must be correctly defined.
+// 4. Locator struct must be defined with `criteria: [String: String]`, `root_element_path_hint: [String]?`, and `requireAction: String?`.
+// 5. AXAttributeNames.kAXRoleAttribute should be a defined constant (String).
+// 6. ValueFormatOption enum (with .default, .short cases) must be available for Element.briefDescription.
+// 7. SearchLogEntry struct is now in Models.swift

@@ -3,7 +3,7 @@ import CoreGraphics // For CGPoint, CGSize etc.
 import Foundation
 
 // debug() is assumed to be globally available from Logging.swift
-// Constants like kAXPositionAttribute are assumed to be globally available from AccessibilityConstants.swift
+// Accessibility constants are now available through namespaced enums like AXAttributeNames, AXRoleNames, etc.
 
 // MARK: - ValueUnwrapper Utility
 struct ValueUnwrapper {

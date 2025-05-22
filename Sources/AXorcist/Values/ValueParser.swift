@@ -5,7 +5,7 @@ import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
 import Foundation
 
 // debug() is assumed to be globally available from Logging.swift
-// Constants are assumed to be globally available from AccessibilityConstants.swift
+// Accessibility constants are now available through namespaced enums like AXAttributeNames, AXRoleNames, etc.
 // Scanner and CustomCharacterSet are from Scanner.swift
 // AccessibilityError is from AccessibilityError.swift
 
@@ -90,7 +90,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
 @MainActor
 private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValueType, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> AXValue? {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    
+
     let valueRef: AXValue?
     switch targetAXValueType {
     case .cgPoint:
@@ -124,7 +124,7 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
 private func parseCGPoint(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
     var x: Double = 0, y: Double = 0
     let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-    
+
     if components.count == 2,
        let xValStr = components[0].split(separator: "=").last, let xVal = Double(xValStr),
        let yValStr = components[1].split(separator: "=").last, let yVal = Double(yValStr) {
@@ -152,7 +152,7 @@ private func parseCGPoint(from stringValue: String, dLog: (String) -> Void) thro
 private func parseCGSize(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
     var w: Double = 0, h: Double = 0
     let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-    
+
     if components.count == 2,
        let wValStr = components[0].split(separator: "=").last, let wVal = Double(wValStr),
        let hValStr = components[1].split(separator: "=").last, let hVal = Double(hValStr) {
@@ -180,7 +180,7 @@ private func parseCGSize(from stringValue: String, dLog: (String) -> Void) throw
 private func parseCGRect(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
     var x: Double = 0, y: Double = 0, w: Double = 0, h: Double = 0
     let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-    
+
     if components.count == 4,
        let xStr = components[0].split(separator: "=").last, let xVal = Double(xStr),
        let yStr = components[1].split(separator: "=").last, let yVal = Double(yStr),
@@ -216,7 +216,7 @@ private func parseCGRect(from stringValue: String, dLog: (String) -> Void) throw
 private func parseCFRange(from stringValue: String, dLog: (String) -> Void) throws -> AXValue? {
     var loc: Int = 0, len: Int = 0
     let components = stringValue.replacingOccurrences(of: " ", with: "").split(separator: ",")
-    
+
     if components.count == 2,
        let locStr = components[0].split(separator: "=").last, let locVal = Int(locStr),
        let lenStr = components[1].split(separator: "=").last, let lenVal = Int(lenStr) {
@@ -245,10 +245,10 @@ private func parseCFRange(from stringValue: String, dLog: (String) -> Void) thro
 private func parseDefaultAXValueType(from stringValue: String, targetType: AXValueType, dLog: (String) -> Void) throws -> AXValue? {
     if targetType.rawValue == 4 {
         var boolVal: DarwinBoolean
-        if stringValue.lowercased() == "true" { 
-            boolVal = true 
-        } else if stringValue.lowercased() == "false" { 
-            boolVal = false 
+        if stringValue.lowercased() == "true" {
+            boolVal = true
+        } else if stringValue.lowercased() == "false" {
+            boolVal = false
         } else {
             dLog("parseStringToAXValue: Boolean parsing failed for '\(stringValue)' for AXValue.")
             throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValue.")

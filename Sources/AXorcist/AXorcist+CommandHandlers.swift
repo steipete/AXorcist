@@ -39,7 +39,7 @@ extension AXorcist {
         var cfValue: CFTypeRef?
         let copyAttributeStatus = AXUIElementCopyAttributeValue(
             appElement.underlyingElement,
-            kAXFocusedUIElementAttribute as CFString,
+            AXAttributeNames.kAXFocusedUIElementAttribute as CFString,
             &cfValue
         )
 

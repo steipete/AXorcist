@@ -29,3 +29,23 @@ extension Optional {
         }
     }
 }
+
+extension String {
+    func truncated(to length: Int, trailing: String = "...") -> String {
+        if self.count > length {
+            return String(self.prefix(length - trailing.count)) + trailing
+        } else {
+            return self
+        }
+    }
+
+    private static let MAX_LOG_ABBREV_LENGTH = 50
+
+    func truncatedToMaxLogAbbrev() -> String {
+        if self.count > Self.MAX_LOG_ABBREV_LENGTH {
+            return String(self.prefix(Self.MAX_LOG_ABBREV_LENGTH - 3)) + "..."
+        } else {
+            return self
+        }
+    }
+}

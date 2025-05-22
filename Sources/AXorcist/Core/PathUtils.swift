@@ -12,4 +12,4 @@ public enum PathUtils {
         }
         return (attributeName: String(parts[0]), expectedValue: String(parts[1]))
     }
-} 
+}

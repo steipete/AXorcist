@@ -13,7 +13,7 @@ extension AXorcist {
         subCommands: [CommandEnvelope], // The array of sub-commands to process
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
-    ) -> [HandlerResponse] {
+    ) async -> [HandlerResponse] {
         // Local debug logging function
         func dLog(_ message: String, subCommandID: String? = nil) {
             if isDebugLoggingEnabled {
@@ -56,7 +56,7 @@ extension AXorcist {
                     ) // Keep debug_logs nil for specific error, main logs will have the dLog entry
                     break
                 }
-                subCommandResponse = self.handleGetAttributes(
+                subCommandResponse = await self.handleGetAttributes(
                     for: subCommandEnvelope.application,
                     locator: locator,
                     requestedAttributes: subCommandEnvelope.attributes,
@@ -74,7 +74,7 @@ extension AXorcist {
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
-                subCommandResponse = self.handleQuery(
+                subCommandResponse = await self.handleQuery(
                     for: subCommandEnvelope.application,
                     locator: locator,
                     pathHint: subCommandEnvelope.path_hint,
@@ -92,11 +92,12 @@ extension AXorcist {
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
-                subCommandResponse = self.handleDescribeElement(
+                subCommandResponse = await self.handleDescribeElement(
                     for: subCommandEnvelope.application,
                     locator: locator,
                     pathHint: subCommandEnvelope.path_hint,
                     maxDepth: subCommandEnvelope.max_elements,
+                    requestedAttributes: subCommandEnvelope.attributes,
                     outputFormat: subCommandEnvelope.output_format,
                     isDebugLoggingEnabled: isDebugLoggingEnabled,
                     currentDebugLogs: &currentDebugLogs
@@ -113,7 +114,7 @@ extension AXorcist {
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
-                
+
                 guard let actionName = subCommandEnvelope.action_name else {
                     let errorMsg = "Action name missing for performAction in batch (sub-command ID: \(subCmdID))"
                     dLog(errorMsg, subCommandID: subCmdID)
@@ -124,7 +125,7 @@ extension AXorcist {
                 // If only path_hint is provided, locator will be nil, which is fine for handlePerformAction.
                 // If only locator is provided, pathHint will be nil or empty, also fine.
                 // If both, handlePerformAction can use pathHint as root_element_path_hint for the locator.
-                subCommandResponse = self.handlePerformAction(
+                subCommandResponse = await self.handlePerformAction(
                     for: subCommandEnvelope.application,
                     locator: subCommandEnvelope.locator, // Pass along, might be nil
                     pathHint: subCommandEnvelope.path_hint, // Pass along, might be nil or empty
@@ -142,7 +143,7 @@ extension AXorcist {
                     subCommandResponse = HandlerResponse(data: nil, error: errorMsg, debug_logs: nil)
                     break
                 }
-                subCommandResponse = self.handleExtractText(
+                subCommandResponse = await self.handleExtractText(
                     for: subCommandEnvelope.application,
                     locator: locator,
                     pathHint: subCommandEnvelope.path_hint,

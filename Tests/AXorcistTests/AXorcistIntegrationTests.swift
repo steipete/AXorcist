@@ -1,5 +1,5 @@
 import AppKit
-@testable import AXorcist
+@testable import AXorcistLib
 import Testing
 import XCTest
 

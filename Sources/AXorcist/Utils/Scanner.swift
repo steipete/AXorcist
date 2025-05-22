@@ -2,9 +2,6 @@
 
 import Foundation
 
-// String extension MOVED to String+HelperExtensions.swift
-// CustomCharacterSet struct MOVED to CustomCharacterSet.swift
-
 // Scanner class from Scanner
 class Scanner {
 

@@ -62,7 +62,7 @@ extension AXorcist {
             "[AXorcist.handleCollectAll] Starting. App: \(appNameForLog), Locator: \(locatorDesc), PathHint: \(pathHintDesc), MaxDepth: \(maxDepthDesc)"
         )
 
-        let recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXorcist.defaultMaxDepthCollectAll
+        let recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXMiscConstants.defaultMaxDepthCollectAll
         let attributesToFetch = requestedAttributes ?? AXorcist.defaultAttributesToFetch
         let effectiveOutputFormat = outputFormat ?? .smart
 
@@ -125,16 +125,15 @@ extension AXorcist {
 
         if let loc = locator {
             dLog("Locator provided. Searching for element from current startElement: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) with locator criteria: \(String(describing: loc.criteria))")
-            
-            let searchResultCollectAll = search(element: startElement, 
-                                      locator: loc, 
-                                      requireAction: loc.requireAction, 
-                                      depth: 0, 
-                                      maxDepth: Self.defaultMaxDepthSearch, 
-                                      isDebugLoggingEnabled: isDebugLoggingEnabled)
-            self.recursiveCallDebugLogs.append("HANDLER_DEBUG: searchResultCollectAll.logs.count = \(searchResultCollectAll.logs.count) before append for collectAll")
+
+            let searchResultCollectAll = self.search(element: startElement,
+                                                     locator: loc,
+                                                     requireAction: loc.requireAction,
+                                                     depth: 0,
+                                                     maxDepth: AXMiscConstants.defaultMaxDepthSearch,
+                                                     isDebugLoggingEnabled: isDebugLoggingEnabled,
+                                                     currentDebugLogs: &self.recursiveCallDebugLogs)
             self.recursiveCallDebugLogs.append(contentsOf: searchResultCollectAll.logs)
-            self.recursiveCallDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_COLLECT_ALL")
 
             if let locatedStartElement = searchResultCollectAll.foundElement {
                 dLog("Locator found element: \(locatedStartElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)). This will be the root for collectAll recursion.")
@@ -187,7 +186,7 @@ extension AXorcist {
             var childrenRef: CFTypeRef?
             let childrenResult = AXUIElementCopyAttributeValue(
                 axUIElement,
-                kAXChildrenAttribute as CFString,
+                AXAttributeNames.kAXChildrenAttribute as CFString,
                 &childrenRef
             )
 
@@ -215,7 +214,7 @@ extension AXorcist {
 
         // Start recursion from the determined startElement
         if !self.recursiveCallDebugLogs.contains(where: { $0.contains("Failed to find element with provided locator criteria") && $0.contains("Cannot start collectAll") }) {
-             // Only start if locator search (if any) didn't critically fail and try to return early.
+            // Only start if locator search (if any) didn't critically fail and try to return early.
             collectRecursively(startElement.underlyingElement, 0)
         }
 

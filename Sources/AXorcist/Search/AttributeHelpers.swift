@@ -35,40 +35,40 @@ private func extractDirectPropertyValue(for attributeName: String, from element:
 
     // Ensure logging parameters are passed to Element methods
     switch attributeName {
-    case kAXPathHintAttribute:
-        extractedValue = element.attribute(Attribute<String>(kAXPathHintAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    case kAXRoleAttribute:
+    case AXAttributeNames.kAXPathHintAttribute:
+        extractedValue = element.attribute(Attribute<String>(AXAttributeNames.kAXPathHintAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+    case AXAttributeNames.kAXRoleAttribute:
         extractedValue = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    case kAXSubroleAttribute:
+    case AXAttributeNames.kAXSubroleAttribute:
         extractedValue = element.subrole(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    case kAXTitleAttribute:
+    case AXAttributeNames.kAXTitleAttribute:
         extractedValue = element.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    case kAXDescriptionAttribute:
+    case AXAttributeNames.kAXDescriptionAttribute:
         extractedValue = element.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    case kAXEnabledAttribute:
+    case AXAttributeNames.kAXEnabledAttribute:
         let val = element.isEnabled(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
-        if outputFormat == .text_content { extractedValue = val?.description ?? kAXNotAvailableString }
-    case kAXFocusedAttribute:
+        if outputFormat == .text_content { extractedValue = val?.description ?? AXMiscConstants.kAXNotAvailableString }
+    case AXAttributeNames.kAXFocusedAttribute:
         let val = element.isFocused(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
-        if outputFormat == .text_content { extractedValue = val?.description ?? kAXNotAvailableString }
-    case kAXHiddenAttribute:
+        if outputFormat == .text_content { extractedValue = val?.description ?? AXMiscConstants.kAXNotAvailableString }
+    case AXAttributeNames.kAXHiddenAttribute:
         let val = element.isHidden(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
-        if outputFormat == .text_content { extractedValue = val?.description ?? kAXNotAvailableString }
-    case isIgnoredAttributeKey:
+        if outputFormat == .text_content { extractedValue = val?.description ?? AXMiscConstants.kAXNotAvailableString }
+    case AXMiscConstants.isIgnoredAttributeKey:
         let val = element.isIgnored(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
         if outputFormat == .text_content { extractedValue = val ? "true" : "false" }
     case "PID":
         let val = element.pid(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
-        if outputFormat == .text_content { extractedValue = val?.description ?? kAXNotAvailableString }
-    case kAXElementBusyAttribute:
+        if outputFormat == .text_content { extractedValue = val?.description ?? AXMiscConstants.kAXNotAvailableString }
+    case AXAttributeNames.kAXElementBusyAttribute:
         let val = element.isElementBusy(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         extractedValue = val
-        if outputFormat == .text_content { extractedValue = val?.description ?? kAXNotAvailableString }
+        if outputFormat == .text_content { extractedValue = val?.description ?? AXMiscConstants.kAXNotAvailableString }
     default:
         handled = false
     }
@@ -81,9 +81,9 @@ private func determineAttributesToFetch(requestedAttributes: [String], forMultiD
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
     var attributesToFetch = requestedAttributes
     if forMultiDefault {
-        attributesToFetch = [kAXRoleAttribute, kAXValueAttribute, kAXTitleAttribute, kAXIdentifierAttribute]
-        if let role = targetRole, role == kAXStaticTextRole {
-            attributesToFetch = [kAXRoleAttribute, kAXValueAttribute, kAXIdentifierAttribute]
+        attributesToFetch = [AXAttributeNames.kAXRoleAttribute, AXAttributeNames.kAXValueAttribute, AXAttributeNames.kAXTitleAttribute, AXAttributeNames.kAXIdentifierAttribute]
+        if let role = targetRole, role == AXRoleNames.kAXStaticTextRole {
+            attributesToFetch = [AXAttributeNames.kAXRoleAttribute, AXAttributeNames.kAXValueAttribute, AXAttributeNames.kAXIdentifierAttribute]
         }
     } else if attributesToFetch.isEmpty {
         var attrNames: CFArray?
@@ -115,19 +115,19 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
 
     for attr in attributesToFetch {
         var tempCallLogs: [String] = [] // Logs for a specific attribute fetching call
-        if attr == kAXParentAttribute {
+        if attr == AXAttributeNames.kAXParentAttribute {
             tempCallLogs.removeAll()
             let parent = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
-            result[kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // formatParentAttribute will manage its own logs now
+            result[AXAttributeNames.kAXParentAttribute] = formatParentAttribute(parent, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // formatParentAttribute will manage its own logs now
             currentDebugLogs.append(contentsOf: tempCallLogs) // Collect logs from element.parent and formatParentAttribute
             continue
-        } else if attr == kAXChildrenAttribute {
+        } else if attr == AXAttributeNames.kAXChildrenAttribute {
             tempCallLogs.removeAll()
             let children = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
             result[attr] = formatChildrenAttribute(children, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
             currentDebugLogs.append(contentsOf: tempCallLogs)
             continue
-        } else if attr == kAXFocusedUIElementAttribute {
+        } else if attr == AXAttributeNames.kAXFocusedUIElementAttribute {
             tempCallLogs.removeAll()
             let focused = element.focusedElement(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
             result[attr] = formatFocusedUIElementAttribute(focused, outputFormat: outputFormat, valueFormatOption: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs) // Directly assign AnyCodable
@@ -142,7 +142,6 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
 
         if wasHandledDirectly {
             finalValueToStore = directValue
-            dLog("Attribute '\(attr)' handled directly, value: \(String(describing: directValue))")
         } else {
             tempCallLogs.removeAll()
             let rawCFValue: CFTypeRef? = element.rawAttributeValue(named: attr, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempCallLogs)
@@ -152,13 +151,11 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
             } else {
                 finalValueToStore = formatCFTypeRef(rawCFValue, option: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
             }
-            dLog("Attribute '\(attr)' fetched via rawAttributeValue, formatted value: \(String(describing: finalValueToStore))")
         }
 
         if outputFormat == .smart {
             if let strVal = finalValueToStore as? String,
-               strVal.isEmpty || strVal == "<nil>" || strVal == "AXValue (Illegal)" || strVal.contains("Unknown CFType") || strVal == kAXNotAvailableString {
-                dLog("Smart format: Skipping attribute '\(attr)' with unhelpful value: \(strVal)")
+               strVal.isEmpty || strVal == "<nil>" || strVal == "AXValue (Illegal)" || strVal.contains("Unknown CFType") || strVal == AXMiscConstants.kAXNotAvailableString {
                 continue
             }
         }
@@ -166,36 +163,32 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
     }
 
     tempLogs.removeAll()
-    if result[computedNameAttributeKey] == nil {
+    if result[AXMiscConstants.computedNameAttributeKey] == nil {
         if let name = element.computedName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
-            result[computedNameAttributeKey] = AnyCodable(name)
-            dLog("Added ComputedName: \(name)")
+            result[AXMiscConstants.computedNameAttributeKey] = AnyCodable(name)
         }
     }
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
-    if result[isClickableAttributeKey] == nil {
-        let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == kAXButtonRole)
-        let hasPressAction = element.isActionSupported(kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+    if result[AXMiscConstants.isClickableAttributeKey] == nil {
+        let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == AXRoleNames.kAXButtonRole)
+        let hasPressAction = element.isActionSupported(AXActionNames.kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
         if isButton || hasPressAction {
-            result[isClickableAttributeKey] = AnyCodable(true)
-            dLog("Added IsClickable: true (button: \(isButton), pressAction: \(hasPressAction))")
+            result[AXMiscConstants.isClickableAttributeKey] = AnyCodable(true)
         }
     }
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
-    if outputFormat == .verbose && result[computedPathAttributeKey] == nil {
+    if outputFormat == .verbose && result[AXMiscConstants.computedPathAttributeKey] == nil {
         let path = element.generatePathString(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-        result[computedPathAttributeKey] = AnyCodable(path)
-        dLog("Added ComputedPath (verbose): \(path)")
+        result[AXMiscConstants.computedPathAttributeKey] = AnyCodable(path)
     }
     currentDebugLogs.append(contentsOf: tempLogs)
 
     populateActionNamesAttribute(for: element, result: &result, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
 
-    dLog("getElementAttributes finished. Result keys: \(result.keys.joined(separator: ", "))")
     return result
 }
 
@@ -203,8 +196,7 @@ public func getElementAttributes(_ element: Element, requestedAttributes: [Strin
 private func populateActionNamesAttribute(for element: Element, result: inout ElementAttributes, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
     var tempLogs: [String] = [] // For Element method calls
-    if result[kAXActionNamesAttribute] != nil {
-        dLog("populateActionNamesAttribute: Already present or explicitly requested, skipping.")
+    if result[AXAttributeNames.kAXActionNamesAttribute] != nil {
         return
     }
     currentDebugLogs.append(contentsOf: tempLogs) // Appending potentially empty tempLogs, for consistency, though it does nothing here.
@@ -213,89 +205,35 @@ private func populateActionNamesAttribute(for element: Element, result: inout El
     tempLogs.removeAll()
     if let currentActions = element.supportedActions(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs), !currentActions.isEmpty {
         actionsToStore = currentActions
-        dLog("populateActionNamesAttribute: Got \(currentActions.count) from supportedActions.")
     } else {
-        dLog("populateActionNamesAttribute: supportedActions was nil or empty. Trying kAXActionsAttribute.")
         tempLogs.removeAll() // Clear before next call that uses it
-        if let fallbackActions: [String] = element.attribute(Attribute<[String]>(kAXActionsAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs), !fallbackActions.isEmpty {
+        if let fallbackActions: [String] = element.attribute(Attribute<[String]>(AXAttributeNames.kAXActionsAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs), !fallbackActions.isEmpty {
             actionsToStore = fallbackActions
-            dLog("populateActionNamesAttribute: Got \(fallbackActions.count) from kAXActionsAttribute fallback.")
         }
     }
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
-    let pressActionSupported = element.isActionSupported(kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+    let pressActionSupported = element.isActionSupported(AXActionNames.kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     currentDebugLogs.append(contentsOf: tempLogs)
-    dLog("populateActionNamesAttribute: kAXPressAction supported: \(pressActionSupported).")
     if pressActionSupported {
-        if actionsToStore == nil { actionsToStore = [kAXPressAction] } else if !actionsToStore!.contains(kAXPressAction) { actionsToStore!.append(kAXPressAction) }
+        if actionsToStore == nil { actionsToStore = [AXActionNames.kAXPressAction] } else if !actionsToStore!.contains(AXActionNames.kAXPressAction) { actionsToStore!.append(AXActionNames.kAXPressAction) }
     }
 
     if let finalActions = actionsToStore, !finalActions.isEmpty {
-        result[kAXActionNamesAttribute] = AnyCodable(finalActions)
-        dLog("populateActionNamesAttribute: Final actions: \(finalActions.joined(separator: ", ")).")
+        result[AXAttributeNames.kAXActionNamesAttribute] = AnyCodable(finalActions)
     } else {
         tempLogs.removeAll()
         let primaryNil = element.supportedActions(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == nil
         currentDebugLogs.append(contentsOf: tempLogs)
         tempLogs.removeAll()
-        let fallbackNil = element.attribute(Attribute<[String]>(kAXActionsAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == nil
+        let fallbackNil = element.attribute(Attribute<[String]>(AXAttributeNames.kAXActionsAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == nil
         currentDebugLogs.append(contentsOf: tempLogs)
         if primaryNil && fallbackNil && !pressActionSupported {
-            result[kAXActionNamesAttribute] = AnyCodable(kAXNotAvailableString)
-            dLog("populateActionNamesAttribute: All action sources nil/unsupported. Set to kAXNotAvailableString.")
+            result[AXAttributeNames.kAXActionNamesAttribute] = AnyCodable(AXMiscConstants.kAXNotAvailableString)
         } else {
-            result[kAXActionNamesAttribute] = AnyCodable("\(kAXNotAvailableString) (no specific actions found or list empty)")
-            dLog("populateActionNamesAttribute: Some action source present but list empty. Set to verbose kAXNotAvailableString.")
+            result[AXAttributeNames.kAXActionNamesAttribute] = AnyCodable("\(AXMiscConstants.kAXNotAvailableString) (no specific actions found or list empty)")
         }
-    }
-}
-
-// MARK: - Attribute Formatting Helpers
-
-// Helper function to format the parent attribute
-@MainActor
-private func formatParentAttribute(_ parent: Element?, outputFormat: OutputFormat, valueFormatOption: ValueFormatOption, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> AnyCodable {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var tempLogs: [String] = [] // For Element method calls
-    guard let parentElement = parent else { return AnyCodable(nil as String?) }
-    if outputFormat == .text_content {
-        return AnyCodable("Element: \(parentElement.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "?Role")")
-    } else {
-        return AnyCodable(parentElement.briefDescription(option: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs))
-    }
-}
-
-// Helper function to format the children attribute
-@MainActor
-private func formatChildrenAttribute(_ children: [Element]?, outputFormat: OutputFormat, valueFormatOption: ValueFormatOption, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> AnyCodable {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var tempLogs: [String] = [] // For Element method calls
-    guard let actualChildren = children, !actualChildren.isEmpty else { return AnyCodable("[]") }
-    if outputFormat == .text_content {
-        return AnyCodable("Array of \(actualChildren.count) Element(s)")
-    } else if outputFormat == .verbose {
-        var childrenSummaries: [String] = []
-        for childElement in actualChildren {
-            childrenSummaries.append(childElement.briefDescription(option: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs))
-        }
-        return AnyCodable("[\(childrenSummaries.joined(separator: ", "))]")
-    } else { // .smart output
-        return AnyCodable("Array of \(actualChildren.count) children")
-    }
-}
-
-// Helper function to format the focused UI element attribute
-@MainActor
-private func formatFocusedUIElementAttribute(_ focusedElement: Element?, outputFormat: OutputFormat, valueFormatOption: ValueFormatOption, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> AnyCodable {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    var tempLogs: [String] = [] // For Element method calls
-    guard let actualFocusedElement = focusedElement else { return AnyCodable(nil as String?) }
-    if outputFormat == .text_content {
-        return AnyCodable("Element: \(actualFocusedElement.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "?Role")")
-    } else {
-        return AnyCodable(actualFocusedElement.briefDescription(option: valueFormatOption, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs))
     }
 }
 
@@ -328,26 +266,23 @@ public func getComputedAttributes(for element: Element, isDebugLoggingEnabled: B
     var attributes: ElementAttributes = [:]
 
     tempLogs.removeAll()
-    dLog("getComputedAttributes for element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs))")
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
     if let name = element.computedName(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
-        attributes[computedNameAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(name), source: .computed))
-        dLog("ComputedName: \(name)")
+        attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(name), source: .computed))
     }
     currentDebugLogs.append(contentsOf: tempLogs)
 
     tempLogs.removeAll()
-    let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == kAXButtonRole)
+    let isButton = (element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) == AXRoleNames.kAXButtonRole)
     currentDebugLogs.append(contentsOf: tempLogs) // Collect logs from role call
     tempLogs.removeAll()
-    let hasPressAction = element.isActionSupported(kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+    let hasPressAction = element.isActionSupported(AXActionNames.kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
     currentDebugLogs.append(contentsOf: tempLogs) // Collect logs from isActionSupported call
 
     if isButton || hasPressAction {
-        attributes[isClickableAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(true), source: .computed))
-        dLog("IsClickable: true (button: \(isButton), pressAction: \(hasPressAction))")
+        attributes[AXMiscConstants.isClickableAttributeKey] = AnyCodable(AttributeData(value: AnyCodable(true), source: .computed))
     }
 
     // Ensure other computed attributes like ComputedPath also use methods with logging if they exist.
@@ -358,15 +293,5 @@ public func getComputedAttributes(for element: Element, isDebugLoggingEnabled: B
 
 // MARK: - Attribute Formatting Helpers (Additional)
 
-// Helper function to format a raw CFTypeRef for .text_content output
-@MainActor
-private func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) -> String {
-    guard let value = rawValue else { return kAXNotAvailableString }
-    let typeID = CFGetTypeID(value)
-    if typeID == CFStringGetTypeID() { return (value as! String) } else if typeID == CFAttributedStringGetTypeID() { return (value as! NSAttributedString).string } else if typeID == AXValueGetTypeID() {
-        let axVal = value as! AXValue
-        return formatAXValue(axVal, option: .default) // Assumes formatAXValue returns String
-    } else if typeID == CFNumberGetTypeID() { return (value as! NSNumber).stringValue } else if typeID == CFBooleanGetTypeID() { return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false" } else { return "<\(CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType")>" }
-}
-
-// Any other attribute-specific helper functions could go here in the future.
+// Formatting functions have been moved to AttributeFormatter.swift
+// This includes: formatParentAttribute, formatChildrenAttribute, formatFocusedUIElementAttribute, formatRawCFValueForTextContent

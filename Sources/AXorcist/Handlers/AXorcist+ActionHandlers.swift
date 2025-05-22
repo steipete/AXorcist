@@ -5,8 +5,102 @@ import ApplicationServices
 import Darwin
 import Foundation
 
+// MARK: - Environment Variable Check for JSON Logging
+// (Copied from other files - consider a shared utility)
+private func getEnvVar(_ name: String) -> String? {
+    guard let value = getenv(name) else { return nil }
+    return String(cString: value)
+}
+
+private let HANDLER_AXORC_JSON_LOG_ENABLED: Bool = {
+    let envValue = getEnvVar("AXORC_JSON_LOG")?.lowercased()
+    // No fputs here, assuming it's primarily for Swift module debugging
+    return envValue == "true"
+}()
+
 // MARK: - Action & Data Handlers Extension
 extension AXorcist {
+
+    // MARK: - Private Helper Methods
+
+    private func executeStandardAccessibilityAction(
+        _ axActionName: CFString,
+        on targetElement: Element,
+        actionNameForLog: String,
+        currentDebugLogs: inout [String]
+    ) -> AXError {
+        let axStatus = AXUIElementPerformAction(targetElement.underlyingElement, axActionName)
+        if axStatus != .success {
+            let errorMessage = "[AXorcist.handlePerformAction] Failed to perform \(actionNameForLog) action: \(axErrorToString(axStatus))"
+            currentDebugLogs.append(errorMessage)
+        }
+        return axStatus
+    }
+
+    private func executeSetAttributeValueAction(
+        attributeName: String,
+        value: AnyCodable?,
+        on targetElement: Element,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> (errorMessage: String?, axStatus: AXError) {
+
+        func dLog(_ message: String) {
+            if isDebugLoggingEnabled {
+                currentDebugLogs.append(message)
+            }
+        }
+
+        if attributeName.hasPrefix("AX") {
+            let axStatus = AXUIElementPerformAction(targetElement.underlyingElement, attributeName as CFString)
+            if axStatus != .success {
+                let errorMessage = "[AXorcist.handlePerformAction] Failed to perform action '\(attributeName)': \(axErrorToString(axStatus))"
+                return (errorMessage, axStatus)
+            }
+            return (nil, axStatus)
+        } else {
+            guard let actionValue = value else {
+                let errorMessage = "[AXorcist.handlePerformAction] Attribute action '\(attributeName)' requires an action_value, but none was provided."
+                return (errorMessage, .invalidUIElement)
+            }
+
+            var cfValue: CFTypeRef?
+            switch actionValue.value {
+            case let stringValue as String:
+                cfValue = stringValue as CFString
+            case let boolValue as Bool:
+                cfValue = boolValue as CFBoolean
+            case let intValue as Int:
+                var number = intValue
+                cfValue = CFNumberCreate(kCFAllocatorDefault, .intType, &number)
+            case let doubleValue as Double:
+                var number = doubleValue
+                cfValue = CFNumberCreate(kCFAllocatorDefault, .doubleType, &number)
+            default:
+                if CFGetTypeID(actionValue.value as AnyObject) != 0 {
+                    cfValue = actionValue.value as AnyObject
+                    dLog("[AXorcist.handlePerformAction] Warning: Attempting to use actionValue of type '\(type(of: actionValue.value))' directly as CFTypeRef for attribute '\(attributeName)'. This might not work as expected.")
+                } else {
+                    let errorMessage = "[AXorcist.handlePerformAction] Unsupported value type '\(type(of: actionValue.value))' for attribute '\(attributeName)'. Cannot convert to CFTypeRef."
+                    dLog(errorMessage)
+                    return (errorMessage, .invalidUIElement)
+                }
+            }
+
+            guard let finalCFValue = cfValue else {
+                let errorMessage = "[AXorcist.handlePerformAction] Failed to convert value for attribute '\(attributeName)' to a CoreFoundation type."
+                return (errorMessage, .invalidUIElement)
+            }
+
+            let axStatus = AXUIElementSetAttributeValue(targetElement.underlyingElement, attributeName as CFString, finalCFValue)
+            if axStatus != .success {
+                let errorMessage = "[AXorcist.handlePerformAction] Failed to set attribute '\(attributeName)' to value '\(String(describing: actionValue.value))': \(axErrorToString(axStatus))"
+                return (errorMessage, axStatus)
+            }
+
+            return (nil, axStatus)
+        }
+    }
 
     @MainActor
     public func handlePerformAction(
@@ -18,7 +112,7 @@ extension AXorcist {
         maxDepth: Int? = nil,
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
+    ) async -> HandlerResponse {
 
         func dLog(_ message: String) {
             if isDebugLoggingEnabled {
@@ -29,74 +123,26 @@ extension AXorcist {
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
         dLog("[AXorcist.handlePerformAction] Handling for app: \(appIdentifier), action: \(actionName)")
 
-        guard let appElement = applicationElement(for: appIdentifier, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
-            let error = "[AXorcist.handlePerformAction] Failed to get application element for identifier: \(appIdentifier)"
-            currentDebugLogs.append(error)
-            return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
+        let targetElementResult = await self.findTargetElement(
+            for: appIdentifierOrNil,
+            locator: locator,
+            pathHint: pathHint,
+            isRootedAtApp: true,
+            baseElement: nil,
+            maxDepthForSearch: maxDepth,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
+
+        let targetElement: Element
+        switch targetElementResult {
+        case .success(let element):
+            targetElement = element
+        case .failure(let error):
+            return HandlerResponse(data: nil, error: error.message, debug_logs: error.logs ?? currentDebugLogs)
         }
 
-        var effectiveElement = appElement
-
-        if let pathHint = pathHint, !pathHint.isEmpty {
-            dLog("[AXorcist.handlePerformAction] Navigating with path_hint: \(pathHint.joined(separator: " -> ")) from root \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-            guard let navigatedElement = navigateToElement(from: effectiveElement, pathHint: pathHint, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
-                let lastLogBeforeDebug = currentDebugLogs.last
-                let error: String
-                if let lastLog = lastLogBeforeDebug, lastLog.contains("CRITICAL_NAV_PARSE_FAILURE_MARKER") {
-                    error = "Navigation parsing failed (critical marker found) for path hint: \(pathHint.joined(separator: " -> "))"
-                } else if let lastLog = lastLogBeforeDebug, lastLog.contains("CHILD_MATCH_FAILURE_MARKER") {
-                    error = "Navigation child match failed (child match marker found) for path hint: \(pathHint.joined(separator: " -> "))"
-                } else {
-                    error = "[AXorcist.handlePerformAction] Failed to navigate using path hint: \(pathHint.joined(separator: " -> "))"
-                }
-                
-                if isDebugLoggingEnabled {
-                    if let actualLastLog = lastLogBeforeDebug {
-                        dLog("[MARKER_CHECK] Checked lastLog for markers -> Error: '\(error)'. LastLog: '\(actualLastLog)'")
-                    } else {
-                        dLog("[MARKER_CHECK] currentDebugLogs was empty or lastLog was nil -> Error: '\(error)'")
-                    }
-                }
-                currentDebugLogs.append(error)
-                return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
-            }
-            effectiveElement = navigatedElement
-            dLog("[AXorcist.handlePerformAction] Successfully navigated path_hint. New effectiveElement: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-        }
-
-        let targetElementForAction: Element
-        if let actualLocator = locator {
-            dLog("[AXorcist.handlePerformAction] Locator provided. Searching from current effectiveElement: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) using locator criteria: \(actualLocator.criteria)")
-            
-            let searchResult = search(
-                element: effectiveElement,
-                locator: actualLocator,
-                requireAction: actualLocator.requireAction,
-                depth: 0,
-                maxDepth: maxDepth ?? DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled
-            )
-            fputs("HANDLER_RAW_STDERR_BEFORE_LOG_APPEND handlePerformAction: searchResult.logs.count = \(searchResult.logs.count), currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
-            currentDebugLogs.append("HANDLER_DEBUG: searchResult.logs.count = \(searchResult.logs.count) before append for performAction")
-            currentDebugLogs.append(contentsOf: searchResult.logs)
-            fputs("HANDLER_RAW_STDERR_AFTER_LOG_APPEND handlePerformAction: currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
-            currentDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_HANDLER")
-
-            guard let foundElement = searchResult.foundElement else {
-                let error = "[AXorcist.handlePerformAction] Search failed. Could not find element matching locator criteria \(actualLocator.criteria) starting from element \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))."
-                if !currentDebugLogs.contains(error) {
-                    currentDebugLogs.append(error)
-                }
-                return HandlerResponse(data: nil, error: error, debug_logs: currentDebugLogs)
-            }
-            targetElementForAction = foundElement
-            dLog("[AXorcist.handlePerformAction] Found element via locator: \(targetElementForAction.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-        } else {
-            targetElementForAction = effectiveElement
-            dLog("[AXorcist.handlePerformAction] No locator provided. Using current effectiveElement as target: \(targetElementForAction.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-        }
-        
-        dLog("[AXorcist.handlePerformAction] Element for action: \(targetElementForAction.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+        dLog("[AXorcist.handlePerformAction] Element for action: \(targetElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
         if let actionValue = actionValue {
             let valueDescription = String(describing: actionValue.value)
             dLog("[AXorcist.handlePerformAction] Performing action '\(actionName)' with value: \(valueDescription)")
@@ -109,77 +155,75 @@ extension AXorcist {
 
         switch actionName.lowercased() {
         case "press":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXPressAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXPressAction as CFString,
+                on: targetElement,
+                actionNameForLog: "press",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform press action: \(axErrorToString(axStatus))"
             }
         case "increment":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXIncrementAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXIncrementAction as CFString,
+                on: targetElement,
+                actionNameForLog: "increment",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform increment action: \(axErrorToString(axStatus))"
             }
         case "decrement":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXDecrementAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXDecrementAction as CFString,
+                on: targetElement,
+                actionNameForLog: "decrement",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform decrement action: \(axErrorToString(axStatus))"
             }
         case "showmenu":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXShowMenuAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXShowMenuAction as CFString,
+                on: targetElement,
+                actionNameForLog: "showmenu",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform showmenu action: \(axErrorToString(axStatus))"
             }
         case "pick":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXPickAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXPickAction as CFString,
+                on: targetElement,
+                actionNameForLog: "pick",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform pick action: \(axErrorToString(axStatus))"
             }
         case "cancel":
-            axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, kAXCancelAction as CFString)
+            axStatus = self.executeStandardAccessibilityAction(
+                AXActionNames.kAXCancelAction as CFString,
+                on: targetElement,
+                actionNameForLog: "cancel",
+                currentDebugLogs: &currentDebugLogs
+            )
             if axStatus != .success {
                 errorMessage = "[AXorcist.handlePerformAction] Failed to perform cancel action: \(axErrorToString(axStatus))"
             }
         default:
-            if actionName.hasPrefix("AX") {
-                axStatus = AXUIElementPerformAction(targetElementForAction.underlyingElement, actionName as CFString)
-                if axStatus != .success {
-                    errorMessage = "[AXorcist.handlePerformAction] Failed to perform action '\(actionName)': \(axErrorToString(axStatus))"
-                }
-            } else {
-                if let actionValue = actionValue {
-                    var cfValue: CFTypeRef?
-                    switch actionValue.value {
-                    case let stringValue as String:
-                        cfValue = stringValue as CFString
-                    case let boolValue as Bool:
-                        cfValue = boolValue as CFBoolean
-                    case let intValue as Int:
-                        var number = intValue
-                        cfValue = CFNumberCreate(kCFAllocatorDefault, .intType, &number)
-                    case let doubleValue as Double:
-                        var number = doubleValue
-                        cfValue = CFNumberCreate(kCFAllocatorDefault, .doubleType, &number)
-                    default:
-                        if CFGetTypeID(actionValue.value as AnyObject) != 0 {
-                            cfValue = actionValue.value as AnyObject
-                            dLog("[AXorcist.handlePerformAction] Warning: Attempting to use actionValue of type '\(type(of: actionValue.value))' directly as CFTypeRef for attribute '\(actionName)'. This might not work as expected.")
-                        } else {
-                            errorMessage = "[AXorcist.handlePerformAction] Unsupported value type '\(type(of: actionValue.value))' for attribute '\(actionName)'. Cannot convert to CFTypeRef."
-                            dLog(errorMessage!)
-                        }
-                    }
-
-                    if errorMessage == nil, let finalCFValue = cfValue {
-                        axStatus = AXUIElementSetAttributeValue(targetElementForAction.underlyingElement, actionName as CFString, finalCFValue)
-                        if axStatus != .success {
-                            errorMessage = "[AXorcist.handlePerformAction] Failed to set attribute '\(actionName)' to value '\(String(describing: actionValue.value))': \(axErrorToString(axStatus))"
-                        }
-                    } else if errorMessage == nil {
-                        errorMessage = "[AXorcist.handlePerformAction] Failed to convert value for attribute '\(actionName)' to a CoreFoundation type."
-                    }
-                } else {
-                    errorMessage = "[AXorcist.handlePerformAction] Attribute action '\(actionName)' requires an action_value, but none was provided."
-                }
-            }
+            let result = self.executeSetAttributeValueAction(
+                attributeName: actionName,
+                value: actionValue,
+                on: targetElement,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &currentDebugLogs
+            )
+            errorMessage = result.errorMessage
+            axStatus = result.axStatus
         }
 
         if let currentErrorMessage = errorMessage {
@@ -198,7 +242,7 @@ extension AXorcist {
         pathHint: [String]? = nil,
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
-    ) -> HandlerResponse {
+    ) async -> HandlerResponse {
         func dLog(_ message: String) {
             if isDebugLoggingEnabled {
                 currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: appIdentifierOrNil, commandID: nil, file: #file, function: #function, line: #line))
@@ -208,126 +252,81 @@ extension AXorcist {
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
         dLog("[handleExtractText] Starting text extraction for app: \(appIdentifier)")
 
-        guard let appElement = applicationElement(
-            for: appIdentifier,
+        let targetElementResult = await self.findTargetElement(
+            for: appIdentifierOrNil,
+            locator: locator,
+            pathHint: pathHint,
+            isRootedAtApp: true,
+            baseElement: nil,
+            maxDepthForSearch: nil,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &currentDebugLogs
-        ) else {
-            let errorMessage = "[handleExtractText] Failed to get application element for \(appIdentifier)"
-            currentDebugLogs.append(errorMessage)
-            return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-        }
+        )
 
-        var effectiveElement = appElement
-        if let pathHint = pathHint, !pathHint.isEmpty {
-            dLog("[handleExtractText] Navigating to element using path hint: \(pathHint.joined(separator: " -> "))")
-            guard let navigatedElement = navigateToElement(
-                from: appElement,
-                pathHint: pathHint,
+        let targetElementForExtract: Element
+        let appElement: Element
+        switch targetElementResult {
+        case .success(let element):
+            targetElementForExtract = element
+            // We need the app element for path generation, so get it separately
+            guard let appEl = applicationElement(
+                for: appIdentifier,
                 isDebugLoggingEnabled: isDebugLoggingEnabled,
                 currentDebugLogs: &currentDebugLogs
             ) else {
-                let lastLogBeforeDebug = currentDebugLogs.last
-                let errorMessage: String
-                if let lastLog = lastLogBeforeDebug, lastLog.contains("CRITICAL_NAV_PARSE_FAILURE_MARKER") {
-                    errorMessage = "[handleExtractText] Navigation parsing failed (critical marker found) for path hint: \(pathHint.joined(separator: " -> "))"
-                } else if let lastLog = lastLogBeforeDebug, lastLog.contains("CHILD_MATCH_FAILURE_MARKER") {
-                    errorMessage = "[handleExtractText] Navigation child match failed (child match marker found) for path hint: \(pathHint.joined(separator: " -> "))"
-                } else {
-                    errorMessage = "[handleExtractText] Failed to navigate to element using path hint: \(pathHint.joined(separator: " -> "))"
-                }
-                
-                if isDebugLoggingEnabled {
-                    if let actualLastLog = lastLogBeforeDebug {
-                        dLog("[MARKER_CHECK] Checked lastLog for markers -> Error: '\(errorMessage)'. LastLog: '\(actualLastLog)'")
-                    } else {
-                        dLog("[MARKER_CHECK] currentDebugLogs was empty or lastLog was nil -> Error: '\(errorMessage)'")
-                    }
-                }
+                let errorMessage = "[handleExtractText] Failed to get application element for path generation: \(appIdentifier)"
                 currentDebugLogs.append(errorMessage)
                 return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
             }
-            effectiveElement = navigatedElement
-            dLog("[handleExtractText] Successfully navigated path_hint. New effectiveElement for text extraction: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+            appElement = appEl
+        case .failure(let error):
+            return HandlerResponse(data: nil, error: error.message, debug_logs: error.logs ?? currentDebugLogs)
         }
 
-        let targetElementForExtract: Element
-        if let actualLocator = locator {
-            dLog("[handleExtractText] Locator provided. Searching from current effectiveElement: \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) using locator criteria: \(actualLocator.criteria)")
-            
-            let searchResult = search(
-                element: effectiveElement,
-                locator: actualLocator,
-                requireAction: nil,
-                depth: 0,
-                maxDepth: DEFAULT_MAX_DEPTH_SEARCH,
-                isDebugLoggingEnabled: isDebugLoggingEnabled
-            )
-            fputs("HANDLER_RAW_STDERR_BEFORE_LOG_APPEND handleExtractText: searchResult.logs.count = \(searchResult.logs.count), currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
-            currentDebugLogs.append("HANDLER_DEBUG: searchResult.logs.count = \(searchResult.logs.count) before append for extractText")
-            currentDebugLogs.append(contentsOf: searchResult.logs)
-            fputs("HANDLER_RAW_STDERR_AFTER_LOG_APPEND handleExtractText: currentDebugLogs count = \(currentDebugLogs.count)\n", stderr)
-            currentDebugLogs.append("POST_SEARCH_LOG_APPEND_MARKER_IN_EXTRACT_TEXT")
-
-            guard let foundElement = searchResult.foundElement else {
-                let errorMessage = "[handleExtractText] Target element not found for locator: \(actualLocator) starting from \(effectiveElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
-                if !currentDebugLogs.contains(errorMessage) {
-                    currentDebugLogs.append(errorMessage)
-                }
-                return HandlerResponse(data: nil, error: errorMessage, debug_logs: currentDebugLogs)
-            }
-            targetElementForExtract = foundElement
-            dLog("[handleExtractText] Found element via locator for text extraction: \(targetElementForExtract.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-        } else {
-            targetElementForExtract = effectiveElement
-            dLog("[handleExtractText] No locator. Using effectiveElement from path_hint/app_root as target for text extraction: \(targetElementForExtract.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
-        }
-        
         dLog("[handleExtractText] Target element found: \(targetElementForExtract.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)), attempting to extract text")
         var attributes: [String: AnyCodable] = [:]
         var extractedAnyText = false
 
-        if let valueCF = targetElementForExtract.rawAttributeValue(named: kAXValueAttribute as String, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+        if let valueCF = targetElementForExtract.rawAttributeValue(named: AXAttributeNames.kAXValueAttribute as String, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
             if CFGetTypeID(valueCF) == CFStringGetTypeID() {
                 let extractedValueText = valueCF as! String
                 if !extractedValueText.isEmpty {
                     attributes["extractedValue"] = AnyCodable(extractedValueText)
                     extractedAnyText = true
-                    dLog("[handleExtractText] Extracted text from kAXValueAttribute (length: \(extractedValueText.count)): \(extractedValueText.prefix(80))...")
+                    dLog("[handleExtractText] Extracted text from AXValueAttribute (length: \(extractedValueText.count)): \(extractedValueText.prefix(80))...")
                 } else {
-                    dLog("[handleExtractText] kAXValueAttribute was empty or not a string.")
+                    dLog("[handleExtractText] AXValueAttribute was empty or not a string.")
                 }
             } else {
-                dLog("[handleExtractText] kAXValueAttribute was present but not a CFString. TypeID: \(CFGetTypeID(valueCF))")
+                dLog("[handleExtractText] AXValueAttribute was present but not a CFString. TypeID: \(CFGetTypeID(valueCF))")
             }
         } else {
-            dLog("[handleExtractText] kAXValueAttribute not found or nil.")
+            dLog("[handleExtractText] AXValueAttribute not found or nil.")
         }
 
-        if let selectedValueCF = targetElementForExtract.rawAttributeValue(named: kAXSelectedTextAttribute as String, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+        if let selectedValueCF = targetElementForExtract.rawAttributeValue(named: AXAttributeNames.kAXSelectedTextAttribute as String, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
             if CFGetTypeID(selectedValueCF) == CFStringGetTypeID() {
                 let extractedSelectedText = selectedValueCF as! String
                 if !extractedSelectedText.isEmpty {
                     attributes["extractedSelectedText"] = AnyCodable(extractedSelectedText)
                     extractedAnyText = true
-                    dLog("[handleExtractText] Extracted selected text from kAXSelectedTextAttribute (length: \(extractedSelectedText.count)): \(extractedSelectedText.prefix(80))...")
+                    dLog("[handleExtractText] Extracted selected text from AXSelectedTextAttribute (length: \(extractedSelectedText.count)): \(extractedSelectedText.prefix(80))...")
                 } else {
-                    dLog("[handleExtractText] kAXSelectedTextAttribute was empty or not a string.")
+                    dLog("[handleExtractText] AXSelectedTextAttribute was empty or not a string.")
                 }
             } else {
-                dLog("[handleExtractText] kAXSelectedTextAttribute was present but not a CFString. TypeID: \(CFGetTypeID(selectedValueCF))")
+                dLog("[handleExtractText] AXSelectedTextAttribute was present but not a CFString. TypeID: \(CFGetTypeID(selectedValueCF))")
             }
         } else {
-            dLog("[handleExtractText] kAXSelectedTextAttribute not found or nil.")
+            dLog("[handleExtractText] AXSelectedTextAttribute not found or nil.")
         }
-        
+
         if !extractedAnyText {
-            dLog("[handleExtractText] No text could be extracted from kAXValue or kAXSelectedText for element.")
+            dLog("[handleExtractText] No text could be extracted from AXValue or AXSelectedText for element.")
         }
 
         let pathArray = targetElementForExtract.generatePathArray(upTo: appElement, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        let axElementToReturn = AXElement(attributes: attributes, path: pathArray) 
+        let axElementToReturn = AXElement(attributes: attributes, path: pathArray)
         return HandlerResponse(data: axElementToReturn, error: nil, debug_logs: currentDebugLogs)
     }
 }
-

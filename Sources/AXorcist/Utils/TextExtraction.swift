@@ -22,10 +22,10 @@ public func extractTextContent(
     dLog("Extracting text content for element: \(elementDescription)")
     var texts: [String] = []
     let textualAttributes = [
-        kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute,
-        kAXPlaceholderValueAttribute, kAXLabelValueAttribute, kAXRoleDescriptionAttribute
-        // Consider adding kAXStringForRangeParameterizedAttribute if dealing with large text views for performance
-        // kAXSelectedTextAttribute could also be relevant depending on use case
+        AXAttributeNames.kAXValueAttribute, AXAttributeNames.kAXTitleAttribute, AXAttributeNames.kAXDescriptionAttribute, AXAttributeNames.kAXHelpAttribute,
+        AXAttributeNames.kAXPlaceholderValueAttribute, AXAttributeNames.kAXLabelValueAttribute, AXAttributeNames.kAXRoleDescriptionAttribute
+        // Consider adding stringForRangeParameterizedAttribute if dealing with large text views for performance
+        // selectedTextAttribute could also be relevant depending on use case
     ]
     for attrName in textualAttributes {
         var tempLogs: [String] = [] // For the axValue call
@@ -35,7 +35,7 @@ public func extractTextContent(
             attr: attrName,
             isDebugLoggingEnabled: isDebugLoggingEnabled,
             currentDebugLogs: &tempLogs
-        ), !strValue.isEmpty, strValue.lowercased() != kAXNotAvailableString.lowercased() {
+        ), !strValue.isEmpty, strValue.lowercased() != AXMiscConstants.kAXNotAvailableString.lowercased() {
             texts.append(strValue)
             currentDebugLogs.append(contentsOf: tempLogs) // Collect logs from axValue
         } else {

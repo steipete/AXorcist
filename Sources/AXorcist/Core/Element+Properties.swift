@@ -172,24 +172,14 @@ extension Element {
         )
     }
 
-    @MainActor
-    public func briefDescription(
-        option: ValueFormatOption = .default,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> String {
-        let role = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "Unknown"
-        let title = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        let identifier = self.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
-        
-        var description = role
-        
-        if let title = title, !title.isEmpty {
-            description += " '\(title)'"
-        } else if let identifier = identifier, !identifier.isEmpty {
-            description += " (\(identifier))"
+    @MainActor public var domIdentifier: String? {
+        get {
+            var logs: [String] = [] // Logging for this specific getter, will be discarded if not used by caller
+            return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute), isDebugLoggingEnabled: false, currentDebugLogs: &logs)
         }
-        
-        return option == .verbose ? "<\(description)>" : description
+    }
+
+    @MainActor public func domIdentifier(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
+        return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
     }
 }
