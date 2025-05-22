@@ -35,5 +35,27 @@ clean:
 	rm -f $(UNIVERSAL_BINARY_PATH)
 	@echo "Clean complete."
 
+# Format code with SwiftFormat
+format:
+	@echo "Formatting code with SwiftFormat..."
+	swiftformat .
+	@echo "Code formatting complete."
+
+# Check code formatting (for CI)
+format-check:
+	@echo "Checking code formatting with SwiftFormat..."
+	swiftformat --lint .
+	@echo "Code formatting check complete."
+
+# Lint code with SwiftLint
+lint:
+	@echo "Linting code with SwiftLint..."
+	swiftlint lint --strict
+	@echo "Code linting complete."
+
+# Run both formatting and linting
+check: format-check lint
+	@echo "All code checks complete."
+
 # Default target
 .DEFAULT_GOAL := all

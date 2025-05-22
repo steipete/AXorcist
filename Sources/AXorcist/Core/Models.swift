@@ -4,10 +4,10 @@ import Foundation
 
 // Enum for output formatting options
 public enum OutputFormat: String, Codable {
-    case smart        // Default, tries to be concise and informative
-    case verbose      // More detailed output, includes more attributes/info
+    case smart // Default, tries to be concise and informative
+    case verbose // More detailed output, includes more attributes/info
     case text_content // Primarily extracts textual content
-    case json_string  // Returns the attributes as a JSON string (new)
+    case json_string // Returns the attributes as a JSON string (new)
 }
 
 // Define CommandType enum
@@ -62,7 +62,10 @@ public struct AnyCodable: Codable {
         } else if let dictionary = try? container.decode([String: AnyCodable].self) {
             self.value = dictionary.mapValues { $0.value }
         } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "AnyCodable value cannot be decoded")
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "AnyCodable value cannot be decoded"
+            )
         }
     }
 
@@ -100,7 +103,10 @@ public struct AnyCodable: Codable {
         case let dictionary as [String: Any?]:
             try container.encode(dictionary.mapValues { AnyCodable($0) })
         default:
-            let context = EncodingError.Context(codingPath: container.codingPath, debugDescription: "AnyCodable value cannot be encoded")
+            let context = EncodingError.Context(
+                codingPath: container.codingPath,
+                debugDescription: "AnyCodable value cannot be encoded"
+            )
             throw EncodingError.invalidValue(value, context)
         }
     }
@@ -138,8 +144,7 @@ public struct CommandEnvelope: Codable {
                 output_format: OutputFormat? = nil,
                 action_name: String? = nil,
                 action_value: AnyCodable? = nil,
-                sub_commands: [CommandEnvelope]? = nil
-    ) {
+                sub_commands: [CommandEnvelope]? = nil) {
         self.command_id = command_id
         self.command = command
         self.application = application
@@ -172,7 +177,8 @@ public struct Locator: Codable {
         case computed_name_contains
     }
 
-    public init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil, requireAction: String? = nil, computed_name_contains: String? = nil) {
+    public init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil,
+                requireAction: String? = nil, computed_name_contains: String? = nil) {
         self.match_all = match_all
         self.criteria = criteria
         self.root_element_path_hint = root_element_path_hint
@@ -191,7 +197,8 @@ public struct QueryResponse: Codable {
     public var error: String?
     public var debug_logs: [String]?
 
-    public init(command_id: String, success: Bool = true, command: String = "getFocusedElement", data: AXElement? = nil, attributes: ElementAttributes? = nil, error: String? = nil, debug_logs: [String]? = nil) {
+    public init(command_id: String, success: Bool = true, command: String = "getFocusedElement", data: AXElement? = nil,
+                attributes: ElementAttributes? = nil, error: String? = nil, debug_logs: [String]? = nil) {
         self.command_id = command_id
         self.success = success
         self.command = command
@@ -210,7 +217,8 @@ public struct MultiQueryResponse: Codable {
     public var error: String?
     public var debug_logs: [String]?
 
-    public init(command_id: String, elements: [ElementAttributes]? = nil, count: Int? = nil, error: String? = nil, debug_logs: [String]? = nil) {
+    public init(command_id: String, elements: [ElementAttributes]? = nil, count: Int? = nil, error: String? = nil,
+                debug_logs: [String]? = nil) {
         self.command_id = command_id
         self.elements = elements
         self.count = count ?? elements?.count
@@ -281,7 +289,8 @@ public struct SimpleSuccessResponse: Codable, Equatable {
     public var details: String?
     public var debug_logs: [String]?
 
-    public init(command_id: String, status: String, message: String, details: String? = nil, debug_logs: [String]? = nil) {
+    public init(command_id: String, status: String, message: String, details: String? = nil,
+                debug_logs: [String]? = nil) {
         self.command_id = command_id
         self.success = true
         self.status = status
@@ -300,5 +309,15 @@ public struct AXElement: Codable {
     public init(attributes: ElementAttributes?, path: [String]? = nil) {
         self.attributes = attributes
         self.path = path
+    }
+}
+
+// Extension to add JSON encoding functionality to QueryResponse
+extension QueryResponse {
+    public func jsonString() throws -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let data = try encoder.encode(self)
+        return String(data: data, encoding: .utf8) ?? ""
     }
 }

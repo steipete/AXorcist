@@ -1,7 +1,7 @@
 // Element.swift - Wrapper for AXUIElement for a more Swift-idiomatic interface
 
-import Foundation
 import ApplicationServices // For AXUIElement and other C APIs
+import Foundation
 // We might need to import ValueHelpers or other local modules later
 
 // Element struct is NOT @MainActor. Isolation is applied to members that need it.
@@ -24,16 +24,26 @@ public struct Element: Equatable, Hashable {
 
     // Generic method to get an attribute's value (converted to Swift type T)
     @MainActor
-    public func attribute<T>(_ attribute: Attribute<T>, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> T? {
+    public func attribute<T>(_ attribute: Attribute<T>, isDebugLoggingEnabled: Bool,
+                             currentDebugLogs: inout [String]) -> T? {
         // axValue is from ValueHelpers.swift and now expects logging parameters
-        return axValue(of: self.underlyingElement, attr: attribute.rawValue, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) as T?
+        return axValue(
+            of: self.underlyingElement,
+            attr: attribute.rawValue,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ) as T?
     }
 
     // Method to get the raw CFTypeRef? for an attribute
     // This is useful for functions like attributesMatch that do their own CFTypeID checking.
     // This also needs to be @MainActor as AXUIElementCopyAttributeValue should be on main thread.
     @MainActor
-    public func rawAttributeValue(named attributeName: String, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> CFTypeRef? {
+    public func rawAttributeValue(
+        named attributeName: String,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> CFTypeRef? {
         func dLog(_ message: String) {
             if isDebugLoggingEnabled {
                 currentDebugLogs.append(message)
@@ -53,7 +63,9 @@ public struct Element: Equatable, Hashable {
         } else if error == .noValue {
             dLog("rawAttributeValue: Attribute \(attributeName) has no value for element \(self.underlyingElement)")
         } else {
-            dLog("rawAttributeValue: Error getting attribute \(attributeName) for element \(self.underlyingElement): \(error.rawValue)")
+            dLog(
+                "rawAttributeValue: Error getting attribute \(attributeName) for element \(self.underlyingElement): \(error.rawValue)"
+            )
         }
         return nil // Return nil if not success or if value was nil (though success should mean value is populated)
     }
@@ -72,8 +84,13 @@ public struct Element: Equatable, Hashable {
     // MARK: - Actions (supportedActions moved, other action methods remain)
 
     @MainActor
-    public func isActionSupported(_ actionName: String, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool {
-        if let actions: [String] = attribute(Attribute<[String]>.actionNames, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) {
+    public func isActionSupported(_ actionName: String, isDebugLoggingEnabled: Bool,
+                                  currentDebugLogs: inout [String]) -> Bool {
+        if let actions: [String] = attribute(
+            Attribute<[String]>.actionNames,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ) {
             return actions.contains(actionName)
         }
         return false
@@ -81,12 +98,20 @@ public struct Element: Equatable, Hashable {
 
     @MainActor
     @discardableResult
-    public func performAction(_ actionName: Attribute<String>, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> Element {
+    public func performAction(
+        _ actionName: Attribute<String>,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) throws -> Element {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         let error = AXUIElementPerformAction(self.underlyingElement, actionName.rawValue as CFString)
         if error != .success {
             // Now call the refactored briefDescription, passing the logs along.
-            let desc = self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            let desc = self.briefDescription(
+                option: .default,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &currentDebugLogs
+            )
             dLog("Action \(actionName.rawValue) failed on element \(desc). Error: \(error.rawValue)")
             throw AccessibilityError.actionFailed("Action \(actionName.rawValue) failed on element \(desc)", error)
         }
@@ -95,12 +120,17 @@ public struct Element: Equatable, Hashable {
 
     @MainActor
     @discardableResult
-    public func performAction(_ actionName: String, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) throws -> Element {
+    public func performAction(_ actionName: String, isDebugLoggingEnabled: Bool,
+                              currentDebugLogs: inout [String]) throws -> Element {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         let error = AXUIElementPerformAction(self.underlyingElement, actionName as CFString)
         if error != .success {
             // Now call the refactored briefDescription, passing the logs along.
-            let desc = self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            let desc = self.briefDescription(
+                option: .default,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &currentDebugLogs
+            )
             dLog("Action \(actionName) failed on element \(desc). Error: \(error.rawValue)")
             throw AccessibilityError.actionFailed("Action \(actionName) failed on element \(desc)", error)
         }
@@ -110,7 +140,12 @@ public struct Element: Equatable, Hashable {
     // MARK: - Parameterized Attributes
 
     @MainActor
-    public func parameterizedAttribute<T>(_ attribute: Attribute<T>, forParameter parameter: Any, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> T? {
+    public func parameterizedAttribute<T>(
+        _ attribute: Attribute<T>,
+        forParameter parameter: Any,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> T? {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         var cfParameter: CFTypeRef?
 
@@ -134,7 +169,12 @@ public struct Element: Equatable, Hashable {
         }
 
         var value: CFTypeRef?
-        let error = AXUIElementCopyParameterizedAttributeValue(underlyingElement, attribute.rawValue as CFString, actualCFParameter, &value)
+        let error = AXUIElementCopyParameterizedAttributeValue(
+            underlyingElement,
+            attribute.rawValue as CFString,
+            actualCFParameter,
+            &value
+        )
 
         if error != .success {
             dLog("parameterizedAttribute: Error \(error.rawValue) getting attribute \(attribute.rawValue)")
@@ -146,19 +186,26 @@ public struct Element: Equatable, Hashable {
         // Use axValue's unwrapping and casting logic if possible, by temporarily creating an element and attribute
         // This is a bit of a conceptual stretch, as axValue is designed for direct attributes.
         // A more direct unwrap using ValueUnwrapper might be cleaner here.
-        let unwrappedValue = ValueUnwrapper.unwrap(resultCFValue, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        let unwrappedValue = ValueUnwrapper.unwrap(
+            resultCFValue,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
 
         guard let finalValue = unwrappedValue else { return nil }
 
         // Perform type casting similar to axValue
         if T.self == String.self {
-            if let str = finalValue as? String { return str as? T } else if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
+            if let str = finalValue as? String { return str as? T }
+            else if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
             return nil
         }
         if let castedValue = finalValue as? T {
             return castedValue
         }
-        dLog("parameterizedAttribute: Fallback cast attempt for attribute '\(attribute.rawValue)' to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)")
+        dLog(
+            "parameterizedAttribute: Fallback cast attempt for attribute '\(attribute.rawValue)' to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)"
+        )
         return nil
     }
 
@@ -180,18 +227,39 @@ public struct Element: Equatable, Hashable {
     // Convert from a computed property to a method to accept logging parameters
     public func computedName(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
         // Now uses the passed-in logging parameters for its internal calls
-        if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !titleStr.isEmpty, titleStr != kAXNotAvailableString { return titleStr }
+        if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs),
+           !titleStr.isEmpty, titleStr != kAXNotAvailableString { return titleStr }
 
-        if let valueStr: String = self.value(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) as? String, !valueStr.isEmpty, valueStr != kAXNotAvailableString { return valueStr }
+        if let valueStr: String = self.value(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ) as? String, !valueStr.isEmpty, valueStr != kAXNotAvailableString { return valueStr }
 
-        if let descStr = self.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !descStr.isEmpty, descStr != kAXNotAvailableString { return descStr }
+        if let descStr = self.description(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !descStr.isEmpty, descStr != kAXNotAvailableString { return descStr }
 
-        if let helpStr: String = self.attribute(Attribute<String>(kAXHelpAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !helpStr.isEmpty, helpStr != kAXNotAvailableString { return helpStr }
-        if let phValueStr: String = self.attribute(Attribute<String>(kAXPlaceholderValueAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !phValueStr.isEmpty, phValueStr != kAXNotAvailableString { return phValueStr }
+        if let helpStr: String = self.attribute(
+            Attribute<String>(kAXHelpAttribute),
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !helpStr.isEmpty, helpStr != kAXNotAvailableString { return helpStr }
+        if let phValueStr: String = self.attribute(
+            Attribute<String>(kAXPlaceholderValueAttribute),
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !phValueStr.isEmpty, phValueStr != kAXNotAvailableString { return phValueStr }
 
-        let roleNameStr: String = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "Element"
+        let roleNameStr: String = self.role(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ) ?? "Element"
 
-        if let roleDescStr: String = self.roleDescription(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !roleDescStr.isEmpty, roleDescStr != kAXNotAvailableString {
+        if let roleDescStr: String = self.roleDescription(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !roleDescStr.isEmpty, roleDescStr != kAXNotAvailableString {
             return "\(roleDescStr) (\(roleNameStr))"
         }
         return nil
@@ -202,14 +270,19 @@ public struct Element: Equatable, Hashable {
 
 // Convenience factory for the application element - already @MainActor
 @MainActor
-public func applicationElement(for bundleIdOrName: String, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
+public func applicationElement(for bundleIdOrName: String, isDebugLoggingEnabled: Bool,
+                               currentDebugLogs: inout [String]) -> Element? {
     func dLog(_ message: String) {
         if isDebugLoggingEnabled {
             currentDebugLogs.append(message)
         }
     }
     // Now call pid() with logging parameters
-    guard let pid = pid(forAppIdentifier: bundleIdOrName, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) else {
+    guard let pid = pid(
+        forAppIdentifier: bundleIdOrName,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
+        currentDebugLogs: &currentDebugLogs
+    ) else {
         // dLog for "Failed to find PID..." is now handled inside pid() itself or if it returns nil here, we can log the higher level failure.
         // The message below is slightly redundant if pid() logs its own failure, but can be useful.
         dLog("applicationElement: Failed to obtain PID for '\(bundleIdOrName)'. Check previous logs from pid().")
@@ -232,7 +305,11 @@ public func systemWideElement(isDebugLoggingEnabled: Bool, currentDebugLogs: ino
 extension Element {
     @MainActor
     // Update signature to include logging parameters
-    public func generatePathString(upTo ancestor: Element? = nil, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String {
+    public func generatePathString(
+        upTo ancestor: Element? = nil,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> String {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         var pathComponents: [String] = []
         var currentElement: Element? = self
@@ -241,11 +318,17 @@ extension Element {
         let maxDepth = 25
         var tempLogs: [String] = [] // Temporary logs for calls within the loop
 
-        dLog("generatePathString started for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) upTo: \(ancestor?.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "nil")")
+        dLog(
+            "generatePathString started for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) upTo: \(ancestor?.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "nil")"
+        )
 
         while let element = currentElement, depth < maxDepth {
             tempLogs.removeAll() // Clear for each iteration
-            let briefDesc = element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let briefDesc = element.briefDescription(
+                option: .default,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             pathComponents.append(briefDesc)
             currentDebugLogs.append(contentsOf: tempLogs) // Append logs from briefDescription
 
@@ -260,15 +343,24 @@ extension Element {
             currentDebugLogs.append(contentsOf: tempLogs)
 
             tempLogs.removeAll()
-            let parentElement = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let parentElement = element.parent(
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             currentDebugLogs.append(contentsOf: tempLogs)
 
             tempLogs.removeAll()
-            let parentRole = parentElement?.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let parentRole = parentElement?.role(
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             currentDebugLogs.append(contentsOf: tempLogs)
 
-            if role == kAXApplicationRole || (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
-                dLog("generatePathString: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)")
+            if role == kAXApplicationRole ||
+                (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
+                dLog(
+                    "generatePathString: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)"
+                )
                 break
             }
 
@@ -293,7 +385,11 @@ extension Element {
 
     // New function to return path components as an array
     @MainActor
-    public func generatePathArray(upTo ancestor: Element? = nil, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [String] {
+    public func generatePathArray(
+        upTo ancestor: Element? = nil,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> [String] {
         func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
         var pathComponents: [String] = []
         var currentElement: Element? = self
@@ -302,12 +398,18 @@ extension Element {
         let maxDepth = 25
         var tempLogs: [String] = []
 
-        dLog("generatePathArray started for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)) upTo: \(ancestor?.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "nil")")
+        dLog(
+            "generatePathArray started for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)) upTo: \(ancestor?.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? "nil")"
+        )
         currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
         while let element = currentElement, depth < maxDepth {
             tempLogs.removeAll()
-            let briefDesc = element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let briefDesc = element.briefDescription(
+                option: .default,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             pathComponents.append(briefDesc)
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
@@ -321,15 +423,24 @@ extension Element {
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
             tempLogs.removeAll()
-            let parentElement = element.parent(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let parentElement = element.parent(
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
             tempLogs.removeAll()
-            let parentRole = parentElement?.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
+            let parentRole = parentElement?.role(
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            )
             currentDebugLogs.append(contentsOf: tempLogs); tempLogs.removeAll()
 
-            if role == kAXApplicationRole || (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
-                dLog("generatePathArray: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)")
+            if role == kAXApplicationRole ||
+                (role == kAXWindowRole && parentRole == kAXApplicationRole && ancestor == nil) {
+                dLog(
+                    "generatePathArray: Stopping at \(role == kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)"
+                )
                 break
             }
 

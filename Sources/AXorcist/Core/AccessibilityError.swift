@@ -1,7 +1,7 @@
 // AccessibilityError.swift - Defines custom error types for the accessibility tool.
 
-import Foundation
 import ApplicationServices // Import to make AXError visible
+import Foundation
 
 // Main error enum for the accessibility tool, incorporating parsing and operational errors.
 public enum AccessibilityError: Error, CustomStringConvertible {
@@ -99,7 +99,8 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .apiDisabled, .notAuthorized: return 10
         case .invalidCommand, .missingArgument, .invalidArgument: return 20
         case .appNotFound, .elementNotFound, .invalidElement: return 30
-        case .attributeUnsupported, .attributeNotReadable, .attributeNotSettable, .typeMismatch, .valueParsingFailed, .valueNotAXValue: return 40
+        case .attributeUnsupported, .attributeNotReadable, .attributeNotSettable, .typeMismatch, .valueParsingFailed,
+             .valueNotAXValue: return 40
         case .actionUnsupported, .actionFailed: return 50
         case .jsonEncodingFailed, .jsonDecodingFailed: return 60
         case .unknownAXError, .genericError: return 1

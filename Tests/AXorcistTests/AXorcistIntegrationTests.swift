@@ -1,13 +1,14 @@
 import AppKit
-import XCTest
-import Testing
 @testable import AXorcist
+import Testing
+import XCTest
 
 // Refactored TextEdit setup logic into an @MainActor async function
 @MainActor
 private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement: AXUIElement?) {
     let textEditBundleId = "com.apple.TextEdit"
-    var app: NSRunningApplication? = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first
+    var app: NSRunningApplication? = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId)
+        .first
 
     if app == nil {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: textEditBundleId) else {
@@ -24,7 +25,10 @@ private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement
                                                            configuration: configuration)
             print("launchApplication call completed. App PID if returned: \(app?.processIdentifier ?? -1)")
         } catch {
-            throw TestError.appNotRunning("Failed to launch TextEdit using launchApplication(at:options:configuration:): \(error.localizedDescription)")
+            throw TestError
+                .appNotRunning(
+                    "Failed to launch TextEdit using launchApplication(at:options:configuration:): \(error.localizedDescription)"
+                )
         }
 
         // Wait for the app to appear in running applications list
@@ -60,7 +64,11 @@ private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement
     }
 
     var window: AnyObject?
-    let resultCopyAttribute = AXUIElementCopyAttributeValue(axAppElement, ApplicationServices.kAXWindowsAttribute as CFString, &window)
+    let resultCopyAttribute = AXUIElementCopyAttributeValue(
+        axAppElement,
+        ApplicationServices.kAXWindowsAttribute as CFString,
+        &window
+    )
     if resultCopyAttribute != AXError.success || (window as? [AXUIElement])?.isEmpty ?? true {
         let appleScript = """
         tell application "System Events"
@@ -88,7 +96,11 @@ private func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement
 
     // Optional: Confirm focused element directly (for debugging setup)
     var cfFocusedElement: CFTypeRef?
-    let status = AXUIElementCopyAttributeValue(axAppElement, ApplicationServices.kAXFocusedUIElementAttribute as CFString, &cfFocusedElement)
+    let status = AXUIElementCopyAttributeValue(
+        axAppElement,
+        ApplicationServices.kAXFocusedUIElementAttribute as CFString,
+        &cfFocusedElement
+    )
     if status == AXError.success, cfFocusedElement != nil {
         print("AX API successfully got a focused element during setup.")
     } else {
@@ -237,7 +249,8 @@ struct Locator: Codable {
         case computed_name_contains
     }
 
-    init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil, requireAction: String? = nil, computed_name_contains: String? = nil) {
+    init(match_all: Bool? = nil, criteria: [String: String] = [:], root_element_path_hint: [String]? = nil,
+         requireAction: String? = nil, computed_name_contains: String? = nil) {
         self.match_all = match_all
         self.criteria = criteria
         self.root_element_path_hint = root_element_path_hint
@@ -276,8 +289,7 @@ struct CommandEnvelope: Codable {
          action_name: String? = nil,
          action_value: AnyCodable? = nil, // Use direct AnyCodable
          payload: [String: AnyCodable]? = nil, // Use direct AnyCodable
-         sub_commands: [CommandEnvelope]? = nil
-    ) {
+         sub_commands: [CommandEnvelope]? = nil) {
         self.command_id = command_id
         self.command = command
         self.application = application
@@ -304,7 +316,8 @@ struct SimpleSuccessResponse: Codable {
     let debug_logs: [String]?
 
     // Adding an explicit init to match how it might be constructed if `success` is always true for this type
-    init(command_id: String, success: Bool = true, status: String?, message: String, details: String?, debug_logs: [String]?) {
+    init(command_id: String, success: Bool = true, status: String?, message: String, details: String?,
+         debug_logs: [String]?) {
         self.command_id = command_id
         self.success = success
         self.status = status
@@ -380,9 +393,15 @@ func testPingViaStdin() async throws {
         }
     }
     """
-    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(inputJSON: inputJSON, arguments: ["--stdin"])
+    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(
+        inputJSON: inputJSON,
+        arguments: ["--stdin"]
+    )
 
-    #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
+    #expect(
+        terminationStatus == 0,
+        "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")"
+    )
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput!)")
 
     guard let outputString = output else {
@@ -396,7 +415,10 @@ func testPingViaStdin() async throws {
     }
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
     #expect(decodedResponse.success == true)
-    #expect(decodedResponse.message == "Ping handled by AXORCCommand. Input source: STDIN", "Unexpected success message: \(decodedResponse.message)")
+    #expect(
+        decodedResponse.message == "Ping handled by AXORCCommand. Input source: STDIN",
+        "Unexpected success message: \(decodedResponse.message)"
+    )
     #expect(decodedResponse.details == "Hello from testPingViaStdin")
 }
 
@@ -416,7 +438,10 @@ func testPingViaFile() async throws {
     // axorc needs --file flag
     let (output, errorOutput, terminationStatus) = try runAXORCCommand(arguments: ["--file", tempFilePath])
 
-    #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
+    #expect(
+        terminationStatus == 0,
+        "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")"
+    )
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput ?? "N/A")")
 
     guard let outputString = output else {
@@ -430,7 +455,10 @@ func testPingViaFile() async throws {
     // Use the updated SimpleSuccessResponse for decoding
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
     #expect(decodedResponse.success == true)
-    #expect(decodedResponse.message.lowercased().contains("file: \(tempFilePath.lowercased())"), "Message should contain file path. Got: \(decodedResponse.message)")
+    #expect(
+        decodedResponse.message.lowercased().contains("file: \(tempFilePath.lowercased())"),
+        "Message should contain file path. Got: \(decodedResponse.message)"
+    )
     #expect(decodedResponse.details == payloadMessage)
 }
 
@@ -438,11 +466,16 @@ func testPingViaFile() async throws {
 func testPingViaDirectPayload() async throws {
     let payloadMessage = "Hello from testPingViaDirectPayload"
     // Ensure the JSON string is compact and valid for a command-line argument
-    let inputJSON = "{\"command_id\":\"test_ping_direct\",\"command\":\"ping\",\"payload\":{\"message\":\"\(payloadMessage)\"}}"
+    let inputJSON =
+        "{\"command_id\":\"test_ping_direct\",\"command\":\"ping\",\"payload\":{\"message\":\"\(payloadMessage)\"}}"
 
-    let (output, errorOutput, terminationStatus) = try runAXORCCommand(arguments: [inputJSON]) // No --stdin or --file for direct
+    let (output, errorOutput,
+         terminationStatus) = try runAXORCCommand(arguments: [inputJSON]) // No --stdin or --file for direct
 
-    #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")")
+    #expect(
+        terminationStatus == 0,
+        "axorc command failed with status \(terminationStatus). Error: \(errorOutput ?? "N/A")"
+    )
     #expect(errorOutput == nil || errorOutput!.isEmpty, "Expected no error output, but got: \(errorOutput ?? "N/A")")
 
     guard let outputString = output else {
@@ -455,7 +488,10 @@ func testPingViaDirectPayload() async throws {
     }
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
     #expect(decodedResponse.success == true)
-    #expect(decodedResponse.message.contains("Direct Argument Payload"), "Unexpected success message: \(decodedResponse.message)")
+    #expect(
+        decodedResponse.message.contains("Direct Argument Payload"),
+        "Unexpected success message: \(decodedResponse.message)"
+    )
     #expect(decodedResponse.details == payloadMessage)
 }
 
@@ -472,23 +508,35 @@ func testErrorMultipleInputMethods() async throws {
     defer { try? FileManager.default.removeItem(atPath: tempFilePath) }
 
     // Pass arguments that trigger multiple inputs, including --stdin for runAXORCCommandWithStdin
-    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(inputJSON: inputJSON, arguments: ["--file", tempFilePath]) // --stdin is added by the helper
+    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(
+        inputJSON: inputJSON,
+        arguments: ["--file", tempFilePath]
+    ) // --stdin is added by the helper
 
     // axorc.swift now prints error to STDOUT and exits 0
-    #expect(terminationStatus == 0, "axorc command should return 0 with error on stdout. Status: \(terminationStatus). Error STDOUT: \(output ?? "nil"). Error STDERR: \(errorOutput ?? "nil")")
+    #expect(
+        terminationStatus == 0,
+        "axorc command should return 0 with error on stdout. Status: \(terminationStatus). Error STDOUT: \(output ?? "nil"). Error STDERR: \(errorOutput ?? "nil")"
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         #expect(Bool(false), "Output was nil or empty for multiple input methods error test")
         return
     }
     guard let responseData = outputString.data(using: .utf8) else {
-        #expect(Bool(false), "Failed to convert output to Data for multiple input methods error. Output: \(outputString)")
+        #expect(
+            Bool(false),
+            "Failed to convert output to Data for multiple input methods error. Output: \(outputString)"
+        )
         return
     }
     // Use the updated ErrorResponse for decoding
     let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: responseData)
     #expect(errorResponse.success == false)
-    #expect(errorResponse.error.message.contains("Multiple input flags specified"), "Unexpected error message: \(errorResponse.error.message)")
+    #expect(
+        errorResponse.error.message.contains("Multiple input flags specified"),
+        "Unexpected error message: \(errorResponse.error.message)"
+    )
 }
 
 @Test("Test Error: No Input Provided for Ping")
@@ -496,7 +544,10 @@ func testErrorNoInputProvidedForPing() async throws {
     // Run axorc with no input flags or direct payload
     let (output, errorOutput, terminationStatus) = try runAXORCCommand(arguments: [])
 
-    #expect(terminationStatus == 0, "axorc should return 0 with error on stdout. Status: \(terminationStatus). Error STDOUT: \(output ?? "nil"). Error STDERR: \(errorOutput ?? "nil")")
+    #expect(
+        terminationStatus == 0,
+        "axorc should return 0 with error on stdout. Status: \(terminationStatus). Error STDOUT: \(output ?? "nil"). Error STDERR: \(errorOutput ?? "nil")"
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         #expect(Bool(false), "Output was nil or empty for no input test.")
@@ -508,8 +559,14 @@ func testErrorNoInputProvidedForPing() async throws {
     }
     let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: responseData)
     #expect(errorResponse.success == false)
-    #expect(errorResponse.command_id == "input_error", "Expected command_id to be input_error, got \(errorResponse.command_id)")
-    #expect(errorResponse.error.message.contains("No JSON input method specified"), "Unexpected error message for no input: \(errorResponse.error.message)")
+    #expect(
+        errorResponse.command_id == "input_error",
+        "Expected command_id to be input_error, got \(errorResponse.command_id)"
+    )
+    #expect(
+        errorResponse.error.message.contains("No JSON input method specified"),
+        "Unexpected error message for no input: \(errorResponse.error.message)"
+    )
 }
 
 // The original failing test, now adapted
@@ -551,13 +608,19 @@ func testLaunchAndQueryTextEdit() async throws {
 
     print("Input JSON for axorc:\n\(inputJSON)")
 
-    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(inputJSON: inputJSON, arguments: ["--debug"])
+    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(
+        inputJSON: inputJSON,
+        arguments: ["--debug"]
+    )
 
     print("axorc STDOUT:\n\(output ?? "nil")")
     print("axorc STDERR:\n\(errorOutput ?? "nil")")
     print("axorc Termination Status: \(terminationStatus)")
 
-    #expect(terminationStatus == 0, "axorc command failed with status \(terminationStatus). Error Output: \(errorOutput ?? "N/A")")
+    #expect(
+        terminationStatus == 0,
+        "axorc command failed with status \(terminationStatus). Error Output: \(errorOutput ?? "N/A")"
+    )
 
     guard let outputJSONString = output else {
         throw TestError.generic("axorc output was nil or empty for getFocusedElement. STDERR: \(errorOutput ?? "N/A")")
@@ -565,7 +628,8 @@ func testLaunchAndQueryTextEdit() async throws {
 
     let decoder = JSONDecoder()
     guard let responseData = outputJSONString.data(using: .utf8) else {
-        throw TestError.generic("Failed to convert axorc output string to Data for getFocusedElement. Output: \(outputJSONString)")
+        throw TestError
+            .generic("Failed to convert axorc output string to Data for getFocusedElement. Output: \(outputJSONString)")
     }
 
     let queryResponse: QueryResponse
@@ -574,15 +638,24 @@ func testLaunchAndQueryTextEdit() async throws {
     } catch {
         print("JSON Decoding Error: \(error)")
         print("Problematic JSON string from axorc: \(outputJSONString)") // Print the problematic JSON
-        throw TestError.generic("Failed to decode QueryResponse from axorc: \(error.localizedDescription). Original JSON: \(outputJSONString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse from axorc: \(error.localizedDescription). Original JSON: \(outputJSONString)"
+            )
     }
 
-    #expect(queryResponse.success == true, "axorc command was not successful. Error: \(queryResponse.error?.message ?? "Unknown error"). Logs: \(queryResponse.debug_logs?.joined(separator: "\n") ?? "")")
+    #expect(
+        queryResponse.success == true,
+        "axorc command was not successful. Error: \(queryResponse.error?.message ?? "Unknown error"). Logs: \(queryResponse.debug_logs?.joined(separator: "\n") ?? "")"
+    )
     #expect(queryResponse.command_id == commandId)
     #expect(queryResponse.command == CommandType.getFocusedElement.rawValue) // Compare with rawValue
 
     guard let elementData = queryResponse.data else {
-        throw TestError.generic("QueryResponse data is nil. Error: \(queryResponse.error?.message ?? "N/A"). Logs: \(queryResponse.debug_logs?.joined(separator: "\n") ?? "")")
+        throw TestError
+            .generic(
+                "QueryResponse data is nil. Error: \(queryResponse.error?.message ?? "N/A"). Logs: \(queryResponse.debug_logs?.joined(separator: "\n") ?? "")"
+            )
     }
 
     // Validate attributes (example)
@@ -590,10 +663,16 @@ func testLaunchAndQueryTextEdit() async throws {
     // Use ApplicationServices for standard AX constants
     let expectedRole = ApplicationServices.kAXTextAreaRole as String
     let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.value as? String
-    #expect(actualRole == expectedRole, "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. Attributes: \(elementData.attributes?.keys.map { $0 } ?? [])")
+    #expect(
+        actualRole == expectedRole,
+        "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. Attributes: \(elementData.attributes?.keys.map { $0 } ?? [])"
+    )
 
     // Use ApplicationServices.kAXValueAttribute and cast to String for key
-    #expect(elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true, "Focused element attributes should contain kAXValueAttribute as it was requested.")
+    #expect(
+        elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true,
+        "Focused element attributes should contain kAXValueAttribute as it was requested."
+    )
 
     if let logs = queryResponse.debug_logs, !logs.isEmpty {
         print("axorc Debug Logs:")
@@ -662,7 +741,10 @@ func testGetAttributesForTextEditApplication() async throws {
         let queryResponse = try decoder.decode(QueryResponse.self, from: responseData)
 
         #expect(queryResponse.command_id == commandId)
-        #expect(queryResponse.success == true, "getAttributes command should succeed. Error: \(queryResponse.error?.message ?? "None")")
+        #expect(
+            queryResponse.success == true,
+            "getAttributes command should succeed. Error: \(queryResponse.error?.message ?? "None")"
+        )
         #expect(queryResponse.command == CommandType.getAttributes.rawValue)
         #expect(queryResponse.error == nil, "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
         #expect(queryResponse.data != nil, "Data field should not be nil.")
@@ -670,8 +752,14 @@ func testGetAttributesForTextEditApplication() async throws {
 
         // Check some specific attributes
         let attributes = queryResponse.data?.attributes
-        #expect(attributes?["AXRole"]?.value as? String == "AXApplication", "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))")
-        #expect(attributes?["AXTitle"]?.value as? String == "TextEdit", "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))")
+        #expect(
+            attributes?["AXRole"]?.value as? String == "AXApplication",
+            "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
+        )
+        #expect(
+            attributes?["AXTitle"]?.value as? String == "TextEdit",
+            "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
+        )
 
         // AXWindows should be an array
         if let windowsAttr = attributes?["AXWindows"] {
@@ -686,10 +774,19 @@ func testGetAttributesForTextEditApplication() async throws {
         }
 
         #expect(queryResponse.debug_logs != nil, "Debug logs should be present.")
-        #expect(queryResponse.debug_logs?.contains { $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed") } == true, "Debug logs should indicate getAttributes execution.")
+        #expect(
+            queryResponse.debug_logs?
+                .contains {
+                    $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed") } ==
+                true,
+            "Debug logs should indicate getAttributes execution."
+        )
 
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for getAttributes: \(error.localizedDescription). Original JSON: \(outputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for getAttributes: \(error.localizedDescription). Original JSON: \(outputString)"
+            )
     }
 }
 
@@ -755,24 +852,37 @@ func testQueryForTextEditTextArea() async throws {
         let queryResponse = try decoder.decode(QueryResponse.self, from: responseData)
 
         #expect(queryResponse.command_id == commandId)
-        #expect(queryResponse.success == true, "query command should succeed. Error: \(queryResponse.error?.message ?? "None")")
+        #expect(
+            queryResponse.success == true,
+            "query command should succeed. Error: \(queryResponse.error?.message ?? "None")"
+        )
         #expect(queryResponse.command == CommandType.query.rawValue)
         #expect(queryResponse.error == nil, "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
         #expect(queryResponse.data != nil, "Data field should not be nil.")
         #expect(queryResponse.data?.attributes != nil, "AXElement attributes should not be nil.")
 
         let attributes = queryResponse.data?.attributes
-        #expect(attributes?["AXRole"]?.value as? String == textAreaRole, "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))")
+        #expect(
+            attributes?["AXRole"]?.value as? String == textAreaRole,
+            "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
+        )
 
         // AXValue might be an empty string if the new document is empty, which is fine.
         #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
         #expect(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
 
         #expect(queryResponse.debug_logs != nil, "Debug logs should be present.")
-        #expect(queryResponse.debug_logs?.contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true, "Debug logs should indicate query execution.")
+        #expect(
+            queryResponse.debug_logs?
+                .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
+            "Debug logs should indicate query execution."
+        )
 
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for query: \(error.localizedDescription). Original JSON: \(outputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for query: \(error.localizedDescription). Original JSON: \(outputString)"
+            )
     }
 }
 
@@ -836,7 +946,10 @@ func testDescribeTextEditTextArea() async throws {
         let queryResponse = try decoder.decode(QueryResponse.self, from: responseData)
 
         #expect(queryResponse.command_id == commandId)
-        #expect(queryResponse.success == true, "describeElement command should succeed. Error: \(queryResponse.error?.message ?? "None")")
+        #expect(
+            queryResponse.success == true,
+            "describeElement command should succeed. Error: \(queryResponse.error?.message ?? "None")"
+        )
         #expect(queryResponse.command == CommandType.describeElement.rawValue)
         #expect(queryResponse.error == nil, "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
         #expect(queryResponse.data != nil, "Data field should not be nil.")
@@ -845,20 +958,38 @@ func testDescribeTextEditTextArea() async throws {
             throw TestError.generic("Attributes dictionary is nil in describeElement response.")
         }
 
-        #expect(attributes["AXRole"]?.value as? String == textAreaRole, "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))")
+        #expect(
+            attributes["AXRole"]?.value as? String == textAreaRole,
+            "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
+        )
 
         // describeElement should return many attributes. Check for a few common ones.
         #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
         #expect(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
-        #expect(attributes["AXPosition"]?.value != nil, "AXPosition should exist.") // Value can be complex (e.g., AXValue containing a CGPoint)
-        #expect(attributes["AXSize"]?.value != nil, "AXSize should exist.")     // Value can be complex (e.g., AXValue containing a CGSize)
-        #expect(attributes.count > 10, "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)")
+        #expect(attributes["AXPosition"]?.value != nil,
+                "AXPosition should exist.") // Value can be complex (e.g., AXValue containing a CGPoint)
+        #expect(attributes["AXSize"]?.value != nil,
+                "AXSize should exist.") // Value can be complex (e.g., AXValue containing a CGSize)
+        #expect(
+            attributes.count > 10,
+            "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)"
+        )
 
         #expect(queryResponse.debug_logs != nil, "Debug logs should be present.")
-        #expect(queryResponse.debug_logs?.contains { $0.contains("Handling describeElement command") || $0.contains("handleDescribeElement completed") } == true, "Debug logs should indicate describeElement execution.")
+        #expect(
+            queryResponse.debug_logs?
+                .contains {
+                    $0.contains("Handling describeElement command") || $0.contains("handleDescribeElement completed")
+                } ==
+                true,
+            "Debug logs should indicate describeElement execution."
+        )
 
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for describeElement: \(error.localizedDescription). Original JSON: \(outputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for describeElement: \(error.localizedDescription). Original JSON: \(outputString)"
+            )
     }
 }
 
@@ -910,7 +1041,10 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
     var (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
 
     #expect(exitCode == 0, "performAction axorc call failed. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR for performAction should be empty. Got: \(errorOutput ?? "")")
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        "STDERR for performAction should be empty. Got: \(errorOutput ?? "")"
+    )
 
     guard let actionOutputString = output, !actionOutputString.isEmpty else {
         throw TestError.generic("Output for performAction was nil/empty.")
@@ -922,13 +1056,20 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
 
     let decoder = JSONDecoder()
     do {
-        let actionResponse = try decoder.decode(QueryResponse.self, from: actionResponseData) // performAction returns a QueryResponse
+        let actionResponse = try decoder
+            .decode(QueryResponse.self, from: actionResponseData) // performAction returns a QueryResponse
         #expect(actionResponse.command_id == actionCommandId)
-        #expect(actionResponse.success == true, "performAction command was not successful. Error: \(actionResponse.error?.message ?? "N/A")")
+        #expect(
+            actionResponse.success == true,
+            "performAction command was not successful. Error: \(actionResponse.error?.message ?? "N/A")"
+        )
         // Some actions might not return data, but AXSetValue might confirm the element it acted upon.
         // For now, primary check is success.
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for performAction: \(error.localizedDescription). JSON: \(actionOutputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for performAction: \(error.localizedDescription). JSON: \(actionOutputString)"
+            )
     }
 
     // Brief pause for UI to update if necessary, though AXSetValue is often synchronous.
@@ -953,7 +1094,10 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
     (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [queryJsonString])
 
     #expect(exitCode == 0, "Query (verify) axorc call failed. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR for query (verify) should be empty. Got: \(errorOutput ?? "")")
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        "STDERR for query (verify) should be empty. Got: \(errorOutput ?? "")"
+    )
 
     guard let queryOutputString = output, !queryOutputString.isEmpty else {
         throw TestError.generic("Output for query (verify) was nil/empty.")
@@ -966,17 +1110,26 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
     do {
         let verifyResponse = try decoder.decode(QueryResponse.self, from: queryResponseData)
         #expect(verifyResponse.command_id == queryCommandId)
-        #expect(verifyResponse.success == true, "Query (verify) command failed. Error: \(verifyResponse.error?.message ?? "N/A")")
+        #expect(
+            verifyResponse.success == true,
+            "Query (verify) command failed. Error: \(verifyResponse.error?.message ?? "N/A")"
+        )
 
         guard let attributes = verifyResponse.data?.attributes else {
             throw TestError.generic("Attributes nil in query (verify) response.")
         }
         let retrievedValue = attributes["AXValue"]?.value as? String
-        #expect(retrievedValue == textToSet, "AXValue after AXSetValue action did not match. Expected: '\(textToSet)'. Got: '\(retrievedValue ?? "nil")'")
+        #expect(
+            retrievedValue == textToSet,
+            "AXValue after AXSetValue action did not match. Expected: '\(textToSet)'. Got: '\(retrievedValue ?? "nil")'"
+        )
 
         #expect(verifyResponse.debug_logs != nil)
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for query (verify): \(error.localizedDescription). JSON: \(queryOutputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for query (verify): \(error.localizedDescription). JSON: \(queryOutputString)"
+            )
     }
 }
 
@@ -1028,9 +1181,14 @@ func testExtractTextFromTextEditTextArea() async throws {
     var (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
 
     #expect(exitCode == 0, "performAction (set value) call failed. Error: \(errorOutput ?? "N/A")")
-    guard let actionOutputString = output, !actionOutputString.isEmpty else { throw TestError.generic("Output for performAction (set value) was nil/empty.") }
+    guard let actionOutputString = output,
+          !actionOutputString.isEmpty
+    else { throw TestError.generic("Output for performAction (set value) was nil/empty.") }
     let actionResponse = try JSONDecoder().decode(QueryResponse.self, from: Data(actionOutputString.utf8))
-    #expect(actionResponse.success == true, "performAction (set value) was not successful. Error: \(actionResponse.error?.message ?? "N/A")")
+    #expect(
+        actionResponse.success == true,
+        "performAction (set value) was not successful. Error: \(actionResponse.error?.message ?? "N/A")"
+    )
 
     try await Task.sleep(for: .milliseconds(100)) // Brief pause
 
@@ -1052,7 +1210,10 @@ func testExtractTextFromTextEditTextArea() async throws {
     (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [extractJsonString])
 
     #expect(exitCode == 0, "extractText axorc call failed. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR for extractText should be empty. Got: \(errorOutput ?? "")")
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        "STDERR for extractText should be empty. Got: \(errorOutput ?? "")"
+    )
 
     guard let extractOutputString = output, !extractOutputString.isEmpty else {
         throw TestError.generic("Output for extractText was nil/empty.")
@@ -1066,7 +1227,10 @@ func testExtractTextFromTextEditTextArea() async throws {
     do {
         let extractQueryResponse = try decoder.decode(QueryResponse.self, from: extractResponseData)
         #expect(extractQueryResponse.command_id == extractTextCommandId)
-        #expect(extractQueryResponse.success == true, "extractText command failed. Error: \(extractQueryResponse.error?.message ?? "N/A")")
+        #expect(
+            extractQueryResponse.success == true,
+            "extractText command failed. Error: \(extractQueryResponse.error?.message ?? "N/A")"
+        )
         #expect(extractQueryResponse.command == CommandType.extractText.rawValue)
 
         guard let attributes = extractQueryResponse.data?.attributes else {
@@ -1078,13 +1242,25 @@ func testExtractTextFromTextEditTextArea() async throws {
         // Common attribute for text content is AXValue. Let's assume extractText populates this or a specific "ExtractedText" attribute.
         // For now, checking AXValue as it's the most standard for text areas.
         let extractedValue = attributes["AXValue"]?.value as? String
-        #expect(extractedValue == textToSetAndExtract, "Extracted text did not match set text. Expected: '\(textToSetAndExtract)'. Got: '\(extractedValue ?? "nil")'")
+        #expect(
+            extractedValue == textToSetAndExtract,
+            "Extracted text did not match set text. Expected: '\(textToSetAndExtract)'. Got: '\(extractedValue ?? "nil")'"
+        )
 
         #expect(extractQueryResponse.debug_logs != nil)
-        #expect(extractQueryResponse.debug_logs?.contains { $0.contains("Handling extractText command") || $0.contains("handleExtractText completed") } == true, "Debug logs should indicate extractText execution.")
+        #expect(
+            extractQueryResponse.debug_logs?
+                .contains { $0.contains("Handling extractText command") || $0.contains("handleExtractText completed")
+                } ==
+                true,
+            "Debug logs should indicate extractText execution."
+        )
 
     } catch {
-        throw TestError.generic("Failed to decode QueryResponse for extractText: \(error.localizedDescription). JSON: \(extractOutputString)")
+        throw TestError
+            .generic(
+                "Failed to decode QueryResponse for extractText: \(error.localizedDescription). JSON: \(extractOutputString)"
+            )
     }
 }
 
@@ -1148,7 +1324,10 @@ func testBatchCommand_GetFocusedElementAndQuery() async throws {
     let (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
 
     #expect(exitCode == 0, "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR for batch command should be empty on success. Got: \(errorOutput ?? "")")
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        "STDERR for batch command should be empty on success. Got: \(errorOutput ?? "")"
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output string was nil or empty for batch command.")
@@ -1164,30 +1343,56 @@ func testBatchCommand_GetFocusedElementAndQuery() async throws {
         let batchResponse = try decoder.decode(BatchOperationResponse.self, from: responseData)
 
         #expect(batchResponse.command_id == batchCommandId)
-        #expect(batchResponse.success == true, "Batch command overall should succeed. Error: \(batchResponse.results.first(where: { !$0.success })?.error?.message ?? "None")")
-        #expect(batchResponse.results.count == 2, "Expected 2 results in batch response, got \(batchResponse.results.count)")
+        #expect(
+            batchResponse.success == true,
+            "Batch command overall should succeed. Error: \(batchResponse.results.first(where: { !$0.success })?.error?.message ?? "None")"
+        )
+        #expect(
+            batchResponse.results.count == 2,
+            "Expected 2 results in batch response, got \(batchResponse.results.count)"
+        )
 
         // Check first sub-command result (getFocusedElement)
         let result1 = batchResponse.results[0]
         #expect(result1.command_id == focusedElementSubCmdId)
-        #expect(result1.success == true, "Sub-command getFocusedElement failed. Error: \(result1.error?.message ?? "N/A")")
+        #expect(
+            result1.success == true,
+            "Sub-command getFocusedElement failed. Error: \(result1.error?.message ?? "N/A")"
+        )
         #expect(result1.command == CommandType.getFocusedElement.rawValue)
         #expect(result1.data != nil, "Data for getFocusedElement should not be nil")
-        #expect(result1.data?.attributes?["AXRole"]?.value as? String == textAreaRole, "Focused element (from batch) should be text area. Got \(String(describing: result1.data?.attributes?["AXRole"]?.value))")
+        #expect(
+            result1.data?.attributes?["AXRole"]?.value as? String == textAreaRole,
+            "Focused element (from batch) should be text area. Got \(String(describing: result1.data?.attributes?["AXRole"]?.value))"
+        )
 
         // Check second sub-command result (query for text area)
         let result2 = batchResponse.results[1]
         #expect(result2.command_id == querySubCmdId)
-        #expect(result2.success == true, "Sub-command query text area failed. Error: \(result2.error?.message ?? "N/A")")
+        #expect(
+            result2.success == true,
+            "Sub-command query text area failed. Error: \(result2.error?.message ?? "N/A")"
+        )
         #expect(result2.command == CommandType.query.rawValue)
         #expect(result2.data != nil, "Data for query text area should not be nil")
-        #expect(result2.data?.attributes?["AXRole"]?.value as? String == textAreaRole, "Queried element (from batch) should be text area. Got \(String(describing: result2.data?.attributes?["AXRole"]?.value))")
+        #expect(
+            result2.data?.attributes?["AXRole"]?.value as? String == textAreaRole,
+            "Queried element (from batch) should be text area. Got \(String(describing: result2.data?.attributes?["AXRole"]?.value))"
+        )
 
         #expect(batchResponse.debug_logs != nil, "Batch response debug logs should be present.")
-        #expect(batchResponse.debug_logs?.contains { $0.contains("Executing batch command") || $0.contains("Batch command processing completed") } == true, "Debug logs should indicate batch execution.")
+        #expect(
+            batchResponse.debug_logs?
+                .contains { $0.contains("Executing batch command") || $0.contains("Batch command processing completed")
+                } == true,
+            "Debug logs should indicate batch execution."
+        )
 
     } catch {
-        throw TestError.generic("Failed to decode BatchOperationResponse: \(error.localizedDescription). Original JSON: \(outputString)")
+        throw TestError
+            .generic(
+                "Failed to decode BatchOperationResponse: \(error.localizedDescription). Original JSON: \(outputString)"
+            )
     }
 }
 
@@ -1211,37 +1416,40 @@ enum TestError: Error, CustomStringConvertible {
 // Products directory helper (if not already present from previous steps)
 var productsDirectory: URL {
     #if os(macOS)
-    // First, try the .xctest bundle method (works well in Xcode)
-    for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
-        return bundle.bundleURL.deletingLastPathComponent()
-    }
-
-    // Fallback for SPM command-line tests if .xctest bundle isn't found as expected.
-    // This navigates up from the test file to the package root, then to .build/debug.
-    let currentFileURL = URL(fileURLWithPath: #filePath)
-    // Assuming Tests/AXorcistTests/AXorcistIntegrationTests.swift structure:
-    // currentFileURL.deletingLastPathComponent() // AXorcistTests directory
-    //   .deletingLastPathComponent() // Tests directory
-    //   .deletingLastPathComponent() // AXorcist package root directory
-    let packageRootPath = currentFileURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-
-    // Try common build paths for SwiftPM
-    let buildPathsToTry = [
-        packageRootPath.appendingPathComponent(".build/debug"),
-        packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
-        packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
-    ]
-
-    let fileManager = FileManager.default
-    for path in buildPathsToTry {
-        // Check if the directory exists and contains the axorc executable
-        if fileManager.fileExists(atPath: path.appendingPathComponent("axorc").path) {
-            return path
+        // First, try the .xctest bundle method (works well in Xcode)
+        for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
+            return bundle.bundleURL.deletingLastPathComponent()
         }
-    }
 
-    fatalError("couldn\'t find the products directory via Bundle or SPM fallback. Package root guessed as: \(packageRootPath.path). Searched paths: \(buildPathsToTry.map { $0.path }.joined(separator: ", "))")
+        // Fallback for SPM command-line tests if .xctest bundle isn't found as expected.
+        // This navigates up from the test file to the package root, then to .build/debug.
+        let currentFileURL = URL(fileURLWithPath: #filePath)
+        // Assuming Tests/AXorcistTests/AXorcistIntegrationTests.swift structure:
+        // currentFileURL.deletingLastPathComponent() // AXorcistTests directory
+        //   .deletingLastPathComponent() // Tests directory
+        //   .deletingLastPathComponent() // AXorcist package root directory
+        let packageRootPath = currentFileURL.deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent()
+
+        // Try common build paths for SwiftPM
+        let buildPathsToTry = [
+            packageRootPath.appendingPathComponent(".build/debug"),
+            packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
+            packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
+        ]
+
+        let fileManager = FileManager.default
+        for path in buildPathsToTry {
+            // Check if the directory exists and contains the axorc executable
+            if fileManager.fileExists(atPath: path.appendingPathComponent("axorc").path) {
+                return path
+            }
+        }
+
+        fatalError(
+            "couldn\'t find the products directory via Bundle or SPM fallback. Package root guessed as: \(packageRootPath.path). Searched paths: \(buildPathsToTry.map { $0.path }.joined(separator: ", "))"
+        )
     #else
-    return Bundle.main.bundleURL
+        return Bundle.main.bundleURL
     #endif
 }

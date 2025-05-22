@@ -1,6 +1,6 @@
-import Foundation
-import AXorcist
 import ArgumentParser
+import AXorcist
+import Foundation
 
 let AXORC_VERSION = "0.1.2a-config_fix"
 
@@ -20,7 +20,9 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
     @Option(name: .long, help: "Read JSON payload from the specified file path.")
     var file: String?
 
-    @Argument(help: "Read JSON payload directly from this string argument. If other input flags (--stdin, --file) are used, this argument is ignored.")
+    @Argument(
+        help: "Read JSON payload directly from this string argument. If other input flags (--stdin, --file) are used, this argument is ignored."
+    )
     var directPayload: String?
 
     mutating func run() async throws {
@@ -34,7 +36,8 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
         var detailedInputError: String?
 
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0)
-        let positionalPayloadProvided = directPayload != nil && !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        let positionalPayloadProvided = directPayload != nil &&
+            !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
 
         if activeInputFlags > 1 {
             detailedInputError = "Error: Multiple input flags specified (--stdin, --file). Only one is allowed."
@@ -43,7 +46,8 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
             inputSourceDescription = "STDIN"
             let stdInputHandle = FileHandle.standardInput
             let stdinData = stdInputHandle.readDataToEndOfFile()
-            if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !str.isEmpty {
+            if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !str.isEmpty {
                 receivedJsonString = str
                 localDebugLogs.append("Successfully read \(str.count) chars from STDIN.")
             } else {
@@ -53,7 +57,8 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
         } else if let filePath = file {
             inputSourceDescription = "File: \(filePath)"
             do {
-                let fileContent = try String(contentsOfFile: filePath, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines)
+                let fileContent = try String(contentsOfFile: filePath, encoding: .utf8)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
                 if fileContent.isEmpty {
                     detailedInputError = "Error: File '\(filePath)' is empty."
                 } else {
@@ -84,15 +89,24 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
         encoder.outputFormatting = .prettyPrinted
 
         if let errorToReport = detailedInputError, receivedJsonString == nil {
-            let errResponse = ErrorResponse(command_id: "input_error", error: ErrorResponse.ErrorDetail(message: errorToReport), debug_logs: debug ? localDebugLogs : nil)
+            let errResponse = ErrorResponse(
+                command_id: "input_error",
+                error: ErrorResponse.ErrorDetail(message: errorToReport),
+                debug_logs: debug ? localDebugLogs : nil
+            )
             if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
             return
         }
 
         guard let jsonToProcess = receivedJsonString, !jsonToProcess.isEmpty else {
-            let finalErrorMsg = detailedInputError ?? "No JSON data successfully processed. Last input state: \(inputSourceDescription)."
+            let finalErrorMsg = detailedInputError ??
+                "No JSON data successfully processed. Last input state: \(inputSourceDescription)."
             var errorLogs = localDebugLogs; errorLogs.append(finalErrorMsg)
-            let errResponse = ErrorResponse(command_id: "no_json_data", error: ErrorResponse.ErrorDetail(message: finalErrorMsg), debug_logs: debug ? errorLogs : nil)
+            let errResponse = ErrorResponse(
+                command_id: "no_json_data",
+                error: ErrorResponse.ErrorDetail(message: finalErrorMsg),
+                debug_logs: debug ? errorLogs : nil
+            )
             if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
             return
         }
@@ -100,7 +114,8 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
         do {
             let commandEnvelope = try JSONDecoder().decode(CommandEnvelope.self, from: Data(jsonToProcess.utf8))
             var currentLogs = localDebugLogs
-            currentLogs.append("Decoded CommandEnvelope. Type: \(commandEnvelope.command), ID: \(commandEnvelope.command_id)")
+            currentLogs
+                .append("Decoded CommandEnvelope. Type: \(commandEnvelope.command), ID: \(commandEnvelope.command_id)")
 
             switch commandEnvelope.command {
             case .ping:
@@ -127,7 +142,8 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     details: details,
                     debug_logs: debug ? currentLogs : nil
                 )
-                if let data = try? encoder.encode(successResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                if let data = try? encoder.encode(successResponse),
+                   let str = String(data: data, encoding: .utf8) { print(str) }
 
             case .getFocusedElement:
                 let axInstance = AXorcist()
@@ -163,13 +179,24 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
                     fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding: \(error)\n", stderr)
@@ -178,17 +205,30 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .getAttributes:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "getAttributes command requires a locator but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
@@ -230,32 +270,59 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for getAttributes: \(error)\n", stderr)
+                    fputs(
+                        "[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for getAttributes: \(error)\n",
+                        stderr
+                    )
                     fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
                     if let encodingError = error as? EncodingError {
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .query:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "query command requires a locator but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
@@ -297,32 +364,59 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for query: \(error)\n", stderr)
+                    fputs(
+                        "[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for query: \(error)\n",
+                        stderr
+                    )
                     fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
                     if let encodingError = error as? EncodingError {
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .describeElement:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "describeElement command requires a locator but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
@@ -362,39 +456,71 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for describeElement: \(error)\n", stderr)
+                    fputs(
+                        "[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for describeElement: \(error)\n",
+                        stderr
+                    )
                     fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
                     if let encodingError = error as? EncodingError {
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .performAction:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "performAction command requires a locator but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
                 guard let actionNameForHandler = commandEnvelope.action_name else {
                     let errorMsg = "performAction command requires an action_name but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
@@ -433,32 +559,59 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for performAction: \(error)\n", stderr)
+                    fputs(
+                        "[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for performAction: \(error)\n",
+                        stderr
+                    )
                     fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
                     if let encodingError = error as? EncodingError {
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .extractText:
                 guard let locatorForHandler = commandEnvelope.locator else {
                     let errorMsg = "extractText command requires a locator but none was provided"
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
@@ -493,24 +646,46 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                     let data = try encoder.encode(queryResponse)
                     fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
                     if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
+                        fputs(
+                            "[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n",
+                            stderr
+                        )
                         print(str) // STDOUT
                     } else {
                         fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errorDetailForResponse = ErrorResponse
+                            .ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
+                        let errResponse = ErrorResponse(
+                            command_id: commandIDForResponse,
+                            error: errorDetailForResponse,
+                            debug_logs: finalDebugLogs
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for extractText: \(error)\n", stderr)
+                    fputs(
+                        "[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for extractText: \(error)\n",
+                        stderr
+                    )
                     fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
                     if let encodingError = error as? EncodingError {
                         fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
                     }
 
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errorDetailForResponse = ErrorResponse
+                        .ErrorDetail(
+                            message: "Caught error during QueryResponse encoding: \(error.localizedDescription)"
+                        )
+                    let errResponse = ErrorResponse(
+                        command_id: commandIDForResponse,
+                        error: errorDetailForResponse,
+                        debug_logs: finalDebugLogs
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .batch:
@@ -519,12 +694,20 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                 guard let subCommands = commandEnvelope.sub_commands, !subCommands.isEmpty else {
                     let errorMsg = "Batch command received, but 'sub_commands' array is missing or empty."
                     currentLogs.append(errorMsg)
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: debug ? currentLogs : nil
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                     return
                 }
 
-                currentLogs.append("Processing batch command. Batch ID: \(commandEnvelope.command_id), Number of sub-commands: \(subCommands.count)")
+                currentLogs
+                    .append(
+                        "Processing batch command. Batch ID: \(commandEnvelope.command_id), Number of sub-commands: \(subCommands.count)"
+                    )
 
                 let axInstance = AXorcist()
                 var handlerLogs = currentLogs // batch handler will append to this
@@ -532,7 +715,7 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                 // Call the handleBatchCommands method
                 let batchHandlerResponses: [HandlerResponse] = await axInstance.handleBatchCommands(
                     batchCommandID: commandEnvelope.command_id, // Use the main command's ID for the batch
-                    subCommands: subCommands,                 // Pass the array of CommandEnvelopes
+                    subCommands: subCommands, // Pass the array of CommandEnvelopes
                     isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug, // Use overall debug flag
                     currentDebugLogs: &handlerLogs
                 )
@@ -585,84 +768,70 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
                         currentLogs.append(errorMsg) // Log to main logs
                         fputs("[axorc DEBUG] \(errorMsg)\n", stderr)
                         // Fallback to a simple error if top-level encoding fails
-                        let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: finalDebugLogsForBatch)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
+                        let errResponse = ErrorResponse(
+                            command_id: commandEnvelope.command_id,
+                            error: ErrorResponse.ErrorDetail(message: errorMsg),
+                            debug_logs: finalDebugLogsForBatch
+                        )
+                        if let errData = try? encoder.encode(errResponse), let errStr = String(
+                            data: errData,
+                            encoding: .utf8
+                        ) { print(errStr) }
                     }
                 } catch {
                     let errorMsg = "Failed to encode BatchOperationResponse: \(error.localizedDescription)"
                     currentLogs.append(errorMsg) // Log to main logs
                     fputs("[axorc DEBUG] \(errorMsg) - Error: \(error)\n", stderr)
                     // Fallback to a simple error
-                    let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: finalDebugLogsForBatch)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                    let errResponse = ErrorResponse(
+                        command_id: commandEnvelope.command_id,
+                        error: ErrorResponse.ErrorDetail(message: errorMsg),
+                        debug_logs: finalDebugLogsForBatch
+                    )
+                    if let data = try? encoder.encode(errResponse),
+                       let str = String(data: data, encoding: .utf8) { print(str) }
                 }
 
             case .collectAll:
                 let axInstance = AXorcist()
-                let handlerLogs = currentLogs // Changed var to let
+                let handlerLogs = currentLogs // Initial logs for the handler
 
-                let commandIDForResponse = commandEnvelope.command_id
+                // Parameters for handleCollectAll
                 let appIdentifierForHandler = commandEnvelope.application
-                let locatorForHandler = commandEnvelope.locator // Optional for collectAll
+                let locatorForHandler = commandEnvelope.locator
                 let pathHintForHandler = commandEnvelope.path_hint
                 let maxDepthForHandler = commandEnvelope.max_elements
                 let requestedAttributesForHandler = commandEnvelope.attributes
                 let outputFormatForHandler = commandEnvelope.output_format
+                let effectiveDebugLoggingEnabled = commandEnvelope.debug_logging ?? debug
 
-                // Call handleCollectAll, passing handlerLogs as non-inout
-                let operationResult: HandlerResponse = await axInstance.handleCollectAll(
+                // Call handleCollectAll, which now returns a JSON String directly.
+                // The debug logs passed to it are incorporated into the returned JSON string by the handler itself.
+                let jsonOutputString: String = await axInstance.handleCollectAll(
                     for: appIdentifierForHandler,
                     locator: locatorForHandler,
                     pathHint: pathHintForHandler,
                     maxDepth: maxDepthForHandler,
                     requestedAttributes: requestedAttributesForHandler,
                     outputFormat: outputFormatForHandler,
-                    isDebugLoggingEnabled: commandEnvelope.debug_logging ?? debug,
-                    currentDebugLogs: handlerLogs // Pass as [String]
+                    isDebugLoggingEnabled: effectiveDebugLoggingEnabled,
+                    currentDebugLogs: handlerLogs // Pass initial logs
                 )
 
-                // operationResult.debug_logs now contains all logs from the handler
-                // including the initial handlerLogs plus anything new from handleCollectAll.
-                let finalDebugLogs = (debug || (commandEnvelope.debug_logging ?? false)) ? operationResult.debug_logs : nil
-
-                fputs("[axorc DEBUG] Attempting to encode QueryResponse for collectAll...\n", stderr)
-                let queryResponse = QueryResponse(
-                    command_id: commandIDForResponse,
-                    success: operationResult.error == nil,
-                    command: commandEnvelope.command.rawValue,
-                    handlerResponse: operationResult,
-                    debug_logs: finalDebugLogs
-                )
-
-                do {
-                    let data = try encoder.encode(queryResponse)
-                    fputs("[axorc DEBUG] QueryResponse encoded to data. Size: \(data.count)\n", stderr)
-                    if let str = String(data: data, encoding: .utf8) {
-                        fputs("[axorc DEBUG] QueryResponse data converted to string. Length: \(str.count). Printing to stdout.\n", stderr)
-                        print(str) // STDOUT
-                    } else {
-                        fputs("[axorc DEBUG] Failed to convert QueryResponse data to UTF8 string.\n", stderr)
-                        let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Failed to convert QueryResponse data to string (UTF8)")
-                        let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                        if let errData = try? encoder.encode(errResponse), let errStr = String(data: errData, encoding: .utf8) { print(errStr) }
-                    }
-                } catch {
-                    fputs("[axorc DEBUG] Explicitly CAUGHT error during QueryResponse encoding for collectAll: \(error)\n", stderr)
-                    fputs("[axorc DEBUG] Error localizedDescription: \(error.localizedDescription)\n", stderr)
-                    if let encodingError = error as? EncodingError {
-                        fputs("[axorc DEBUG] EncodingError context: \(encodingError)\n", stderr)
-                    }
-
-                    let errorDetailForResponse = ErrorResponse.ErrorDetail(message: "Caught error during QueryResponse encoding: \(error.localizedDescription)")
-                    let errResponse = ErrorResponse(command_id: commandIDForResponse, error: errorDetailForResponse, debug_logs: finalDebugLogs)
-                    if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
-                }
+                // Print the JSON string returned by the handler.
+                // The AXORC_JSON_OUTPUT_PREFIX::: was already printed earlier.
+                print(jsonOutputString)
 
             default:
                 let errorMsg = "Unhandled command type: \(commandEnvelope.command)"
                 currentLogs.append(errorMsg)
-                let errResponse = ErrorResponse(command_id: commandEnvelope.command_id, error: ErrorResponse.ErrorDetail(message: errorMsg), debug_logs: debug ? currentLogs : nil)
-                if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
+                let errResponse = ErrorResponse(
+                    command_id: commandEnvelope.command_id,
+                    error: ErrorResponse.ErrorDetail(message: errorMsg),
+                    debug_logs: debug ? currentLogs : nil
+                )
+                if let data = try? encoder.encode(errResponse),
+                   let str = String(data: data, encoding: .utf8) { print(str) }
             }
         } catch {
             var errorLogs = localDebugLogs
@@ -672,12 +841,17 @@ struct AXORCCommand: AsyncParsableCommand { // Changed to AsyncParsableCommand
             let detailedErrorMessage: String
             if let decodingError = error as? DecodingError {
                 errorLogs.append("Decoding error details: \(decodingError.humanReadableDescription)")
-                detailedErrorMessage = "Failed to decode JSON command (DecodingError): \(decodingError.humanReadableDescription)"
+                detailedErrorMessage =
+                    "Failed to decode JSON command (DecodingError): \(decodingError.humanReadableDescription)"
             } else {
                 detailedErrorMessage = "Failed to decode JSON command: \(error.localizedDescription)"
             }
 
-            let errResponse = ErrorResponse(command_id: "decode_error", error: ErrorResponse.ErrorDetail(message: detailedErrorMessage), debug_logs: debug ? errorLogs : nil)
+            let errResponse = ErrorResponse(
+                command_id: "decode_error",
+                error: ErrorResponse.ErrorDetail(message: detailedErrorMessage),
+                debug_logs: debug ? errorLogs : nil
+            )
             if let data = try? encoder.encode(errResponse), let str = String(data: data, encoding: .utf8) { print(str) }
         }
     }
@@ -758,9 +932,18 @@ struct BatchOperationResponse: Codable {
 extension DecodingError {
     var humanReadableDescription: String {
         switch self {
-        case .typeMismatch(let type, let context): return "Type mismatch for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
-        case .valueNotFound(let type, let context): return "Value not found for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
-        case .keyNotFound(let key, let context): return "Key not found: \(key.stringValue) at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - \(context.debugDescription)"
+        case .typeMismatch(
+            let type,
+            let context
+        ): return "Type mismatch for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .valueNotFound(
+            let type,
+            let context
+        ): return "Value not found for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .keyNotFound(
+            let key,
+            let context
+        ): return "Key not found: \(key.stringValue) at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - \(context.debugDescription)"
         case .dataCorrupted(let context): return "Data corrupted: \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
         @unknown default: return self.localizedDescription
         }

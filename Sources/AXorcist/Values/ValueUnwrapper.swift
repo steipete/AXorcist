@@ -1,6 +1,6 @@
-import Foundation
 import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize etc.
+import Foundation
 
 // debug() is assumed to be globally available from Logging.swift
 // Constants like kAXPositionAttribute are assumed to be globally available from AccessibilityConstants.swift
@@ -66,7 +66,11 @@ struct ValueUnwrapper {
                     swiftArray.append(nil)
                     continue
                 }
-                swiftArray.append(unwrap(Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))
+                swiftArray.append(unwrap(
+                    Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
+                    isDebugLoggingEnabled: isDebugLoggingEnabled,
+                    currentDebugLogs: &currentDebugLogs
+                ))
             }
             return swiftArray
         case CFDictionaryGetTypeID():
@@ -75,17 +79,25 @@ struct ValueUnwrapper {
             // Attempt to bridge to Swift dictionary directly if possible
             if let nsDict = cfDict as? [String: AnyObject] { // Use AnyObject for broader compatibility
                 for (key, val) in nsDict {
-                    swiftDict[key] = unwrap(val, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) // Unwrap the value
+                    swiftDict[key] = unwrap(
+                        val,
+                        isDebugLoggingEnabled: isDebugLoggingEnabled,
+                        currentDebugLogs: &currentDebugLogs
+                    ) // Unwrap the value
                 }
             } else {
                 // Fallback for more complex CFDictionary structures if direct bridging fails
                 // This part requires careful handling of CFDictionary keys and values
                 // For now, we'll log if direct bridging fails, as full CFDictionary iteration is complex.
-                dLog("ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here.")
+                dLog(
+                    "ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here."
+                )
             }
             return swiftDict
         default:
-            dLog("ValueUnwrapper: Unhandled CFTypeID: \(typeID) - \(CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"). Returning raw value.")
+            dLog(
+                "ValueUnwrapper: Unhandled CFTypeID: \(typeID) - \(CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"). Returning raw value."
+            )
             return value // Return the original value if CFType is not handled
         }
     }

@@ -34,6 +34,8 @@ extension Double: Scannable {
 extension Bool: Scannable {
     init?(_ scanner: Scanner) {
         scanner.scanWhitespaces()
-        if let value: Bool = scanner.scan(dictionary: ["true": true, "false": false], options: [.caseInsensitive]) { self = value } else { return nil }
+        if let value: Bool = scanner
+            .scan(dictionary: ["true": true, "false": false], options: [.caseInsensitive]) { self = value }
+        else { return nil }
     }
 }

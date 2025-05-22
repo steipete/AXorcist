@@ -18,13 +18,17 @@ jobs:
       with:
         xcode-version: latest-stable
     
-    - name: Install SwiftLint
+    - name: Install SwiftLint and SwiftFormat
       run: |
-        brew install swiftlint
+        brew install swiftlint swiftformat
     
     - name: Build
       run: |
         swift build
+    
+    - name: Run SwiftFormat (check only)
+      run: |
+        swiftformat --lint .
     
     - name: Run SwiftLint
       run: |

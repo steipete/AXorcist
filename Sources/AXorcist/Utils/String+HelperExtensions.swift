@@ -25,7 +25,7 @@ extension Optional {
     var orNilString: String {
         switch self {
         case .some(let value): return "\(value)"
-        case .none:            return "nil"
+        case .none: return "nil"
         }
     }
 }

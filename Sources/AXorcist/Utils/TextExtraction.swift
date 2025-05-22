@@ -1,16 +1,19 @@
 // TextExtraction.swift - Utilities for extracting textual content from Elements.
 
-import Foundation
 import ApplicationServices // For Element and kAX...Attribute constants
+import Foundation
 
 // Assumes Element is defined and has an `attribute(String) -> String?` method.
 // Constants like kAXValueAttribute are expected to be available (e.g., from AccessibilityConstants.swift)
 // axValue<T>() is assumed to be globally available from ValueHelpers.swift
 
 @MainActor
-public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String {
+public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool,
+                               currentDebugLogs: inout [String]) -> String {
     func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    dLog("Extracting text content for element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+    dLog(
+        "Extracting text content for element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
+    )
     var texts: [String] = []
     let textualAttributes = [
         kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute, kAXHelpAttribute,
@@ -21,7 +24,12 @@ public func extractTextContent(element: Element, isDebugLoggingEnabled: Bool, cu
     for attrName in textualAttributes {
         var tempLogs: [String] = [] // For the axValue call
         // Pass the received logging parameters to axValue
-        if let strValue: String = axValue(of: element.underlyingElement, attr: attrName, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs), !strValue.isEmpty, strValue.lowercased() != kAXNotAvailableString.lowercased() {
+        if let strValue: String = axValue(
+            of: element.underlyingElement,
+            attr: attrName,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &tempLogs
+        ), !strValue.isEmpty, strValue.lowercased() != kAXNotAvailableString.lowercased() {
             texts.append(strValue)
             currentDebugLogs.append(contentsOf: tempLogs) // Collect logs from axValue
         } else {

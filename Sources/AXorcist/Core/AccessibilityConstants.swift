@@ -1,8 +1,8 @@
 // AccessibilityConstants.swift - Defines global constants used throughout the accessibility helper
 
-import Foundation
-import ApplicationServices // Added for AXError type
 import AppKit // Added for NSAccessibility
+import ApplicationServices // Added for AXError type
+import Foundation
 
 // Configuration Constants
 public let MAX_COLLECT_ALL_HITS = 200 // Default max elements for collect_all if not specified in command
@@ -71,7 +71,8 @@ public let kAXInsertionPointLineNumberAttribute = "AXInsertionPointLineNumber" /
 // Actions - Values should match CFSTR defined in AXActionConstants.h
 public let kAXActionsAttribute = "AXActions" // This is actually kAXActionNamesAttribute typically
 public let kAXActionNamesAttribute = "AXActionNames" // Correct name for listing actions
-public let kAXActionDescriptionAttribute = "AXActionDescription" // To get desc of an action (not in AXActionConstants.h but AXUIElement.h)
+public let kAXActionDescriptionAttribute =
+    "AXActionDescription" // To get desc of an action (not in AXActionConstants.h but AXUIElement.h)
 
 public let kAXIncrementAction = "AXIncrement" // New
 public let kAXDecrementAction = "AXDecrement" // New

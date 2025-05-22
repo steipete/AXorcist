@@ -1,8 +1,8 @@
 // ValueFormatter.swift - Utilities for formatting AX values into human-readable strings
 
-import Foundation
 import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
+import Foundation
 
 // debug() is assumed to be globally available from Logging.swift
 // stringFromAXValueType() is assumed to be available from ValueHelpers.swift
@@ -11,7 +11,7 @@ import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
 @MainActor
 public enum ValueFormatOption {
     case `default` // Concise, suitable for lists or brief views
-    case verbose   // More detailed, suitable for focused inspection
+    case verbose // More detailed, suitable for focused inspection
 }
 
 @MainActor
@@ -52,7 +52,7 @@ public func formatAXValue(_ axValue: AXValue, option: ValueFormatOption = .defau
         }
     case .illegal:
         result = "Illegal AXValue"
-        default:
+    default:
         // For boolean type (rawValue 4)
         if type.rawValue == 4 {
             var boolResult: DarwinBoolean = false
@@ -75,16 +75,21 @@ private func escapeStringForDisplay(_ input: String) -> String {
     // More comprehensive escaping might be needed depending on the exact output context
     // For now, handle common cases for human-readable display.
     escaped = escaped.replacingOccurrences(of: "\\", with: "\\\\") // Escape backslashes first
-    escaped = escaped.replacingOccurrences(of: "\"", with: "\\\"")  // Escape double quotes
-    escaped = escaped.replacingOccurrences(of: "\n", with: "\\n")   // Escape newlines
-    escaped = escaped.replacingOccurrences(of: "\t", with: "\\t")   // Escape tabs
-    escaped = escaped.replacingOccurrences(of: "\r", with: "\\r")   // Escape carriage returns
+    escaped = escaped.replacingOccurrences(of: "\"", with: "\\\"") // Escape double quotes
+    escaped = escaped.replacingOccurrences(of: "\n", with: "\\n") // Escape newlines
+    escaped = escaped.replacingOccurrences(of: "\t", with: "\\t") // Escape tabs
+    escaped = escaped.replacingOccurrences(of: "\r", with: "\\r") // Escape carriage returns
     return escaped
 }
 
 @MainActor
 // Update signature to accept logging parameters
-public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .default, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String {
+public func formatCFTypeRef(
+    _ cfValue: CFTypeRef?,
+    option: ValueFormatOption = .default,
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> String {
     guard let value = cfValue else { return "<nil>" }
     let typeID = CFGetTypeID(value)
     // var tempLogs: [String] = [] // Removed as it was unused
@@ -93,7 +98,11 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
     case AXUIElementGetTypeID():
         let element = Element(value as! AXUIElement)
         // Pass the received logging parameters to briefDescription
-        return element.briefDescription(option: option, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        return element.briefDescription(
+            option: option,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        )
     case AXValueGetTypeID():
         return formatAXValue(value as! AXValue, option: option)
     case CFStringGetTypeID():
@@ -115,7 +124,12 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
                     continue
                 }
                 // Pass logging parameters to recursive call
-                swiftArray.append(formatCFTypeRef(Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(), option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))
+                swiftArray.append(formatCFTypeRef(
+                    Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
+                    option: .default,
+                    isDebugLoggingEnabled: isDebugLoggingEnabled,
+                    currentDebugLogs: &currentDebugLogs
+                ))
             }
             return "[\(swiftArray.joined(separator: ","))]"
         } else {
@@ -129,11 +143,17 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
             if let nsDict = cfDict as? [String: AnyObject] {
                 for (key, val) in nsDict {
                     // Pass logging parameters to recursive call
-                    swiftDict[key] = formatCFTypeRef(val, option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+                    swiftDict[key] = formatCFTypeRef(
+                        val,
+                        option: .default,
+                        isDebugLoggingEnabled: isDebugLoggingEnabled,
+                        currentDebugLogs: &currentDebugLogs
+                    )
                 }
                 // Sort by key for consistent output
                 let sortedItems = swiftDict.sorted { $0.key < $1.key }
-                    .map { "\"\(escapeStringForDisplay($0.key))\": \($0.value)" } // Used helper for key, value is already formatted
+                    .map { "\"\(escapeStringForDisplay($0.key))\": \($0.value)"
+                    } // Used helper for key, value is already formatted
                 return "{\(sortedItems.joined(separator: ","))}"
             } else {
                 return "<Dictionary (bridging failed), size \(count)>"
@@ -153,22 +173,45 @@ public func formatCFTypeRef(_ cfValue: CFTypeRef?, option: ValueFormatOption = .
 extension Element {
     @MainActor
     // Now a method to accept logging parameters
-    public func briefDescription(option: ValueFormatOption = .default, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String {
+    public func briefDescription(
+        option: ValueFormatOption = .default,
+        isDebugLoggingEnabled: Bool,
+        currentDebugLogs: inout [String]
+    ) -> String {
         // Call the new method versions of title, identifier, value, description, role
-        if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !titleStr.isEmpty {
-            let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
+        if let titleStr = self.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs),
+           !titleStr.isEmpty {
+            let roleStr = self
+                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
+                "UnknownRole"
             return "<\(roleStr): \"\(escapeStringForDisplay(titleStr))\">"
-        } else if let identifierStr = self.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !identifierStr.isEmpty {
-            let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
+        } else if let identifierStr = self.identifier(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !identifierStr.isEmpty {
+            let roleStr = self
+                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
+                "UnknownRole"
             return "<\(roleStr) id: \"\(escapeStringForDisplay(identifierStr))\">"
-        } else if let valueAny = self.value(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr.count < 50 {
-            let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
+        } else if let valueAny = self.value(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr.count < 50 {
+            let roleStr = self
+                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
+                "UnknownRole"
             return "<\(roleStr) val: \"\(escapeStringForDisplay(valueStr))\">"
-        } else if let descStr = self.description(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs), !descStr.isEmpty, descStr.count < 50 {
-            let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
+        } else if let descStr = self.description(
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &currentDebugLogs
+        ), !descStr.isEmpty, descStr.count < 50 {
+            let roleStr = self
+                .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ??
+                "UnknownRole"
             return "<\(roleStr) desc: \"\(escapeStringForDisplay(descStr))\">"
         }
-        let roleStr = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
+        let roleStr = self
+            .role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) ?? "UnknownRole"
         return "<\(roleStr)>"
     }
 }

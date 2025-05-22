@@ -1,9 +1,9 @@
 // Attribute.swift - Defines a typed wrapper for Accessibility Attribute keys.
 
-import Foundation
 import ApplicationServices // Re-add for AXUIElement type
 // import ApplicationServices // For kAX... constants - We will now use AccessibilityConstants.swift primarily
 import CoreGraphics // For CGRect, CGPoint, CGSize, CFRange
+import Foundation
 
 // A struct to provide a type-safe way to refer to accessibility attributes.
 // The generic type T represents the expected Swift type of the attribute's value.
@@ -44,12 +44,17 @@ public struct Attribute<T> {
     // For children, the direct attribute often returns [AXUIElement].
     // Element.children getter then wraps these.
     public static var children: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXChildrenAttribute) }
-    public static var selectedChildren: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXSelectedChildrenAttribute) }
-    public static var visibleChildren: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleChildrenAttribute) }
+    public static var selectedChildren: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(kAXSelectedChildrenAttribute) }
+    public static var visibleChildren: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleChildrenAttribute)
+    }
     public static var windows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXWindowsAttribute) }
-    public static var mainWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXMainWindowAttribute) } // Can be nil
-    public static var focusedWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedWindowAttribute) } // Can be nil
-    public static var focusedElement: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedUIElementAttribute) } // Can be nil
+    public static var mainWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXMainWindowAttribute)
+    } // Can be nil
+    public static var focusedWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedWindowAttribute)
+    } // Can be nil
+    public static var focusedElement: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFocusedUIElementAttribute)
+    } // Can be nil
 
     // MARK: - Application Specific Attributes
     // public static var enhancedUserInterface: Attribute<Bool> { Attribute<Bool>(kAXEnhancedUserInterfaceAttribute) } // Constant not found, commenting out
@@ -66,7 +71,8 @@ public struct Attribute<T> {
     public static var zoomButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXZoomButtonAttribute) }
     public static var minimizeButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXMinimizeButtonAttribute) }
     public static var toolbarButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXToolbarButtonAttribute) }
-    public static var fullScreenButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFullScreenButtonAttribute) }
+    public static var fullScreenButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXFullScreenButtonAttribute)
+    }
     public static var proxy: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXProxyAttribute) }
     public static var growArea: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXGrowAreaAttribute) }
 
@@ -74,25 +80,30 @@ public struct Attribute<T> {
     public static var rows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXRowsAttribute) }
     public static var columns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXColumnsAttribute) }
     public static var selectedRows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXSelectedRowsAttribute) }
-    public static var selectedColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXSelectedColumnsAttribute) }
+    public static var selectedColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXSelectedColumnsAttribute)
+    }
     public static var selectedCells: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXSelectedCellsAttribute) }
     public static var visibleRows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleRowsAttribute) }
     public static var visibleColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleColumnsAttribute) }
     public static var header: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXHeaderAttribute) }
-    public static var orientation: Attribute<String> { Attribute<String>(kAXOrientationAttribute) } // e.g., kAXVerticalOrientationValue
+    public static var orientation: Attribute<String> { Attribute<String>(kAXOrientationAttribute)
+    } // e.g., kAXVerticalOrientationValue
 
     // MARK: - Text Attributes
     public static var selectedText: Attribute<String> { Attribute<String>(kAXSelectedTextAttribute) }
     public static var selectedTextRange: Attribute<CFRange> { Attribute<CFRange>(kAXSelectedTextRangeAttribute) }
     public static var numberOfCharacters: Attribute<Int> { Attribute<Int>(kAXNumberOfCharactersAttribute) }
-    public static var visibleCharacterRange: Attribute<CFRange> { Attribute<CFRange>(kAXVisibleCharacterRangeAttribute) }
+    public static var visibleCharacterRange: Attribute<CFRange> { Attribute<CFRange>(kAXVisibleCharacterRangeAttribute)
+    }
     // Parameterized attributes are handled differently, often via functions.
     // static var attributedStringForRange: Attribute<NSAttributedString> { Attribute(kAXAttributedStringForRangeParameterizedAttribute) }
     // static var stringForRange: Attribute<String> { Attribute(kAXStringForRangeParameterizedAttribute) }
 
     // MARK: - Scroll Area Attributes
-    public static var horizontalScrollBar: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXHorizontalScrollBarAttribute) }
-    public static var verticalScrollBar: Attribute<AXUIElement?> { Attribute<AXUIElement?>(kAXVerticalScrollBarAttribute) }
+    public static var horizontalScrollBar: Attribute<AXUIElement?> {
+        Attribute<AXUIElement?>(kAXHorizontalScrollBarAttribute) }
+    public static var verticalScrollBar: Attribute<AXUIElement?> {
+        Attribute<AXUIElement?>(kAXVerticalScrollBarAttribute) }
 
     // MARK: - Action Related
     // Action names are typically an array of strings.

@@ -1,8 +1,8 @@
 // AttributeHelpers.swift - Contains functions for fetching and formatting element attributes
 
-import Foundation
 import ApplicationServices // For AXUIElement related types
 import CoreGraphics // For potential future use with geometry types from attributes
+import Foundation
 
 // Note: This file assumes Models (for ElementAttributes, AnyCodable),
 // Logging (for debug), AccessibilityConstants, and Utils (for axValue) are available in the same module.

@@ -1,8 +1,8 @@
 // AXValueParser.swift - Utilities for parsing string inputs into AX-compatible values
 
-import Foundation
 import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
+import Foundation
 
 // debug() is assumed to be globally available from Logging.swift
 // Constants are assumed to be globally available from AccessibilityConstants.swift

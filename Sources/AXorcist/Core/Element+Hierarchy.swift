@@ -1,5 +1,5 @@
-import Foundation
 import ApplicationServices
+import Foundation
 
 // MARK: - Element Hierarchy Logic
 
@@ -11,11 +11,17 @@ extension Element {
         var uniqueChildrenSet = Set<Element>()
         var tempLogs: [String] = [] // For inner calls
 
-        dLog("Getting children for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))")
+        dLog(
+            "Getting children for element: \(self.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs))"
+        )
 
         // Primary children attribute
         tempLogs.removeAll()
-        if let directChildrenUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>.children, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
+        if let directChildrenUI: [AXUIElement] = attribute(
+            Attribute<[AXUIElement]>.children,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: &tempLogs
+        ) {
             currentDebugLogs.append(contentsOf: tempLogs)
             for childUI in directChildrenUI {
                 let childAX = Element(childUI)
@@ -40,7 +46,11 @@ extension Element {
 
         for attrName in alternativeAttributes {
             tempLogs.removeAll()
-            if let altChildrenUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>(attrName), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
+            if let altChildrenUI: [AXUIElement] = attribute(
+                Attribute<[AXUIElement]>(attrName),
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            ) {
                 currentDebugLogs.append(contentsOf: tempLogs)
                 for childUI in altChildrenUI {
                     let childAX = Element(childUI)
@@ -60,7 +70,11 @@ extension Element {
 
         if currentRole == kAXApplicationRole as String {
             tempLogs.removeAll()
-            if let windowElementsUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>.windows, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
+            if let windowElementsUI: [AXUIElement] = attribute(
+                Attribute<[AXUIElement]>.windows,
+                isDebugLoggingEnabled: isDebugLoggingEnabled,
+                currentDebugLogs: &tempLogs
+            ) {
                 currentDebugLogs.append(contentsOf: tempLogs)
                 for childUI in windowElementsUI {
                     let childAX = Element(childUI)

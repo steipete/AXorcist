@@ -71,7 +71,8 @@ class Scanner {
     @discardableResult func scan(character: Character, options: NSString.CompareOptions = []) -> Character? {
         guard self.location < self.string.count else { return nil }
         let characterString = String(character)
-        if characterString.compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame {
+        if characterString
+            .compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame {
             self.location += 1
             return character
         }
@@ -244,7 +245,7 @@ class Scanner {
         }
 
         if digitCount == 0 {
-            location = initialLoc  // Revert if nothing was scanned
+            location = initialLoc // Revert if nothing was scanned
             return nil
         }
 
@@ -276,7 +277,9 @@ class Scanner {
     }
 
     static var identifierFollowingCharSet: CustomCharacterSet {
-        CustomCharacterSet(charactersInString: characterSets.lowercaseLetters + characterSets.uppercaseLetters + characterSets.digits + "_")
+        CustomCharacterSet(charactersInString: characterSets.lowercaseLetters + characterSets
+            .uppercaseLetters + characterSets.digits + "_"
+        )
     }
 
     func scanIdentifier() -> String? {
