@@ -133,7 +133,7 @@ struct CommandExecutor {
                 for: command.application,
                 locator: command.locator,
                 pathHint: command.path_hint,
-                maxDepth: command.max_elements,
+                maxDepth: command.max_depth,
                 requestedAttributes: command.attributes,
                 outputFormat: command.output_format,
                 commandId: command.command_id,

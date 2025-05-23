@@ -120,16 +120,40 @@ extension Element {
         isDebugLoggingEnabled: Bool,
         currentDebugLogs: inout [String]
     ) {
+        // NOTE: The original implementation tried a very wide range of attributes here, including
+        // some that are known to return *massive* strings (e.g. full HTML documents) or other
+        // heavyweight data structures that are **not** arrays of AXUIElement. Fetching those
+        // attributes causes large memory allocations and can appear as a "hang" when traversing
+        // deeply nested application hierarchies (especially for WebViews like the Claude desktop
+        // app). We therefore narrow the list down to attributes that predominantly return actual
+        // child UI elements. Heavy/string-returning attributes have been intentionally removed.
+
         let alternativeAttributes: [String] = [
-            AXAttributeNames.kAXVisibleChildrenAttribute, AXAttributeNames.kAXWebAreaChildrenAttribute, AXAttributeNames.kAXHTMLContentAttribute,
-            AXAttributeNames.kAXARIADOMChildrenAttribute, AXAttributeNames.kAXDOMChildrenAttribute, AXAttributeNames.kAXApplicationNavigationAttribute,
-            AXAttributeNames.kAXApplicationElementsAttribute, AXAttributeNames.kAXContentsAttribute, AXAttributeNames.kAXBodyAreaAttribute, AXAttributeNames.kAXDocumentContentAttribute,
-            AXAttributeNames.kAXWebPageContentAttribute, AXAttributeNames.kAXSplitGroupContentsAttribute, AXAttributeNames.kAXLayoutAreaChildrenAttribute,
-            AXAttributeNames.kAXGroupChildrenAttribute, AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute, AXAttributeNames.kAXColumnsAttribute,
+            // Mostly safe & element-array returning attributes
+            AXAttributeNames.kAXVisibleChildrenAttribute,
+            AXAttributeNames.kAXWebAreaChildrenAttribute,
+            AXAttributeNames.kAXARIADOMChildrenAttribute,
+            AXAttributeNames.kAXDOMChildrenAttribute,
+            AXAttributeNames.kAXApplicationNavigationAttribute,
+            AXAttributeNames.kAXApplicationElementsAttribute,
+            AXAttributeNames.kAXBodyAreaAttribute,
+            AXAttributeNames.kAXSplitGroupContentsAttribute,
+            AXAttributeNames.kAXLayoutAreaChildrenAttribute,
+            AXAttributeNames.kAXGroupChildrenAttribute,
+            AXAttributeNames.kAXSelectedChildrenAttribute,
+            AXAttributeNames.kAXRowsAttribute,
+            AXAttributeNames.kAXColumnsAttribute,
             AXAttributeNames.kAXTabsAttribute
         ]
+        // Removed heavy attributes:
+        //   – kAXHTMLContentAttribute
+        //   – kAXContentsAttribute
+        //   – kAXDocumentContentAttribute
+        //   – kAXWebPageContentAttribute
+        // These often return large strings or non-element payloads.
+
         if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectAlternativeChildren: Will iterate \(alternativeAttributes.count) alternative attributes.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
+            currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectAlternativeChildren: Using pruned attribute list (\(alternativeAttributes.count) items) to avoid heavy payloads.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
         }
 
         for attrName in alternativeAttributes {

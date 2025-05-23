@@ -4,6 +4,35 @@ import AppKit
 import ApplicationServices
 import Foundation
 
+// Define a new generic Response structure if one doesn't exist suitable for this context.
+// For now, we'll assume that a general Response structure is available or defined elsewhere.
+// If not, one would be:
+public struct ResponseContainer: Codable { // Renamed to avoid conflict if a `Response` type exists elsewhere
+    public var command_id: String
+    public var success: Bool
+    public var command: String // e.g., "collectAll"
+    public var message: String?
+    public var data: ResponseData? // Using a new ResponseData enum/struct
+    public var error: String?
+    public var debug_logs: [String]?
+}
+
+// Assuming CommandType is an enum with String raw values, e.g.:
+// public enum CommandType: String, Codable {
+//    case query, collectAll, performAction, ping, extractText, batch
+// }
+
+// AXElementData is now defined in TreeTraversal.swift
+// public struct AXElementData: Codable { ... }
+
+public enum ResponseData: Codable {
+    case elementsList([AXElementData]) 
+    case element(AXElementData?)      
+    case textContent(String?)
+    case status(String)
+    case batchResults([ResponseContainer]) 
+}
+
 // MARK: - CollectAll Handler Extension
 extension AXorcist {
 
@@ -152,71 +181,103 @@ extension AXorcist {
             }
         }
 
-        var collectedAXElements: [AXElement] = []
-        var collectRecursively: ((AXUIElement, Int) -> Void)!
-        collectRecursively = { axUIElement, currentDepth in
-            if currentDepth > recursionDepthLimit {
-                dLog(
-                    "Reached recursionDepthLimit (\(recursionDepthLimit)) at element \(Element(axUIElement).briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)), stopping recursion for this branch."
-                )
-                return
-            }
-
-            let currentElement = Element(axUIElement)
-            dLog("Collecting element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)")
-
-            let fetchedAttrs = getElementAttributes(
-                currentElement,
-                requestedAttributes: attributesToFetch,
-                forMultiDefault: true,
-                targetRole: nil,
-                outputFormat: effectiveOutputFormat,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &self.recursiveCallDebugLogs
-            )
-
-            let elementPath = currentElement.generatePathArray(
-                upTo: appElement,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &self.recursiveCallDebugLogs
-            )
-            let axElement = AXElement(attributes: fetchedAttrs, path: elementPath)
-            collectedAXElements.append(axElement)
-
-            // Use the sophisticated child collection from Element+Hierarchy.swift instead of basic kAXChildrenAttribute
-            // This is critical for web areas and Electron apps where children may be in alternative attributes
-            if let children = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) {
-                dLog(
-                    "Element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing."
-                )
-                for childElement in children {
-                    collectRecursively(childElement.underlyingElement, currentDepth + 1)
-                }
-            } else {
-                dLog(
-                    "No children found for element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
-                )
-            }
-        }
-
-        dLog(
-            "Starting recursive collection from start element: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))"
+        var collectedElementsOutput: [AXElement] = [] // Type for CollectAllOutput
+        var traverser = TreeTraverser()
+        
+        let visitor = CollectAllVisitor(
+            attributesToFetch: attributesToFetch,
+            outputFormat: effectiveOutputFormat,
+            appElement: appElement
         )
-
-        // Start recursion from the determined startElement
+        
+        var traversalContext = TraversalContext(
+            maxDepth: recursionDepthLimit,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: self.recursiveCallDebugLogs,
+            startElement: startElement
+        )
+        
+        dLog("Starting unified tree traversal from start element: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))")
+        
         if !self.recursiveCallDebugLogs.contains(where: { $0.contains("Failed to find element with provided locator criteria") && $0.contains("Cannot start collectAll") }) {
-            // Only start if locator search (if any) didn't critically fail and try to return early.
-            collectRecursively(startElement.underlyingElement, 0)
+            _ = traverser.traverse(from: startElement, visitor: visitor, context: &traversalContext)
+            // Access the public property directly
+            // The visitor.collectedElements is [AXElementData]. CollectAllOutput expects [AXElement].
+            // This requires a mapping if AXElementData is not directly usable or if AXElement is a different type.
+            // For now, assuming AXElementData can be mapped or cast, or CollectAllOutput needs to change.
+            // This is a placeholder: you might need to map properties from AXElementData to create AXElement instances.
+            collectedElementsOutput = visitor.collectedElements.map { data in 
+                // This mapping is highly dependent on AXElement's structure and what AXElementData holds.
+                // If AXElement just needs attributes and path, and AXElementData provides them:
+                AXElement(attributes: data.attributes, path: data.path)
+            } 
+            self.recursiveCallDebugLogs = traversalContext.currentDebugLogs
         }
 
         let output = CollectAllOutput(
             command_id: effectiveCommandId,
-            success: true, // Assuming success if we reach here, errors would have returned earlier
+            success: true,
             command: "collectAll",
-            collected_elements: collectedAXElements,
+            collected_elements: collectedElementsOutput, // Use the mapped elements
             app_bundle_id: appIdentifier,
             debug_logs: self.recursiveCallDebugLogs
         )
         return encode(output)
+    }
+
+    @MainActor
+    func handleCollectAll(
+        commandRequest: CommandEnvelope, 
+        appElement: Element,
+        startElement: Element,
+        attributesToFetch: [String],
+        maxElements: Int,
+        recursionDepthLimit: Int,
+        outputFormat: OutputFormat,
+        isDebugLoggingEnabled: Bool
+    ) -> Result<ResponseContainer, AccessibilityError> {
+        var operationDebugLogs: [String] = [] 
+        var tempContextForInitialLog = TraversalContext(maxDepth: 0, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: operationDebugLogs, startElement: startElement)
+        dLog("Starting collectAll operation. Command ID: \(commandRequest.command_id)", context: &tempContextForInitialLog)
+        operationDebugLogs = tempContextForInitialLog.currentDebugLogs
+
+        var traverser = TreeTraverser()
+        let visitor = CollectAllVisitor(
+            attributesToFetch: attributesToFetch,
+            outputFormat: outputFormat,
+            appElement: appElement
+        )
+        
+        var traversalContext = TraversalContext(
+            maxDepth: recursionDepthLimit,
+            isDebugLoggingEnabled: isDebugLoggingEnabled,
+            currentDebugLogs: operationDebugLogs, 
+            startElement: startElement
+        )
+        
+        dLog("Beginning tree traversal for collectAll from: \(startElement.briefDescriptionForDebug(context: &traversalContext))", context: &traversalContext)
+        
+        _ = traverser.traverse(from: startElement, visitor: visitor, context: &traversalContext)
+        
+        let collectedElementsData = visitor.collectedElements 
+        operationDebugLogs = traversalContext.currentDebugLogs
+
+        dLog("Traversal complete. Collected \(collectedElementsData.count) elements.", context: &traversalContext)
+        operationDebugLogs = traversalContext.currentDebugLogs
+
+        if collectedElementsData.isEmpty {
+            dLog("No elements collected, but traversal itself was successful.", context: &traversalContext)
+            operationDebugLogs = traversalContext.currentDebugLogs
+        }
+        
+        let response = ResponseContainer(
+            command_id: commandRequest.command_id,
+            success: true,
+            command: commandRequest.command.rawValue, 
+            message: "Successfully collected \(collectedElementsData.count) elements.",
+            data: ResponseData.elementsList(collectedElementsData), 
+            debug_logs: isDebugLoggingEnabled ? operationDebugLogs : nil
+        )
+        return .success(response)
     }
 }

@@ -63,6 +63,19 @@ func criteriaMatch(element: Element, criteria: [String: String]?, isDebugLogging
         // Handle wildcard for role if specified
         if key == AXAttributeNames.kAXRoleAttribute && expectedValue == "*" { continue }
 
+        // Special handling for computed properties like "IsClickable"
+        if key == "IsClickable" {
+            let supportsPress = element.isActionSupported(AXActionNames.kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+            let expectedBoolValue = (expectedValue.lowercased() == "true")
+            if supportsPress == expectedBoolValue {
+                cLog("Computed criteria 'IsClickable' (via AXPress support) matched: Expected '\(expectedValue)', Got '\(supportsPress)'.")
+                continue // Move to the next criterion
+            } else {
+                cLog("Computed criteria 'IsClickable' (via AXPress support) mismatch: Expected '\(expectedValue)', Got '\(supportsPress)'. Element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)). No match.")
+                return false
+            }
+        }
+
         var attributeValueCFType: CFTypeRef?
         // Directly use underlyingElement for AX API calls
         let error = AXUIElementCopyAttributeValue(element.underlyingElement, key as CFString, &attributeValueCFType)

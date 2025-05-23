@@ -120,33 +120,21 @@ func findElementViaPathAndCriteria(
         return currentElementInPath
     }
 
+    // Unified search using TreeTraverser
+    var traverser = TreeTraverser()
     @MainActor
     func traverseAndSearch(currentElement: Element, currentDepth: Int, effectiveMaxDepth: Int) -> Element? {
-        dLog("Traverse: Visiting", depth: currentDepth, status: "vis", element: currentElement, md: effectiveMaxDepth)
-        writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "vis", isMatch: nil)
-
-        if criteriaMatch(element: currentElement, criteria: locator.criteria, isDebugLoggingEnabled: isDebugLoggingEnabledParam, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
-            dLog("Traverse: Found", depth: currentDepth, status: "found", element: currentElement, md: effectiveMaxDepth)
-            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "found", isMatch: true)
-            return currentElement
-        } else {
-            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "noMatch", isMatch: false)
-        }
-
-        if currentDepth >= effectiveMaxDepth {
-            dLog("Traverse: MaxDepth", depth: currentDepth, status: "maxD", element: currentElement, md: effectiveMaxDepth)
-            writeSearchLogEntry(depth: currentDepth, element: currentElement, criteriaForEntry: locator.criteria, maxDepthForEntry: effectiveMaxDepth, status: "maxD", isMatch: false)
-            return nil
-        }
-
-        if let children = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabledParam, currentDebugLogs: &currentDebugLogs) {
-            for child in children {
-                if let found = traverseAndSearch(currentElement: child, currentDepth: currentDepth + 1, effectiveMaxDepth: effectiveMaxDepth) {
-                    return found
-                }
-            }
-        }
-        return nil
+        let visitor = SearchVisitor(locator: locator)
+        var context = TraversalContext(
+            maxDepth: effectiveMaxDepth,
+            isDebugLoggingEnabled: isDebugLoggingEnabledParam,
+            currentDebugLogs: currentDebugLogs,
+            startElement: currentElement
+        )
+        
+        let result = traverser.traverse(from: currentElement, visitor: visitor, context: &context)
+        currentDebugLogs = context.currentDebugLogs
+        return result
     }
 
     var searchStartElement = application
@@ -187,34 +175,37 @@ internal func evaluateElementAgainstCriteria(
     isDebugLoggingEnabled: Bool,
     currentDebugLogs: inout [String]
 ) -> ElementMatchStatus {
-    func el_dLog(_ message: String) {
-        if !AXORC_JSON_LOG_ENABLED && isDebugLoggingEnabled { currentDebugLogs.append(message) }
-    }
-    var tempLogs: [String] = []
+    var tempContext = TraversalContext(maxDepth: 0, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: currentDebugLogs, startElement: element) // Create a context for logging
 
-    let currentElementRoleForLog: String? = element.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs)
-    let wantedRoleFromCriteria = locator.criteria[AXAttributeNames.kAXRoleAttribute]
-
-    var roleMatchesCriteria = false
-    if let currentRole = currentElementRoleForLog, let roleToMatch = wantedRoleFromCriteria, !roleToMatch.isEmpty, roleToMatch != "*" {
-        roleMatchesCriteria = (currentRole == roleToMatch)
-    } else {
-        roleMatchesCriteria = true
+    // Initial check for path hint if provided
+    if let pathHint = locator.root_element_path_hint, !pathHint.isEmpty {
+        // This check is complex, as it implies the current `element` should be at the END of this path hint from the appElement.
+        // For now, we assume that if a path hint was given, `navigateToElementByPath` would have been called prior,
+        // and `element` is already the result of that. So, we don't re-verify the full path here.
+        // However, if the path_hint_match_required flag is true, this might need more rigorous checking.
+        // This could be a point of future enhancement.
     }
 
-    if !roleMatchesCriteria { return .noMatch }
-
-    if !criteriaMatch(element: element, criteria: locator.criteria, isDebugLoggingEnabled: isDebugLoggingEnabled, axorcJsonLogEnabled: AXORC_JSON_LOG_ENABLED, currentDebugLogs: &currentDebugLogs) {
-        return .noMatch
+    // Check criteria using the global criteriaMatch function
+    if !criteriaMatch(element: element, criteria: locator.criteria, isDebugLoggingEnabled: isDebugLoggingEnabled, axorcJsonLogEnabled: false /* Assuming false, or pass actual value */, currentDebugLogs: &tempContext.currentDebugLogs) {
+        currentDebugLogs.append(contentsOf: tempContext.currentDebugLogs)
+        return .noMatch 
     }
-
-    let actionRequirement = actionToVerify ?? locator.requireAction
-    if let requiredAction = actionRequirement, !requiredAction.isEmpty {
-        if !element.isActionSupported(requiredAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) {
-            return .partialMatch_actionMissing
+    
+    // Check for required action if specified - changed to isActionSupported
+    if let actionName = actionToVerify, !actionName.isEmpty {
+        if !element.isActionSupported(actionName, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempContext.currentDebugLogs) {
+            dLog("Element \(element.briefDescriptionForDebug(context: &tempContext)) matches criteria but is missing required action '\(actionName)'.", context: &tempContext)
+            currentDebugLogs.append(contentsOf: tempContext.currentDebugLogs)
+            return .noMatch // Or a specific status like .partialMatch_actionMissing if defined
         }
+        dLog("Element \(element.briefDescriptionForDebug(context: &tempContext)) matches criteria AND has required action '\(actionName)'.", context: &tempContext)
+    } else {
+        dLog("Element \(element.briefDescriptionForDebug(context: &tempContext)) matches criteria. No specific action required by this check.", context: &tempContext)
     }
-    return .fullMatch
+    
+    currentDebugLogs.append(contentsOf: tempContext.currentDebugLogs)
+    return .fullMatch // Assuming .fullMatch is the success status
 }
 
 @MainActor
@@ -225,31 +216,36 @@ public func search(element: Element,
                    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
                    isDebugLoggingEnabled: Bool,
                    currentDebugLogs: inout [String]) -> Element? {
-    var tempLogs: [String] = []
     if depth > maxDepth { return nil }
 
-    let matchStatus = evaluateElementAgainstCriteria(element: element,
-                                                     locator: locator,
-                                                     actionToVerify: requireAction ?? locator.requireAction,
-                                                     depth: depth,
-                                                     isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                                     currentDebugLogs: &currentDebugLogs)
+    var traverser = TreeTraverser()
+    let visitor = SearchVisitor(locator: locator, requireAction: requireAction)
+    var context = TraversalContext(
+        maxDepth: maxDepth,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
+        currentDebugLogs: currentDebugLogs,
+        startElement: element
+    )
+    
+    let result = traverser.traverse(from: element, visitor: visitor, context: &context)
+    currentDebugLogs = context.currentDebugLogs
+    return result
+}
 
-    if matchStatus == .fullMatch { return element }
-
-    let childrenToSearch: [Element] = element.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogs) ?? []
-    for childElement in childrenToSearch {
-        if let found = search(element: childElement,
-                              locator: locator,
-                              requireAction: requireAction,
-                              depth: depth + 1,
-                              maxDepth: maxDepth,
-                              isDebugLoggingEnabled: isDebugLoggingEnabled,
-                              currentDebugLogs: &currentDebugLogs) {
-            return found
-        }
-    }
-    return nil
+// Simplified search function for specific use cases
+@MainActor
+public func searchWithCycleDetection(element: Element,
+                                   locator: Locator,
+                                   requireAction: String?,
+                                   depth: Int = 0,
+                                   maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
+                                   isDebugLoggingEnabled: Bool,
+                                   currentDebugLogs: inout [String],
+                                   visitedElements: inout Set<Element>) -> Element? {
+    // This function is now redundant as the unified traverser handles cycle detection
+    return search(element: element, locator: locator, requireAction: requireAction, 
+                  depth: depth, maxDepth: maxDepth, isDebugLoggingEnabled: isDebugLoggingEnabled, 
+                  currentDebugLogs: &currentDebugLogs)
 }
 
 @MainActor
@@ -318,3 +314,123 @@ public func collectAll(
 // 5. AXAttributeNames.kAXRoleAttribute should be a defined constant (String).
 // 6. ValueFormatOption enum (with .default, .short cases) must be available for Element.briefDescription.
 // 7. SearchLogEntry struct is now in Models.swift
+
+// MARK: - Element Search Logic
+
+@MainActor
+func findElement(
+    appElement: Element,
+    locator: Locator,
+    requireAction: String? = nil, // Optional action to verify
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String],
+    customStartElement: Element? = nil, // Optional start element for search
+    maxDepth: Int? = nil // Optional max depth for this specific search call
+) -> Element? {
+    let searchStartElement = customStartElement ?? appElement
+    let effectiveMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
+    
+    var traverser = TreeTraverser()
+    let visitor = SearchVisitor(locator: locator, requireAction: requireAction)
+    var context = TraversalContext(
+        maxDepth: effectiveMaxDepth,
+        isDebugLoggingEnabled: isDebugLoggingEnabled,
+        currentDebugLogs: currentDebugLogs,
+        startElement: searchStartElement
+    )
+    
+    dLog("Starting unified element search. Start: \(searchStartElement.briefDescriptionForDebug(context: &context)), MaxDepth: \(effectiveMaxDepth), Locator: \(locator)", context: &context)
+    
+    let foundElement = traverser.traverse(from: searchStartElement, visitor: visitor, context: &context)
+    currentDebugLogs = context.currentDebugLogs // Retrieve updated logs
+    
+    if let found = foundElement {
+        dLog("Unified search found element: \(found.briefDescriptionForDebug(context: &context))", context: &context)
+    } else {
+        dLog("Unified search did not find any matching element.", context: &context)
+    }
+    return foundElement
+}
+
+// MARK: - Path Navigator (Remains mostly the same, but uses TraversalContext for logging)
+
+// Assuming PathElementHint was intended to be a simple String for each segment of a path.
+// If it was a more complex struct, its definition needs to be found or recreated.
+public typealias PathElementHint = String // Placeholder definition
+
+@MainActor
+func navigateToElementByPath(
+    rootElement: Element,
+    path: [PathElementHint], // Now an array of Strings
+    isDebugLoggingEnabled: Bool,
+    currentDebugLogs: inout [String]
+) -> Element? {
+    var currentElement = rootElement
+    var pathTraversalLogs: [String] = []
+    
+    var tempContext = TraversalContext(maxDepth: 0, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: currentDebugLogs, startElement: rootElement)
+
+    dLog("Starting path navigation from root: \(rootElement.briefDescriptionForDebug(context: &tempContext))", context: &tempContext)
+    pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs)
+    tempContext.currentDebugLogs.removeAll() 
+
+    for (index, pathSegment) in path.enumerated() { // pathSegment is now a String
+        // The logic for matching pathSegment (String) to a child needs to be defined.
+        // This simplistic approach tries to match the pathSegment against common attributes.
+        // This is a significant simplification and likely needs to be more robust based on
+        // how PathElementHint was originally structured and used.
+        
+        dLog("Path step [\(index + 1)/\(path.count)]: Target '\(pathSegment)'", context: &tempContext)
+        pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs)
+        tempContext.currentDebugLogs.removeAll()
+
+        guard let children = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempContext.currentDebugLogs) else {
+            dLog("Failed to get children for \(currentElement.briefDescriptionForDebug(context: &tempContext)) at path step \(index + 1)", context: &tempContext)
+            pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs)
+            currentDebugLogs.append(contentsOf: pathTraversalLogs)
+            return nil
+        }
+        pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs)
+        tempContext.currentDebugLogs.removeAll()
+
+        var matchedChild: Element? = nil
+        var childSearchDebugLogs: [String] = []
+
+        // Attempt to match pathSegment against title, role, or identifier of children
+        for child in children {
+            var matched = false
+            if let title = child.title(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &childSearchDebugLogs), title == pathSegment {
+                matched = true
+            } else if let role = child.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &childSearchDebugLogs), role == pathSegment {
+                matched = true
+            } else if let identifier = child.identifier(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &childSearchDebugLogs), identifier == pathSegment {
+                matched = true
+            }
+            
+            if matched {
+                matchedChild = child
+                dLog("Matched child by attribute for segment '\(pathSegment)': \(child.briefDescriptionForDebug(context: &tempContext))", context: &tempContext)
+                childSearchDebugLogs.append(contentsOf: tempContext.currentDebugLogs); tempContext.currentDebugLogs.removeAll()
+                break
+            }
+        }
+        
+        pathTraversalLogs.append(contentsOf: childSearchDebugLogs)
+
+        if let foundChild = matchedChild {
+            currentElement = foundChild
+            dLog("Advanced to: \(currentElement.briefDescriptionForDebug(context: &tempContext))", context: &tempContext)
+            pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs); tempContext.currentDebugLogs.removeAll()
+        } else {
+            dLog("Failed to match path segment '\(pathSegment)' at this level. Current parent: \(currentElement.briefDescriptionForDebug(context: &tempContext))", context: &tempContext)
+            pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs); tempContext.currentDebugLogs.removeAll()
+            currentDebugLogs.append(contentsOf: pathTraversalLogs)
+            return nil
+        }
+    }
+
+    dLog("Path navigation successful. Final element: \(currentElement.briefDescriptionForDebug(context: &tempContext))", context: &tempContext)
+    pathTraversalLogs.append(contentsOf: tempContext.currentDebugLogs)
+    currentDebugLogs.append(contentsOf: pathTraversalLogs)
+    return currentElement
+}

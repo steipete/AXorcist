@@ -13,6 +13,7 @@ public struct CommandEnvelope: Codable {
     public let locator: Locator? // Locator from this file
     public let path_hint: [String]?
     public let max_elements: Int?
+    public let max_depth: Int?
     public let output_format: OutputFormat? // OutputFormat from this file
     public let action_name: String? // For performAction
     public let action_value: AnyCodable? // For performAction (AnyCodable from this file)
@@ -28,6 +29,7 @@ public struct CommandEnvelope: Codable {
                 locator: Locator? = nil,
                 path_hint: [String]? = nil,
                 max_elements: Int? = nil,
+                max_depth: Int? = nil,
                 output_format: OutputFormat? = nil,
                 action_name: String? = nil,
                 action_value: AnyCodable? = nil,
@@ -41,6 +43,7 @@ public struct CommandEnvelope: Codable {
         self.locator = locator
         self.path_hint = path_hint
         self.max_elements = max_elements
+        self.max_depth = max_depth
         self.output_format = output_format
         self.action_name = action_name
         self.action_value = action_value
