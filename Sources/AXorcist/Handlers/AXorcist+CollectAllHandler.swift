@@ -183,24 +183,15 @@ extension AXorcist {
             let axElement = AXElement(attributes: fetchedAttrs, path: elementPath)
             collectedAXElements.append(axElement)
 
-            var childrenRef: CFTypeRef?
-            let childrenResult = AXUIElementCopyAttributeValue(
-                axUIElement,
-                AXAttributeNames.kAXChildrenAttribute as CFString,
-                &childrenRef
-            )
-
-            if childrenResult == .success, let children = childrenRef as? [AXUIElement] {
+            // Use the sophisticated child collection from Element+Hierarchy.swift instead of basic kAXChildrenAttribute
+            // This is critical for web areas and Electron apps where children may be in alternative attributes
+            if let children = currentElement.children(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs) {
                 dLog(
                     "Element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) has \(children.count) children at depth \(currentDepth). Recursing."
                 )
                 for childElement in children {
-                    collectRecursively(childElement, currentDepth + 1)
+                    collectRecursively(childElement.underlyingElement, currentDepth + 1)
                 }
-            } else if childrenResult != .success {
-                dLog(
-                    "Failed to get children for element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)): \(axErrorToString(childrenResult))"
-                )
             } else {
                 dLog(
                     "No children found for element \(currentElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) at depth \(currentDepth)"
