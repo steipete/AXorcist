@@ -219,14 +219,14 @@ public struct Element: Equatable, Hashable {
     // MARK: - Attribute Settability Check
     @MainActor
     public func isAttributeSettable(named attributeName: String) -> Bool {
-        var isSettable: DarwinBoolean = false
-        let error = AXUIElementIsAttributeSettable(self.underlyingElement, attributeName as CFString, &isSettable)
-        if error == .success {
-            return isSettable.boolValue
+        var settable: DarwinBoolean = false
+        let error = AXUIElementIsAttributeSettable(underlyingElement, attributeName as CFString, &settable)
+        if error != .success {
+            // Log error or handle it, e.g., return false
+            axWarningLog("Error checking if attribute \(attributeName) is settable: \(axErrorToString(error))")
+            return false
         }
-        // Log error or handle appropriately
-        axDebugLog("Error checking if attribute \(attributeName) is settable: \(error.rawValue)")
-        return false
+        return settable.boolValue
     }
 
     // MARK: - Attribute Accessors (Raw and Typed)

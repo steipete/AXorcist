@@ -308,11 +308,10 @@ private func parseDefaultAXValueType(from stringValue: String, targetType: AXVal
     // Example for a hypothetical boolean AXValue type (targetType.rawValue == 4 was in original UIElementUtilities.m)
     // This would need mapping if AXValue could directly hold booleans.
     if targetType.rawValue == 4 { // Assuming 4 is a placeholder for a boolean-like AXValue type code
-        // var boolVal: DarwinBoolean // This variable was unused as the path returns/throws before using it.
         if stringValue.lowercased() == "true" {
-            // boolVal = true
+            // boolVal = true // Was unused
         } else if stringValue.lowercased() == "false" {
-            // boolVal = false
+            // boolVal = false // Was unused
         } else {
             axWarningLog("parseDefaultAXValueType: Could not parse '\(stringValue)' as boolean for targetType \(targetType.rawValue)",
                          file: #file,

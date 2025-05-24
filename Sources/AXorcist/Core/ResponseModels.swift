@@ -262,13 +262,14 @@ public struct BatchResponse: Codable {
 }
 
 // Structure for custom JSON output of handleCollectAll
-internal struct CollectAllOutput: Encodable {
-    let commandId: String
-    let success: Bool
-    let command: String
-    let collectedElements: [AXElement]
-    let appBundleId: String?
-    let debugLogs: [String]?
+public struct CollectAllOutput: Codable {
+    public let commandId: String
+    public let success: Bool
+    public let command: String
+    public let collectedElements: [AXElement]
+    public let appBundleId: String?
+    public let debugLogs: [String]?
+    public let errorMessage: String?
 
     enum CodingKeys: String, CodingKey {
         case commandId
@@ -277,5 +278,6 @@ internal struct CollectAllOutput: Encodable {
         case collectedElements
         case appBundleId
         case debugLogs
+        case errorMessage
     }
 }

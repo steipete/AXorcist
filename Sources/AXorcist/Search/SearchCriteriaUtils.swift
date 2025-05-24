@@ -74,7 +74,7 @@ func criteriaMatch(element: Element, criteria: [String: String]?) -> Bool {
             }
         }
 
-        // var attributeValueCFType: CFTypeRef? // This variable was unused.
+        // Removed unused variable: var attributeValueCFType: CFTypeRef?
         let rawValue = element.rawAttributeValue(named: key)
 
         guard let actualValueCF = rawValue else {

@@ -496,7 +496,7 @@ extension AXorcist {
         if depth < maxDepth {
             // Removed: if SearchVisitor.globalVisitCount > AXMiscConstants.maxTotalElementsVisitLimit logic
 
-            if let childElements = element.children() { // Element.children() returns [Element]?
+            if let childElements = element.children() { // Element.children() returns [Element]?, removed await
                 childrenAXElements = [] // Initialize array if there are children
                 for childElement in childElements {
                     // Removed: if SearchVisitor.globalVisitCount > AXMiscConstants.maxTotalElementsVisitLimit check before recursive call

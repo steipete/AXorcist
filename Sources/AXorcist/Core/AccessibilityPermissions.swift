@@ -4,7 +4,7 @@ import AppKit // For NSRunningApplication, NSAppleScript
 import ApplicationServices // For AXIsProcessTrusted(), AXUIElementCreateSystemWide(), etc.
 import Foundation
 
-private let kAXTrustedCheckOptionPromptKey = "AXTrustedCheckOptionPrompt"
+// Removed private let kAXTrustedCheckOptionPromptKey = "AXTrustedCheckOptionPrompt"
 
 // debug() is assumed to be globally available from Logging.swift
 // getParentProcessName() is assumed to be globally available from ProcessUtils.swift
@@ -28,8 +28,9 @@ public struct AXPermissionsStatus {
 }
 
 @MainActor
-public func checkAccessibilityPermissions() throws {
-    let trustedOptions = [kAXTrustedCheckOptionPromptKey: true] as CFDictionary
+public func checkAccessibilityPermissions(promptIfNeeded: Bool = true) throws {
+    let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() // Capture on MainActor
+    let trustedOptions = promptIfNeeded ? [key: kCFBooleanTrue] as CFDictionary : nil
 
     if !AXIsProcessTrustedWithOptions(trustedOptions) {
         let parentName = getParentProcessName()

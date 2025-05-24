@@ -21,6 +21,7 @@ let package = Package(
             name: "AXorcist",
             dependencies: [],
             path: "Sources",
+            exclude: ["axorc"],
             sources: [
                 "AXorcist", 
                 "AXpector"
@@ -33,7 +34,12 @@ let package = Package(
                 .product(name: "ArgumentParser", package: "swift-argument-parser") // Added dependency product
             ],
             path: "Sources/axorc", // Explicit path
-            sources: ["."] // Explicitly include all Swift files in the path and its subdirectories
+            sources: [
+                "AXORCMain.swift",
+                "Core/CommandExecutor.swift",
+                "Core/InputHandler.swift",
+                "Models/AXORCModels.swift"
+            ]
         ),
         .testTarget(
             name: "AXorcistTests",

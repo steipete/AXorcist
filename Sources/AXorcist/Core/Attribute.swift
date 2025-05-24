@@ -12,8 +12,8 @@ import Foundation
 public struct Attribute<T> {
     public let rawValue: String
 
-    // Internal initializer to allow creation within the module, e.g., for dynamic attribute strings.
-    internal init(_ rawValue: String) {
+    // Public initializer to allow creation from other modules.
+    public init(_ rawValue: String) {
         self.rawValue = rawValue
     }
 
@@ -34,6 +34,8 @@ public struct Attribute<T> {
     public static var value: Attribute<Any> { Attribute<Any>(AXAttributeNames.kAXValueAttribute) }
     // Example of a more specific value if known:
     // static var stringValue: Attribute<String> { Attribute(kAXValueAttribute) }
+
+    public static var placeholderValue: Attribute<String> { Attribute<String>(AXAttributeNames.kAXPlaceholderValueAttribute) }
 
     // MARK: - State Attributes
     public static var enabled: Attribute<Bool> { Attribute<Bool>(AXAttributeNames.kAXEnabledAttribute) }

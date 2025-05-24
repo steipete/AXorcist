@@ -1,142 +1,116 @@
 import Foundation
+import os // For OSLog specific configurations if ever needed directly.
 
-// Ensure AXLogEntry and AXLogLevel are importable, potentially from AXorcistLib itself or another shared module.
+// Ensure AXLogEntry is Sendable
+// public struct AXLogEntry: Codable, Identifiable, Sendable { ... }
 
-@globalActor
 public actor GlobalAXLogger {
     public static let shared = GlobalAXLogger()
 
     private var logEntries: [AXLogEntry] = []
-    private var logSubscribers: [UUID: @MainActor (AXLogEntry) -> Void] = [:]
+    // private var subscribers: [UUID: @MainActor (AXLogEntry) -> Void] = [:] // REMOVED
 
-    private init() { // Private to ensure singleton
-        // Potentially load historical logs or configure based on environment
+    // Publicly accessible for direct checks if needed, though usually consumers use subscription.
+    public var isJSONLoggingEnabled: Bool = false
+
+    private init() {
+        // Check environment variable for JSON logging preference on init
+        if let envVar = ProcessInfo.processInfo.environment["AXORC_JSON_LOG_ENABLED"], envVar.lowercased() == "true" {
+            isJSONLoggingEnabled = true
+            // Use fputs for direct stderr output to avoid os_log/print overhead if pure JSON is desired
+            fputs("{\\\"axorc_log_stream_type\\\": \\\"json_objects\\\", \\\"status\\\": \\\"AXGlobalLogger initialized with JSON output to stderr.\"}\\n", stderr)
+        }
     }
 
-    // MARK: - Logging Methods
-    public func log(
-        level: AXLogLevel,
-        message: String,
-        file: String? = #file,
-        function: String? = #function,
-        line: Int? = #line,
-        details: [String: String]? = nil
-    ) {
-        let entry = AXLogEntry(
-            level: level,
-            message: message,
-            file: file,
-            function: function,
-            line: line,
-            details: details
-        )
+    // MARK: - Logging Core
+    // This method is called by the global ax...Log functions.
+    // It's actor-isolated, so access to logEntries is serialized.
+    func log(_ entry: AXLogEntry) {
         logEntries.append(entry)
 
-        // Notify subscribers
-        for subscriber in logSubscribers.values {
-            // The subscriber closure expects to be called on the MainActor.
-            // AXLogEntry must be Sendable.
-            Task { @MainActor in
-                subscriber(entry)
+        // JSON logging to stderr if enabled
+        if isJSONLoggingEnabled {
+            do {
+                let jsonData = try JSONEncoder().encode(entry)
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    fputs(jsonString + "\\n", stderr) // Output JSON string to stderr
+                }
+            } catch {
+                // Fallback or error logging for JSON serialization failure
+                fputs("{\\\"error\\\": \\\"Failed to serialize AXLogEntry to JSON: \\(error.localizedDescription)\\\"}\\n", stderr)
             }
         }
 
-        // Optional: Print to console for immediate visibility during development
-        // print(entry.formattedForTextLog()) // Or a JSON format
+        // REMOVED SUBSCRIBER LOOP
+        // subscribers.values.forEach { subscriber in
+        //     // The subscriber closure expects to be called on the MainActor.
+        //     // AXLogEntry must be Sendable.
+        //     Task { @MainActor in
+        //         subscriber(entry)
+        //     }
+        // }
     }
 
-    // Convenience methods for different log levels
-    public func debug(_ message: String, details: [String: String]? = nil, file: String? = #file, function: String? = #function, line: Int? = #line) {
-        log(level: .debug, message: message, file: file, function: function, line: line, details: details)
-    }
-
-    public func info(_ message: String, details: [String: String]? = nil, file: String? = #file, function: String? = #function, line: Int? = #line) {
-        log(level: .info, message: message, file: file, function: function, line: line, details: details)
-    }
-
-    public func warning(_ message: String, details: [String: String]? = nil, file: String? = #file, function: String? = #function, line: Int? = #line) {
-        log(level: .warning, message: message, file: file, function: function, line: line, details: details)
-    }
-
-    public func error(_ message: String, details: [String: String]? = nil, file: String? = #file, function: String? = #function, line: Int? = #line) {
-        log(level: .error, message: message, file: file, function: function, line: line, details: details)
-    }
-
-    public func critical(_ message: String, details: [String: String]? = nil, file: String? = #file, function: String? = #function, line: Int? = #line) {
-        log(level: .critical, message: message, file: file, function: function, line: line, details: details)
-    }
-
-    // MARK: - Log Retrieval and Management
-
-    public func getLogEntries() -> [AXLogEntry] {
+    // MARK: - Log Retrieval
+    // These methods are also actor-isolated.
+    func getEntries() -> [AXLogEntry] {
         return logEntries
     }
 
-    public func clearLogs() {
+    func clearEntries() {
         logEntries.removeAll()
+        // Optionally log the clear action itself if needed, depending on requirements.
+        // let clearEntry = AXLogEntry(level: .info, message: "GlobalAXLogger log entries cleared.")
+        // logEntries.append(clearEntry) // careful about re-entrancy or immediate re-logging
     }
 
-    public func getLogEntriesAsJSON(options: JSONEncoder.OutputFormatting = []) throws -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = options
-        encoder.dateEncodingStrategy = .iso8601
-        let jsonData = try encoder.encode(logEntries)
-        return String(data: jsonData, encoding: .utf8) ?? "[]"
+    // MARK: - Subscription Management (REMOVED)
+    /*
+    func subscribeToLogs(_ onNewLog: @escaping @MainActor (AXLogEntry) -> Void) -> UUID {
+        let id = UUID()
+        subscribers[id] = onNewLog
+        return id
     }
 
-    public func getLogEntriesAsText() -> String {
-        return logEntries.map { $0.formattedForTextLog() }.joined(separator: "\n")
+    func unsubscribeFromLogs(subscriberId: UUID) {
+        subscribers.removeValue(forKey: subscriberId)
     }
-
-    // MARK: - Subscription Management
-
-    /// Allows external components to subscribe to new log entries.
-    /// - Parameter onNewLog: A closure that will be called with each new log entry.
-    ///                       This closure will be executed on the MainActor.
-    /// - Returns: A UUID that can be used to unsubscribe.
-    public func subscribeToLogs(_ onNewLog: @escaping @MainActor (AXLogEntry) -> Void) -> UUID {
-        let subscriberId = UUID()
-        logSubscribers[subscriberId] = onNewLog
-        return subscriberId
-    }
-
-    /// Unsubscribes a component from log updates.
-    /// - Parameter subscriberId: The UUID returned from `subscribeToLogs`.
-    public func unsubscribeFromLogs(subscriberId: UUID) {
-        logSubscribers.removeValue(forKey: subscriberId)
-    }
+    */
 }
 
-// MARK: - Public API for Global Logging
-// The main logging functions are defined in LoggingHelpers.swift
-// They use @autoclosure for better performance and cleaner syntax
+// MARK: - Global Logging Functions (Convenience Wrappers)
+// These call into the actor's log method.
 
-@MainActor
-public func axGetAllLogs() async -> [AXLogEntry] {
-    return await GlobalAXLogger.shared.getLogEntries()
+// ... (axDebugLog, axInfoLog, etc. remain unchanged) ...
+
+// MARK: - Global Log Access Functions (Convenience Wrappers for actor methods)
+
+// Fetches all log entries directly from the actor.
+public func axGetLogEntries() async -> [AXLogEntry] {
+    return await GlobalAXLogger.shared.getEntries()
 }
 
-@MainActor
+// Clears all log entries in the actor.
 public func axClearLogs() async {
-    await GlobalAXLogger.shared.clearLogs()
+    await GlobalAXLogger.shared.clearEntries()
 }
 
-@MainActor
-public func axGetLogsAsJSON(options: JSONEncoder.OutputFormatting = []) async throws -> String {
-    return try await GlobalAXLogger.shared.getLogEntriesAsJSON(options: options)
-}
-
-@MainActor
-public func axGetLogsAsText() async -> String {
-    return await GlobalAXLogger.shared.getLogEntriesAsText()
-}
-
+// MARK: - Global Subscription Wrappers (REMOVED)
+/*
+// Subscribes to new log entries. The callback is invoked on the MainActor.
+// The returned UUID can be used to unsubscribe later.
 @MainActor
 public func axSubscribeToLogs(_ onNewLog: @escaping (AXLogEntry) -> Void) async -> UUID {
     return await GlobalAXLogger.shared.subscribeToLogs(onNewLog)
 }
 
-@MainActor
+// Unsubscribes from log entries using the ID obtained from axSubscribeToLogs.
 public func axUnsubscribeFromLogs(subscriberId: UUID) async {
     await GlobalAXLogger.shared.unsubscribeFromLogs(subscriberId: subscriberId)
 }
+*/
+// MARK: - Environment Variable Check for JSON Logging (REMOVED - handled in init)
+// private func checkJSONLoggingEnvironmentVariable() -> Bool { ... }
+
+// MARK: - Public Property for JSON Logging State (REMOVED - handled by actor's property)
+// public var isAXJSONLoggingEnabled: Bool { ... }

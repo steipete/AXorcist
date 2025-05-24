@@ -54,17 +54,13 @@ extension AXorcist {
             cfValue = (boolValue ? kCFBooleanTrue : kCFBooleanFalse) as CFBoolean
         } else if let numberValue = valueToSet as? NSNumber { // Handles Int, Double, etc.
             cfValue = numberValue
-        } else if let arrayValue = valueToSet as? [Any] {
-            // Attempt to convert to CFArray of CFTypeRefs
-            // Filter for AnyObject before casting to CFTypeRef to satisfy warning, then cast to CFArray.
-            let objectArray = arrayValue.filter { $0 is AnyObject } // Get only class instances
-            if objectArray.count == arrayValue.count { // Ensure all items were objects
-                cfValue = objectArray as CFArray // Direct cast of [AnyObject] to CFArray
-            } else {
-                let errorMsg = "Could not convert all elements of array to CFTypeRef (some were not objects) for attribute '\(attributeName)'."
-                axErrorLog(errorMsg)
-                return (errorMsg, .illegalArgument)
-            }
+        } else if let objectArray = valueToSet as? [AnyObject] { // If valueToSet is directly [AnyObject]
+            cfValue = objectArray as CFArray // Then bridge to CFArray
+        } else if valueToSet is [Any] { // Check if it's [Any] but not caught by [AnyObject] (e.g. array of value types)
+            // This case is problematic for CFArray which expects objects.
+            let errorMsg = "Cannot convert array containing non-object types to CFArray for attribute '\(attributeName)'."
+            axErrorLog(errorMsg)
+            return (errorMsg, .illegalArgument)
         } else {
             // For other types, attempt direct casting if it's already a CFTypeRef-compatible type
             // This part might need more robust type checking and conversion
@@ -213,20 +209,13 @@ extension AXorcist {
 
         // Text extraction logic
         var allTextValues: [String] = []
-
         if let title: String = targetElement.attribute(.title) { allTextValues.append(title) }
         if let desc: String = targetElement.attribute(.description) { allTextValues.append(desc) }
-        if let valAny = targetElement.attribute(.value),
-           let valStr = valAny as? String {
-             allTextValues.append(valStr)
-        }
+        if let valAny = targetElement.attribute(.value), let valStr = valAny as? String { allTextValues.append(valStr) }
         if let selectedText: String = targetElement.attribute(.selectedText) { allTextValues.append(selectedText) }
-        if let placeholder: String = targetElement.attribute(Attribute<String>(AXAttributeNames.kAXPlaceholderValueAttribute)) { allTextValues.append(placeholder) }
+        if let placeholder: String = targetElement.attribute(.placeholderValue) { allTextValues.append(placeholder) }
 
-
-        // Simple deduplication and joining, can be made more sophisticated
-        let uniqueTextValues = Array(Set(allTextValues.filter { !$0.isEmpty }))
-        let combinedText = uniqueTextValues.joined(separator: "\n")
+        let combinedText = allTextValues.joined(separator: " ").lowercased()
 
         if combinedText.isEmpty {
             axDebugLog("No textual content found for element: \(targetElement.briefDescription())")
@@ -245,7 +234,7 @@ extension AXorcist {
 // struct PerformResponse: Codable { let commandId: String; let success: Bool }
 // struct TextExtractionResponse: Codable { let textContent: String? }
 
-// PathHintComponent would need to be defined or imported if it's used here.
-// Assuming it has an 'originalSegment: String?' property for conversion.
-// If PathHintComponent is not defined, the pathHint parameter type and conversion should be adjusted.
-// For now, assuming PathHintComponent exists and has `originalSegment`.
+// Removed stub PathHintComponent struct - the canonical one is in SearchCriteriaUtils.swift
+// struct PathHintComponent { 
+//    let originalSegment: String?
+// }

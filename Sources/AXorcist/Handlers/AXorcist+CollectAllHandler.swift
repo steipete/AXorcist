@@ -301,7 +301,8 @@ extension AXorcist {
             command: "collectAll",
             collectedElements: [],
             appBundleId: appIdentifier,
-            debugLogs: []
+            debugLogs: [],
+            errorMessage: error
         ))
     }
 
@@ -317,7 +318,8 @@ extension AXorcist {
             command: "collectAll",
             collectedElements: collectedElements,
             appBundleId: appIdentifier,
-            debugLogs: []
+            debugLogs: [],
+            errorMessage: nil
         )
         return encode(output)
     }
@@ -366,7 +368,7 @@ extension AXorcist {
         let responseData = ResponseData.elementsList(collectedElementsData)
 
         // Get logs from GlobalAXLogger
-        let debugLogsForResponse = await GlobalAXLogger.shared.getLogEntriesAsText().components(separatedBy: "\n")
+        let debugLogsForResponse = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
 
         let response = ResponseContainer(
             commandId: commandRequest.commandId,
