@@ -2,91 +2,86 @@
 
 import ApplicationServices
 import Foundation
+// GlobalAXLogger is assumed available
 
 // MARK: - Core Traversal Types & Protocols
 
 public enum TraversalAction {
-    case continue_
+    case continueTraversal
     case found(Element)
     case stop
 }
 
-public protocol TreeVisitor {
-    // Visit methods might need to be async if they perform async operations
-    // or be marked with @MainActor if they interact with UI elements directly
-    @MainActor func visit(element: Element, depth: Int, context: inout TraversalContext) -> TraversalAction
-}
-
-public struct TraversalContext {
+// TraversalState now only holds non-logging related traversal state.
+public struct TraversalState {
     public let maxDepth: Int
-    public let isDebugLoggingEnabled: Bool
-    public var currentDebugLogs: [String]
-    public let startElement: Element
-    
-    public init(maxDepth: Int, isDebugLoggingEnabled: Bool, currentDebugLogs: [String], startElement: Element) {
+    public let startElement: Element // Could be useful for context if GlobalAXLogger needs it indirectly
+    // Add other non-logging state if needed by visitors, e.g., a shared Set for specific tracking.
+
+    public init(maxDepth: Int, startElement: Element) {
         self.maxDepth = maxDepth
-        self.isDebugLoggingEnabled = isDebugLoggingEnabled
-        self.currentDebugLogs = currentDebugLogs
         self.startElement = startElement
     }
+}
+
+public protocol TreeVisitor {
+    @MainActor func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction
 }
 
 // This is the actual data structure that CollectAllVisitor.collectedElements will contain.
 // Moved here from CollectAllHandler as it's part of the traversal output.
 public struct AXElementData: Codable {
-    public var path: [String]? 
-    public var attributes: [String: AnyCodable] 
+    public var path: [String]?
+    public var attributes: [String: AnyCodable]
     public var role: String?
     public var computedName: String?
 }
-
 
 // MARK: - Unified Tree Traverser
 
 @MainActor
 public struct TreeTraverser {
     private var visitedElements: Set<Element> = []
-    
+
     public init() {}
-    
-    public mutating func traverse(from element: Element, visitor: TreeVisitor, context: inout TraversalContext) -> Element? {
-        visitedElements.removeAll() 
-        return _traverse(currentElement: element, depth: 0, visitor: visitor, context: &context)
+
+    public mutating func traverse(from element: Element, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
+        visitedElements.removeAll()
+        return _traverse(currentElement: element, depth: 0, visitor: visitor, state: &state)
     }
 
-    private mutating func _traverse(currentElement: Element, depth: Int, visitor: TreeVisitor, context: inout TraversalContext) -> Element? {
-        if depth > context.maxDepth {
-            dLog("Max depth (\(context.maxDepth)) reached at \(currentElement.briefDescriptionForDebug(context: &context))", context: &context)
+    private mutating func _traverse(currentElement: Element, depth: Int, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
+        if depth > state.maxDepth {
+            let maxDepth = state.maxDepth
+            axDebugLog("Max depth (\(maxDepth)) reached at \(currentElement.briefDescription())")
             return nil
         }
 
         if visitedElements.contains(currentElement) {
-            dLog("Cycle detected at \(currentElement.briefDescriptionForDebug(context: &context)). Skipping.", context: &context)
+            axDebugLog("Cycle detected at \(currentElement.briefDescription()). Skipping.")
             return nil
         }
         visitedElements.insert(currentElement)
-        dLog("Visiting \(currentElement.briefDescriptionForDebug(context: &context)) at depth \(depth)", context: &context)
+        axDebugLog("Visiting \(currentElement.briefDescription()) at depth \(depth)")
 
-        // Since visitor.visit is @MainActor, this call is fine from @MainActor _traverse
-        switch visitor.visit(element: currentElement, depth: depth, context: &context) {
-            case .found(let foundElement):
-                dLog("Element found by visitor: \(foundElement.briefDescriptionForDebug(context: &context))", context: &context)
-                return foundElement
-            case .stop:
-                dLog("Traversal stopped by visitor at \(currentElement.briefDescriptionForDebug(context: &context))", context: &context)
-                return nil
-            case .continue_:
-                break 
+        switch visitor.visit(element: currentElement, depth: depth, state: &state) {
+        case .found(let foundElement):
+            axDebugLog("Element found by visitor: \(foundElement.briefDescription())")
+            return foundElement
+        case .stop:
+            axDebugLog("Traversal stopped by visitor at \(currentElement.briefDescription())")
+            return nil
+        case .continueTraversal:
+            break
         }
 
-        // Element.children is @MainActor, so this call is fine
-        guard let children = currentElement.children(isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs) else {
-            dLog("No children for \(currentElement.briefDescriptionForDebug(context: &context)) or error fetching them.", context: &context)
+        guard let children = currentElement.children() else {
+            axDebugLog("No children for \(currentElement.briefDescription()) or error fetching them.")
             return nil
         }
 
         for child in children {
-            if let found = _traverse(currentElement: child, depth: depth + 1, visitor: visitor, context: &context) {
+            if let found = _traverse(currentElement: child, depth: depth + 1, visitor: visitor, state: &state) {
                 return found
             }
         }
@@ -96,104 +91,102 @@ public struct TreeTraverser {
 
 // MARK: - Visitor Implementations
 
-@MainActor // Ensures all methods in this class, including visit, are on the main actor
+@MainActor
 public class CollectAllVisitor: TreeVisitor {
     private let attributesToFetch: [String]
-    private let outputFormat: OutputFormat // Keep for potential future use in formatting
-    private let appElement: Element 
+    private let outputFormat: OutputFormat
+    private let appElement: Element // Used for path generation relative to app root
     public var collectedElements: [AXElementData] = []
+    // Default valueFormatOption for CollectAllVisitor if not specified otherwise
+    private let valueFormatOption: ValueFormatOption
 
-    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element) {
+    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .default) {
         self.attributesToFetch = attributesToFetch
         self.outputFormat = outputFormat
         self.appElement = appElement
+        self.valueFormatOption = valueFormatOption
     }
 
-    // visit is implicitly @MainActor due to class annotation
-    public func visit(element: Element, depth: Int, context: inout TraversalContext) -> TraversalAction {
-        var tempDebugLogsForAttributeFetching: [String] = [] 
-        // getElementAttributes is @MainActor
-        let fetchedAttrs = getElementAttributes(
-            element,
-            requestedAttributes: attributesToFetch,
-            forMultiDefault: true,
-            targetRole: nil, 
-            outputFormat: outputFormat, 
-            isDebugLoggingEnabled: context.isDebugLoggingEnabled,
-            currentDebugLogs: &tempDebugLogsForAttributeFetching 
+    public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
+        // getElementAttributes is now a global function
+        let (fetchedAttrs, _) = getElementAttributes(
+            element: element,
+            attributes: attributesToFetch, // Pass the correct attributes list
+            outputFormat: outputFormat,
+            valueFormatOption: self.valueFormatOption // Use the stored/defaulted option
         )
-        context.currentDebugLogs.append(contentsOf: tempDebugLogsForAttributeFetching)
 
-        // Element methods like generatePathArray, role, computedName are @MainActor
-        let elementPath = element.generatePathArray(upTo: appElement, isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs)
+        let elementPath = element.generatePathArray(upTo: appElement)
+        let role = element.role()
+        let compName = element.computedName()
 
         let elementData = AXElementData(
             path: elementPath,
             attributes: fetchedAttrs,
-            role: element.role(isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs),
-            computedName: element.computedName(isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs)
+            role: role,
+            computedName: compName
         )
         collectedElements.append(elementData)
-        return .continue_
+        return .continueTraversal
     }
 }
 
-@MainActor // Ensures all methods in this class, including visit, are on the main actor
+@MainActor
 public class SearchVisitor: TreeVisitor {
     private let locator: Locator
     private let requireAction: String?
+    private var foundElement: Element?
+    private var elementsProcessed: Int = 0
+    public static var totalVisitsGlobally: Int = 0
+    public static var lastLoggedTotalVisits: Int = 0
+
+    public static func resetGlobalVisitCount() {
+        totalVisitsGlobally = 0
+        lastLoggedTotalVisits = 0
+    }
 
     public init(locator: Locator, requireAction: String? = nil) {
         self.locator = locator
         self.requireAction = requireAction
     }
 
-    // visit is implicitly @MainActor due to class annotation
-    public func visit(element: Element, depth: Int, context: inout TraversalContext) -> TraversalAction {
-        // evaluateElementAgainstCriteria is @MainActor
+    public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
+        elementsProcessed += 1
+        SearchVisitor.totalVisitsGlobally += 1
+
+        if SearchVisitor.totalVisitsGlobally % 250 == 0 {
+            axDebugLog("[TEMP DEBUG] SearchVisitor Global Visits: \(SearchVisitor.totalVisitsGlobally)")
+        }
+
+        if SearchVisitor.totalVisitsGlobally % 500 == 0 && SearchVisitor.totalVisitsGlobally > SearchVisitor.lastLoggedTotalVisits {
+            axDebugLog("SearchVisitor.visit global call count reached: \(SearchVisitor.totalVisitsGlobally)")
+            SearchVisitor.lastLoggedTotalVisits = SearchVisitor.totalVisitsGlobally
+        }
+
+        if foundElement != nil {
+            return .stop
+        }
+
+        if depth == 0 && elementsProcessed == 1 {
+            axDebugLog("SearchVisitor: Starting new search. Global visits: \(SearchVisitor.totalVisitsGlobally). Locator: \(self.locator.criteria)")
+        }
+
         let matchStatus = evaluateElementAgainstCriteria(
             element: element,
             locator: locator,
             actionToVerify: requireAction ?? locator.requireAction,
-            depth: depth,
-            isDebugLoggingEnabled: context.isDebugLoggingEnabled,
-            currentDebugLogs: &context.currentDebugLogs
+            depth: depth
         )
 
         switch matchStatus {
-            case .fullMatch: 
-                return .found(element)
-            case .noMatch, .partialMatch_actionMissing: 
-                return .continue_ 
-            default:
-                return .continue_
+        case .fullMatch:
+            foundElement = element
+            return .found(element)
+        case .noMatch, .partialMatchActionMissing:
+            return .continueTraversal
         }
     }
 }
 
-// MARK: - Logging Helper
-
-@MainActor // dLog needs to be @MainActor as it calls Element.pidString which is @MainActor
-func dLog(_ message: String, context: inout TraversalContext) {
-    if context.isDebugLoggingEnabled {
-        // AXorcist.formatDebugLogMessage is @MainActor
-        // Element.pidString is @MainActor
-        let logMessage = AXorcist.formatDebugLogMessage(message, applicationName: context.startElement.pidString(context: &context), commandID: nil, file: #file, function: #function, line: #line)
-        context.currentDebugLogs.append(logMessage)
-    }
-}
-
-// MARK: - Element Extensions for Traversal Context Logging
-
-extension Element {
-    @MainActor 
-    func briefDescriptionForDebug(context: inout TraversalContext) -> String {
-        return self.briefDescription(option: .default, isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs)
-    }
-    
-    @MainActor 
-    func pidString(context: inout TraversalContext) -> String? {
-        return self.pid(isDebugLoggingEnabled: context.isDebugLoggingEnabled, currentDebugLogs: &context.currentDebugLogs).map { String($0) }
-    }
-}
-
+// REMOVED: dLog global helper - use GlobalAXLogger directly.
+// REMOVED: Element extensions for briefDescriptionForDebug and pidString - use refactored Element methods.

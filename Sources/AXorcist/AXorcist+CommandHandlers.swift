@@ -12,29 +12,29 @@ extension AXorcist {
     @MainActor
     public func handleGetFocusedElement(
         for appIdentifierOrNil: String? = nil,
-        requestedAttributes: [String]? = nil,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
+        requestedAttributes: [String]? = nil
     ) -> HandlerResponse {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled {
-                currentDebugLogs.append(message)
-            }
-        }
-
         let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("[AXorcist.handleGetFocusedElement] Handling for app: \(appIdentifier)")
+        axDebugLog("[AXorcist.handleGetFocusedElement] Handling for app: \(appIdentifier)",
+                   file: #file,
+                   function: #function,
+                   line: #line
+        )
 
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else {
+        guard let appElement = applicationElement(for: appIdentifier) else {
             let errorMsgText = "Application not found: \(appIdentifier)"
-            dLog("[AXorcist.handleGetFocusedElement] \(errorMsgText)")
-            return HandlerResponse(data: nil, error: errorMsgText, debug_logs: currentDebugLogs)
+            axDebugLog("[AXorcist.handleGetFocusedElement] \(errorMsgText)",
+                       file: #file,
+                       function: #function,
+                       line: #line
+            )
+            return HandlerResponse(data: nil, error: errorMsgText)
         }
-        dLog("[AXorcist.handleGetFocusedElement] Successfully obtained application element for \(appIdentifier)")
+        axDebugLog("[AXorcist.handleGetFocusedElement] Successfully obtained application element for \(appIdentifier)",
+                   file: #file,
+                   function: #function,
+                   line: #line
+        )
 
         var cfValue: CFTypeRef?
         let copyAttributeStatus = AXUIElementCopyAttributeValue(
@@ -44,51 +44,52 @@ extension AXorcist {
         )
 
         guard copyAttributeStatus == .success, let rawAXElement = cfValue else {
-            dLog(
-                "[AXorcist.handleGetFocusedElement] Failed to copy focused element attribute or it was nil. Status: \(axErrorToString(copyAttributeStatus)). Application: \(appIdentifier)"
+            axDebugLog(
+                "[AXorcist.handleGetFocusedElement] Failed to copy focused element attribute or it was nil. " +
+                    "Status: \(axErrorToString(copyAttributeStatus)). Application: \(appIdentifier)",
+                file: #file,
+                function: #function,
+                line: #line
             )
             return HandlerResponse(
                 data: nil,
-                error: "Could not get the focused UI element for \(appIdentifier). Ensure a window of the application is focused. AXError: \(axErrorToString(copyAttributeStatus))",
-                debug_logs: currentDebugLogs
+                error: "Could not get the focused UI element for \(appIdentifier). Ensure a window of the application is focused. AXError: \(axErrorToString(copyAttributeStatus))"
             )
         }
 
         guard CFGetTypeID(rawAXElement) == AXUIElementGetTypeID() else {
-            dLog(
-                "[AXorcist.handleGetFocusedElement] Focused element attribute was not an AXUIElement. Application: \(appIdentifier)"
+            axDebugLog(
+                "[AXorcist.handleGetFocusedElement] Focused element attribute was not an AXUIElement. Application: \(appIdentifier)",
+                file: #file,
+                function: #function,
+                line: #line
             )
             return HandlerResponse(
                 data: nil,
-                error: "Focused element was not a valid UI element for \(appIdentifier).",
-                debug_logs: currentDebugLogs
+                error: "Focused element was not a valid UI element for \(appIdentifier)."
             )
         }
 
         let focusedElement = Element(rawAXElement as! AXUIElement)
-        dLog(
-            "[AXorcist.handleGetFocusedElement] Successfully obtained focused element: \(focusedElement.briefDescription(option: .default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)) for application \(appIdentifier)"
+        axDebugLog(
+            "[AXorcist.handleGetFocusedElement] Successfully obtained focused element: " +
+                "\(focusedElement.briefDescription()) for application \(appIdentifier)",
+            file: #file,
+            function: #function,
+            line: #line
         )
 
-        let fetchedAttributes = getElementAttributes(
-            focusedElement,
-            requestedAttributes: requestedAttributes ?? [],
-            forMultiDefault: false,
-            targetRole: nil,
-            outputFormat: .smart,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
+        let (fetchedAttributes, _) = getElementAttributes(
+            element: focusedElement,
+            attributes: requestedAttributes ?? [],
+            outputFormat: .smart
         )
 
-        let elementPathArray = focusedElement.generatePathArray(
-            upTo: appElement,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+        let elementPathArray = focusedElement.generatePathArray(upTo: appElement)
 
         let axElement = AXElement(attributes: fetchedAttributes, path: elementPathArray)
 
-        return HandlerResponse(data: axElement, error: nil, debug_logs: currentDebugLogs)
+        return HandlerResponse(data: AnyCodable(axElement), error: nil)
     }
 
     // TODO: Add remaining command handler methods here...

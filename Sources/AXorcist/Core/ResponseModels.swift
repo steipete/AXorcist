@@ -2,37 +2,73 @@
 
 import Foundation
 
+// New protocol for generic data in HandlerResponse
+public protocol HandlerDataRepresentable: Codable {}
+
+// Make existing relevant models conform
+// AXElement is defined in DataModels.swift, so we'll make it conform there later.
+// For now, assume it will.
+
 // Response for query command (single element)
 public struct QueryResponse: Codable {
-    public var command_id: String
+    public var commandId: String
     public var success: Bool
     public var command: String
     public var data: AXElement?
     public var attributes: ElementAttributes?
     public var error: String?
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, success: Bool = true, command: String = "getFocusedElement", data: AXElement? = nil,
-                attributes: ElementAttributes? = nil, error: String? = nil, debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case command
+        case data
+        case attributes
+        case error
+        case debugLogs
+    }
+
+    public init(
+        commandId: String,
+        success: Bool = true,
+        command: String = "getFocusedElement",
+        data: AXElement? = nil,
+        attributes: ElementAttributes? = nil,
+        error: String? = nil,
+        debugLogs: [String]? = nil
+    ) {
+        self.commandId = commandId
         self.success = success
         self.command = command
         self.data = data
         self.attributes = attributes
         self.error = error
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 
     // Custom init for HandlerResponse integration
-    public init(command_id: String, success: Bool, command: String, handlerResponse: HandlerResponse, debug_logs: [String]?) {
-        self.command_id = command_id
+    public init(
+        commandId: String,
+        success: Bool,
+        command: String,
+        handlerResponse: HandlerResponse,
+        debugLogs: [String]?
+    ) {
+        self.commandId = commandId
         self.success = success
         self.command = command
-        self.data = handlerResponse.data
-        // If HandlerResponse has attributes, map them from its data field.
-        self.attributes = handlerResponse.data?.attributes
+        // Extract AXElement from AnyCodable if present
+        if let anyCodableData = handlerResponse.data,
+           let axElement = anyCodableData.value as? AXElement {
+            self.data = axElement
+            self.attributes = axElement.attributes
+        } else {
+            self.data = nil
+            self.attributes = nil
+        }
         self.error = handlerResponse.error
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
@@ -48,64 +84,108 @@ extension QueryResponse {
 
 // Response for collect_all command (multiple elements)
 public struct MultiQueryResponse: Codable {
-    public var command_id: String
+    public var commandId: String
     public var elements: [ElementAttributes]?
     public var count: Int?
     public var error: String?
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, elements: [ElementAttributes]? = nil, count: Int? = nil, error: String? = nil,
-                debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case elements
+        case count
+        case error
+        case debugLogs
+    }
+
+    public init(
+        commandId: String,
+        elements: [ElementAttributes]? = nil,
+        count: Int? = nil,
+        error: String? = nil,
+        debugLogs: [String]? = nil
+    ) {
+        self.commandId = commandId
         self.elements = elements
         self.count = count ?? elements?.count
         self.error = error
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
 // Response for perform_action command
-public struct PerformResponse: Codable {
-    public var command_id: String
+public struct PerformResponse: Codable, HandlerDataRepresentable {
+    public var commandId: String
     public var success: Bool
     public var error: String?
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, success: Bool, error: String? = nil, debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case error
+        case debugLogs
+    }
+
+    public init(commandId: String, success: Bool, error: String? = nil, debugLogs: [String]? = nil) {
+        self.commandId = commandId
         self.success = success
         self.error = error
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
-// Response for extract_text command
-public struct TextContentResponse: Codable {
-    public var command_id: String
-    public var text_content: String?
-    public var error: String?
-    public var debug_logs: [String]?
+// New response for extract_text command
+public struct TextExtractionResponse: Codable, HandlerDataRepresentable {
+    public var textContent: String?
+    // commandId, error, debugLogs can be part of the HandlerResponse envelope
 
-    public init(command_id: String, text_content: String? = nil, error: String? = nil, debug_logs: [String]? = nil) {
-        self.command_id = command_id
-        self.text_content = text_content
-        self.error = error
-        self.debug_logs = debug_logs
+    enum CodingKeys: String, CodingKey {
+        case textContent
+    }
+
+    public init(textContent: String?) {
+        self.textContent = textContent
     }
 }
+
+// Response for extract_text command - THIS OLD ONE CAN BE REMOVED or kept if used elsewhere
+// For now, commenting out, replaced by TextExtractionResponse for HandlerResponse.data
+/*
+ public struct TextContentResponse: Codable {
+     public var command_id: String
+     public var text_content: String?
+     public var error: String?
+     public var debug_logs: [String]?
+
+     public init(command_id: String, text_content: String? = nil, error: String? = nil, debug_logs: [String]? = nil) {
+         self.command_id = command_id
+         self.text_content = text_content
+         self.error = error
+         self.debug_logs = debug_logs
+     }
+ }
+ */
 
 // Generic error response
 public struct ErrorResponse: Codable {
-    public var command_id: String
+    public var commandId: String
     public var success: Bool
     public var error: ErrorDetail
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, error: String, debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case error
+        case debugLogs
+    }
+
+    public init(commandId: String, error: String, debugLogs: [String]? = nil) {
+        self.commandId = commandId
         self.success = false
         self.error = ErrorDetail(message: error)
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
@@ -119,58 +199,83 @@ public struct ErrorDetail: Codable {
 
 // Simple success response, e.g. for ping
 public struct SimpleSuccessResponse: Codable, Equatable {
-    public var command_id: String
+    public var commandId: String
     public var success: Bool
     public var status: String
     public var message: String
     public var details: String?
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, status: String, message: String, details: String? = nil,
-                debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case status
+        case message
+        case details
+        case debugLogs
+    }
+
+    public init(commandId: String,
+                status: String,
+                message: String,
+                details: String? = nil,
+                debugLogs: [String]? = nil) {
+        self.commandId = commandId
         self.success = true
         self.status = status
         self.message = message
         self.details = details
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
-public struct HandlerResponse: Codable {
-    public var data: AXElement?
-    public var error: String?
-    public var debug_logs: [String]?
-
-    public init(data: AXElement? = nil, error: String? = nil, debug_logs: [String]? = nil) {
-        self.data = data
-        self.error = error
-        self.debug_logs = debug_logs
-    }
-}
+// HandlerResponse is now defined in Models/HandlerResponse.swift
 
 public struct BatchResponse: Codable {
-    public var command_id: String
+    public var commandId: String
     public var success: Bool
     public var results: [HandlerResponse] // Array of HandlerResponses for each sub-command
     public var error: String? // For an overall batch error, if any
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
 
-    public init(command_id: String, success: Bool, results: [HandlerResponse], error: String? = nil, debug_logs: [String]? = nil) {
-        self.command_id = command_id
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case results
+        case error
+        case debugLogs
+    }
+
+    public init(
+        commandId: String,
+        success: Bool,
+        results: [HandlerResponse],
+        error: String? = nil,
+        debugLogs: [String]? = nil
+    ) {
+        self.commandId = commandId
         self.success = success
         self.results = results
         self.error = error
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 }
 
 // Structure for custom JSON output of handleCollectAll
 internal struct CollectAllOutput: Encodable {
-    let command_id: String
+    let commandId: String
     let success: Bool
     let command: String
-    let collected_elements: [AXElement]
-    let app_bundle_id: String?
-    let debug_logs: [String]?
+    let collectedElements: [AXElement]
+    let appBundleId: String?
+    let debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case command
+        case collectedElements
+        case appBundleId
+        case debugLogs
+    }
 }

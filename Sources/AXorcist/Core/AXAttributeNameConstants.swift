@@ -85,7 +85,8 @@ public enum AXAttributeNames {
     public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // Example, might not be standard AX
     public static let kAXDOMClassListAttribute = "AXDOMClassList" // Example, might not be standard AX
     public static let kAXARIADOMResourceAttribute = "AXARIADOMResource" // Example
-    public static let kAXARIADOMFunctionAttribute = "AXARIADOM-función" // Corrected identifier, kept original string value.
+    // Corrected identifier, kept original string value.
+    public static let kAXARIADOMFunctionAttribute = "AXARIADOM-función"
     public static let kAXARIADOMChildrenAttribute = "AXARIADOMChildren" // New
     public static let kAXDOMChildrenAttribute = "AXDOMChildren" // New
 
@@ -109,4 +110,20 @@ public enum AXAttributeNames {
     public static let kAXSplitGroupContentsAttribute = "AXSplitGroupContents"
     public static let kAXLayoutAreaChildrenAttribute = "AXLayoutAreaChildren"
     public static let kAXGroupChildrenAttribute = "AXGroupChildren"
+
+    // MARK: - Parameterized Attributes
+    // These attributes require parameters when accessed
+    public static let parameterizedAttributes: Set<String> = [
+        "AXStringForRange",
+        "AXRangeForLine",
+        "AXRangeForPosition",
+        "AXRangeForIndex",
+        "AXBoundsForRange",
+        "AXRTFForRange",
+        "AXAttributedStringForRange",
+        "AXStyleRangeForIndex",
+        "AXLineForIndex",
+        "AXRangeForLine",
+        "AXCellForColumnAndRow"
+    ]
 }

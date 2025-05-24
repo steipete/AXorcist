@@ -1,6 +1,7 @@
 import AppKit
 import ApplicationServices
 import Foundation
+// GlobalAXLogger is expected to be available
 
 // Global constant for backwards compatibility - removed, now using AXMiscConstants.defaultMaxDepthSearch
 
@@ -11,7 +12,12 @@ import Foundation
 public class AXorcist {
 
     let focusedAppKeyValue = "focused"
-    internal var recursiveCallDebugLogs: [String] = [] // Added for recursive logging
+    // Removed recursiveCallDebugLogs, as GlobalAXLogger handles accumulation
+
+    // MARK: - Focus Tracking State (used by AXorcist+FocusTracking.swift)
+    internal var focusTrackingObserver: AXObserver?
+    internal var focusTrackingPID: pid_t = 0
+    internal var focusTrackingCallback: AXFocusChangeCallback?
 
     // Default values for collection and search if not provided by the command
     public static let defaultMaxDepthCollectAll = 7 // Default recursion depth for collectAll
@@ -34,26 +40,10 @@ public class AXorcist {
     ]
 
     public init() {
-        // Future initialization logic can go here.
-        // For now, ensure debug logs can be collected if needed.
-        // Note: The actual logging enable/disable should be managed per-call.
-        // This init doesn't take global logging flags anymore.
+        // Logging is now managed by GlobalAXLogger and per-call startCollecting/stopCollecting logic
     }
 
-    @MainActor
-    public static func formatDebugLogMessage(
-        _ message: String,
-        applicationName: String?,
-        commandID: String?,
-        file: String,
-        function: String,
-        line: Int
-    ) -> String {
-        let fileName = (file as NSString).lastPathComponent
-        let appContext = applicationName != nil ? "[\(applicationName!)]" : ""
-        let cmdContext = commandID != nil ? "[SubCmd: \(commandID!)]" : ""
-        return "\(appContext)\(cmdContext)[\(fileName):\(line) \(function)] \(message)"
-    }
+    // Removed static func formatDebugLogMessage - GlobalAXLogger handles formatting
 
     // Handler methods are implemented in extension files:
     // - handlePerformAction: AXorcist+ActionHandlers.swift
@@ -73,32 +63,32 @@ public class AXorcist {
 
     @MainActor
     public func search(
-        element: Element,
+        element: Element, // This is the starting element for the search
         locator: Locator,
         requireAction: String?,
-        depth: Int,
-        maxDepth: Int,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) -> (foundElement: Element?, logs: [String]) {
+        depth: Int, // Initial depth, usually 0 from external call
+        maxDepth: Int
+    ) -> Element? { // Returns Element? directly
         // Initial log for this AXorcist-level search call
-        if isDebugLoggingEnabled {
-            let initialMessage = "AXorcist.search called with locator: \(locator.criteria), path_hint: \(locator.root_element_path_hint ?? [])"
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage(initialMessage, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+        axDebugLog("AXorcist.search called with locator: \(locator.criteria), path_hint: \(locator.rootElementPathHint ?? []) starting from \(element.briefDescription(option: .short))")
 
         // Call the global findElementViaPathAndCriteria
-        // Note: findElementViaPathAndCriteria will handle its own detailed logging (dLog to currentDebugLogs if !JSON_LOG, or writeSearchLogEntry to stderr if JSON_LOG)
+        // This function is already refactored to use GlobalAXLogger and return Element?.
         let foundElement = findElementViaPathAndCriteria(
             application: element,
             locator: locator,
-            maxDepth: maxDepth, // Assuming 'depth' passed to AXorcist.search is for initial call, maxDepth for traversal
-            isDebugLoggingEnabledParam: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs // Pass this along for findElementViaPathAndCriteria to use
+            maxDepth: maxDepth
         )
 
-        // The currentDebugLogs array has been populated by findElementViaPathAndCriteria (if JSON logging is off)
-        // or contains only the initial logs from this function if JSON logging is on.
-        return (foundElement: foundElement, logs: currentDebugLogs)
+        if foundElement != nil {
+            axDebugLog("AXorcist.search: findElementViaPathAndCriteria found an element.")
+        } else {
+            axDebugLog("AXorcist.search: findElementViaPathAndCriteria did NOT find an element.")
+        }
+        return foundElement
     }
 }
+
+// NOTE: The global function `findElementViaPathAndCriteria` (likely in a different file)
+// still needs to be refactored to use GlobalAXLogger and remove its logging parameters.
+// The call above anticipates this change.

@@ -56,19 +56,27 @@ import AXorcist
 @MainActor
 func example() async {
     let axorcist = AXorcist()
-    var logs: [String] = []
     
+    // Configure logging for the operation (optional)
+    // AXorcist.GlobalAXLogger.startCollecting(enableDebugLogging: .verbose, forCommandID: "exampleFocusedElement")
+
     // Summon the focused element
-    let result = axorcist.handleGetFocusedElement(
+    let result = await axorcist.handleGetFocusedElement(
         for: "Safari", 
-        requestedAttributes: ["AXRole", "AXTitle"],
-        isDebugLoggingEnabled: true,
-        currentDebugLogs: &logs
+        requestedAttributes: ["AXRole", "AXTitle"]
     )
     
     if let element = result.data {
         print("Behold! Element with attributes:", element.attributes)
     }
+
+    // Retrieve and print logs (optional)
+    // let collectedLogs = await AXorcist.GlobalAXLogger.getLogsAsStrings()
+    // if !collectedLogs.isEmpty {
+    //     print("\\nArcane Logs:")
+    //     collectedLogs.forEach { print($0) }
+    // }
+    // await AXorcist.GlobalAXLogger.stopCollecting() // Clears logs and stops collection for this ID
 }
 ```
 
@@ -118,8 +126,9 @@ All enchantments accept these mystical parameters:
 - `maxDepth`: Maximum depth to traverse the element abyss
 - `requestedAttributes`: Specific mystical properties to harvest
 - `outputFormat`: Revelation format (`.smart`, `.verbose`, `.json_string`)
-- `isDebugLoggingEnabled`: Enable arcane debug visions
-- `currentDebugLogs`: Mutable scroll for collecting debug prophecies
+
+For debug logging, AXorcist now uses a global, MainActor-isolated logger (`AXorcist.GlobalAXLogger`). 
+Call `GlobalAXLogger.startCollecting(...)` before an operation and `GlobalAXLogger.stopCollecting()` / `GlobalAXLogger.getLogsAsStrings()` afterwards if you need to inspect logs programmatically.
 
 ### 🎯 Locator Spells
 

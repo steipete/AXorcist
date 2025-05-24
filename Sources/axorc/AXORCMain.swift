@@ -1,14 +1,14 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
 import ArgumentParser
-import AXorcistLib
+import AXorcist // For AXorcist instance
 import Foundation
 
 @main
 struct AXORCCommand: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
-        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(AXORC_VERSION)"
+        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(axorcVersion)"
     )
 
     @Flag(name: .long, help: "Enable debug logging for the command execution.")
@@ -29,25 +29,26 @@ struct AXORCCommand: AsyncParsableCommand {
     var directPayload: String?
 
     mutating func run() async throws {
+        // Configure GlobalAXLogger based on debug flag
+        await GlobalAXLogger.shared.setLoggingEnabled(debug)
+        await GlobalAXLogger.shared.setDetailLevel(debug ? .verbose : .minimal)
+
         // Parse input using InputHandler
         let inputResult = InputHandler.parseInput(
             stdin: stdin,
             file: file,
             json: json,
-            directPayload: directPayload,
-            debug: debug
+            directPayload: directPayload
         )
-
-        var localDebugLogs = inputResult.debugLogs
 
         // Handle input errors
         if let error = inputResult.error {
+            let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
+
             let errorResponse = ErrorResponse(
-                command_id: "input_error",
-                error: ErrorResponse.ErrorDetail(
-                    message: error
-                ),
-                debug_logs: debug ? localDebugLogs : nil
+                commandId: "input_error",
+                error: error,
+                debugLogs: collectedLogs
             )
 
             if let jsonData = try? JSONEncoder().encode(errorResponse),
@@ -60,12 +61,12 @@ struct AXORCCommand: AsyncParsableCommand {
         }
 
         guard let jsonString = inputResult.jsonString else {
+            let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
+
             let errorResponse = ErrorResponse(
-                command_id: "no_input",
-                error: ErrorResponse.ErrorDetail(
-                    message: "No valid JSON input received"
-                ),
-                debug_logs: debug ? localDebugLogs : nil
+                commandId: "no_input",
+                error: "No valid JSON input received",
+                debugLogs: collectedLogs
             )
 
             if let jsonData = try? JSONEncoder().encode(errorResponse),
@@ -79,51 +80,57 @@ struct AXORCCommand: AsyncParsableCommand {
 
         // Parse JSON command
         guard let jsonData = jsonString.data(using: .utf8) else {
+            // Clear logs after error
+            await GlobalAXLogger.shared.clearLogs()
             print("{\"error\": \"Failed to convert JSON string to data\"}")
             return
         }
 
         if debug {
-            localDebugLogs.append("AXORCMain: jsonString before decode: [\(jsonString)]")
-            localDebugLogs.append("AXORCMain: jsonData.count before decode: \(jsonData.count)")
+            axDebugLog("AXORCMain: jsonString before decode: [\(jsonString)]")
+            axDebugLog("AXORCMain: jsonData.count before decode: \(jsonData.count)")
         }
 
         do {
             let command = try JSONDecoder().decode(CommandEnvelope.self, from: jsonData)
 
             if debug {
-                localDebugLogs.append("Successfully parsed command: \(command.command)")
+                axDebugLog("Successfully parsed command: \(command.command)")
             }
 
             // Execute command using CommandExecutor
             let axorcist = AXorcist()
             let result = await CommandExecutor.execute(
                 command: command,
-                axorcist: axorcist,
-                debug: debug
+                axorcist: axorcist
             )
 
-            print(result)
+            print(result) // CommandExecutor.execute should return a string (JSON response)
+
+            // Stop collecting logs after successful execution
+            // Clear logs after error
+            await GlobalAXLogger.shared.clearLogs()
 
         } catch {
-            // FORCED DEBUGGING FOR THIS ERROR PATH
-            // debug = true // Temporarily enable debug logs for this error block if needed
-
-            var errorSpecificDebugLogs = localDebugLogs // Copy existing logs
-            errorSpecificDebugLogs.append("DECODE_ERROR_DEBUG: Original jsonString that led to this error: [\(jsonString)]")
-            errorSpecificDebugLogs.append("DECODE_ERROR_DEBUG: jsonData.count that led to this error: \(jsonData.count)")
-            errorSpecificDebugLogs.append("DECODE_ERROR_DEBUG: Raw error.localizedDescription: \(error.localizedDescription)")
-            errorSpecificDebugLogs.append("DECODE_ERROR_DEBUG: Full error object: \(error)")
+            axErrorLog("DECODE_ERROR_DEBUG: Original jsonString that led to this error: [\(jsonString)]")
+            axErrorLog("DECODE_ERROR_DEBUG: jsonData.count that led to this error: \(jsonData.count)")
+            axErrorLog("DECODE_ERROR_DEBUG: Raw error.localizedDescription: \(error.localizedDescription)")
+            axErrorLog("DECODE_ERROR_DEBUG: Full error object: \(error)")
 
             let errorMessage = "Failed to parse JSON command. Raw Error: \(error.localizedDescription). JSON Input (first 100 chars): \(jsonString.prefix(100))..."
 
+            // For decode errors, always collect logs
+            if !debug {
+                await GlobalAXLogger.shared.setLoggingEnabled(true)
+                await GlobalAXLogger.shared.setDetailLevel(.verbose)
+            }
+            let collectedLogs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true)
+            await GlobalAXLogger.shared.clearLogs()
+
             let errorResponse = ErrorResponse(
-                command_id: "decode_error",
-                error: ErrorResponse.ErrorDetail(
-                    message: errorMessage
-                ),
-                // Always include these enhanced debug logs for decode_error for now
-                debug_logs: errorSpecificDebugLogs
+                commandId: "decode_error",
+                error: errorMessage,
+                debugLogs: collectedLogs
             )
 
             if let responseData = try? JSONEncoder().encode(errorResponse),

@@ -1,263 +1,151 @@
 import ApplicationServices
 import Foundation
-
-// MARK: - Environment Variable Check for JSON Logging
-// Copied from ElementSearch.swift - ideally this would be in a shared utility
-private func getEnvVar(_ name: String) -> String? {
-    guard let value = getenv(name) else { return nil }
-    return String(cString: value)
-}
-
-private let AXORC_JSON_LOG_ENABLED: Bool = {
-    let envValue = getEnvVar("AXORC_JSON_LOG")?.lowercased()
-    // Explicitly log the check to stderr for debugging the env var itself, specific to Element+Hierarchy.swift
-    fputs("[Element+Hierarchy.swift] AXORC_JSON_LOG env var value: \(envValue ?? "not set") -> JSON logging: \(envValue == "true")\n", stderr)
-    return envValue == "true"
-}()
+// GlobalAXLogger should be available
 
 // MARK: - Element Hierarchy Logic
 
 extension Element {
     @MainActor
-    public func children(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [Element]? {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
-        }
+    public func children() -> [Element]? { // Removed logging params
+        // Logging for this top-level call
+        // self.briefDescription() is assumed to be refactored and available
+        axDebugLog("Getting children for element: \(self.briefDescription(option: .default))")
 
-        let elementDescriptionForLog = self.briefDescription(
-            option: .default,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("Getting children for element: \(elementDescriptionForLog)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+        var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
-        var childCollector = ChildCollector()
+        collectDirectChildren(collector: &childCollector)
+        collectAlternativeChildren(collector: &childCollector)
+        collectApplicationWindows(collector: &childCollector)
 
-        collectDirectChildren(
-            collector: &childCollector,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        collectAlternativeChildren(
-            collector: &childCollector,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        collectApplicationWindows(
-            collector: &childCollector,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
-
-        let result = childCollector.finalizeResults(dLog: { message in
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
-        })
-
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("Final children count from Element.children: \(result?.count ?? 0)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+        let result = childCollector.finalizeResults()
+        axDebugLog("Final children count: \(result?.count ?? 0)")
         return result
     }
 
     @MainActor
-    private func collectDirectChildren(
-        collector: inout ChildCollector,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) {
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren: Attempting to fetch kAXChildrenAttribute directly.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+    private func collectDirectChildren(collector: inout ChildCollector) {
+        axDebugLog("Attempting to fetch kAXChildrenAttribute directly.")
 
         var value: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(self.underlyingElement, AXAttributeNames.kAXChildrenAttribute as CFString, &value)
+        let error = AXUIElementCopyAttributeValue(
+            self.underlyingElement,
+            AXAttributeNames.kAXChildrenAttribute as CFString,
+            &value
+        )
 
-        let selfDescForLog = (isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED) ? self.briefDescription(option: .short, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs) : "Element(json_log_on_or_debug_off)"
+        // self.briefDescription() is assumed to be refactored
+        let selfDescForLog = self.briefDescription(option: .short)
 
         if error == .success {
             if let childrenCFArray = value, CFGetTypeID(childrenCFArray) == CFArrayGetTypeID() {
                 if let directChildrenUI = childrenCFArray as? [AXUIElement] {
-                    if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: Successfully fetched and cast \(directChildrenUI.count) direct children.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                    }
+                    axDebugLog(
+                        "[\(selfDescForLog)]: Successfully fetched and cast " +
+                        "\(directChildrenUI.count) direct children."
+                    )
                     collector.addChildren(from: directChildrenUI)
                 } else {
-                    if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: kAXChildrenAttribute was a CFArray but failed to cast to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                    }
+                    axDebugLog(
+                        "[\(selfDescForLog)]: kAXChildrenAttribute was a CFArray but failed to cast " +
+                        "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))"
+                    )
                 }
             } else if let nonArrayValue = value {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: kAXChildrenAttribute was not a CFArray. TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog(
+                    "[\(selfDescForLog)]: kAXChildrenAttribute was not a CFArray. " +
+                    "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))"
+                )
             } else {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: kAXChildrenAttribute was nil despite .success error code.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute was nil despite .success error code.")
             }
         } else if error == .noValue {
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: kAXChildrenAttribute has no value.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
+            axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute has no value.")
         } else {
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectDirectChildren [\(selfDescForLog)]: Error fetching kAXChildrenAttribute: \(error.rawValue)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
+            axDebugLog("[\(selfDescForLog)]: Error fetching kAXChildrenAttribute: \(error.rawValue)")
         }
     }
 
     @MainActor
-    private func collectAlternativeChildren(
-        collector: inout ChildCollector,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) {
-        // NOTE: The original implementation tried a very wide range of attributes here, including
-        // some that are known to return *massive* strings (e.g. full HTML documents) or other
-        // heavyweight data structures that are **not** arrays of AXUIElement. Fetching those
-        // attributes causes large memory allocations and can appear as a "hang" when traversing
-        // deeply nested application hierarchies (especially for WebViews like the Claude desktop
-        // app). We therefore narrow the list down to attributes that predominantly return actual
-        // child UI elements. Heavy/string-returning attributes have been intentionally removed.
-
+    private func collectAlternativeChildren(collector: inout ChildCollector) {
         let alternativeAttributes: [String] = [
-            // Mostly safe & element-array returning attributes
-            AXAttributeNames.kAXVisibleChildrenAttribute,
-            AXAttributeNames.kAXWebAreaChildrenAttribute,
-            AXAttributeNames.kAXARIADOMChildrenAttribute,
-            AXAttributeNames.kAXDOMChildrenAttribute,
-            AXAttributeNames.kAXApplicationNavigationAttribute,
-            AXAttributeNames.kAXApplicationElementsAttribute,
-            AXAttributeNames.kAXBodyAreaAttribute,
-            AXAttributeNames.kAXSplitGroupContentsAttribute,
-            AXAttributeNames.kAXLayoutAreaChildrenAttribute,
-            AXAttributeNames.kAXGroupChildrenAttribute,
-            AXAttributeNames.kAXSelectedChildrenAttribute,
-            AXAttributeNames.kAXRowsAttribute,
-            AXAttributeNames.kAXColumnsAttribute,
-            AXAttributeNames.kAXTabsAttribute
+            AXAttributeNames.kAXVisibleChildrenAttribute, AXAttributeNames.kAXWebAreaChildrenAttribute,
+            AXAttributeNames.kAXARIADOMChildrenAttribute, AXAttributeNames.kAXDOMChildrenAttribute,
+            AXAttributeNames.kAXApplicationNavigationAttribute, AXAttributeNames.kAXApplicationElementsAttribute,
+            AXAttributeNames.kAXBodyAreaAttribute, AXAttributeNames.kAXSplitGroupContentsAttribute,
+            AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
+            AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
+            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute
         ]
-        // Removed heavy attributes:
-        //   – kAXHTMLContentAttribute
-        //   – kAXContentsAttribute
-        //   – kAXDocumentContentAttribute
-        //   – kAXWebPageContentAttribute
-        // These often return large strings or non-element payloads.
-
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectAlternativeChildren: Using pruned attribute list (\(alternativeAttributes.count) items) to avoid heavy payloads.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+        axDebugLog(
+            "Using pruned attribute list (\(alternativeAttributes.count) items) " +
+            "to avoid heavy payloads for alternative children."
+        )
 
         for attrName in alternativeAttributes {
-            collectChildrenFromAttribute(
-                attributeName: attrName,
-                collector: &collector,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
+            collectChildrenFromAttribute(attributeName: attrName, collector: &collector)
         }
     }
 
     @MainActor
-    private func collectChildrenFromAttribute(
-        attributeName: String,
-        collector: inout ChildCollector,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) {
-        var tempLogs: [String] = [] // attribute() method logs to this, and it respects AXORC_JSON_LOG_ENABLED internally
-
-        // This initial log for the function call itself needs to be conditional
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectChildrenFromAttribute: Trying '\(attributeName)'.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
-
-        if let childrenUI: [AXUIElement] = attribute(
-            Attribute<[AXUIElement]>(attributeName),
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogs // attribute() logs here conditionally
-        ) {
-            // Append tempLogs to currentDebugLogs *only if* they would have been logged by attribute() anyway
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED { currentDebugLogs.append(contentsOf: tempLogs) }
-
+    private func collectChildrenFromAttribute(attributeName: String, collector: inout ChildCollector) {
+        axDebugLog("Trying alternative child attribute: '\(attributeName)'.")
+        // self.attribute() now uses GlobalAXLogger and returns T?
+        if let childrenUI: [AXUIElement] = attribute(Attribute(attributeName)) {
             if !childrenUI.isEmpty {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectChildrenFromAttribute: Successfully fetched \(childrenUI.count) children from '\(attributeName)'.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog("Successfully fetched \(childrenUI.count) children from '\(attributeName)'.")
                 collector.addChildren(from: childrenUI)
             } else {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectChildrenFromAttribute: Fetched EMPTY array from '\(attributeName)'.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog("Fetched EMPTY array from '\(attributeName)'.")
             }
         } else {
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED { currentDebugLogs.append(contentsOf: tempLogs) }
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectChildrenFromAttribute: Attribute '\(attributeName)' returned nil or was not [AXUIElement].", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
+            // attribute() logs its own failures/nil results
+            axDebugLog("Attribute '\(attributeName)' returned nil or was not [AXUIElement].")
         }
     }
 
     @MainActor
-    private func collectApplicationWindows(
-        collector: inout ChildCollector,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) {
-        var tempLogsForRole: [String] = []
-        let currentRole = self.role(isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &tempLogsForRole)
-        // Append role logs only if general debug logging is on and JSON is off
-        if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED { currentDebugLogs.append(contentsOf: tempLogsForRole) }
-
-        if currentRole == AXRoleNames.kAXApplicationRole as String {
-            if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectApplicationWindows: Element is AXApplication. Trying kAXWindowsAttribute.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
-            var tempLogsForWindows: [String] = []
-            if let windowElementsUI: [AXUIElement] = attribute(
-                Attribute<[AXUIElement]>.windows,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &tempLogsForWindows
-            ) {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED { currentDebugLogs.append(contentsOf: tempLogsForWindows) }
+    private func collectApplicationWindows(collector: inout ChildCollector) {
+        // self.role() now uses GlobalAXLogger and is assumed refactored
+        if self.role() == AXRoleNames.kAXApplicationRole as String {
+            axDebugLog("Element is AXApplication. Trying kAXWindowsAttribute.")
+            // self.attribute() for .windows, assumed refactored
+            if let windowElementsUI: [AXUIElement] = attribute(.windows) {
                 if !windowElementsUI.isEmpty {
-                    if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectApplicationWindows: Successfully fetched \(windowElementsUI.count) windows.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                    }
+                    axDebugLog("Successfully fetched \(windowElementsUI.count) windows.")
                     collector.addChildren(from: windowElementsUI)
                 } else {
-                    if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                        currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectApplicationWindows: Fetched EMPTY array from kAXWindowsAttribute.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                    }
+                    axDebugLog("Fetched EMPTY array from kAXWindowsAttribute.")
                 }
             } else {
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED { currentDebugLogs.append(contentsOf: tempLogsForWindows) }
-                if isDebugLoggingEnabled && !AXORC_JSON_LOG_ENABLED {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("collectApplicationWindows: Attribute kAXWindowsAttribute returned nil.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog("Attribute kAXWindowsAttribute returned nil for Application element.")
             }
         }
     }
-
-    // generatePathString() is now fully implemented in Element.swift
 }
 
 // MARK: - Child Collection Helper
+private let maxChildrenPerElement = 500
 
 private struct ChildCollector {
     private var collectedChildren: [Element] = []
     private var uniqueChildrenSet = Set<Element>()
+    private var limitReached = false
 
-    mutating func addChildren(from childrenUI: [AXUIElement]) {
+    mutating func addChildren(from childrenUI: [AXUIElement]) { // Removed dLog param
+        if limitReached { return }
+
         for childUI in childrenUI {
+            if collectedChildren.count >= maxChildrenPerElement {
+                if !limitReached {
+                    axWarningLog(
+                        "ChildCollector: Reached maximum children limit (\(maxChildrenPerElement)). " +
+                        "No more children will be added for this element."
+                    )
+                    limitReached = true
+                }
+                break
+            }
+
             let childElement = Element(childUI)
             if !uniqueChildrenSet.contains(childElement) {
                 collectedChildren.append(childElement)
@@ -266,13 +154,12 @@ private struct ChildCollector {
         }
     }
 
-    // dLog is now a closure passed in, which should itself be conditional
-    func finalizeResults(dLog: (String) -> Void) -> [Element]? {
+    func finalizeResults() -> [Element]? { // Removed dLog param
         if collectedChildren.isEmpty {
-            dLog("ChildCollector.finalizeResults: No children found for element after all collection methods.")
+            axDebugLog("ChildCollector: No children found after all collection methods.")
             return nil
         } else {
-            dLog("ChildCollector.finalizeResults: Found \(collectedChildren.count) unique children after all collection methods.")
+            axDebugLog("ChildCollector: Found \(collectedChildren.count) unique children.")
             return collectedChildren
         }
     }

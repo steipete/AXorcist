@@ -7,6 +7,8 @@ public enum AXMiscConstants {
     public static let maxCollectAllHits = 200 // Default max elements for collect_all if not specified in command
     public static let defaultMaxDepthSearch = 20 // Default max recursion depth for search
     public static let defaultMaxDepthCollectAll = 15 // Default max recursion depth for collect_all
+    public static let defaultMaxDepthDescribe = 10 // Added defaultMaxDepthDescribe
+    public static let maxTotalElementsVisitLimit = 1000 // Added maxTotalElementsVisitLimit
     public static let axBinaryVersion = "1.1.7" // Updated version
     public static let binaryVersion = "1.1.7" // Updated version without AX prefix
 

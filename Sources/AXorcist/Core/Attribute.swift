@@ -20,7 +20,9 @@ public struct Attribute<T> {
     // MARK: - General Element Attributes
     public static var role: Attribute<String> { Attribute<String>(AXAttributeNames.kAXRoleAttribute) }
     public static var subrole: Attribute<String> { Attribute<String>(AXAttributeNames.kAXSubroleAttribute) }
-    public static var roleDescription: Attribute<String> { Attribute<String>(AXAttributeNames.kAXRoleDescriptionAttribute) }
+    public static var roleDescription: Attribute<String> {
+        Attribute<String>(AXAttributeNames.kAXRoleDescriptionAttribute)
+    }
     public static var title: Attribute<String> { Attribute<String>(AXAttributeNames.kAXTitleAttribute) }
     public static var description: Attribute<String> { Attribute<String>(AXAttributeNames.kAXDescriptionAttribute) }
     public static var help: Attribute<String> { Attribute<String>(AXAttributeNames.kAXHelpAttribute) }
@@ -43,21 +45,32 @@ public struct Attribute<T> {
     public static var parent: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXParentAttribute) }
     // For children, the direct attribute often returns [AXUIElement].
     // Element.children getter then wraps these.
-    public static var children: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXChildrenAttribute) }
-    public static var selectedChildren: Attribute<[AXUIElement]> {
-        Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedChildrenAttribute) }
-    public static var visibleChildren: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXVisibleChildrenAttribute)
+    public static var children: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXChildrenAttribute)
     }
-    public static var windows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXWindowsAttribute) }
-    public static var mainWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXMainWindowAttribute)
-    } // Can be nil
-    public static var focusedWindow: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXFocusedWindowAttribute)
-    } // Can be nil
-    public static var focusedElement: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXFocusedUIElementAttribute)
-    } // Can be nil
+    public static var selectedChildren: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedChildrenAttribute)
+    }
+    public static var visibleChildren: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXVisibleChildrenAttribute)
+    }
+    public static var windows: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXWindowsAttribute)
+    }
+    public static var mainWindow: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXMainWindowAttribute)
+    } // Return type of Element.attribute will handle optionality
+    public static var focusedWindow: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXFocusedWindowAttribute)
+    } // Return type of Element.attribute will handle optionality
+    public static var focusedElement: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXFocusedUIElementAttribute)
+    } // Return type of Element.attribute will handle optionality
 
     // MARK: - Application Specific Attributes
-    // public static var enhancedUserInterface: Attribute<Bool> { Attribute<Bool>(kAXEnhancedUserInterfaceAttribute) } // Constant not found, commenting out
+    // public static var enhancedUserInterface: Attribute<Bool> {
+    //     Attribute<Bool>(kAXEnhancedUserInterfaceAttribute)
+    // } // Constant not found, commenting out
     public static var frontmost: Attribute<Bool> { Attribute<Bool>(AXAttributeNames.kAXFrontmostAttribute) }
     public static var mainMenu: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXMenuBarAttribute) }
     // public static var hiddenApplication: Attribute<Bool> { Attribute(kAXHiddenAttribute) } // Same as element hidden, but for app. Covered by .hidden
@@ -65,28 +78,46 @@ public struct Attribute<T> {
     // MARK: - Window Specific Attributes
     public static var minimized: Attribute<Bool> { Attribute<Bool>(AXAttributeNames.kAXMinimizedAttribute) }
     public static var modal: Attribute<Bool> { Attribute<Bool>(AXAttributeNames.kAXModalAttribute) }
-    public static var defaultButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXDefaultButtonAttribute) }
-    public static var cancelButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXCancelButtonAttribute) }
-    public static var closeButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXCloseButtonAttribute) }
-    public static var zoomButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXZoomButtonAttribute) }
-    public static var minimizeButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXMinimizeButtonAttribute) }
-    public static var toolbarButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXToolbarButtonAttribute) }
-    public static var fullScreenButton: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXFullScreenButtonAttribute)
+    public static var defaultButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXDefaultButtonAttribute)
     }
-    public static var proxy: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXProxyAttribute) }
-    public static var growArea: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXGrowAreaAttribute) }
+    public static var cancelButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXCancelButtonAttribute)
+    }
+    public static var closeButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXCloseButtonAttribute)
+    }
+    public static var zoomButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXZoomButtonAttribute)
+    }
+    public static var minimizeButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXMinimizeButtonAttribute)
+    }
+    public static var toolbarButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXToolbarButtonAttribute)
+    }
+    public static var fullScreenButton: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXFullScreenButtonAttribute)
+    }
+    public static var proxy: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXProxyAttribute) }
+    public static var growArea: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXGrowAreaAttribute) }
 
     // MARK: - Table/List/Outline Attributes
     public static var rows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXRowsAttribute) }
     public static var columns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXColumnsAttribute) }
-    public static var selectedRows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedRowsAttribute) }
-    public static var selectedColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedColumnsAttribute)
+    public static var selectedRows: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedRowsAttribute)
     }
-    public static var selectedCells: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedCellsAttribute) }
-    public static var visibleRows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleRowsAttribute) }
-    public static var visibleColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>(kAXVisibleColumnsAttribute) }
-    public static var header: Attribute<AXUIElement?> { Attribute<AXUIElement?>(AXAttributeNames.kAXHeaderAttribute) }
-    public static var orientation: Attribute<String> { Attribute<String>(kAXOrientationAttribute)
+    public static var selectedColumns: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedColumnsAttribute)
+    }
+    public static var selectedCells: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXSelectedCellsAttribute)
+    }
+    public static var visibleRows: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>("AXVisibleRows") }
+    public static var visibleColumns: Attribute<[AXUIElement]> { Attribute<[AXUIElement]>("AXVisibleColumns") }
+    public static var header: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXHeaderAttribute) }
+    public static var orientation: Attribute<String> { Attribute<String>("AXOrientation")
     } // e.g., kAXVerticalOrientationValue
 
     // MARK: - Text Attributes
@@ -100,10 +131,10 @@ public struct Attribute<T> {
     // static var stringForRange: Attribute<String> { Attribute(kAXStringForRangeParameterizedAttribute) }
 
     // MARK: - Scroll Area Attributes
-    public static var horizontalScrollBar: Attribute<AXUIElement?> {
-        Attribute<AXUIElement?>(AXAttributeNames.kAXHorizontalScrollBarAttribute) }
-    public static var verticalScrollBar: Attribute<AXUIElement?> {
-        Attribute<AXUIElement?>(AXAttributeNames.kAXVerticalScrollBarAttribute) }
+    public static var horizontalScrollBar: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXHorizontalScrollBarAttribute) }
+    public static var verticalScrollBar: Attribute<AXUIElement> {
+        Attribute<AXUIElement>(AXAttributeNames.kAXVerticalScrollBarAttribute) }
 
     // MARK: - Action Related
     // Action names are typically an array of strings.

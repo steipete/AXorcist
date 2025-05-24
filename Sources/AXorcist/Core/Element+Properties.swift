@@ -1,185 +1,183 @@
 import ApplicationServices
 import Foundation
+// GlobalAXLogger should be available
 
 // MARK: - Element Common Attribute Getters & Status Properties
 
 extension Element {
-    // Common Attribute Getters - now methods to accept logging parameters
-    @MainActor public func role(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.role,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    // Common Attribute Getters - now simplified
+    @MainActor public func role() -> String? {
+        return attribute(Attribute<String>.role)
     }
-    @MainActor public func subrole(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.subrole,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func subrole() -> String? {
+        return attribute(Attribute<String>.subrole)
     }
-    @MainActor public func title(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.title,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func title() -> String? {
+        return attribute(Attribute<String>.title)
     }
-    @MainActor public func description(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.description,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    // Renamed from 'description' to 'descriptionText'
+    @MainActor public func descriptionText() -> String? {
+        return attribute(Attribute<String>.description)
     }
-    @MainActor public func isEnabled(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool? {
-        attribute(
-            Attribute<Bool>.enabled,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func isEnabled() -> Bool? {
+        return attribute(Attribute<Bool>.enabled)
     }
-    @MainActor public func value(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Any? {
-        attribute(
-            Attribute<Any>.value,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func value() -> Any? { // Returns Any? as original
+        return attribute(Attribute<Any>.value)
     }
-    @MainActor public func roleDescription(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.roleDescription,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func roleDescription() -> String? {
+        return attribute(Attribute<String>.roleDescription)
     }
-    @MainActor public func help(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.help,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func help() -> String? {
+        return attribute(Attribute<String>.help)
     }
-    @MainActor public func identifier(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        attribute(
-            Attribute<String>.identifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func identifier() -> String? {
+        return attribute(Attribute<String>.identifier)
     }
 
-    // Status Properties - now methods
-    @MainActor public func isFocused(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool? {
-        attribute(
-            Attribute<Bool>.focused,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    // Status Properties - simplified
+    @MainActor public func isFocused() -> Bool? {
+        return attribute(Attribute<Bool>.focused)
     }
-    @MainActor public func isHidden(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool? {
-        attribute(
-            Attribute<Bool>.hidden,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func isHidden() -> Bool? {
+        return attribute(Attribute<Bool>.hidden)
     }
-    @MainActor public func isElementBusy(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool? {
-        attribute(
-            Attribute<Bool>.busy,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    @MainActor public func isElementBusy() -> Bool? {
+        return attribute(Attribute<Bool>.busy)
     }
 
-    @MainActor public func isIgnored(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Bool {
-        if attribute(
-            Attribute<Bool>.hidden,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) == true {
-            return true
-        }
-        return false
+    @MainActor public func isIgnored() -> Bool { // Original logic for isIgnored
+        return attribute(Attribute<Bool>.hidden) == true
     }
 
-    @MainActor public func pid(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> pid_t? {
-        // This function doesn't call self.attribute, so its logging is self-contained if any.
-        // For now, assuming AXUIElementGetPid doesn't log through our system.
-        // If verbose logging of this specific call is needed, add dLog here.
+    @MainActor public func pid() -> pid_t? {
         var processID: pid_t = 0
         let error = AXUIElementGetPid(self.underlyingElement, &processID)
         if error == .success {
             return processID
         }
-        // Optional: dLog if error and isDebugLoggingEnabled
+        axDebugLog("Failed to get PID for element: \(error.rawValue)",
+                   details: ["element": String(describing: self.underlyingElement)])
         return nil
     }
 
-    // Hierarchy and Relationship Getters - now methods
-    @MainActor public func parent(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let parentElementUI: AXUIElement = attribute(
-            Attribute<AXUIElement>.parent,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else { return nil }
+    // Hierarchy and Relationship Getters - simplified
+    @MainActor public func parent() -> Element? {
+        guard let parentElementUI: AXUIElement = attribute(.parent) else { return nil }
         return Element(parentElementUI)
     }
 
-    @MainActor public func windows(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [Element]? {
-        guard let windowElementsUI: [AXUIElement] = attribute(
-            Attribute<[AXUIElement]>.windows,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else { return nil }
+    @MainActor public func windows() -> [Element]? {
+        guard let windowElementsUI: [AXUIElement] = attribute(.windows) else { return nil }
         return windowElementsUI.map { Element($0) }
     }
 
-    @MainActor public func mainWindow(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let windowElementUI = attribute(
-            Attribute<AXUIElement?>.mainWindow,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else { return nil }
-        return Element(windowElementUI!)
+    @MainActor public func mainWindow() -> Element? {
+        guard let windowElementUI = attribute(.mainWindow) else { return nil }
+        return Element(windowElementUI)
     }
 
-    @MainActor public func focusedWindow(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let windowElementUI = attribute(
-            Attribute<AXUIElement?>.focusedWindow,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else { return nil }
-        return Element(windowElementUI!)
+    @MainActor public func focusedWindow() -> Element? {
+        guard let windowElementUI = attribute(.focusedWindow) else { return nil }
+        return Element(windowElementUI)
     }
 
-    @MainActor public func focusedElement(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Element? {
-        guard let elementUI = attribute(
-            Attribute<AXUIElement?>.focusedElement,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        ) else { return nil }
-        return Element(elementUI!)
+    @MainActor public func focusedElement() -> Element? {
+        guard let elementUI = attribute(.focusedElement) else { return nil }
+        return Element(elementUI)
     }
 
-    // Action-related - now a method
+    // Action-related - simplified
     @MainActor
-    public func supportedActions(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> [String]? {
-        return attribute(
-            Attribute<[String]>.actionNames,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
-        )
+    public func supportedActions() -> [String]? {
+        return attribute(Attribute<[String]>.actionNames)
     }
 
-    @MainActor public var domIdentifier: String? {
-        get {
-            var logs: [String] = [] // Logging for this specific getter, will be discarded if not used by caller
-            return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute), isDebugLoggingEnabled: false, currentDebugLogs: &logs)
+    // domIdentifier - simplified to a single method, was previously a computed property and a method.
+    @MainActor public func domIdentifier() -> String? {
+        return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute))
+    }
+
+    // @MainActor public func children() -> [Element]? { self.attribute(.children)?.map { Element($0) } }
+
+    @MainActor public func defaultButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.defaultButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    @MainActor public func cancelButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.cancelButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    // Specific UI Buttons in a Window
+    @MainActor public func closeButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.closeButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    @MainActor public func zoomButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.zoomButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    @MainActor public func minimizeButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.minimizeButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    @MainActor public func toolbarButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.toolbarButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    @MainActor public func fullScreenButton() -> Element? {
+        guard let buttonAXUIElement = attribute(.fullScreenButton) else { return nil }
+        return Element(buttonAXUIElement)
+    }
+
+    // Proxy (e.g. for web content)
+    @MainActor public func proxy() -> Element? {
+        guard let proxyAXUIElement = attribute(.proxy) else { return nil }
+        return Element(proxyAXUIElement)
+    }
+
+    // Grow Area (e.g. for resizing window)
+    @MainActor public func growArea() -> Element? {
+        guard let growAreaAXUIElement = attribute(.growArea) else { return nil }
+        return Element(growAreaAXUIElement)
+    }
+
+    // Table/List/Outline properties
+    // @MainActor public func rows() -> [Element]? { self.attribute(.rows)?.map { Element($0) } }
+
+    @MainActor public func header() -> Element? {
+        guard let headerAXUIElement = attribute(.header) else { return nil }
+        return Element(headerAXUIElement)
+    }
+
+    // Scroll Area properties
+    @MainActor public func horizontalScrollBar() -> Element? {
+        guard let scrollBarAXUIElement = attribute(.horizontalScrollBar) else { return nil }
+        return Element(scrollBarAXUIElement)
+    }
+
+    @MainActor public func verticalScrollBar() -> Element? {
+        guard let scrollBarAXUIElement = attribute(.verticalScrollBar) else { return nil }
+        return Element(scrollBarAXUIElement)
+    }
+
+    // Common Value-Holding Attributes (as specific types)
+    // ... existing code ...
+
+    // MARK: - Attribute Names
+    @MainActor public func attributeNames() -> [String]? {
+        var attrNames: CFArray?
+        let error = AXUIElementCopyAttributeNames(self.underlyingElement, &attrNames)
+        if error == .success, let names = attrNames as? [String] {
+            return names
         }
-    }
-
-    @MainActor public func domIdentifier(isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> String? {
-        return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute), isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        axDebugLog("Failed to get attribute names for element: \(error.rawValue)")
+        return nil
     }
 }

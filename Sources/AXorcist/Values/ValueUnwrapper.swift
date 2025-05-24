@@ -1,44 +1,31 @@
 import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize etc.
 import Foundation
-
-// debug() is assumed to be globally available from Logging.swift
-// Accessibility constants are now available through namespaced enums like AXAttributeNames, AXRoleNames, etc.
+// GlobalAXLogger is expected to be available in this module (AXorcistLib)
 
 // MARK: - ValueUnwrapper Utility
 struct ValueUnwrapper {
     @MainActor
-    static func unwrap(_ cfValue: CFTypeRef?, isDebugLoggingEnabled: Bool, currentDebugLogs: inout [String]) -> Any? {
-        func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
+    static func unwrap(_ cfValue: CFTypeRef?) -> Any? {
         guard let value = cfValue else { return nil }
         let typeID = CFGetTypeID(value)
 
         return unwrapByTypeID(
             value,
-            typeID: typeID,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs
+            typeID: typeID
         )
     }
 
     @MainActor
     private static func unwrapByTypeID(
         _ value: CFTypeRef,
-        typeID: CFTypeID,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
+        typeID: CFTypeID
     ) -> Any? {
-        func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-
         switch typeID {
         case ApplicationServices.AXUIElementGetTypeID():
             return value as! AXUIElement
         case ApplicationServices.AXValueGetTypeID():
-            return unwrapAXValue(
-                value,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
+            return unwrapAXValue(value)
         case CFStringGetTypeID():
             return (value as! CFString) as String
         case CFAttributedStringGetTypeID():
@@ -48,32 +35,20 @@ struct ValueUnwrapper {
         case CFNumberGetTypeID():
             return value as! NSNumber
         case CFArrayGetTypeID():
-            return unwrapCFArray(
-                value,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
+            return unwrapCFArray(value)
         case CFDictionaryGetTypeID():
-            return unwrapCFDictionary(
-                value,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
+            return unwrapCFDictionary(value)
         default:
             let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"
-            dLog("ValueUnwrapper: Unhandled CFTypeID: \(typeID) - \(typeDescription). Returning raw value.")
+            axDebugLog("Unhandled CFTypeID: \(typeID) - \(typeDescription). Returning raw value.")
             return value
         }
     }
 
     @MainActor
     private static func unwrapAXValue(
-        _ value: CFTypeRef,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
+        _ value: CFTypeRef
     ) -> Any? {
-        func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-
         let axVal = value as! AXValue
         let axValueType = AXValueGetType(axVal)
 
@@ -84,15 +59,13 @@ struct ValueUnwrapper {
                 return boolResult.boolValue
             }
         }
-
-        return unwrapAXValueByType(axVal, axValueType: axValueType, dLog: dLog)
+        return unwrapAXValueByType(axVal, axValueType: axValueType)
     }
 
     @MainActor
     private static func unwrapAXValueByType(
         _ axVal: AXValue,
-        axValueType: AXValueType,
-        dLog: (String) -> Void
+        axValueType: AXValueType
     ) -> Any? {
         switch axValueType {
         case .cgPoint:
@@ -111,19 +84,17 @@ struct ValueUnwrapper {
             var axErrorValue: AXError = .success
             return AXValueGetValue(axVal, .axError, &axErrorValue) ? axErrorValue : nil
         case .illegal:
-            dLog("ValueUnwrapper: Encountered AXValue with type .illegal")
+            axDebugLog("Encountered AXValue with type .illegal")
             return nil
         @unknown default:
-            dLog("ValueUnwrapper: AXValue with unhandled AXValueType: \(stringFromAXValueType(axValueType)).")
+            axDebugLog("AXValue with unhandled AXValueType: \(axValueType.rawValue).")
             return axVal
         }
     }
 
     @MainActor
     private static func unwrapCFArray(
-        _ value: CFTypeRef,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
+        _ value: CFTypeRef
     ) -> [Any?] {
         let cfArray = value as! CFArray
         var swiftArray: [Any?] = []
@@ -133,10 +104,8 @@ struct ValueUnwrapper {
                 swiftArray.append(nil)
                 continue
             }
-            swiftArray.append(unwrap(
-                Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
+            swiftArray.append(unwrap( // Recursive call uses new unwrap signature
+                Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue()
             ))
         }
         return swiftArray
@@ -144,28 +113,18 @@ struct ValueUnwrapper {
 
     @MainActor
     private static func unwrapCFDictionary(
-        _ value: CFTypeRef,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
+        _ value: CFTypeRef
     ) -> [String: Any?] {
-        func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-
         let cfDict = value as! CFDictionary
         var swiftDict: [String: Any?] = [:]
-        // Attempt to bridge to Swift dictionary directly if possible
+
         if let nsDict = cfDict as? [String: AnyObject] {
             for (key, val) in nsDict {
-                swiftDict[key] = unwrap(
-                    val,
-                    isDebugLoggingEnabled: isDebugLoggingEnabled,
-                    currentDebugLogs: &currentDebugLogs
-                )
+                swiftDict[key] = unwrap(val) // Recursive call uses new unwrap signature
             }
         } else {
-            // Fallback for more complex CFDictionary structures if direct bridging fails
-            dLog(
-                "ValueUnwrapper: Failed to bridge CFDictionary to [String: AnyObject]. " +
-                    "Full CFDictionary iteration not yet implemented here."
+            axWarningLog(
+                "Failed to bridge CFDictionary to [String: AnyObject]. Full CFDictionary iteration not yet implemented here."
             )
         }
         return swiftDict

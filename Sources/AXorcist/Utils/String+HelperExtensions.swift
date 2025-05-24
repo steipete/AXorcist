@@ -39,11 +39,11 @@ extension String {
         }
     }
 
-    private static let MAX_LOG_ABBREV_LENGTH = 50
+    private static let maxLogAbbrevLength = 50
 
     func truncatedToMaxLogAbbrev() -> String {
-        if self.count > Self.MAX_LOG_ABBREV_LENGTH {
-            return String(self.prefix(Self.MAX_LOG_ABBREV_LENGTH - 3)) + "..."
+        if self.count > Self.maxLogAbbrevLength {
+            return String(self.prefix(Self.maxLogAbbrevLength - 3)) + "..."
         } else {
             return self
         }

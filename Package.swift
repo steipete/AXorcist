@@ -9,7 +9,7 @@ let package = Package(
         .macOS(.v13) // macOS 13.0 or later
     ],
     products: [
-        .library(name: "AXorcistLib", targets: ["AXorcistLib"]),
+        .library(name: "AXorcist", targets: ["AXorcist"]), // Product 'AXorcist' now comes from target 'AXorcist'
         .executable(name: "axorc", targets: ["axorc"]) // Product 'axorc' comes from target 'axorc'
     ],
     dependencies: [
@@ -18,23 +18,27 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AXorcistLib",
-            path: "Sources/AXorcist" // Explicit path
-            // Sources will be inferred by SPM
+            name: "AXorcist",
+            dependencies: [],
+            path: "Sources",
+            sources: [
+                "AXorcist", 
+                "AXpector"
+            ]
         ),
         .executableTarget(
             name: "axorc", // Executable target name
             dependencies: [
-                "AXorcistLib",
+                "AXorcist", // Dependency restored to AXorcist
                 .product(name: "ArgumentParser", package: "swift-argument-parser") // Added dependency product
             ],
-            path: "Sources/axorc" // Explicit path
-            // Sources (axorc.swift) will be inferred by SPM
+            path: "Sources/axorc", // Explicit path
+            sources: ["."] // Explicitly include all Swift files in the path and its subdirectories
         ),
         .testTarget(
             name: "AXorcistTests",
             dependencies: [
-                "AXorcistLib",
+                "AXorcist", // Dependency restored to AXorcist
                 .product(name: "Testing", package: "swift-testing") // Added swift-testing dependency
             ],
             path: "Tests/AXorcistTests" // Explicit path

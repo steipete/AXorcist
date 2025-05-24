@@ -1,32 +1,56 @@
 // AXORCModels.swift - Response models and main types for AXORC CLI
 
 import ArgumentParser
-import AXorcistLib
+// Potentially AXorcist if common types are defined there and used here
+import AXorcist
 import Foundation
 
 // MARK: - Version and Configuration
-let AXORC_VERSION = "0.1.2a-config_fix"
+let axorcVersion = "0.1.2a-config_fix"
 
 // MARK: - Response Models
 // These should align with structs in AXorcistIntegrationTests.swift
 
 struct SimpleSuccessResponse: Codable {
-    let command_id: String
+    let commandId: String
     let success: Bool
     let status: String? // e.g., "pong"
     let message: String
     let details: String?
-    let debug_logs: [String]?
+    let debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case status
+        case message
+        case details
+        case debugLogs
+    }
 }
 
 struct ErrorResponse: Codable {
-    let command_id: String
+    let commandId: String
     var success: Bool = false // Default to false for errors
     struct ErrorDetail: Codable {
         let message: String
     }
     let error: ErrorDetail
-    let debug_logs: [String]?
+    let debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case error
+        case debugLogs
+    }
+
+    init(commandId: String, error: String, debugLogs: [String]? = nil) {
+        self.commandId = commandId
+        self.success = false
+        self.error = ErrorDetail(message: error)
+        self.debugLogs = debugLogs
+    }
 }
 
 // This is a pass-through structure. AXorcist.AXElement should be Codable itself.
@@ -34,29 +58,39 @@ struct ErrorResponse: Codable {
 // For now, treating AXElement as having attributes: [String: AnyCodable] which should be Codable if AnyCodable is Codable.
 
 struct AXElementForEncoding: Codable {
-    let attributes: [String: AnyCodable]? // This will now use AXorcist.AnyCodable
+    let attributes: [String: AnyCodable]?
     let path: [String]?
 
-    init(from axElement: AXElement) { // axElement is AXorcist.AXElement
-        self.attributes = axElement.attributes // Directly assign
+    init(from axElement: AXElement) {
+        self.attributes = axElement.attributes
         self.path = axElement.path
     }
 }
 
 struct QueryResponse: Codable {
-    let command_id: String
+    let commandId: String
     let success: Bool
     let command: String // Name of the command, e.g., "getFocusedElement"
     let data: AXElementForEncoding? // Contains the AX element's data, adapted for encoding
     let error: ErrorResponse.ErrorDetail?
-    let debug_logs: [String]?
+    let debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case command
+        case data
+        case error
+        case debugLogs
+    }
 
     // Custom initializer to bridge from HandlerResponse (from AXorcist module)
-    init(command_id: String, success: Bool, command: String, handlerResponse: HandlerResponse, debug_logs: [String]?) {
-        self.command_id = command_id
+    init(commandId: String, success: Bool, command: String, handlerResponse: HandlerResponse, debugLogs: [String]?) {
+        self.commandId = commandId
         self.success = success
         self.command = command
-        if let axElement = handlerResponse.data {
+        if let anyCodableData = handlerResponse.data,
+           let axElement = anyCodableData.value as? AXElement {
             self.data = AXElementForEncoding(from: axElement) // Convert here
         } else {
             self.data = nil
@@ -66,14 +100,18 @@ struct QueryResponse: Codable {
         } else {
             self.error = nil
         }
-        self.debug_logs = debug_logs
+        self.debugLogs = debugLogs
     }
 
     // Legacy initializer for compatibility
-    init(success: Bool = true, commandId: String? = nil, command: String? = nil,
-         axElement: AXElement? = nil, attributes: [String: AnyCodable]? = nil,
-         error: String? = nil, debugLogs: [String]? = nil) {
-        self.command_id = commandId ?? "unknown"
+    init(success: Bool = true,
+         commandId: String? = nil,
+         command: String? = nil,
+         axElement: AXElement? = nil,
+         attributes: [String: AnyCodable]? = nil,
+         error: String? = nil,
+         debugLogs: [String]? = nil) {
+        self.commandId = commandId ?? "unknown"
         self.success = success
         self.command = command ?? "unknown"
         self.data = axElement != nil ? AXElementForEncoding(from: axElement!) : nil
@@ -82,32 +120,39 @@ struct QueryResponse: Codable {
         } else {
             self.error = nil
         }
-        self.debug_logs = debugLogs
+        self.debugLogs = debugLogs
     }
 }
 
-struct BatchOperationResponse: Codable {
-    let command_id: String
+struct BatchResponse: Codable {
+    let commandId: String
     let success: Bool
     let results: [QueryResponse]
-    let debug_logs: [String]?
+    let debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case results
+        case debugLogs
+    }
 }
 
 // Helper for DecodingError display
 extension DecodingError {
     var humanReadableDescription: String {
         switch self {
-        case .typeMismatch(
-            let type,
-            let context
+        case let .typeMismatch(
+            type,
+            context
         ): return "Type mismatch for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
-        case .valueNotFound(
-            let type,
-            let context
+        case let .valueNotFound(
+            type,
+            context
         ): return "Value not found for \(type): \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
-        case .keyNotFound(
-            let key,
-            let context
+        case let .keyNotFound(
+            key,
+            context
         ): return "Key not found: \(key.stringValue) at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")) - \(context.debugDescription)"
         case .dataCorrupted(let context): return "Data corrupted: \(context.debugDescription) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
         @unknown default: return self.localizedDescription

@@ -5,7 +5,7 @@ import Foundation
 // Type alias for element attributes dictionary
 public typealias ElementAttributes = [String: AnyCodable]
 
-public struct AXElement: Codable {
+public struct AXElement: Codable, HandlerDataRepresentable {
     public var attributes: ElementAttributes?
     public var path: [String]?
 
@@ -17,24 +17,35 @@ public struct AXElement: Codable {
 
 // MARK: - Search Log Entry Model (for stderr JSON logging)
 public struct SearchLogEntry: Codable {
-    public let d: Int // depth
-    public let eR: String? // elementRole
-    public let eT: String? // elementTitle
-    public let eI: String? // elementIdentifier
-    public let mD: Int // maxDepth
-    public let c: [String: String]? // criteria (abbreviated)
-    public let s: String // status (e.g., "vis", "found", "noMatch", "maxD")
-    public let iM: Bool? // isMatch (true, false, or nil if not applicable for this status)
+    public let depth: Int
+    public let elementRole: String?
+    public let elementTitle: String?
+    public let elementIdentifier: String?
+    public let maxDepth: Int
+    public let criteria: [String: String]?
+    public let status: String // status (e.g., "vis", "found", "noMatch", "maxD")
+    public let isMatch: Bool? // isMatch (true, false, or nil if not applicable for this status)
+
+    enum CodingKeys: String, CodingKey {
+        case depth = "d"
+        case elementRole = "eR"
+        case elementTitle = "eT"
+        case elementIdentifier = "eI"
+        case maxDepth = "mD"
+        case criteria = "c"
+        case status = "s"
+        case isMatch = "iM"
+    }
 
     // Public initializer
-    public init(d: Int, eR: String?, eT: String?, eI: String?, mD: Int, c: [String: String]?, s: String, iM: Bool?) {
-        self.d = d
-        self.eR = eR
-        self.eT = eT
-        self.eI = eI
-        self.mD = mD
-        self.c = c
-        self.s = s
-        self.iM = iM
+    public init(depth: Int, elementRole: String?, elementTitle: String?, elementIdentifier: String?, maxDepth: Int, criteria: [String: String]?, status: String, isMatch: Bool?) {
+        self.depth = depth
+        self.elementRole = elementRole
+        self.elementTitle = elementTitle
+        self.elementIdentifier = elementIdentifier
+        self.maxDepth = maxDepth
+        self.criteria = criteria
+        self.status = status
+        self.isMatch = isMatch
     }
 }

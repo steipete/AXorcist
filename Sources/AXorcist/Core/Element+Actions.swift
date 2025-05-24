@@ -2,6 +2,7 @@
 
 import ApplicationServices
 import Foundation
+// GlobalAXLogger should be available
 
 // Action-related extension for Element
 extension Element {
@@ -9,14 +10,10 @@ extension Element {
     // MARK: - Actions
 
     @MainActor
-    public func isActionSupported(_ actionName: String, isDebugLoggingEnabled: Bool,
-                                  currentDebugLogs: inout [String]) -> Bool {
-        // dLog is not directly used here, logging comes from the attribute call
-        if let actions: [String] = attribute(
-            Attribute<[String]>.actionNames,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &currentDebugLogs // This will respect the new dLog behavior in .attribute()
-        ) {
+    public func isActionSupported(_ actionName: String) -> Bool { // Removed logging params
+        // self.supportedActions() is refactored and uses GlobalAXLogger internally
+        // Assumes self.supportedActions() is refactored in Element+Properties.swift
+        if let actions = self.supportedActions() {
             return actions.contains(actionName)
         }
         return false
@@ -24,50 +21,36 @@ extension Element {
 
     @MainActor
     @discardableResult
-    public func performAction(
-        _ actionName: Attribute<String>,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: inout [String]
-    ) throws -> Element {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled && false {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
-        }
+    public func performAction(_ actionName: Attribute<String>) throws -> Element { // Removed logging params
+        // self.briefDescription() is refactored and uses GlobalAXLogger internally
+        // Assumes self.briefDescription() is refactored in Element+Description.swift
+        let descForLog = self.briefDescription(option: .default)
+        axDebugLog("Attempting to perform action '\(actionName.rawValue)' on element: \(descForLog)")
+
         let error = AXUIElementPerformAction(self.underlyingElement, actionName.rawValue as CFString)
         if error != .success {
-            // Now call the refactored briefDescription, passing the logs along.
-            let desc = self.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
+            axErrorLog("Action '\(actionName.rawValue)' failed on element \(descForLog). Error: \(error.rawValue)")
+            throw AccessibilityError.actionFailed(
+                "Action \(actionName.rawValue) failed on element \(descForLog)",
+                error
             )
-            dLog("Action \(actionName.rawValue) failed on element \(desc). Error: \(error.rawValue)")
-            throw AccessibilityError.actionFailed("Action \(actionName.rawValue) failed on element \(desc)", error)
         }
+        axInfoLog("Successfully performed action '\(actionName.rawValue)' on element: \(descForLog)")
         return self
     }
 
     @MainActor
     @discardableResult
-    public func performAction(_ actionName: String, isDebugLoggingEnabled: Bool,
-                              currentDebugLogs: inout [String]) throws -> Element {
-        func dLog(_ message: String) {
-            if isDebugLoggingEnabled && false {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
-        }
+    public func performAction(_ actionName: String) throws -> Element { // Removed logging params
+        let descForLog = self.briefDescription(option: .default)
+        axDebugLog("Attempting to perform action '\(actionName)' on element: \(descForLog)")
+
         let error = AXUIElementPerformAction(self.underlyingElement, actionName as CFString)
         if error != .success {
-            // Now call the refactored briefDescription, passing the logs along.
-            let desc = self.briefDescription(
-                option: .default,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &currentDebugLogs
-            )
-            dLog("Action \(actionName) failed on element \(desc). Error: \(error.rawValue)")
-            throw AccessibilityError.actionFailed("Action \(actionName) failed on element \(desc)", error)
+            axErrorLog("Action '\(actionName)' failed on element \(descForLog). Error: \(error.rawValue)")
+            throw AccessibilityError.actionFailed("Action \(actionName) failed on element \(descForLog)", error)
         }
+        axInfoLog("Successfully performed action '\(actionName)' on element: \(descForLog)")
         return self
     }
 }

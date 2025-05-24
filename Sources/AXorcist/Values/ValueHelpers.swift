@@ -23,29 +23,25 @@ public func copyAttributeValue(element: AXUIElement, attribute: String) -> CFTyp
 @MainActor
 public func axValue<T>(
     of element: AXUIElement,
-    attr: String,
-    isDebugLoggingEnabled: Bool,
-    currentDebugLogs: inout [String]
+    attr: String
 ) -> T? {
-    func dLog(_ message: String) {
-        if isDebugLoggingEnabled {
-            currentDebugLogs.append(message)
-        }
-    }
-
     let rawCFValue = copyAttributeValue(element: element, attribute: attr)
-    let unwrappedValue = ValueUnwrapper.unwrap(
-        rawCFValue,
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &currentDebugLogs
-    )
+    // ValueUnwrapper.unwrap and castValueToType are assumed to be refactored
+    // to use GlobalAXLogger internally or handle their own logging if necessary.
+    let unwrappedValue = ValueUnwrapper.unwrap(rawCFValue)
 
     guard let value = unwrappedValue else {
+        // Minimal log here, ValueUnwrapper might provide more detail if needed.
+        axDebugLog("axValue: ValueUnwrapper returned nil for attribute '\(attr)'.",
+                   file: #file,
+                   function: #function,
+                   line: #line
+        )
         return nil
     }
 
-    // Call castValueToType from ValueCasters.swift
-    return castValueToType(value, expectedType: T.self, attr: attr, dLog: dLog)
+    // castValueToType will use GlobalAXLogger or handle its own logging.
+    return castValueToType(value, expectedType: T.self, attr: attr)
 }
 
 // MARK: - AXValueType String Helper

@@ -8,13 +8,23 @@ import Foundation
 // For now, we'll assume that a general Response structure is available or defined elsewhere.
 // If not, one would be:
 public struct ResponseContainer: Codable { // Renamed to avoid conflict if a `Response` type exists elsewhere
-    public var command_id: String
+    public var commandId: String
     public var success: Bool
     public var command: String // e.g., "collectAll"
     public var message: String?
     public var data: ResponseData? // Using a new ResponseData enum/struct
     public var error: String?
-    public var debug_logs: [String]?
+    public var debugLogs: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case commandId = "command_id"
+        case success
+        case command
+        case message
+        case data
+        case error
+        case debugLogs = "debug_logs"
+    }
 }
 
 // Assuming CommandType is an enum with String raw values, e.g.:
@@ -26,16 +36,18 @@ public struct ResponseContainer: Codable { // Renamed to avoid conflict if a `Re
 // public struct AXElementData: Codable { ... }
 
 public enum ResponseData: Codable {
-    case elementsList([AXElementData]) 
-    case element(AXElementData?)      
+    case elementsList([AXElementData])
+    case element(AXElementData?)
     case textContent(String?)
     case status(String)
-    case batchResults([ResponseContainer]) 
+    case batchResults([ResponseContainer])
 }
 
 // MARK: - CollectAll Handler Extension
 extension AXorcist {
 
+    // Helper to encode CollectAllOutput, now using GlobalAXLogger for errors
+    @MainActor
     private func encode(_ output: CollectAllOutput) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -43,9 +55,16 @@ extension AXorcist {
             let jsonData = try encoder.encode(output)
             return String(data: jsonData, encoding: .utf8) ?? "{\"error\":\"Failed to encode CollectAllOutput to string (fallback)\"}"
         } catch {
-            let errorMsgForLog = "Exception encoding CollectAllOutput: \(error.localizedDescription)"
-            self.recursiveCallDebugLogs.append(errorMsgForLog)
-            return "{\"command_id\":\"Unknown\", \"success\":false, \"command\":\"Unknown\", \"error_message\":\"Catastrophic JSON encoding failure for CollectAllOutput. Original error logged.\", \"collected_elements\":[], \"debug_logs\":[\"Catastrophic JSON encoding failure as well.\"]}"
+            axErrorLog("Exception encoding CollectAllOutput: \(error.localizedDescription)")
+            let errorJson = """
+            {"command_id":"\(output.commandId)", \
+            "success":false, \
+            "command":"\(output.command)", \
+            "error_message":"Catastrophic JSON encoding failure for CollectAllOutput. Original error logged.", \
+            "collected_elements":[], \
+            "debug_logs":["Catastrophic JSON encoding failure as well."]}
+            """
+            return errorJson
         }
     }
 
@@ -57,189 +76,268 @@ extension AXorcist {
         maxDepth: Int?,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?,
-        commandId: String?,
-        isDebugLoggingEnabled: Bool,
-        currentDebugLogs: [String]
+        commandId: String?
     ) -> String {
-        self.recursiveCallDebugLogs.removeAll()
-        self.recursiveCallDebugLogs.append(contentsOf: currentDebugLogs)
+        SearchVisitor.resetGlobalVisitCount()
 
-        let effectiveCommandId = commandId ?? "collectAll_internal_id_error"
+        let params = CollectAllParameters(
+            appIdentifierOrNil: appIdentifierOrNil,
+            locator: locator,
+            pathHint: pathHint,
+            maxDepth: maxDepth,
+            requestedAttributes: requestedAttributes,
+            outputFormat: outputFormat,
+            commandId: commandId,
+            focusedAppKey: focusedAppKeyValue
+        )
 
-        func dLog(
-            _ message: String,
-            _ file: String = #file,
-            _ function: String = #function,
-            _ line: Int = #line
-        ) {
-            let logMessage = AXorcist.formatDebugLogMessage(
-                message,
-                applicationName: appIdentifierOrNil,
-                commandID: effectiveCommandId,
-                file: file,
-                function: function,
-                line: line
+        logCollectAllStart(params)
+
+        // Get app element
+        guard let appElement = applicationElement(for: params.appIdentifier) else {
+            return createErrorResponse(
+                commandId: params.effectiveCommandId,
+                appIdentifier: params.appIdentifier,
+                error: "Failed to get app element for identifier: \(params.appIdentifier)"
             )
-            self.recursiveCallDebugLogs.append(logMessage)
         }
 
-        let appNameForLog = appIdentifierOrNil ?? "N/A"
-        let locatorDesc = locator != nil ? String(describing: locator!.criteria) : "nil"
-        let pathHintDesc = String(describing: pathHint)
-        let maxDepthDesc = String(describing: maxDepth)
-        dLog(
-            "[AXorcist.handleCollectAll] Starting. App: \(appNameForLog), Locator: \(locatorDesc), PathHint: \(pathHintDesc), MaxDepth: \(maxDepthDesc)"
+        // Determine start element
+        let startElementResult = determineStartElement(
+            appElement: appElement,
+            pathHint: pathHint,
+            locator: locator,
+            params: params
         )
 
-        let recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0) ? maxDepth! : AXMiscConstants.defaultMaxDepthCollectAll
-        let attributesToFetch = requestedAttributes ?? AXorcist.defaultAttributesToFetch
-        let effectiveOutputFormat = outputFormat ?? .smart
-
-        dLog(
-            "Effective recursionDepthLimit: \(recursionDepthLimit), attributesToFetch: \(attributesToFetch.count) items, effectiveOutputFormat: \(effectiveOutputFormat.rawValue)"
-        )
-
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
-        dLog("Using app identifier: \(appIdentifier)")
-
-        guard let appElement = applicationElement(
-            for: appIdentifier,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &self.recursiveCallDebugLogs
-        ) else {
-            let errorMsg = "Failed to get app element for identifier: \(appIdentifier)"
-            dLog(errorMsg)
-            return encode(CollectAllOutput(
-                command_id: effectiveCommandId,
-                success: false,
-                command: "collectAll",
-                collected_elements: [],
-                app_bundle_id: appIdentifier,
-                debug_logs: self.recursiveCallDebugLogs
-            ))
+        guard let startElement = startElementResult.element else {
+            return createErrorResponse(
+                commandId: params.effectiveCommandId,
+                appIdentifier: params.appIdentifier,
+                error: startElementResult.error ?? "Failed to determine start element"
+            )
         }
 
-        var startElement: Element
+        // Perform collection
+        let collectedElements = performCollectionTraversal(
+            startElement: startElement,
+            appElement: appElement,
+            params: params
+        )
+
+        return createSuccessResponse(
+            commandId: params.effectiveCommandId,
+            appIdentifier: params.appIdentifier,
+            collectedElements: collectedElements
+        )
+    }
+
+    @MainActor
+    private struct CollectAllParameters {
+        let effectiveCommandId: String
+        let appIdentifier: String
+        let recursionDepthLimit: Int
+        let attributesToFetch: [String]
+        let effectiveOutputFormat: OutputFormat
+        let locator: Locator?
+        let pathHint: [String]?
+
+        init(
+            appIdentifierOrNil: String?,
+            locator: Locator?,
+            pathHint: [String]?,
+            maxDepth: Int?,
+            requestedAttributes: [String]?,
+            outputFormat: OutputFormat?,
+            commandId: String?,
+            focusedAppKey: String
+        ) {
+            self.effectiveCommandId = commandId ?? "collectAll_internal_id_\(UUID().uuidString.prefix(8))"
+            self.appIdentifier = appIdentifierOrNil ?? focusedAppKey
+            self.recursionDepthLimit = (maxDepth != nil && maxDepth! >= 0)
+                ? maxDepth!
+                : AXMiscConstants.defaultMaxDepthCollectAll
+            self.attributesToFetch = requestedAttributes ?? AXorcist.defaultAttributesToFetch
+            self.effectiveOutputFormat = outputFormat ?? .smart
+            self.locator = locator
+            self.pathHint = pathHint
+        }
+    }
+
+    @MainActor
+    private func logCollectAllStart(_ params: CollectAllParameters) {
+        let appNameForLog = params.appIdentifier
+        let locatorDesc = params.locator != nil ? String(describing: params.locator!.criteria) : "nil"
+        let pathHintDesc = String(describing: params.pathHint)
+        let maxDepthDesc = String(describing: params.recursionDepthLimit)
+
+        axInfoLog(
+            "[AXorcist.handleCollectAll] Starting. App: \(appNameForLog), " +
+                "Locator: \(locatorDesc), PathHint: \(pathHintDesc), MaxDepth: \(maxDepthDesc)"
+        )
+
+        axDebugLog(
+            "Effective recursionDepthLimit: \(params.recursionDepthLimit), " +
+                "attributesToFetch: \(params.attributesToFetch.count) items, " +
+                "effectiveOutputFormat: \(params.effectiveOutputFormat.rawValue)"
+        )
+
+        axDebugLog("Using app identifier: \(params.appIdentifier)")
+    }
+
+    @MainActor
+    private func determineStartElement(
+        appElement: Element,
+        pathHint: [String]?,
+        locator: Locator?,
+        params: CollectAllParameters
+    ) -> (element: Element?, error: String?) {
+        var startElement = appElement
+
+        // Navigate to path hint if provided
         if let hint = pathHint, !hint.isEmpty {
             let pathHintString = hint.joined(separator: " -> ")
-            dLog("Navigating to path hint: \(pathHintString)")
+            axDebugLog("Navigating to path hint: \(pathHintString)")
+
             guard let navigatedElement = navigateToElement(
                 from: appElement,
                 pathHint: hint,
-                isDebugLoggingEnabled: isDebugLoggingEnabled,
-                currentDebugLogs: &self.recursiveCallDebugLogs
+                maxDepth: AXMiscConstants.defaultMaxDepthSearch
             ) else {
-                let lastLogBeforeError = self.recursiveCallDebugLogs.last
-                var errorMsg = "Failed to navigate to path: \(pathHintString)"
-                if let lastLog = lastLogBeforeError, lastLog == "CRITICAL_NAV_PARSE_FAILURE_MARKER" {
-                    errorMsg = "Navigation parsing failed: Critical marker found."
-                } else if let lastLog = lastLogBeforeError, lastLog == "CHILD_MATCH_FAILURE_MARKER" {
-                    errorMsg = "Navigation child match failed: Child match marker found."
-                }
-                dLog(errorMsg)
-                return encode(CollectAllOutput(
-                    command_id: effectiveCommandId,
-                    success: false,
-                    command: "collectAll",
-                    collected_elements: [],
-                    app_bundle_id: appIdentifier,
-                    debug_logs: self.recursiveCallDebugLogs
-                ))
+                return (nil, "Failed to navigate to path: \(pathHintString)")
             }
             startElement = navigatedElement
         } else {
-            dLog("Using app element as start element")
-            startElement = appElement
+            axDebugLog("Using app element as start element")
         }
 
-        if let loc = locator {
-            dLog("Locator provided. Searching for element from current startElement: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)) with locator criteria: \(String(describing: loc.criteria))")
-
-            let searchResultCollectAll = self.search(element: startElement,
-                                                     locator: loc,
-                                                     requireAction: loc.requireAction,
-                                                     depth: 0,
-                                                     maxDepth: AXMiscConstants.defaultMaxDepthSearch,
-                                                     isDebugLoggingEnabled: isDebugLoggingEnabled,
-                                                     currentDebugLogs: &self.recursiveCallDebugLogs)
-            self.recursiveCallDebugLogs.append(contentsOf: searchResultCollectAll.logs)
-
-            if let locatedStartElement = searchResultCollectAll.foundElement {
-                dLog("Locator found element: \(locatedStartElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs)). This will be the root for collectAll recursion.")
-                startElement = locatedStartElement
+        // Apply locator if provided
+        if let locator = locator {
+            if let locatedElement = findElementByLocator(
+                startElement: startElement,
+                locator: locator
+            ) {
+                axDebugLog(
+                    "Locator found element: \(locatedElement.briefDescription()). " +
+                        "This will be the root for collectAll recursion."
+                )
+                startElement = locatedElement
             } else {
-                let errorMsg = "Failed to find element with provided locator criteria: \(String(describing: loc.criteria)). Cannot start collectAll."
-                dLog(errorMsg)
-                return encode(CollectAllOutput(
-                    command_id: effectiveCommandId,
-                    success: false,
-                    command: "collectAll",
-                    collected_elements: [],
-                    app_bundle_id: appIdentifier,
-                    debug_logs: self.recursiveCallDebugLogs
-                ))
+                let locatorDescription = String(describing: locator.criteria)
+                let elementDescription = startElement.briefDescription()
+                axWarningLog(
+                    "Locator provided but no element found for: \(locatorDescription). " +
+                        "CollectAll will proceed from the current start element: \(elementDescription)."
+                )
             }
         }
 
-        var collectedElementsOutput: [AXElement] = [] // Type for CollectAllOutput
-        var traverser = TreeTraverser()
-        
-        let visitor = CollectAllVisitor(
-            attributesToFetch: attributesToFetch,
-            outputFormat: effectiveOutputFormat,
-            appElement: appElement
-        )
-        
-        var traversalContext = TraversalContext(
-            maxDepth: recursionDepthLimit,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: self.recursiveCallDebugLogs,
+        return (startElement, nil)
+    }
+
+    @MainActor
+    private func findElementByLocator(
+        startElement: Element,
+        locator: Locator
+    ) -> Element? {
+        var treeTraverser = TreeTraverser()
+        let searchVisitor = SearchVisitor(locator: locator, requireAction: locator.requireAction)
+        var traversalState = TraversalState(
+            maxDepth: AXMiscConstants.defaultMaxDepthSearch,
             startElement: startElement
         )
-        
-        dLog("Starting unified tree traversal from start element: \(startElement.briefDescription(option: ValueFormatOption.default, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &self.recursiveCallDebugLogs))")
-        
-        if !self.recursiveCallDebugLogs.contains(where: { $0.contains("Failed to find element with provided locator criteria") && $0.contains("Cannot start collectAll") }) {
-            _ = traverser.traverse(from: startElement, visitor: visitor, context: &traversalContext)
-            // Access the public property directly
-            // The visitor.collectedElements is [AXElementData]. CollectAllOutput expects [AXElement].
-            // This requires a mapping if AXElementData is not directly usable or if AXElement is a different type.
-            // For now, assuming AXElementData can be mapped or cast, or CollectAllOutput needs to change.
-            // This is a placeholder: you might need to map properties from AXElementData to create AXElement instances.
-            collectedElementsOutput = visitor.collectedElements.map { data in 
-                // This mapping is highly dependent on AXElement's structure and what AXElementData holds.
-                // If AXElement just needs attributes and path, and AXElementData provides them:
-                AXElement(attributes: data.attributes, path: data.path)
-            } 
-            self.recursiveCallDebugLogs = traversalContext.currentDebugLogs
+
+        return treeTraverser.traverse(
+            from: startElement,
+            visitor: searchVisitor,
+            state: &traversalState
+        )
+    }
+
+    @MainActor
+    private func performCollectionTraversal(
+        startElement: Element,
+        appElement: Element,
+        params: CollectAllParameters
+    ) -> [AXElement] {
+        var traverser = TreeTraverser()
+        let visitor = CollectAllVisitor(
+            attributesToFetch: params.attributesToFetch,
+            outputFormat: params.effectiveOutputFormat,
+            appElement: appElement
+        )
+
+        var traversalState = TraversalState(
+            maxDepth: params.recursionDepthLimit,
+            startElement: startElement
+        )
+
+        axDebugLog("Starting unified tree traversal from start element: \(startElement.briefDescription())")
+        _ = traverser.traverse(from: startElement, visitor: visitor, state: &traversalState)
+
+        let collectedElementsData = visitor.collectedElements
+        let collectedElementsOutput = collectedElementsData.map { data in
+            AXElement(attributes: data.attributes, path: data.path)
         }
 
+        axDebugLog("Traversal complete. Collected \(collectedElementsOutput.count) elements.")
+        if collectedElementsOutput.isEmpty {
+            axInfoLog("No elements collected, but traversal itself was successful.")
+        }
+
+        return collectedElementsOutput
+    }
+
+    @MainActor
+    private func createErrorResponse(
+        commandId: String,
+        appIdentifier: String,
+        error: String
+    ) -> String {
+        axErrorLog(error)
+        return encode(CollectAllOutput(
+            commandId: commandId,
+            success: false,
+            command: "collectAll",
+            collectedElements: [],
+            appBundleId: appIdentifier,
+            debugLogs: []
+        ))
+    }
+
+    @MainActor
+    private func createSuccessResponse(
+        commandId: String,
+        appIdentifier: String,
+        collectedElements: [AXElement]
+    ) -> String {
         let output = CollectAllOutput(
-            command_id: effectiveCommandId,
+            commandId: commandId,
             success: true,
             command: "collectAll",
-            collected_elements: collectedElementsOutput, // Use the mapped elements
-            app_bundle_id: appIdentifier,
-            debug_logs: self.recursiveCallDebugLogs
+            collectedElements: collectedElements,
+            appBundleId: appIdentifier,
+            debugLogs: []
         )
         return encode(output)
     }
 
     @MainActor
     func handleCollectAll(
-        commandRequest: CommandEnvelope, 
+        commandRequest: CommandEnvelope,
         appElement: Element,
         startElement: Element,
         attributesToFetch: [String],
-        maxElements: Int,
+        maxElements: Int, // This parameter seems unused in the original logic
         recursionDepthLimit: Int,
-        outputFormat: OutputFormat,
-        isDebugLoggingEnabled: Bool
-    ) -> Result<ResponseContainer, AccessibilityError> {
-        var operationDebugLogs: [String] = [] 
-        var tempContextForInitialLog = TraversalContext(maxDepth: 0, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: operationDebugLogs, startElement: startElement)
-        dLog("Starting collectAll operation. Command ID: \(commandRequest.command_id)", context: &tempContextForInitialLog)
-        operationDebugLogs = tempContextForInitialLog.currentDebugLogs
+        outputFormat: OutputFormat
+    ) async -> Result<ResponseContainer, AccessibilityError> {
+        SearchVisitor.resetGlobalVisitCount()
+
+        // Context setting removed - GlobalAXLogger doesn't have these properties
+        // The command executor should handle context if needed
+
+        axInfoLog("Starting collectAll operation (CommandEnvelope version). Command ID: \(commandRequest.commandId)")
 
         var traverser = TreeTraverser()
         let visitor = CollectAllVisitor(
@@ -247,37 +345,41 @@ extension AXorcist {
             outputFormat: outputFormat,
             appElement: appElement
         )
-        
-        var traversalContext = TraversalContext(
+
+        var traversalState = TraversalState(
             maxDepth: recursionDepthLimit,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: operationDebugLogs, 
             startElement: startElement
         )
-        
-        dLog("Beginning tree traversal for collectAll from: \(startElement.briefDescriptionForDebug(context: &traversalContext))", context: &traversalContext)
-        
-        _ = traverser.traverse(from: startElement, visitor: visitor, context: &traversalContext)
-        
-        let collectedElementsData = visitor.collectedElements 
-        operationDebugLogs = traversalContext.currentDebugLogs
 
-        dLog("Traversal complete. Collected \(collectedElementsData.count) elements.", context: &traversalContext)
-        operationDebugLogs = traversalContext.currentDebugLogs
+        axDebugLog("Beginning tree traversal for collectAll (CommandEnvelope) from: \(startElement.briefDescription())")
+
+        _ = traverser.traverse(from: startElement, visitor: visitor, state: &traversalState)
+
+        let collectedElementsData = visitor.collectedElements
+
+        axDebugLog("Traversal complete (CommandEnvelope). Collected \(collectedElementsData.count) elements.")
 
         if collectedElementsData.isEmpty {
-            dLog("No elements collected, but traversal itself was successful.", context: &traversalContext)
-            operationDebugLogs = traversalContext.currentDebugLogs
+            axInfoLog("No elements collected (CommandEnvelope), but traversal itself was successful.")
         }
-        
+
+        let responseData = ResponseData.elementsList(collectedElementsData)
+
+        // Get logs from GlobalAXLogger
+        let debugLogsForResponse = await GlobalAXLogger.shared.getLogEntriesAsText().components(separatedBy: "\n")
+
         let response = ResponseContainer(
-            command_id: commandRequest.command_id,
+            commandId: commandRequest.commandId,
             success: true,
-            command: commandRequest.command.rawValue, 
-            message: "Successfully collected \(collectedElementsData.count) elements.",
-            data: ResponseData.elementsList(collectedElementsData), 
-            debug_logs: isDebugLoggingEnabled ? operationDebugLogs : nil
+            command: commandRequest.command.rawValue,
+            message: "Collected \(collectedElementsData.count) elements.",
+            data: responseData,
+            error: nil,
+            debugLogs: debugLogsForResponse
         )
+
+        // Context cleanup removed - GlobalAXLogger doesn't have these properties
+
         return .success(response)
     }
 }

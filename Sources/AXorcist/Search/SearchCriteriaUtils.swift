@@ -1,102 +1,103 @@
+// SearchCriteriaUtils.swift - Utility functions for handling search criteria
+
 import ApplicationServices
 import Foundation
-
-// Note: This file assumes AXAttributeNames.kAXRoleAttribute is available from AXAttributeNameConstants.swift
-// and ValueUnwrapper is available from its respective file.
+// GlobalAXLogger is assumed available
 
 // MARK: - PathHintComponent Definition
 @MainActor
-struct PathHintComponent {
-    let criteria: [String: String]
+public struct PathHintComponent {
+    public let criteria: [String: String]
+    public let originalSegment: String // Added to store the original segment
 
-    init?(pathSegment: String, isDebugLoggingEnabled: Bool, axorcJsonLogEnabled: Bool, currentDebugLogs: inout [String]) {
+    // Refactored initializer
+    public init?(pathSegment: String) {
+        self.originalSegment = pathSegment // Store original segment
         var parsedCriteria: [String: String] = [:]
         let pairs = pathSegment.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         for pair in pairs {
-            let keyValue = pair.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            let keyValue = pair.split(separator: "=", maxSplits: 1)
+                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             if keyValue.count == 2 {
                 parsedCriteria[String(keyValue[0])] = String(keyValue[1])
             } else {
-                if isDebugLoggingEnabled && !axorcJsonLogEnabled {
-                    currentDebugLogs.append(AXorcist.formatDebugLogMessage("PathHintComponent: Invalid key-value pair: \(pair)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-                }
+                axDebugLog("PathHintComponent: Invalid key-value pair: \(pair)")
             }
         }
         if parsedCriteria.isEmpty && !pathSegment.isEmpty {
-            if isDebugLoggingEnabled && !axorcJsonLogEnabled {
-                currentDebugLogs.append(AXorcist.formatDebugLogMessage("PathHintComponent: Path segment \"\(pathSegment)\" parsed into empty criteria.", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-            }
+            axDebugLog("PathHintComponent: Path segment \"\(pathSegment)\" parsed into empty criteria.")
         }
         self.criteria = parsedCriteria
-        if isDebugLoggingEnabled && !axorcJsonLogEnabled {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage("PathHintComponent initialized with criteria: \(self.criteria) from segment: \(pathSegment)", applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
+        let criteriaForLog = self.criteria
+        let segmentForLog = pathSegment
+        axDebugLog("PathHintComponent initialized with criteria: \(criteriaForLog) from segment: \(segmentForLog)")
     }
 
     // Convenience initializer if criteria is already a dictionary
-    init(criteria: [String: String]) {
+    init(criteria: [String: String], originalSegment: String = "") { // Added originalSegment, default empty
         self.criteria = criteria
+        self.originalSegment = originalSegment.isEmpty && !criteria.isEmpty ? "criteria_only_init" : originalSegment
     }
 
-    func matches(element: Element, isDebugLoggingEnabled: Bool, axorcJsonLogEnabled: Bool, currentDebugLogs: inout [String]) -> Bool {
-        // Pass axorcJsonLogEnabled to criteriaMatch
-        return criteriaMatch(element: element, criteria: self.criteria, isDebugLoggingEnabled: isDebugLoggingEnabled, axorcJsonLogEnabled: axorcJsonLogEnabled, currentDebugLogs: &currentDebugLogs)
+    // Refactored matches method
+    func matches(element: Element) -> Bool {
+        return criteriaMatch(element: element, criteria: self.criteria)
     }
 }
 
 // MARK: - Criteria Matching Helper
 @MainActor
-func criteriaMatch(element: Element, criteria: [String: String]?, isDebugLoggingEnabled: Bool, axorcJsonLogEnabled: Bool, currentDebugLogs: inout [String]) -> Bool {
+func criteriaMatch(element: Element, criteria: [String: String]?) -> Bool {
     guard let criteria = criteria, !criteria.isEmpty else {
         return true // No criteria means an automatic match
     }
 
-    func cLog(_ message: String) {
-        // Use the passed-in axorcJsonLogEnabled parameter
-        if !axorcJsonLogEnabled && isDebugLoggingEnabled {
-            currentDebugLogs.append(AXorcist.formatDebugLogMessage(message, applicationName: nil, commandID: nil, file: #file, function: #function, line: #line))
-        }
-    }
-    var tempNilLogs: [String] = [] // For briefDescription calls that don't need to pollute main logs
-
     for (key, expectedValue) in criteria {
-        // Handle wildcard for role if specified
-        if key == AXAttributeNames.kAXRoleAttribute && expectedValue == "*" { continue }
+        if key == AXAttributeNames.kAXRoleAttribute && expectedValue == "*" { continue } // Wildcard for role
 
-        // Special handling for computed properties like "IsClickable"
-        if key == "IsClickable" {
-            let supportsPress = element.isActionSupported(AXActionNames.kAXPressAction, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        if key == "IsClickable" { // Computed property
+            let supportsPress = element.isActionSupported(AXActionNames.kAXPressAction)
             let expectedBoolValue = (expectedValue.lowercased() == "true")
             if supportsPress == expectedBoolValue {
-                cLog("Computed criteria 'IsClickable' (via AXPress support) matched: Expected '\(expectedValue)', Got '\(supportsPress)'.")
-                continue // Move to the next criterion
+                axDebugLog(
+                    "Computed criteria 'IsClickable' (via AXPress support) matched: " +
+                        "Expected '\(expectedValue)', Got '\(supportsPress)'."
+                )
+                continue
             } else {
-                cLog("Computed criteria 'IsClickable' (via AXPress support) mismatch: Expected '\(expectedValue)', Got '\(supportsPress)'. Element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)). No match.")
+                axDebugLog(
+                    "Computed criteria 'IsClickable' (via AXPress support) mismatch: " +
+                        "Expected '\(expectedValue)', Got '\(supportsPress)'. " +
+                        "Element: \(element.briefDescription(option: .default)). No match."
+                )
                 return false
             }
         }
 
-        var attributeValueCFType: CFTypeRef?
-        // Directly use underlyingElement for AX API calls
-        let error = AXUIElementCopyAttributeValue(element.underlyingElement, key as CFString, &attributeValueCFType)
+        // var attributeValueCFType: CFTypeRef? // This variable was unused.
+        let rawValue = element.rawAttributeValue(named: key)
 
-        guard error == .success, let actualValueCF = attributeValueCFType else {
-            cLog("Attribute \(key) not found or error \(error.rawValue) on element \(element.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)). No match.")
+        guard let actualValueCF = rawValue else {
+            axDebugLog(
+                "Attribute \(key) not found or error on element " +
+                    "\(element.briefDescription(option: .default)). No match."
+            )
             return false
         }
 
-        // Use ValueUnwrapper to convert CFTypeRef to a Swift type
-        // Assuming ValueUnwrapper.unwrap is available and correctly handles logging parameters
-        let actualValueSwift: Any? = ValueUnwrapper.unwrap(actualValueCF, isDebugLoggingEnabled: isDebugLoggingEnabled, currentDebugLogs: &currentDebugLogs)
+        let actualValueSwift: Any? = ValueUnwrapper.unwrap(actualValueCF)
         let actualValueString = String(describing: actualValueSwift ?? "nil_after_unwrap")
 
-        // Perform case-insensitive comparison or exact match
         if !(actualValueString.localizedCaseInsensitiveContains(expectedValue) || actualValueString == expectedValue) {
-            cLog("Attribute '\(key)' mismatch: Expected '\(expectedValue)', Got '\(actualValueString)'. Element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)). No match.")
+            axDebugLog(
+                "Attribute '\(key)' mismatch: Expected '\(expectedValue)', " +
+                    "Got '\(actualValueString)'. " +
+                    "Element: \(element.briefDescription(option: .default)). No match."
+            )
             return false
         }
-        cLog("Attribute '\(key)' matched: Expected '\(expectedValue)', Got '\(actualValueString)'.")
+        axDebugLog("Attribute '\(key)' matched: Expected '\(expectedValue)', Got '\(actualValueString)'.")
     }
-    cLog("All criteria matched for element: \(element.briefDescription(option: .default, isDebugLoggingEnabled: false, currentDebugLogs: &tempNilLogs)).")
+    axDebugLog("All criteria matched for element: \(element.briefDescription(option: .default)).")
     return true
 }

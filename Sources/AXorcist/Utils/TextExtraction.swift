@@ -9,17 +9,14 @@ import Foundation
 
 @MainActor
 public func extractTextContent(
-    element: Element,
-    isDebugLoggingEnabled: Bool,
-    currentDebugLogs: inout [String]
+    element: Element
 ) -> String {
-    func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-    let elementDescription = element.briefDescription(
-        option: .default,
-        isDebugLoggingEnabled: isDebugLoggingEnabled,
-        currentDebugLogs: &currentDebugLogs
+    let elementDescription = element.briefDescription(option: .default) // Uses GlobalAXLogger internally
+    axDebugLog("Extracting text content for element: \(elementDescription)",
+               file: #file,
+               function: #function,
+               line: #line
     )
-    dLog("Extracting text content for element: \(elementDescription)")
     var texts: [String] = []
     let textualAttributes = [
         AXAttributeNames.kAXValueAttribute, AXAttributeNames.kAXTitleAttribute, AXAttributeNames.kAXDescriptionAttribute, AXAttributeNames.kAXHelpAttribute,
@@ -28,18 +25,12 @@ public func extractTextContent(
         // selectedTextAttribute could also be relevant depending on use case
     ]
     for attrName in textualAttributes {
-        var tempLogs: [String] = [] // For the axValue call
-        // Pass the received logging parameters to axValue
+        // axValue uses GlobalAXLogger internally
         if let strValue: String = axValue(
             of: element.underlyingElement,
-            attr: attrName,
-            isDebugLoggingEnabled: isDebugLoggingEnabled,
-            currentDebugLogs: &tempLogs
+            attr: attrName
         ), !strValue.isEmpty, strValue.lowercased() != AXMiscConstants.kAXNotAvailableString.lowercased() {
             texts.append(strValue)
-            currentDebugLogs.append(contentsOf: tempLogs) // Collect logs from axValue
-        } else {
-            currentDebugLogs.append(contentsOf: tempLogs) // Still collect logs if value was nil/empty
         }
     }
 

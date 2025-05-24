@@ -9,13 +9,8 @@ import Foundation
 /// The input string can be JSON-style (e.g., "["item1", "item2"]")
 /// or a simple comma-separated list (e.g., "item1, item2", with or without brackets).
 public func decodeExpectedArray(
-    fromString: String,
-    isDebugLoggingEnabled: Bool,
-    currentDebugLogs: inout [String]
+    fromString: String
 ) -> [String]? {
-    // This function itself does not log, but takes the parameters as it's called by functions that do.
-    // func dLog(_ message: String) { if isDebugLoggingEnabled { currentDebugLogs.append(message) } }
-
     let trimmedString = fromString.trimmingCharacters(in: .whitespacesAndNewlines)
 
     // Try JSON deserialization first for robustness with escaped characters, etc.
@@ -39,7 +34,11 @@ public func decodeExpectedArray(
                     }
                 }
             } catch {
-                // dLog("JSON decoding failed for string: \(trimmedString). Error: \(error.localizedDescription)")
+                axDebugLog("JSON decoding failed for string: \(trimmedString). Error: \(error.localizedDescription)",
+                           file: #file,
+                           function: #function,
+                           line: #line
+                )
             }
         }
     }
