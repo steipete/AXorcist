@@ -1,6 +1,6 @@
 import Foundation
 
-public enum AXLogLevel: String, Codable, Sendable {
+public enum AXLogLevel: String, Codable, Sendable, CaseIterable {
     case debug
     case info
     case warning
@@ -36,6 +36,13 @@ public struct AXLogEntry: Codable, Sendable, Identifiable {
         self.function = function
         self.line = line
         self.details = details
+    }
+}
+
+// Add Equatable conformance
+extension AXLogEntry: Equatable {
+    public static func == (lhs: AXLogEntry, rhs: AXLogEntry) -> Bool {
+        lhs.id == rhs.id
     }
 }
 
