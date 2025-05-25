@@ -125,8 +125,9 @@ public enum AXPermissions {
                         continuation.yield(currentStatus)
                     }
                 }
+                // Ensure the timer is added to the main run loop
                 if let strongTimer = Self.axPermissionTimer {
-                    RunLoop.main.add(strongTimer, forMode: .common) // Use RunLoop.main
+                    RunLoop.main.add(strongTimer, forMode: .common)
                 }
 
                 continuation.onTermination = { @Sendable _ in

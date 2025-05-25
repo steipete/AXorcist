@@ -211,11 +211,6 @@ public struct Element: Equatable, Hashable {
     // (e.g., children, parameterizedAttribute, briefDescription, generatePathString, static factories)
     // Action methods have been moved to Element+Actions.swift
 
-    // @MainActor public var children: [Element]? { ... }
-
-    // @MainActor
-    // public func generatePathString() -> String { ... }
-
     // MARK: - Attribute Settability Check
     @MainActor
     public func isAttributeSettable(named attributeName: String) -> Bool {

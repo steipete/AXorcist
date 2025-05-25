@@ -236,15 +236,6 @@ public class AXObserverCenter {
         }
     }
 
-    // Old addObserver and removeObserver are effectively replaced by subscribe/unsubscribe and internal setup/cleanup.
-    // They are removed to avoid confusion.
-    /*
-    /// Add a notification observer for a specific process and notification key
-    public func addObserver(pid: pid_t, notification: AXNotification) -> AXError { ... }
-    /// Remove a notification observer
-    public func removeObserver(pid: pid_t, notification: AXNotification) -> AXError { ... }
-    */
-
     /// Remove all observers and all subscriptions.
     @MainActor
     public func removeAllObservers() {

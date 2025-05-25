@@ -56,11 +56,10 @@ public class AXorcist {
     // - handleCollectAll: AXorcist+ActionHandlers.swift
     // - handleBatchCommands: AXorcist+BatchHandler.swift
 
-    // handleExtractText method is implemented in AXorcist+ActionHandlers.swift
-
-    // handleBatchCommands method is implemented in AXorcist+BatchHandler.swift
-
-    // handleCollectAll method is implemented in AXorcist+ActionHandlers.swift
+    // Handler methods are implemented in extension files:
+    // - handleExtractText: AXorcist+ActionHandlers.swift
+    // - handleBatchCommands: AXorcist+BatchHandler.swift
+    // - handleCollectAll: AXorcist+CollectAllHandler.swift
 
     // MARK: - Path Navigation
 
