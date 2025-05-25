@@ -201,7 +201,7 @@ public func getElementAttributes(
                 valueFormatOption: valueFormatOption
             )
         } else if attr == AXAttributeNames.kAXFocusedUIElementAttribute {
-            let focused = element.focusedElement()
+            let focused = element.focusedUIElement()
             result[attr] = formatFocusedUIElementAttribute(
                 focused,
                 outputFormat: outputFormat,

@@ -23,7 +23,7 @@ extension Element {
         return attribute(Attribute<Bool>.enabled)
     }
     @MainActor public func value() -> Any? { // Returns Any? as original
-        return attribute(Attribute<Any>.value)
+        return attribute(Attribute<Any>(AXAttributeNames.kAXValueAttribute))
     }
     @MainActor public func roleDescription() -> String? {
         return attribute(Attribute<String>.roleDescription)
@@ -82,8 +82,11 @@ extension Element {
         return Element(windowElementUI)
     }
 
-    @MainActor public func focusedElement() -> Element? {
-        guard let elementUI = attribute(.focusedElement) else { return nil }
+    // Attempts to get the focused UI element within this element (e.g., a focused text field in a window).
+    @MainActor
+    public func focusedUIElement() -> Element? {
+        // Use the specific type for the attribute, non-optional generic
+        guard let elementUI: AXUIElement = attribute(Attribute<AXUIElement>.focusedUIElement) else { return nil }
         return Element(elementUI)
     }
 

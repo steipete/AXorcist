@@ -24,7 +24,7 @@ extension AXorcist {
     ) async -> HandlerResponse {
         SearchVisitor.resetGlobalVisitCount()
 
-        let appIdentifier = appIdentifierOrNil ?? self.focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling query for app: \(appIdentifier)",
                    file: #file,
                    function: #function,
@@ -265,7 +265,7 @@ extension AXorcist {
     ) async -> HandlerResponse {
         SearchVisitor.resetGlobalVisitCount()
 
-        let appIdentifier = appIdentifierOrNil ?? self.focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling get_attributes command for app: \(appIdentifier)",
                    file: #file,
                    function: #function,
@@ -324,7 +324,7 @@ extension AXorcist {
     ) async -> HandlerResponse {
         SearchVisitor.resetGlobalVisitCount()
 
-        let appIdentifier = appIdentifierOrNil ?? self.focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling describe_element for app: \(appIdentifier)",
                    file: #file,
                    function: #function,
@@ -385,7 +385,7 @@ extension AXorcist {
     ) async -> HandlerResponse {
         SearchVisitor.resetGlobalVisitCount()
 
-        let appIdentifier = appIdentifierOrNil ?? self.focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Fetching element tree for app: \(appIdentifier)",
                    file: #file,
                    function: #function,
@@ -780,7 +780,7 @@ extension AXorcist {
         pathHint: [String]?,
         maxDepthForSearch: Int
     ) async -> Result<Element, HandlerErrorInfo> {
-        let appIdentifier = appIdentifierOrNil ?? self.focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("findTargetElement: App=\(appIdentifier), Locator=\(String(describing: locator?.criteria)), PathHint=\(String(describing: pathHint))", file: #file, function: #function, line: #line)
 
         guard let appElement = applicationElement(for: appIdentifier) else {

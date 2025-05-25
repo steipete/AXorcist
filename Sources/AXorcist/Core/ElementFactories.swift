@@ -14,7 +14,7 @@ public func applicationElement(for bundleIdOrName: String) -> Element? {
                      line: #line)
         return nil
     }
-    let appElement = AXUIElementCreateApplication(pid)
+    let appElement = AXUIElement.application(pid: pid)
     axDebugLog("applicationElement: Created application element for PID \(pid) ('\(bundleIdOrName)').",
                file: #file,
                function: #function,
@@ -32,7 +32,7 @@ public func applicationElement(forProcessID pid: pid_t) -> Element? {
                      line: #line)
         return nil
     }
-    let appElement = AXUIElementCreateApplication(pid)
+    let appElement = AXUIElement.application(pid: pid)
     axDebugLog("applicationElement: Created application element for PID \(pid).",
                file: #file,
                function: #function,
@@ -47,5 +47,29 @@ public func systemWideElement() -> Element {
                file: #file,
                function: #function,
                line: #line)
-    return Element(AXUIElementCreateSystemWide())
+    return Element(AXUIElement.systemWide)
+}
+
+// Additional convenience factories using new static helpers
+/**
+ Returns the accessibility element for the currently focused application.
+ */
+@MainActor
+public func focusedApplicationElement() -> Element? {
+    do {
+        let focusedAppAXUIElement = try AXUIElement.focusedApplication()
+        return Element(focusedAppAXUIElement)
+    } catch {
+        axDebugLog("Could not get focused application element: \(error.localizedDescription)")
+        return nil
+    }
+}
+
+@MainActor
+public func frontmostApplicationElement() -> Element? {
+    guard let frontmostApp = AXUIElement.frontmostApplication() else {
+        axDebugLog("No frontmost application found.")
+        return nil
+    }
+    return Element(frontmostApp)
 }

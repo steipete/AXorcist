@@ -69,7 +69,6 @@ extension Element {
     private func collectAlternativeChildren(collector: inout ChildCollector) {
         let alternativeAttributes: [String] = [
             AXAttributeNames.kAXVisibleChildrenAttribute, AXAttributeNames.kAXWebAreaChildrenAttribute,
-            AXAttributeNames.kAXARIADOMChildrenAttribute, AXAttributeNames.kAXDOMChildrenAttribute,
             AXAttributeNames.kAXApplicationNavigationAttribute, AXAttributeNames.kAXApplicationElementsAttribute,
             AXAttributeNames.kAXBodyAreaAttribute, AXAttributeNames.kAXSplitGroupContentsAttribute,
             AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
@@ -106,7 +105,7 @@ extension Element {
     @MainActor
     private func collectApplicationWindows(collector: inout ChildCollector) {
         // self.role() now uses GlobalAXLogger and is assumed refactored
-        if self.role() == AXRoleNames.kAXApplicationRole as String {
+        if self.role() == AXRoleNames.kAXApplicationRole {
             axDebugLog("Element is AXApplication. Trying kAXWindowsAttribute.")
             // self.attribute() for .windows, assumed refactored
             if let windowElementsUI: [AXUIElement] = attribute(.windows) {

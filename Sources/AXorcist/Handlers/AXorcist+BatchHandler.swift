@@ -39,7 +39,7 @@ extension AXorcist {
         axDebugLog("[AXorcist.handleBatchCommands][SubCmdID: \(subCmdID)] Processing sub-command: \(subCmdID), type: \(subCommandEnvelope.command)")
 
         // Log operation details
-        axDebugLog("[AXorcist.handleBatchCommands] Processing sub-command: \(subCmdID) for app: \(subCommandEnvelope.application ?? self.focusedAppKeyValue)")
+        axDebugLog("[AXorcist.handleBatchCommands] Processing sub-command: \(subCmdID) for app: \(subCommandEnvelope.application ?? AXMiscConstants.focusedApplicationKey)")
 
         switch subCommandEnvelope.command {
         case .getFocusedElement:

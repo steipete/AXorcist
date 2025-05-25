@@ -50,7 +50,7 @@ struct ValueUnwrapper {
         _ value: CFTypeRef
     ) -> Any? {
         let axVal = value as! AXValue
-        let axValueType = AXValueGetType(axVal)
+        let axValueType = axVal.valueType
 
         // Handle special boolean type
         if axValueType.rawValue == 4 { // kAXValueBooleanType (private)
@@ -59,37 +59,9 @@ struct ValueUnwrapper {
                 return boolResult.boolValue
             }
         }
-        return unwrapAXValueByType(axVal, axValueType: axValueType)
-    }
 
-    @MainActor
-    private static func unwrapAXValueByType(
-        _ axVal: AXValue,
-        axValueType: AXValueType
-    ) -> Any? {
-        switch axValueType {
-        case .cgPoint:
-            var point = CGPoint.zero
-            return AXValueGetValue(axVal, .cgPoint, &point) ? point : nil
-        case .cgSize:
-            var size = CGSize.zero
-            return AXValueGetValue(axVal, .cgSize, &size) ? size : nil
-        case .cgRect:
-            var rect = CGRect.zero
-            return AXValueGetValue(axVal, .cgRect, &rect) ? rect : nil
-        case .cfRange:
-            var cfRange = CFRange()
-            return AXValueGetValue(axVal, .cfRange, &cfRange) ? cfRange : nil
-        case .axError:
-            var axErrorValue: AXError = .success
-            return AXValueGetValue(axVal, .axError, &axErrorValue) ? axErrorValue : nil
-        case .illegal:
-            axDebugLog("Encountered AXValue with type .illegal")
-            return nil
-        @unknown default:
-            axDebugLog("AXValue with unhandled AXValueType: \(axValueType.rawValue).")
-            return axVal
-        }
+        // Use new AXValue extensions for cleaner unwrapping
+        return axVal.value()
     }
 
     @MainActor

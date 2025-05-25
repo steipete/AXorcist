@@ -11,32 +11,37 @@ import Foundation
 
 public class AXorcist {
 
-    let focusedAppKeyValue = "focused"
+    // let focusedAppKeyValue = "focused" // Replaced by AXMiscConstants.focusedApplicationKey
     // Removed recursiveCallDebugLogs, as GlobalAXLogger handles accumulation
 
     // MARK: - Focus Tracking State (used by AXorcist+FocusTracking.swift)
     internal var focusTrackingObserver: AXObserver?
     internal var focusTrackingPID: pid_t = 0
     internal var focusTrackingCallback: AXFocusChangeCallback?
+    internal var focusedUIElementToken: AXObserverCenter.SubscriptionToken?
+    internal var focusedWindowToken: AXObserverCenter.SubscriptionToken?
+    internal var systemWideFocusToken: AXObserverCenter.SubscriptionToken? // For system-wide tracking
 
     // Default values for collection and search if not provided by the command
-    public static let defaultMaxDepthCollectAll = 7 // Default recursion depth for collectAll
-    public static let defaultMaxDepthSearch = 15 // Default recursion depth for search operations
-    public static let defaultMaxDepthPathResolution = 15 // Max depth for resolving path hints
-    public static let defaultMaxDepthDescribe = 5 // ADDED: Default for description recursion
-    public static let defaultTimeoutPerElementCollectAll = 0.5 // seconds
+    // These are now primarily defined in AXMiscConstants and can be referenced from there.
+    // Public static let defaultMaxDepthCollectAll = AXMiscConstants.defaultMaxDepthCollectAll
+    // Public static let defaultMaxDepthSearch = AXMiscConstants.defaultMaxDepthSearch
+    // Public static let defaultMaxDepthPathResolution = AXMiscConstants.defaultMaxDepthPathResolution
+    // Public static let defaultMaxDepthDescribe = AXMiscConstants.defaultMaxDepthDescribe
+    // Public static let defaultTimeoutPerElementCollectAll = AXMiscConstants.defaultTimeoutPerElementCollectAll
 
     // Default attributes to fetch if none are specified by the command.
+    // This can also be moved to AXMiscConstants if it's a shared default, or kept here if specific to AXorcist class logic.
     public static let defaultAttributesToFetch: [String] = [
-        "AXRole",
-        "AXTitle",
-        "AXSubrole",
-        "AXIdentifier",
-        "AXDescription",
-        "AXValue",
-        "AXSelectedText",
-        "AXEnabled",
-        "AXFocused"
+        AXAttributeNames.kAXRoleAttribute,
+        AXAttributeNames.kAXTitleAttribute,
+        AXAttributeNames.kAXSubroleAttribute,
+        AXAttributeNames.kAXIdentifierAttribute,
+        AXAttributeNames.kAXDescriptionAttribute,
+        AXAttributeNames.kAXValueAttribute,
+        AXAttributeNames.kAXSelectedTextAttribute,
+        AXAttributeNames.kAXEnabledAttribute,
+        AXAttributeNames.kAXFocusedAttribute
     ]
 
     public init() {

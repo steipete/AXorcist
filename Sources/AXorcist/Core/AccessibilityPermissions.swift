@@ -29,21 +29,22 @@ public struct AXPermissionsStatus {
 
 @MainActor
 public func checkAccessibilityPermissions(promptIfNeeded: Bool = true) throws {
-    let key = kAXTrustedCheckOptionPrompt.takeUnretainedValue() // Capture on MainActor
-    let trustedOptions = promptIfNeeded ? [key: kCFBooleanTrue] as CFDictionary : nil
+    let hasPermissions = promptIfNeeded ?
+        AXPermissionHelpers.askForAccessibilityIfNeeded() :
+        AXPermissionHelpers.hasAccessibilityPermissions()
 
-    if !AXIsProcessTrustedWithOptions(trustedOptions) {
+    if !hasPermissions {
         let parentName = getParentProcessName()
         let errorDetail = parentName != nil ? "Hint: Grant accessibility permissions to \(parentName!)." :
             "Hint: Ensure the application running this tool has Accessibility permissions."
-        axErrorLog("Accessibility check failed (AXIsProcessTrustedWithOptions returned false). Details: \(errorDetail)",
+        axErrorLog("Accessibility check failed. Details: \(errorDetail)",
                    file: #file,
                    function: #function,
                    line: #line
         )
         throw AccessibilityError.notAuthorized(errorDetail)
     } else {
-        axDebugLog("Accessibility permissions are granted (AXIsProcessTrustedWithOptions returned true).",
+        axDebugLog("Accessibility permissions are granted.",
                    file: #file,
                    function: #function,
                    line: #line
@@ -61,7 +62,12 @@ public func getPermissionsStatus(
                line: #line
     )
 
-    let isProcessTrusted = AXIsProcessTrusted()
+    let isProcessTrusted = AXPermissionHelpers.hasAccessibilityPermissions()
+    let isSandboxed = AXPermissionHelpers.isSandboxed()
+
+    if isSandboxed {
+        axWarningLog("Process is running in sandbox, some features may be limited.")
+    }
 
     logProcessTrustStatus(isProcessTrusted)
 

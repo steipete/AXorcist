@@ -34,16 +34,16 @@ extension Element {
             let parentElement = element.parent()
             let parentRole = parentElement?.role()
 
-            if role == AXRoleNames.kAXApplicationRole as String ||
-                (role == AXRoleNames.kAXWindowRole as String && parentRole == AXRoleNames.kAXApplicationRole as String && ancestor == nil) {
-                let logMessage2 = "Stopping at \(role == AXRoleNames.kAXApplicationRole as String ? "Application" : "Window under App"): \(briefDesc)"
+            if role == AXRoleNames.kAXApplicationRole ||
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
+                let logMessage2 = "Stopping at \(role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)"
                 axDebugLog(logMessage2)
                 break
             }
 
             currentElement = parentElement
             depth += 1
-            if currentElement == nil && role != AXRoleNames.kAXApplicationRole as String {
+            if currentElement == nil && role != AXRoleNames.kAXApplicationRole {
                 let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
                 axWarningLog("Unexpected orphan in path generation: \(orphanLog)") // Changed to warning
                 pathComponents.append(orphanLog)
@@ -84,16 +84,16 @@ extension Element {
             let parentElement = element.parent()
             let parentRole = parentElement?.role()
 
-            if role == AXRoleNames.kAXApplicationRole as String ||
-                (role == AXRoleNames.kAXWindowRole as String && parentRole == AXRoleNames.kAXApplicationRole as String && ancestor == nil) {
-                let logMessage4 = "Stopping at \(role == AXRoleNames.kAXApplicationRole as String ? "Application" : "Window under App"): \(briefDesc)"
+            if role == AXRoleNames.kAXApplicationRole ||
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
+                let logMessage4 = "Stopping at \(role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"): \(briefDesc)"
                 axDebugLog(logMessage4)
                 break
             }
 
             currentElement = parentElement
             depth += 1
-            if currentElement == nil && role != AXRoleNames.kAXApplicationRole as String {
+            if currentElement == nil && role != AXRoleNames.kAXApplicationRole {
                 let orphanLog = "< Orphaned element path component: \(briefDesc) (role: \(role ?? "nil")) >"
                 axWarningLog("Unexpected orphan in path generation: \(orphanLog)")
                 pathComponents.append(orphanLog)

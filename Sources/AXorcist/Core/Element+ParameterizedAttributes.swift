@@ -95,3 +95,49 @@ extension Element {
         return nil
     }
 }
+
+// MARK: - Specific Parameterized Attribute Accessors
+extension Element {
+    @MainActor
+    public func string(forRange range: CFRange) -> String? {
+        return parameterizedAttribute(.stringForRangeParameterized, forParameter: range)
+    }
+
+    @MainActor
+    public func range(forLine line: Int) -> CFRange? {
+        return parameterizedAttribute(.rangeForLineParameterized, forParameter: NSNumber(value: line))
+    }
+
+    @MainActor
+    public func bounds(forRange range: CFRange) -> CGRect? {
+        // The underlying attribute returns AXValueRef holding CGRect
+        // The generic parameterizedAttribute should handle unwrapping if T is CGRect
+        return parameterizedAttribute(.boundsForRangeParameterized, forParameter: range)
+    }
+
+    @MainActor
+    public func line(forIndex index: Int) -> Int? {
+        return parameterizedAttribute(.lineForIndexParameterized, forParameter: NSNumber(value: index))
+    }
+
+    @MainActor
+    public func attributedString(forRange range: CFRange) -> NSAttributedString? {
+        return parameterizedAttribute(.attributedStringForRangeParameterized, forParameter: range)
+    }
+
+    @MainActor
+    public func cell(forColumn column: Int, row: Int) -> Element? {
+        // Parameter for AXCellForColumnAndRowParameterized is an array of two NSNumbers: [col, row]
+        let params = [NSNumber(value: column), NSNumber(value: row)]
+        guard let axUIElement: AXUIElement = parameterizedAttribute(.cellForColumnAndRowParameterized, forParameter: params) else {
+            return nil
+        }
+        return Element(axUIElement)
+    }
+
+    @MainActor
+    public func actionDescription(_ actionName: String) -> String? {
+        // kAXActionDescriptionAttribute is already Attribute<String>.actionDescription
+        return parameterizedAttribute(.actionDescription, forParameter: actionName)
+    }
+}

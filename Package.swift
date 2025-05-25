@@ -23,8 +23,7 @@ let package = Package(
             path: "Sources",
             exclude: ["axorc"],
             sources: [
-                "AXorcist", 
-                "AXpector"
+                "AXorcist"
             ]
         ),
         .executableTarget(

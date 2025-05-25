@@ -155,7 +155,6 @@ func testGetAttributesForTextEditApplication() async throws {
         )
 
     }
-}
 
 @Test("Query for TextEdit Text Area")
 @MainActor
@@ -221,7 +220,6 @@ func testQueryForTextEditTextArea() async throws {
         )
 
     }
-}
 
 @Test("Describe TextEdit Text Area")
 @MainActor
@@ -296,7 +294,6 @@ func testDescribeTextEditTextArea() async throws {
         )
 
     }
-}
 
 // MARK: - Helper Functions
 

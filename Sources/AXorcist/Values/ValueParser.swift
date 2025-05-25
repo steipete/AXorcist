@@ -55,7 +55,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
                    function: #function,
                    line: #line
         )
-        throw AccessibilityError.attributeNotReadable("Could not read current value for attribute '\(attributeName)' to determine type.")
+        throw AccessibilityError.attributeNotReadable(attribute: attributeName, elementDescription: element.briefDescription())
     }
 
     let typeID = CFGetTypeID(currentRawValue)
@@ -92,7 +92,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as Double or Int for CFNumber attribute '\(attributeName)'")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as Double or Int for CFNumber attribute '\(attributeName)'", attribute: attributeName)
         }
     } else if typeID == CFBooleanGetTypeID() {
         axDebugLog("Attribute '\(attributeName)' is CFBoolean. Attempting to parse stringValue as Bool.",
@@ -110,7 +110,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as Bool (true/false) for CFBoolean attribute '\(attributeName)'")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as Bool (true/false) for CFBoolean attribute '\(attributeName)'", attribute: attributeName)
         }
     }
 
@@ -120,7 +120,7 @@ public func createCFTypeRefFromString(stringValue: String, forElement element: E
                function: #function,
                line: #line
     )
-    throw AccessibilityError.attributeUnsupported("Setting attribute '\(attributeName)' of CFTypeID \(typeID) (\(typeDescription)) from string is not supported yet.")
+    throw AccessibilityError.attributeUnsupported(attribute: "Setting attribute '\(attributeName)' of CFTypeID \(typeID) (\(typeDescription)) from string is not supported yet.", elementDescription: element.briefDescription())
 }
 
 @MainActor
@@ -141,14 +141,14 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
                    function: #function,
                    line: #line
         )
-        throw AccessibilityError.attributeUnsupported("Cannot parse value for AXValueType .illegal")
+        throw AccessibilityError.attributeUnsupported(attribute: "AXValueType.illegal", elementDescription: nil)
     case .axError:
         axErrorLog("parseStringToAXValue: Attempted to parse for .axError AXValueType.",
                    file: #file,
                    function: #function,
                    line: #line
         )
-        throw AccessibilityError.attributeUnsupported("Cannot set an attribute of AXValueType .axError")
+        throw AccessibilityError.attributeUnsupported(attribute: "AXValueType.axError", elementDescription: nil)
     default:
         valueRef = try parseDefaultAXValueType(from: stringValue, targetType: targetAXValueType)
     }
@@ -159,7 +159,7 @@ private func parseStringToAXValue(stringValue: String, targetAXValueType: AXValu
                    function: #function,
                    line: #line
         )
-        throw AccessibilityError.valueParsingFailed(details: "AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'")
+        throw AccessibilityError.valueParsingFailed(details: "AXValueCreate failed for type \(stringFromAXValueType(targetAXValueType)) with input '\(stringValue)'", attribute: stringFromAXValueType(targetAXValueType))
     }
     return valueRef
 }
@@ -191,7 +191,7 @@ private func parseCGPoint(from stringValue: String) throws -> AXValue? {
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGPoint. Expected format like 'x=10,y=20' or '10,20'.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGPoint. Expected format like 'x=10,y=20' or '10,20'.", attribute: "CGPoint")
         }
     }
     var point = CGPoint(x: xCoord, y: yCoord)
@@ -223,7 +223,7 @@ private func parseCGSize(from stringValue: String) throws -> AXValue? {
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGSize. Expected format like 'w=100,h=50' or '100,50'.", attribute: "CGSize")
         }
     }
     var size = CGSize(width: widthValue, height: heightValue)
@@ -263,7 +263,7 @@ private func parseCGRect(from stringValue: String) throws -> AXValue? {
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGRect. Expected format like 'x=0,y=0,w=100,h=50' or '0,0,100,50'.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CGRect. Expected format like 'x=0,y=0,w=100,h=50' or '0,0,100,50'.", attribute: "CGRect")
         }
     }
     var rect = CGRect(x: xCoord, y: yCoord, width: width, height: height)
@@ -296,7 +296,7 @@ private func parseCFRange(from stringValue: String) throws -> AXValue? {
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CFRange. Expected format like 'loc=0,len=10' or '0,10'.")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' into CFRange. Expected format like 'loc=0,len=10' or '0,10'.", attribute: "CFRange")
         }
     }
     var range = CFRangeMake(loc, len)
@@ -318,7 +318,7 @@ private func parseDefaultAXValueType(from stringValue: String, targetType: AXVal
                          function: #function,
                          line: #line
             )
-            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValueType \(targetType.rawValue)")
+            throw AccessibilityError.valueParsingFailed(details: "Could not parse '\(stringValue)' as boolean for AXValueType \(targetType.rawValue)", attribute: stringFromAXValueType(targetType))
         }
         // return AXValueCreate(targetType, &boolVal) // This depends on AXValueCreate supporting this targetType with DarwinBoolean
         axWarningLog("parseDefaultAXValueType: AXValueCreate with DarwinBoolean for targetType \(targetType.rawValue) is not standard/supported.",
@@ -337,7 +337,7 @@ private func parseDefaultAXValueType(from stringValue: String, targetType: AXVal
         function: #function,
         line: #line
     )
-    throw AccessibilityError.attributeUnsupported("Parsing string to AXValue of type \(stringFromAXValueType(targetType)) is not supported.")
+    throw AccessibilityError.attributeUnsupported(attribute: "Parsing string to AXValue of type \(stringFromAXValueType(targetType))", elementDescription: nil)
 }
 
 // stringFromAXValueType is now defined in ValueHelpers.swift

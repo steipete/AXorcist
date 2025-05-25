@@ -12,9 +12,13 @@ import Foundation
 @MainActor
 public func copyAttributeValue(element: AXUIElement, attribute: String) -> CFTypeRef? {
     var value: CFTypeRef?
-    // This function is low-level, avoid extensive logging here unless specifically for this function.
-    // Logging for attribute success/failure is better handled by the caller (axValue).
-    guard AXUIElementCopyAttributeValue(element, attribute as CFString, &value) == .success else {
+    let error = AXUIElementCopyAttributeValue(element, attribute as CFString, &value)
+
+    // Use new error extension for cleaner error checking
+    if error != .success {
+        if error != .noValue && error != .attributeUnsupported {
+            axDebugLog("Error copying attribute '\(attribute)': \(error.rawValue)")
+        }
         return nil
     }
     return value

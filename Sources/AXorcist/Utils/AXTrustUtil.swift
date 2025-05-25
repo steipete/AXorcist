@@ -27,7 +27,7 @@ public enum AXTrustUtil {
         let settingsURLString:
             // macOS 13 Ventura and later
             String = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-        
+
         // Fallback for older macOS versions if needed, though less common now.
         // else {
         //    settingsURLString = "com.apple.preference.security?Privacy_Accessibility"

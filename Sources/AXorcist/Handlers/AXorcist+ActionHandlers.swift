@@ -104,7 +104,7 @@ extension AXorcist {
         pathHint: [PathHintComponent]? = nil,
         maxDepth: Int? = nil
     ) async -> HandlerResponse {
-        let logMessage2 = "handlePerformAction: App=\(application ?? "focused"), Locator=\(locator), Action=\(actionName), Value=\(String(describing: actionValue))"
+        let logMessage2 = "handlePerformAction: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator), Action=\(actionName), Value=\(String(describing: actionValue))"
         axInfoLog(logMessage2)
 
         // Determine search depth
@@ -171,7 +171,7 @@ extension AXorcist {
         pathHint: [PathHintComponent]? = nil,
         maxDepth: Int? = nil
     ) async -> HandlerResponse {
-        let logMessage3 = "handleExtractText: App=\(application ?? "focused"), Locator=\(locator)"
+        let logMessage3 = "handleExtractText: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator)"
         axInfoLog(logMessage3)
 
         // Determine search depth
@@ -187,8 +187,7 @@ extension AXorcist {
 
         let targetElement: Element
         // We might need appElement for path generation later, let's try to get it
-        let appElementInstance = applicationElement(for: application ?? focusedAppKeyValue)
-
+        let appElementInstance = applicationElement(for: application ?? AXMiscConstants.focusedApplicationKey)
 
         switch findResult {
         case .success(let foundEl):
@@ -200,7 +199,7 @@ extension AXorcist {
         }
 
         guard appElementInstance != nil else {
-            let appNameToLog = application ?? "focused"
+            let appNameToLog = application ?? AXMiscConstants.focusedApplicationKey
             let errorMsg = "Could not get application element for path generation in handleExtractText for appKey: \(appNameToLog)."
             axErrorLog(errorMsg)
             // Return nil for textContent as part of TextExtractionResponse, not in HandlerResponse.error
@@ -211,7 +210,7 @@ extension AXorcist {
         var allTextValues: [String] = []
         if let title: String = targetElement.attribute(.title) { allTextValues.append(title) }
         if let desc: String = targetElement.attribute(.description) { allTextValues.append(desc) }
-        if let valAny = targetElement.attribute(.value), let valStr = valAny as? String { allTextValues.append(valStr) }
+        if let valStr: String = targetElement.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { allTextValues.append(valStr) }
         if let selectedText: String = targetElement.attribute(.selectedText) { allTextValues.append(selectedText) }
         if let placeholder: String = targetElement.attribute(.placeholderValue) { allTextValues.append(placeholder) }
 

@@ -88,7 +88,7 @@ extension AXorcist {
             requestedAttributes: requestedAttributes,
             outputFormat: outputFormat,
             commandId: commandId,
-            focusedAppKey: focusedAppKeyValue
+            focusedAppKey: AXMiscConstants.focusedApplicationKey
         )
 
         logCollectAllStart(params)

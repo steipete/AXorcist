@@ -19,17 +19,21 @@ public enum AccessibilityError: Error, CustomStringConvertible {
     case elementNotFound(String?) // Element matching criteria or path not found. Optional message.
     case invalidElement // The AXUIElementRef is invalid or stale.
 
+    // Observer Errors (New cases)
+    case observerSetupFailed(details: String) // Failed to setup AXObserver
+    case tokenNotFound(tokenId: UUID) // Subscription token not found
+
     // Attribute Errors
-    case attributeUnsupported(String) // Attribute is not supported by the element.
-    case attributeNotReadable(String) // Attribute value cannot be read.
-    case attributeNotSettable(String) // Attribute is not settable.
-    case typeMismatch(expected: String, actual: String) // Value type does not match attribute's expected type.
-    case valueParsingFailed(details: String) // Failed to parse string into the required type for an attribute.
-    case valueNotAXValue(String) // Value is not an AXValue type when one is expected.
+    case attributeUnsupported(attribute: String, elementDescription: String?) // Attribute is not supported by the element.
+    case attributeNotReadable(attribute: String, elementDescription: String?) // Attribute value cannot be read.
+    case attributeNotSettable(attribute: String, elementDescription: String?) // Attribute is not settable.
+    case typeMismatch(expected: String, actual: String, attribute: String?) // Value type does not match attribute's expected type.
+    case valueParsingFailed(details: String, attribute: String?) // Failed to parse string into the required type for an attribute.
+    case valueNotAXValue(attribute: String, elementDescription: String?) // Value is not an AXValue type when one is expected.
 
     // Action Errors
-    case actionUnsupported(String) // Action is not supported by the element.
-    case actionFailed(String?, AXError?) // Action failed. Optional message and AXError.
+    case actionUnsupported(action: String, elementDescription: String?) // Action is not supported by the element.
+    case actionFailed(action: String, elementDescription: String?, underlyingError: AXError?) // Action failed. Optional message and AXError.
 
     // Generic & System Errors
     case unknownAXError(AXError) // An unknown or unexpected AXError occurred.
@@ -62,20 +66,45 @@ public enum AccessibilityError: Error, CustomStringConvertible {
             return base
         case .invalidElement: return "The specified UI element is invalid (possibly stale)."
 
+        // Observer Errors
+        case .observerSetupFailed(let details): return "AXObserver setup failed: \(details)."
+        case .tokenNotFound(let tokenId): return "Subscription token ID \(tokenId) not found."
+
         // Attribute Errors
-        case .attributeUnsupported(let attr): return "Attribute '\(attr)' is not supported by this element."
-        case .attributeNotReadable(let attr): return "Attribute '\(attr)' is not readable."
-        case .attributeNotSettable(let attr): return "Attribute '\(attr)' is not settable."
-        case let .typeMismatch(expected, actual): return "Type mismatch: Expected '\(expected)', got '\(actual)'."
-        case .valueParsingFailed(let details): return "Value parsing failed: \(details)."
-        case .valueNotAXValue(let attr): return "Value for attribute '\(attr)' is not an AXValue type as expected."
+        case .attributeUnsupported(let attr, let elDesc):
+            let base = "Attribute '\(attr)' is not supported"
+            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            return "\(base)."
+        case .attributeNotReadable(let attr, let elDesc):
+            let base = "Attribute '\(attr)' is not readable"
+            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            return "\(base)."
+        case .attributeNotSettable(let attr, let elDesc):
+            let base = "Attribute '\(attr)' is not settable"
+            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            return "\(base)."
+        case let .typeMismatch(expected, actual, attribute):
+            var msg = "Type mismatch: Expected '\(expected)', got '\(actual)'"
+            if let attr = attribute { msg += " for attribute '\(attr)'" }
+            return msg + "."
+        case .valueParsingFailed(let details, let attribute):
+            var msg = "Value parsing failed: \(details)"
+            if let attr = attribute { msg += " for attribute '\(attr)'" }
+            return msg + "."
+        case .valueNotAXValue(let attr, let elDesc):
+            let base = "Value for attribute '\(attr)' is not an AXValue type as expected"
+            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            return "\(base)."
 
         // Action Errors
-        case .actionUnsupported(let action): return "Action '\(action)' is not supported by this element."
-        case let .actionFailed(msg, axErr):
-            var parts: [String] = ["Action failed."]
-            if let message = msg { parts.append(message) }
-            if let error = axErr { parts.append("AXError: \(error).") }
+        case .actionUnsupported(let action, let elDesc):
+            let base = "Action '\(action)' is not supported"
+            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            return "\(base)."
+        case let .actionFailed(action, elDesc, axErr):
+            var parts: [String] = ["Action '\(action)' failed."]
+            if let desc = elDesc { parts.append("On element: '\(desc)'.") }
+            if let error = axErr { parts.append("AXError: \(axErrorToString(error)).") }
             return parts.joined(separator: " ")
 
         // Generic & System
@@ -104,6 +133,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .actionUnsupported, .actionFailed: return 50
         case .jsonEncodingFailed, .jsonDecodingFailed: return 60
         case .unknownAXError, .genericError: return 1
+        case .observerSetupFailed, .tokenNotFound: return 70
         }
     }
 }

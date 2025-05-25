@@ -14,7 +14,7 @@ extension AXorcist {
         for appIdentifierOrNil: String? = nil,
         requestedAttributes: [String]? = nil
     ) -> HandlerResponse {
-        let appIdentifier = appIdentifierOrNil ?? focusedAppKeyValue
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey // Corrected: Use AXMiscConstants.focusedApplicationKey
         axDebugLog("[AXorcist.handleGetFocusedElement] Handling for app: \(appIdentifier)",
                    file: #file,
                    function: #function,

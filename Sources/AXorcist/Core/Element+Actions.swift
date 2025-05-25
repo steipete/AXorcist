@@ -28,13 +28,10 @@ extension Element {
         axDebugLog("Attempting to perform action '\(actionName.rawValue)' on element: \(descForLog)")
 
         let error = AXUIElementPerformAction(self.underlyingElement, actionName.rawValue as CFString)
-        if error != .success {
-            axErrorLog("Action '\(actionName.rawValue)' failed on element \(descForLog). Error: \(error.rawValue)")
-            throw AccessibilityError.actionFailed(
-                "Action \(actionName.rawValue) failed on element \(descForLog)",
-                error
-            )
-        }
+
+        // Use new error extension
+        try error.throwIfError()
+
         axInfoLog("Successfully performed action '\(actionName.rawValue)' on element: \(descForLog)")
         return self
     }
@@ -46,10 +43,10 @@ extension Element {
         axDebugLog("Attempting to perform action '\(actionName)' on element: \(descForLog)")
 
         let error = AXUIElementPerformAction(self.underlyingElement, actionName as CFString)
-        if error != .success {
-            axErrorLog("Action '\(actionName)' failed on element \(descForLog). Error: \(error.rawValue)")
-            throw AccessibilityError.actionFailed("Action \(actionName) failed on element \(descForLog)", error)
-        }
+
+        // Use new error extension
+        try error.throwIfError()
+
         axInfoLog("Successfully performed action '\(actionName)' on element: \(descForLog)")
         return self
     }
