@@ -345,6 +345,7 @@ public enum AXMiscConstants {
     public static let defaultMaxDepthSearch = 10
     public static let defaultMaxDepthPathResolution = 10
     public static let defaultMaxDepthDescribe = 3
+    public static let defaultMaxElementsToCollect = 1000 // New constant for element collection limit
     public static let defaultTimeoutPerElementCollectAll: TimeInterval = 2.0 // seconds
 
     // String Constants (for default/fallback values)

@@ -20,11 +20,9 @@ let package = Package(
         .target(
             name: "AXorcist",
             dependencies: [],
-            path: "Sources",
-            exclude: ["axorc"],
-            sources: [
-                "AXorcist"
-            ]
+            path: "Sources/AXorcist", // Be very direct about the source path
+            exclude: [],             // Explicitly no excludes
+            sources: nil             // Explicitly let SPM find all sources in the path
         ),
         .executableTarget(
             name: "axorc", // Executable target name

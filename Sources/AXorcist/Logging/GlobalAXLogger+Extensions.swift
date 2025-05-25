@@ -89,6 +89,27 @@ extension GlobalAXLogger {
     public func getLogsAsJSON() async throws -> String {
         return try await getLogEntriesAsJSON()
     }
+
+    public func getLogsAsStringsIfEnabled(
+        format: AXLogOutputFormat,
+        includeTimestamps: Bool = true,
+        includeLevels: Bool = true,
+        includeDetails: Bool = false,
+        includeAppName: Bool = false,
+        includeCommandID: Bool = false
+    ) async -> [String]? {
+        if await self.isLoggingEnabled() {
+            return await self.getLogsAsStrings(
+                format: format,
+                includeTimestamps: includeTimestamps,
+                includeLevels: includeLevels,
+                includeDetails: includeDetails,
+                includeAppName: includeAppName,
+                includeCommandID: includeCommandID
+            )
+        }
+        return nil
+    }
 }
 
 // MARK: - Log Detail Level

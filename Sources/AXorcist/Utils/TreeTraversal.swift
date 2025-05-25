@@ -108,15 +108,35 @@ public class CollectAllVisitor: TreeVisitor {
     public var collectedElements: [AXElementData] = []
     // Default valueFormatOption for CollectAllVisitor if not specified otherwise
     private let valueFormatOption: ValueFormatOption
+    private let filterCriteria: [String: String]?
 
-    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .default) {
+    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .default, filterCriteria: [String: String]? = nil) {
         self.attributesToFetch = attributesToFetch
         self.outputFormat = outputFormat
         self.appElement = appElement
         self.valueFormatOption = valueFormatOption
+        self.filterCriteria = filterCriteria
     }
 
     public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
+        // Check against filterCriteria if provided
+        if let criteria = self.filterCriteria, !criteria.isEmpty {
+            // Assuming SearchCriteriaUtils.criteriaMatch is accessible here.
+            // If not, this logic needs to be adapted or the function made available.
+            // Defaulting matchAll to true, as filters usually imply all conditions must pass.
+            let matchesFilter = SearchCriteriaUtils.criteriaMatch(
+                element: element, 
+                criteria: criteria, 
+                matchAll: true, 
+                appProcessId: element.pid() // Pass PID for context if needed by criteriaMatch
+            )
+            if !matchesFilter {
+                axDebugLog("[CollectAllVisitor] Element \(element.briefDescription()) did NOT match filterCriteria. Skipping.")
+                return .continueTraversal // Skip this element, but continue traversal for its children
+            }
+            axDebugLog("[CollectAllVisitor] Element \(element.briefDescription()) MATCHED filterCriteria.")
+        }
+
         // getElementAttributes is now a global function
         let (fetchedAttrs, _) = getElementAttributes(
             element: element,

@@ -23,5 +23,6 @@ public enum CommandType: String, Codable {
     case ping
     case getElementAtPoint
     case observe
+    case setFocusedValue // New: sets a value on the currently focused element
     // Add future commands here, ensuring case matches JSON or provide explicit raw value
 }

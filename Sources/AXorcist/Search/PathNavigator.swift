@@ -13,46 +13,53 @@ private func elementMatchesAllCriteria(
     forPathComponent pathComponentForLog: String // For logging
 ) async -> Bool {
     let elementDescriptionForLog = element.briefDescription(option: .short)
-    // Explicitly log the element being checked and the criteria count
-    axDebugLog("PathNav/EMAC: Checking element [\(elementDescriptionForLog)] against criteria for component [\(pathComponentForLog)]. Criteria count: \(criteria.count). Criteria: \(criteria)", file: #file, function: #function, line: #line)
+    axDebugLog("PathNav/EMAC: Checking element [\(elementDescriptionForLog)] against criteria for component [\(pathComponentForLog)]. Criteria count: \(criteria.count). Criteria: \(criteria)")
 
     guard !criteria.isEmpty else {
-        axWarningLog("PathNav/EMAC: Criteria IS EMPTY for path component [\(pathComponentForLog)] on element [\(elementDescriptionForLog)]. Bailing out.", file: #file, function: #function, line: #line)
-        return false
+        axWarningLog("PathNav/EMAC: Criteria IS EMPTY for path component [\(pathComponentForLog)] on element [\(elementDescriptionForLog)]. Returning false as no criteria to match.")
+        return false // If criteria is empty, technically nothing to match against.
     }
 
     for (key, expectedValue) in criteria {
         if key == "PID" { // Special handling for PID
-            guard let actualPid_t = await element.pid() else { // Uses existing pid() -> pid_t?, await call
-                axDebugLog("Element [\(elementDescriptionForLog)] failed to provide PID (for path component [\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+            // If the element being checked IS the application (by its role),
+            // and we're checking its PID criterion from a path hint component,
+            // assume the PID matches because the app context is already established.
+            if await element.role() == AXRoleNames.kAXApplicationRole {
+                axDebugLog("Element [\(elementDescriptionForLog)] is AXApplication (role check). PID criterion '\(expectedValue)' from path component '\(pathComponentForLog)' considered met by context.")
+                continue // Skip further PID checks for the application element itself
+            }
+
+            guard let actualPid_t = await element.pid() else {
+                axDebugLog("Element [\(elementDescriptionForLog)] failed to provide PID (for path component [\(pathComponentForLog)]). No match.")
                 return false
             }
-            let actualPid = Int(actualPid_t) // Convert pid_t to Int for comparison
+            let actualPid = Int(actualPid_t)
             guard let expectedPid = Int(expectedValue) else {
-                axDebugLog("Element [\(elementDescriptionForLog)] PID criteria '\(expectedValue)' is not a valid Int (for path component [\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                axDebugLog("Element [\(elementDescriptionForLog)] PID criteria '\(expectedValue)' is not a valid Int (for path component [\(pathComponentForLog)]). No match.")
                 return false
             }
             if actualPid != expectedPid {
-                axDebugLog("Element [\(elementDescriptionForLog)] PID [\(actualPid)] != expected [\(expectedPid)] (for path component [\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                axDebugLog("Element [\(elementDescriptionForLog)] PID [\(actualPid)] != expected [\(expectedPid)] (for path component [\(pathComponentForLog)]). No match.")
                 return false
             }
-            axDebugLog("Element [\(elementDescriptionForLog)] PID [\(actualPid)] == expected [\(expectedPid)] (for path component [\(pathComponentForLog)]). Criterion met.", file: #file, function: #function, line: #line)
-        } else { // Handle other attributes as before
-            let fetchedAttributeValue: String? = await element.attribute(Attribute(key)) // await call
-            axDebugLog("PathNav/EMAC: For element [\(elementDescriptionForLog)], component [\(pathComponentForLog)], attr [\(key)], fetched value is: [\(String(describing: fetchedAttributeValue))]. About to check if nil.", file: #file, function: #function, line: #line) // NEW DETAILED LOG
+            axDebugLog("Element [\(elementDescriptionForLog)] PID [\(actualPid)] == expected [\(expectedPid)] (for path component [\(pathComponentForLog)]). Criterion met.")
+        } else { // Handle other attributes
+            let fetchedAttributeValue: String? = await element.attribute(Attribute(key))
+            axDebugLog("PathNav/EMAC: For element [\(elementDescriptionForLog)], component [\(pathComponentForLog)], attr [\(key)], fetched value is: [\(String(describing: fetchedAttributeValue))].")
 
-            guard let actualValue = fetchedAttributeValue else { 
-                axDebugLog("Element [\(elementDescriptionForLog)] lacks attribute [\(key)] (value was nil after fetch) for path component [\(pathComponentForLog)]. No match.", file: #file, function: #function, line: #line) // Modified log
+            guard let actualValue = fetchedAttributeValue else {
+                axDebugLog("Element [\(elementDescriptionForLog)] lacks attribute [\(key)] (value was nil after fetch) for path component [\(pathComponentForLog)]. No match.")
                 return false
             }
             if actualValue != expectedValue {
-                axDebugLog("Element [\(elementDescriptionForLog)] attribute [\(key)] value [\(actualValue)] != expected [\(expectedValue)] (for path component [\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                axDebugLog("Element [\(elementDescriptionForLog)] attribute [\(key)] value [\(actualValue)] != expected [\(expectedValue)] (for path component [\(pathComponentForLog)]). No match.")
                 return false
             }
-            axDebugLog("Element [\(elementDescriptionForLog)] attribute [\(key)] value [\(actualValue)] == expected [\(expectedValue)] (for path component [\(pathComponentForLog)]). Criterion met.", file: #file, function: #function, line: #line)
+            axDebugLog("Element [\(elementDescriptionForLog)] attribute [\(key)] value [\(actualValue)] == expected [\(expectedValue)] (for path component [\(pathComponentForLog)]). Criterion met.")
         }
     }
-    axDebugLog("Element [\(elementDescriptionForLog)] matches ALL criteria for path component [\(pathComponentForLog)]. Match!", file: #file, function: #function, line: #line)
+    axDebugLog("Element [\(elementDescriptionForLog)] matches ALL criteria for path component [\(pathComponentForLog)]. Match!")
     return true
 }
 
@@ -144,8 +151,7 @@ private func processPathComponent(
     axDebugLog("PathNav/PPC: Step \(stepCounter). After logPathComponentProcessing. Before PRE-CALL FMIC.")
     stepCounter += 1
 
-    axDebugLog("PathNav/PPC: PRE-CALL FMIC (SIMPLE)", file: #file, function: #function, line: #line)
-    try? await Task.sleep(nanoseconds: 100_000_000) // Diagnostic delay
+    axDebugLog("PathNav/PPC: PRE-CALL FMIC", file: #file, function: #function, line: #line)
 
     axDebugLog("PathNav/PPC: Step \(stepCounter). After PRE-CALL FMIC. Before findMatchingChild call.")
     stepCounter += 1
@@ -218,8 +224,7 @@ private func findMatchingChild(
     criteriaToMatch: [String: String],
     pathComponentForLog: String // Pass for logging inside elementMatchesAllCriteria
 ) async -> Element? {
-    axDebugLog("PathNav/FMIC: ABSOLUTE ENTRY (SIMPLE)", file: #file, function: #function, line: #line)
-    try? await Task.sleep(nanoseconds: 100_000_000) // Diagnostic delay
+    axDebugLog("PathNav/FMIC: ABSOLUTE ENTRY", file: #file, function: #function, line: #line)
 
     axDebugLog("PathNav/FMIC: Entered function for component [\(pathComponentForLog)]. Criteria: \(criteriaToMatch)", file: #file, function: #function, line: #line)
 

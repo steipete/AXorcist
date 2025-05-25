@@ -266,7 +266,7 @@ public struct CollectAllOutput: Codable {
     public let commandId: String
     public let success: Bool
     public let command: String
-    public let collectedElements: [AXElement]
+    public let collectedElements: [AXElementData]
     public let appBundleId: String?
     public let debugLogs: [String]?
     public let errorMessage: String?

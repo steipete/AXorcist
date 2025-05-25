@@ -10,7 +10,7 @@ public struct CommandEnvelope: Codable {
     public let application: String?
     public let attributes: [String]?
     public let payload: [String: String]? // For ping compatibility
-    public let debugLogging: Bool?
+    public let debugLogging: Bool
     public let locator: Locator? // Locator from this file
     public let pathHint: [String]?
     public let maxElements: Int?
@@ -26,6 +26,9 @@ public struct CommandEnvelope: Codable {
     public let notifications: [String]?
     public let includeElementDetails: [String]?
     public let watchChildren: Bool?
+
+    // New field for collectAll filtering
+    public let filterCriteria: [String: String]?
 
     enum CodingKeys: String, CodingKey {
         case commandId
@@ -48,6 +51,8 @@ public struct CommandEnvelope: Codable {
         case notifications
         case includeElementDetails
         case watchChildren
+        // CodingKey for new field
+        case filterCriteria
     }
 
     // Added a public initializer for convenience, matching fields.
@@ -56,7 +61,7 @@ public struct CommandEnvelope: Codable {
                 application: String? = nil,
                 attributes: [String]? = nil,
                 payload: [String: String]? = nil,
-                debugLogging: Bool? = nil,
+                debugLogging: Bool = false,
                 locator: Locator? = nil,
                 pathHint: [String]? = nil,
                 maxElements: Int? = nil,
@@ -70,7 +75,9 @@ public struct CommandEnvelope: Codable {
                 // Init parameters for observe
                 notifications: [String]? = nil,
                 includeElementDetails: [String]? = nil,
-                watchChildren: Bool? = nil
+                watchChildren: Bool? = nil,
+                // Init parameter for new field
+                filterCriteria: [String: String]? = nil
     ) {
         self.commandId = commandId
         self.command = command
@@ -92,6 +99,8 @@ public struct CommandEnvelope: Codable {
         self.notifications = notifications
         self.includeElementDetails = includeElementDetails
         self.watchChildren = watchChildren
+        // Assignment for new field
+        self.filterCriteria = filterCriteria
     }
 }
 
@@ -100,6 +109,7 @@ public struct Locator: Codable {
     public var matchAll: Bool?
     public var criteria: [String: String]
     public var rootElementPathHint: [String]?
+    public var descendantCriteria: [String: String]?
     public var requireAction: String?
     public var computedNameContains: String?
 
@@ -107,6 +117,7 @@ public struct Locator: Codable {
         case matchAll
         case criteria
         case rootElementPathHint
+        case descendantCriteria
         case requireAction
         case computedNameContains
     }
@@ -115,12 +126,14 @@ public struct Locator: Codable {
         matchAll: Bool? = nil,
         criteria: [String: String] = [:],
         rootElementPathHint: [String]? = nil,
+        descendantCriteria: [String: String]? = nil,
         requireAction: String? = nil,
         computedNameContains: String? = nil
     ) {
         self.matchAll = matchAll
         self.criteria = criteria
         self.rootElementPathHint = rootElementPathHint
+        self.descendantCriteria = descendantCriteria
         self.requireAction = requireAction
         self.computedNameContains = computedNameContains
     }

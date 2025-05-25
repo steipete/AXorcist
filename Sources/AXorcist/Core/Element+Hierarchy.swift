@@ -13,16 +13,16 @@ extension Element {
 
         var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
-        print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .default))")
+        // print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .default))")
         collectDirectChildren(collector: &childCollector)
-        print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
+        // print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
 
         if !strict { // Only collect alternatives if not strict
         collectAlternativeChildren(collector: &childCollector)
         collectApplicationWindows(collector: &childCollector)
         }
 
-        print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
+        // print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
         let result = childCollector.finalizeResults()
         axDebugLog("Final children count: \(result?.count ?? 0)")
         return result

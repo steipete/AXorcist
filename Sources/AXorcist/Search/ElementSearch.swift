@@ -6,36 +6,146 @@ import Foundation
 
 // PathHintComponent and criteriaMatch are now in SearchCriteriaUtils.swift
 
-// MARK: - Main Search Logic (findElementViaPathAndCriteria and its helpers)
+// MARK: - Main Element Finding Orchestration
+
+/**
+ Unified function to find a target element based on application, locator (criteria and/or path hint).
+ This is the primary entry point for handlers.
+ */
+@MainActor
+public func findTargetElement(
+    for appIdentifierOrNil: String?,
+    locator: Locator,
+    maxDepthForSearch: Int
+) async -> (element: Element?, error: String?) { // Changed return type to match old handlers
+    let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
+    axDebugLog(
+        "[findTargetElement ENTRY] App=\(appIdentifier), Locator: criteria=\(locator.criteria), " +
+        "pathHint=\(locator.rootElementPathHint?.joined(separator: "->") ?? "nil")"
+    )
+
+    guard let appElement = applicationElement(for: appIdentifier) else {
+        let msg = "Application not found: \(appIdentifier)"
+        axErrorLog(msg)
+        return (nil, msg)
+    }
+
+    let pathHintStrings = locator.rootElementPathHint
+    let criteria = locator.criteria
+
+    // Scenario 1: Only pathHint is provided (or criteria are app-specific)
+    let appSpecificCriteriaKeys = ["bundleId", "application", "pid", "path"]
+    let hasOnlyAppSpecificCriteria = criteria.isEmpty || criteria.keys.allSatisfy { appSpecificCriteriaKeys.contains($0) }
+
+    if let hintStrings = pathHintStrings, !hintStrings.isEmpty, hasOnlyAppSpecificCriteria {
+        axDebugLog("findTargetElement: Using pathHint primarily as criteria are app-specific or empty.")
+        let pathComponents = hintStrings.compactMap { PathHintComponent(pathSegment: $0) }
+        if pathComponents.count != hintStrings.count {
+            let msg = "Invalid path hint components provided."
+            axWarningLog(msg)
+            // Fall through to regular search if path hint is malformed but criteria exist
+            if criteria.isEmpty { return (nil, msg) }
+        } else if !pathComponents.isEmpty {
+            if let elementFromPath = /* private */ navigateToElementByPathHint(
+                pathHint: pathComponents,
+                initialSearchElement: appElement,
+                pathHintMaxDepth: pathComponents.count - 1 // Navigate full path
+            ) {
+                axInfoLog("findTargetElement: Found element directly via pathHint: \(elementFromPath.briefDescription())")
+                // If caller specified descendantCriteria, search within the located element.
+                if let descCrit = locator.descendantCriteria, !descCrit.isEmpty {
+                    axDebugLog("findTargetElement: Performing descendantCriteria search within located element. Descendant criteria: \(descCrit)")
+                    var descLocator = Locator(criteria: descCrit)
+                    if let descendant = traverseAndSearch(currentElement: elementFromPath,
+                                                               locator: descLocator,
+                                                               effectiveMaxDepth: maxDepthForSearch) {
+                        return (descendant, nil)
+                    } else {
+                        return (nil, "Descendant element not found matching descendantCriteria: \(descCrit)")
+                    }
+                }
+                return (elementFromPath, nil)
+            } else {
+                let msg = "Element not found via pathHint: \(hintStrings.joined(separator: " -> "))"
+                axWarningLog(msg)
+                return (nil, msg) // Path hint was specified but failed
+            }
+        }
+    }
+
+    // Scenario 2: Criteria are present (potentially with a pathHint to narrow down search root)
+    // findElementViaPathAndCriteria will use pathHint from locator to find searchStartElement,
+    // then apply criteria.
+    axDebugLog("findTargetElement: Proceeding with criteria-based search (pathHint may refine start).")
+    if let foundElement = findElementViaPathAndCriteria(
+        application: appElement,
+        locator: locator, // This locator contains both criteria and potentially rootElementPathHint
+        maxDepth: maxDepthForSearch
+    ) {
+        axInfoLog("findTargetElement: Found element via criteria (and/or path): \(foundElement.briefDescription())")
+        var baseElement = foundElement
+        // Apply descendantCriteria if present
+        if let descCrit = locator.descendantCriteria, !descCrit.isEmpty {
+            axDebugLog("findTargetElement: Performing descendantCriteria search within base element. Descendant criteria: \(descCrit)")
+            let descLoc = Locator(criteria: descCrit)
+            if let descendant = traverseAndSearch(currentElement: baseElement,
+                                                   locator: descLoc,
+                                                   effectiveMaxDepth: maxDepthForSearch) {
+                baseElement = descendant
+            } else {
+                let msg = "Descendant element not found matching descendantCriteria: \(descCrit)"
+                axWarningLog(msg)
+                return (nil, msg)
+            }
+        }
+
+        return (baseElement, nil)
+    } else {
+        let msg = "Element not found matching criteria: \(locator.criteria)"
+        if let hint = locator.rootElementPathHint, !hint.isEmpty {
+            axWarningLog("\(msg) (path hint was: \(hint.joined(separator: " -> ")))")
+        } else {
+            axWarningLog(msg)
+        }
+        return (nil, msg)
+    }
+}
+
+// MARK: - Core Search Logic (findElementViaPathAndCriteria and its helpers)
 
 @MainActor
-private func navigateToElementByPathHint(
+/* private -> internal */ internal func navigateToElementByPathHint(
     pathHint: [PathHintComponent],
     initialSearchElement: Element,
-    pathHintMaxDepth: Int
+    pathHintMaxDepth: Int // Max depth for THIS path navigation segment
 ) -> Element? {
     var currentElementInPath = initialSearchElement
     axDebugLog(
         "PathHintNav: Starting with \(pathHint.count) components from " +
-            "\(initialSearchElement.briefDescription())"
+            "\(initialSearchElement.briefDescription()), maxNavDepth: \(pathHintMaxDepth)"
     )
 
     for (index, pathComponent) in pathHint.enumerated() {
-        let currentNavigationDepth = index
+        if index > pathHintMaxDepth { // Respect max depth for this navigation
+            axDebugLog("PathHintNav: Max navigation depth (\(pathHintMaxDepth)) reached at component #\(index).")
+            return currentElementInPath // Return what we have so far
+        }
+        
         let criteriaDesc = pathComponent.criteria.map { "\($0.key):\($0.value)" }.joined(separator: ", ")
         axDebugLog(
-            "PathHintNav: Visiting comp #\(index), Depth:\(currentNavigationDepth), " +
+            "PathHintNav: Visiting comp #\(index), Depth:\(index), " +
                 "Elem:\(currentElementInPath.briefDescription(option: .short)), " +
-                "Crit:\(criteriaDesc), MaxD:\(pathHintMaxDepth)"
+                "Crit:\(criteriaDesc))"
         )
 
+        // Check if the current element in path matches the current path component
+        // This logic was a bit off. The component should match the *current* element, not its children.
         if !pathComponent.matches(element: currentElementInPath) {
             axDebugLog(
-                "PathHintNav: No match for comp #\(index), " +
-                    "Elem:\(currentElementInPath.briefDescription(option: .short)), " +
-                    "Crit:\(criteriaDesc))"
+                "PathHintNav: Current element \(currentElementInPath.briefDescription(option: .short)) " +
+                "does NOT match comp #\(index) Crit:\(criteriaDesc))"
             )
-            return nil
+            return nil // Path broken
         }
 
         axDebugLog(
@@ -44,35 +154,39 @@ private func navigateToElementByPathHint(
                 "Crit:\(criteriaDesc))"
         )
 
+        // If this is the last component, we've successfully navigated the path
         if index == pathHint.count - 1 {
-            return currentElementInPath // Reached end of path hint and matched
+            return currentElementInPath
         }
 
-        let nextPathComponentCriteria = pathHint[index + 1].criteria
-        var foundNextChild: Element?
-        if let children = currentElementInPath.children() {
-            for child in children {
-                let tempPathComponent = PathHintComponent(criteria: nextPathComponentCriteria)
-                if tempPathComponent.matches(element: child) {
-                    currentElementInPath = child
-                    foundNextChild = child
-                    break
-                }
+        // Not the last component, so we need to find a child that matches the *next* component
+        guard let children = currentElementInPath.children() else {
+            axDebugLog("PathHintNav: Current element \(currentElementInPath.briefDescription(option: .short)) has no children. Cannot proceed to next component.")
+            return nil // Path broken, cannot find next step
+        }
+        
+        let nextPathComponent = pathHint[index + 1]
+        var foundNextChildInPath: Element? = nil
+        for child in children {
+            if nextPathComponent.matches(element: child) {
+                currentElementInPath = child // Advance current element
+                foundNextChildInPath = child
+                break
             }
         }
 
-        if foundNextChild == nil {
-            let nextCriteriaDesc = nextPathComponentCriteria
-                .map { "\($0.key):\($0.value)" }.joined(separator: ", ")
+        if foundNextChildInPath == nil {
+            let nextCriteriaDesc = nextPathComponent.criteria.map { "\($0.key):\($0.value)" }.joined(separator: ", ")
             axDebugLog(
-                "PathHintNav: Could not find child for next comp #\(index + 1), " +
-                    "Under Elem:\(currentElementInPath.briefDescription(option: .short)), " +
-                    "NextCrit:\(nextCriteriaDesc))"
+                "PathHintNav: Could not find child matching next comp #\(index + 1) " +
+                "(Crit: \(nextCriteriaDesc)) under Elem:\(currentElementInPath.briefDescription(option: .short))"
             )
-            return nil
+            return nil // Path broken, cannot find next step
         }
     }
-    return currentElementInPath
+    // Should have returned from within the loop if path was fully matched or broken
+    // If loop finishes it means pathHint was empty or logic error
+    return pathHint.isEmpty ? initialSearchElement : nil 
 }
 
 @MainActor
@@ -81,8 +195,16 @@ private func traverseAndSearch(
     locator: Locator,
     effectiveMaxDepth: Int
 ) -> Element? {
+    // Ensure criteria exist if we are in traverseAndSearch. 
+    // If only path hint was used, findTargetElement should have returned earlier.
+    if locator.criteria.isEmpty {
+        axDebugLog("traverseAndSearch: Called with empty criteria. This usually means element should have been found by path hint alone. Returning current element: \(currentElement.briefDescription())")
+        // This might be the element found by path hint if criteria were indeed empty.
+        return currentElement 
+    }
+
     var traverser = TreeTraverser()
-    let visitor = SearchVisitor(locator: locator)
+    let visitor = SearchVisitor(locator: locator) // SearchVisitor uses locator.criteria
     var traversalState = TraversalState(maxDepth: effectiveMaxDepth, startElement: currentElement)
     let result = traverser.traverse(from: currentElement, visitor: visitor, state: &traversalState)
     return result
@@ -94,7 +216,7 @@ private func processPathHintAndDetermineStartElement(
     locator: Locator
 ) -> Element {
     guard let pathHintStrings = locator.rootElementPathHint, !pathHintStrings.isEmpty else {
-        axDebugLog("No path hint provided. Searching from application root.")
+        axDebugLog("processPathHint: No rootElementPathHint provided in locator. Searching from application root.")
         return application
     }
 
@@ -102,51 +224,73 @@ private func processPathHintAndDetermineStartElement(
 
     guard !pathHintComponents.isEmpty && pathHintComponents.count == pathHintStrings.count else {
         axDebugLog(
-            "Path hint strings provided but failed to parse into components or " +
+            "processPathHint: rootElementPathHint strings provided but failed to parse into components or " +
                 "some were invalid. Full search from app root."
         )
         return application
     }
 
-    axDebugLog("Starting path hint navigation. Number of components: \(pathHintComponents.count)")
+    axDebugLog("processPathHint: Starting path hint navigation for search root. Number of components: \(pathHintComponents.count)")
 
-    if let elementFromPathHint = navigateToElementByPathHint(
+    if let elementFromPathHint = /* private -> internal */ navigateToElementByPathHint(
         pathHint: pathHintComponents,
         initialSearchElement: application,
-        pathHintMaxDepth: pathHintComponents.count - 1
+        pathHintMaxDepth: pathHintComponents.count - 1 // Navigate the full path to find the start element
     ) {
         axDebugLog(
-            "Path hint navigation successful. New start: " +
-                "\(elementFromPathHint.briefDescription()). Starting criteria search."
+            "processPathHint: Path hint navigation successful. New search start: " +
+                "\(elementFromPathHint.briefDescription())."
         )
         return elementFromPathHint
     } else {
-        axDebugLog("Path hint navigation failed. Full search from app root.")
+        axWarningLog("processPathHint: Path hint navigation failed. Full search will be from app root. Path: \(pathHintStrings.joined(separator: " -> "))")
         return application
     }
 }
 
+/**
+ This function is the core for criteria-based search, potentially starting from an element 
+ determined by a path hint (via locator.rootElementPathHint).
+ */
 @MainActor
-func findElementViaPathAndCriteria(
+/* internal -> func */ func findElementViaPathAndCriteria(
     application: Element,
     locator: Locator,
     maxDepth: Int?
 ) -> Element? {
     let pathHintDebug = locator.rootElementPathHint?.joined(separator: " -> ") ?? "nil"
+    let criteriaDebug = locator.criteria
     axDebugLog(
-        "[findElementViaPathAndCriteria ENTRY] locator.criteria: \(locator.criteria), " +
-            "locator.rootElementPathHint: \(pathHintDebug) from app PID \(application.pid() ?? -1)"
+        "[findElementViaPathAndCriteria ENTRY] AppPID: \(application.pid() ?? -1), Locator.criteria: \(criteriaDebug), " +
+            "Locator.rootElementPathHint: \(pathHintDebug)"
     )
 
+    // Determine the actual starting element for the criteria search.
+    // If locator.rootElementPathHint is present, navigate to it. Otherwise, start from app root.
     let searchStartElement = processPathHintAndDetermineStartElement(
         application: application,
         locator: locator
     )
+    
+    // If criteria are empty at this point, it means the path hint (if any) was the sole specifier.
+    // The searchStartElement is our target.
+    if locator.criteria.isEmpty {
+        if locator.rootElementPathHint != nil && !locator.rootElementPathHint!.isEmpty {
+             axInfoLog("[findElementViaPathAndCriteria] Criteria are empty, path hint was primary. Returning element from path: \(searchStartElement.briefDescription())")
+             return searchStartElement // Element found by path hint is the target
+        } else {
+            axWarningLog("[findElementViaPathAndCriteria] Criteria are empty and no path hint. Returning application root by default.")
+            return application // Or nil if this case isn't desired
+        }
+    }
+    
+    axDebugLog("[findElementViaPathAndCriteria] Search start element: \(searchStartElement.briefDescription()). Now applying criteria: \(locator.criteria)")
+
     let resolvedMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
 
     return traverseAndSearch(
         currentElement: searchStartElement,
-        locator: locator,
+        locator: locator, // Locator contains criteria
         effectiveMaxDepth: resolvedMaxDepth
     )
 }
@@ -165,12 +309,13 @@ internal func evaluateElementAgainstCriteria(
     depth: Int // Depth might still be useful for logical purposes, not for logging state
 ) -> ElementMatchStatus {
 
-    if locator.rootElementPathHint != nil, !locator.rootElementPathHint!.isEmpty {
-        axDebugLog(
-            "evaluateElement: Path hint was present in locator, assuming pre-navigated. " +
-                "Element: \(element.briefDescription())"
-        )
-    }
+    // Path hint check here might be less relevant if pre-navigation is robust
+    // if locator.rootElementPathHint != nil, !locator.rootElementPathHint!.isEmpty {
+    //     axDebugLog(
+    //         "evaluateElement: Path hint was present in locator, assuming pre-navigated. " +
+    //             "Element: \(element.briefDescription())"
+    //     )
+    // }
 
     if !criteriaMatch(element: element, criteria: locator.criteria) {
         return .noMatch
@@ -182,7 +327,7 @@ internal func evaluateElementAgainstCriteria(
                 "Element \(element.briefDescription()) matches criteria but is " +
                     "missing required action '\(actionName)'."
             )
-            return .noMatch
+            return .noMatch // Changed from partialMatchActionMissing to noMatch for stricter interpretation
         }
         axDebugLog("Element \(element.briefDescription()) matches criteria AND has required action '\(actionName)'.")
     } else {
@@ -229,7 +374,7 @@ public func search(element: Element,
  */
 
 @MainActor
-public func collectAll(
+/* public -> internal */ internal func collectAll(
     appElement: Element, // Root element of the application, for path context
     locator: Locator,
     // Criteria for matching elements (though CollectAllVisitor doesn't use it for filtering currently)
@@ -247,10 +392,11 @@ public func collectAll(
 
     var traverser = TreeTraverser()
     var state = TraversalState(maxDepth: maxDepth, startElement: currentElement)
-
+    // The traverse method in TreeTraverser doesn't directly use maxElements from TraversalState to stop.
+    // The CollectAllVisitor's visit method should implement the maxElements check.
     _ = traverser.traverse(from: currentElement, visitor: visitor, state: &state)
-
-    axDebugLog("collectAll: Traversal complete. Visitor collected \(visitor.collectedElements.count) elements.")
+    // Result of traverse is Element? (the first one found), but for collectAll we rely on visitor's side effects.
+    axDebugLog("collectAll: Traversal complete. Collected \(visitor.collectedElements.count) elements.")
 }
 
 // Remaining functions in this file (like path navigation helpers if any outside findElementViaPathAndCriteria)

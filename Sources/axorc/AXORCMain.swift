@@ -106,15 +106,8 @@ struct AXORCCommand: AsyncParsableCommand {
         // Handle input errors
         if let error = inputResult.error {
             let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
-
-            let errorResponse = ErrorResponse(
-                commandId: "input_error",
-                error: error,
-                debugLogs: collectedLogs
-            )
-
-            if let jsonData = try? JSONEncoder().encode(errorResponse),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
+            let errorResponse = ErrorResponse(commandId: "input_error", error: error, debugLogs: collectedLogs)
+            if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonString = String(data: jsonData, encoding: .utf8) {
                 print(jsonString)
             } else {
                 print("{\"error\": \"Failed to encode error response\"}")
@@ -122,97 +115,50 @@ struct AXORCCommand: AsyncParsableCommand {
             return
         }
 
-        guard var jsonStringFromInput = inputResult.jsonString else {
+        guard let jsonStringFromInput = inputResult.jsonString else {
             let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
-
-            let errorResponse = ErrorResponse(
-                commandId: "no_input",
-                error: "No valid JSON input received",
-                debugLogs: collectedLogs
-            )
-
-            if let jsonData = try? JSONEncoder().encode(errorResponse),
-               let jsonStr = String(data: jsonData, encoding: .utf8) {
+            let errorResponse = ErrorResponse(commandId: "no_input", error: "No valid JSON input received", debugLogs: collectedLogs)
+            if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonStr = String(data: jsonData, encoding: .utf8) {
                 print(jsonStr)
             } else {
                 print("{\"error\": \"Failed to encode error response\"}")
             }
             return
         }
-        axDebugLog("AXORCMain: jsonStringFromInput (from InputHandler): [\(jsonStringFromInput)] (length: \(jsonStringFromInput.count))")
+        axDebugLog("AXORCMain Test: Received jsonStringFromInput: [\(jsonStringFromInput)] (length: \(jsonStringFromInput.count))")
 
-        // Ensure we are working with a "concrete" String instance to avoid Substring/StringProtocol ambiguities
-        var jsonString = String(jsonStringFromInput)
-        axDebugLog("AXORCMain: jsonString (after String(jsonStringFromInput)): [\(jsonString)] (length: \(jsonString.count))")
-        
-        // Log first/last chars of the concrete jsonString
-        if !jsonString.isEmpty {
-            axDebugLog("AXORCMain: First char of concrete jsonString: \(jsonString.first!) (ASCII: \(jsonString.first!.asciiValue ?? 0)), Last char: \(jsonString.last!) (ASCII: \(jsonString.last!.asciiValue ?? 0))")
-        }
-
-        // Parse JSON command
-        var dataToDecode = jsonString.data(using: .utf8) // Default to using the concrete jsonString
-        var didAttemptUnwrap = false
-
-        if jsonString.hasPrefix("[") && jsonString.hasSuffix("]") && jsonString.count > 2 { // Use concrete jsonString for checks
-            let innerContentString = String(jsonString.dropFirst().dropLast())
-            axDebugLog("AXORCMain: Original concrete jsonString appeared to be an array. Attempting to use its inner content: [\(innerContentString)]")
-            if let innerData = innerContentString.data(using: .utf8) {
-                dataToDecode = innerData
-                didAttemptUnwrap = true
-            } else {
-                axDebugLog("AXORCMain: Failed to convert innerContentString to data. Will use original concrete jsonString data.")
+        if let data = jsonStringFromInput.data(using: .utf8) {
+            let axorcist = AXorcist()
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            do {
+                // Attempt 1: Decode as [CommandEnvelope]
+                let commands = try decoder.decode([CommandEnvelope].self, from: data)
+                if let command = commands.first {
+                    axDebugLog("AXORCMain Test: Decode attempt 1: Successfully decoded [CommandEnvelope] and got first command.")
+                    await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
+                } else {
+                    axDebugLog("AXORCMain Test: Decode attempt 1: Decoded [CommandEnvelope] but array was empty.")
+                    // Create a generic error to throw if this path is problematic
+                    let anError = NSError(domain: "AXORCErrorDomain", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Decoded empty command array from [CommandEnvelope] attempt."])
+                    throw anError
+                }
+            } catch let arrayDecodeError {
+                axDebugLog("AXORCMain Test: Decode attempt 1 (as [CommandEnvelope]) FAILED. Error: \(arrayDecodeError). Will try as single CommandEnvelope.")
+                // Attempt 2: Decode as single CommandEnvelope
+                do {
+                    let command = try decoder.decode(CommandEnvelope.self, from: data) // data is still from jsonStringFromInput
+                    axDebugLog("AXORCMain Test: Decode attempt 2: Successfully decoded as SINGLE CommandEnvelope.")
+                    await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
+                } catch let singleDecodeError {
+                     axDebugLog("AXORCMain Test: Decode attempt 2 (as single CommandEnvelope) ALSO FAILED. Error: \(singleDecodeError). Original array decode error was: \(arrayDecodeError)")
+                    throw singleDecodeError // Throw the error from the single decode attempt as it's the most direct if input was not an array
+                }
             }
         } else {
-            axDebugLog("AXORCMain: Original concrete jsonString does not appear to be a simple array wrapper. Proceeding with it for data conversion.")
+            axDebugLog("AXORCMain Test: Failed to convert jsonStringFromInput to data.")
+            let anError = NSError(domain: "AXORCErrorDomain", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Failed to convert jsonStringFromInput to data."])
+            throw anError
         }
-        
-        // axDebugLog("AXORCMain: effectiveJsonString after unwrap attempt: [\(effectiveJsonString)]") // Old log, dataToDecode is now key
-
-        guard let jsonData = dataToDecode else {
-            // Clear logs after error
-            await axClearLogs()
-            print("{\"error\": \"Failed to convert JSON string to data\"}")
-            return
-        }
-
-        if debug {
-            axDebugLog("AXORCMain: jsonData.count before decode (this is from effective/unwrapped data if unwrap occurred): \(jsonData.count)")
-        }
-        
-        let axorcist = AXorcist() // Initialize once, outside the do-catch for broader scope
-
-        do {
-            // This is the primary attempt, using `jsonData` (derived from `dataToDecode`, 
-            // which is from `jsonString` after faulty unwrap attempt due to string issues)
-            let command = try JSONDecoder().decode(CommandEnvelope.self, from: jsonData)
-            axDebugLog("AXORCMain: Decode attempt 1 (from jsonData derived from potentially pre-unwrapped jsonString) successful.")
-            await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
-        } catch let error1 {
-            axDebugLog("AXORCMain: Decode attempt 1 (from jsonData) FAILED. Error: \(error1). jsonStringFromInput (raw from InputHandler) was: [\(jsonStringFromInput)]")
-            // Fallback: Assume jsonStringFromInput is "[{...}]" because InputHandler (via ArgumentParser) seems to yield this.
-            // Try to extract "{...}" and decode that as a single CommandEnvelope.
-            if jsonStringFromInput.count > 2 { // Basic check for "[]" at least
-                let potentiallyInnerJsonString = String(jsonStringFromInput.dropFirst().dropLast())
-                axDebugLog("AXORCMain: Fallback: Extracted potentiallyInnerJsonString from jsonStringFromInput: [\(potentiallyInnerJsonString)]")
-                if let innerData = potentiallyInnerJsonString.data(using: .utf8) {
-                    do {
-                        let command = try JSONDecoder().decode(CommandEnvelope.self, from: innerData)
-                        axDebugLog("AXORCMain: Decode attempt 2 (from inner content of jsonStringFromInput) SUCCESSFUL.")
-                        await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
-                    } catch let error2 {
-                        axDebugLog("AXORCMain: Decode attempt 2 (from inner content of jsonStringFromInput) FAILED. Error: \(error2). Will rethrow original error from attempt 1.")
-                        throw error1 // Rethrow original error from attempt 1
-                    }
-                } else {
-                    axDebugLog("AXORCMain: Fallback: Failed to convert potentiallyInnerJsonString to data. Will rethrow original error from attempt 1.")
-                    throw error1 // Rethrow original error from attempt 1
-                }
-            } else {
-                axDebugLog("AXORCMain: Fallback: jsonStringFromInput too short to be '[{...}]'. Will rethrow original error from attempt 1.")
-                throw error1 // Rethrow original error from attempt 1
-            }
-        }
-        // Removed the final generic catch to ensure errors propagate to ArgumentParser if not handled by the specific fallback.
     }
 }

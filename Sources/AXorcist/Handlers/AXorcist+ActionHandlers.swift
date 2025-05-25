@@ -101,66 +101,61 @@ extension AXorcist {
         locator: Locator,
         actionName: String,
         actionValue: ActionValueCodable? = nil,
-        pathHint: [PathHintComponent]? = nil,
         maxDepth: Int? = nil
     ) async -> HandlerResponse {
         let logMessage2 = "handlePerformAction: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator), Action=\(actionName), Value=\(String(describing: actionValue))"
         axInfoLog(logMessage2)
 
-        // Determine search depth
         let searchMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
 
-        // Call the global findTargetElement which returns Result<Element, HandlerErrorInfo>
         let findResult = await findTargetElement(
             for: application,
             locator: locator,
-            pathHint: pathHint?.compactMap { $0.originalSegment }, // Use .originalSegment
             maxDepthForSearch: searchMaxDepth
         )
 
-        let targetElement: Element
-        // appElement is not directly returned by the new findTargetElement, handle if necessary
-        // For now, we primarily need the targetElement or error.
+        if let targetElement = findResult.element {
+            axDebugLog("handlePerformAction: Element found: \(targetElement.briefDescription())")
+            // Proceed with targetElement
+            let axStatus: AXError
+            var actionErrorString: String?
 
-        switch findResult {
-        case .success(let foundEl):
-            targetElement = foundEl
-        case .failure(let errorInfo):
-            let errorMessage = "handlePerformAction: Error finding element: \(errorInfo.message)"
+            let standardActions = [
+                AXActionNames.kAXIncrementAction,
+                AXActionNames.kAXDecrementAction,
+                AXActionNames.kAXConfirmAction,
+                AXActionNames.kAXCancelAction,
+                AXActionNames.kAXShowMenuAction,
+                AXActionNames.kAXPickAction,
+                AXActionNames.kAXPressAction,
+                AXActionNames.kAXRaiseAction
+            ]
+
+            if standardActions.contains(actionName) {
+                axStatus = executeStandardAccessibilityAction(actionName as CFString, on: targetElement, actionNameForLog: actionName)
+            } else {
+                let setResult = executeSetAttributeValueAction(attributeName: actionName, value: actionValue, on: targetElement)
+                axStatus = setResult.axStatus
+                actionErrorString = setResult.errorMessage
+            }
+
+            if axStatus == .success {
+                axDebugLog("Action '\(actionName)' performed successfully on \(targetElement.briefDescription()).")
+                return HandlerResponse(data: AnyCodable(PerformResponse(commandId: "", success: true)))
+            } else {
+                let finalErrorMessage = actionErrorString ?? "Action '\(actionName)' failed on \(targetElement.briefDescription()) with status: \(axErrorToString(axStatus))"
+                axErrorLog(finalErrorMessage)
+                return HandlerResponse(error: finalErrorMessage)
+            }
+        } else if let errorMsg = findResult.error {
+            let errorMessage = "handlePerformAction: Error finding element: \(errorMsg)"
             axErrorLog(errorMessage)
-            return HandlerResponse(error: "Error finding element: \(errorInfo.message)")
-        }
-
-        let axStatus: AXError
-        var actionErrorString: String? // To capture specific error from set attribute
-
-        let standardActions = [
-            AXActionNames.kAXIncrementAction,
-            AXActionNames.kAXDecrementAction,
-            AXActionNames.kAXConfirmAction,
-            AXActionNames.kAXCancelAction,
-            AXActionNames.kAXShowMenuAction,
-            AXActionNames.kAXPickAction,
-            AXActionNames.kAXPressAction,
-            AXActionNames.kAXRaiseAction
-        ]
-
-        if standardActions.contains(actionName) {
-            axStatus = executeStandardAccessibilityAction(actionName as CFString, on: targetElement, actionNameForLog: actionName)
+            return HandlerResponse(error: errorMessage)
         } else {
-            let setResult = executeSetAttributeValueAction(attributeName: actionName, value: actionValue, on: targetElement)
-            axStatus = setResult.axStatus
-            actionErrorString = setResult.errorMessage
-        }
-
-        if axStatus == .success {
-            axDebugLog("Action '\(actionName)' performed successfully on \(targetElement.briefDescription()).")
-            // Assuming PerformResponse is a valid Codable struct for the data part
-            return HandlerResponse(data: AnyCodable(PerformResponse(commandId: "", success: true)))
-        } else {
-            let finalErrorMessage = actionErrorString ?? "Action '\(actionName)' failed on \(targetElement.briefDescription()) with status: \(axErrorToString(axStatus))"
-            axErrorLog(finalErrorMessage)
-            return HandlerResponse(error: finalErrorMessage)
+            // Should not happen if findTargetElement always returns either element or error
+            let errorMessage = "handlePerformAction: Unknown error finding element."
+            axErrorLog(errorMessage)
+            return HandlerResponse(error: errorMessage)
         }
     }
 
@@ -168,62 +163,55 @@ extension AXorcist {
     public func handleExtractText(
         for application: String?,
         locator: Locator,
-        pathHint: [PathHintComponent]? = nil,
         maxDepth: Int? = nil
     ) async -> HandlerResponse {
         let logMessage3 = "handleExtractText: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator)"
         axInfoLog(logMessage3)
 
-        // Determine search depth
         let searchMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
 
-        // Call the global findTargetElement
         let findResult = await findTargetElement(
             for: application,
             locator: locator,
-            pathHint: pathHint?.compactMap { $0.originalSegment }, // Use .originalSegment
             maxDepthForSearch: searchMaxDepth
         )
 
-        let targetElement: Element
-        // We might need appElement for path generation later, let's try to get it
         let appElementInstance = applicationElement(for: application ?? AXMiscConstants.focusedApplicationKey)
 
-        switch findResult {
-        case .success(let foundEl):
-            targetElement = foundEl
-        case .failure(let errorInfo):
-            let errorMessage = "handleExtractText: Error finding element: \(errorInfo.message)"
+        if let targetElement = findResult.element {
+            axDebugLog("handleExtractText: Element found: \(targetElement.briefDescription())")
+            // Proceed with targetElement
+            guard appElementInstance != nil else {
+                let appNameToLog = application ?? AXMiscConstants.focusedApplicationKey
+                let errorMsg = "Could not get application element for path generation in handleExtractText for appKey: \(appNameToLog)."
+                axErrorLog(errorMsg)
+                return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: nil)), error: errorMsg)
+            }
+
+            var allTextValues: [String] = []
+            if let title: String = targetElement.attribute(.title) { allTextValues.append(title) }
+            if let desc: String = targetElement.attribute(.description) { allTextValues.append(desc) }
+            if let valStr: String = targetElement.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { allTextValues.append(valStr) }
+            if let selectedText: String = targetElement.attribute(.selectedText) { allTextValues.append(selectedText) }
+            if let placeholder: String = targetElement.attribute(.placeholderValue) { allTextValues.append(placeholder) }
+
+            let combinedText = allTextValues.joined(separator: " ").lowercased()
+
+            if combinedText.isEmpty {
+                axDebugLog("No textual content found for element: \(targetElement.briefDescription())")
+                return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: nil)), error: "No textual content found")
+            } else {
+                axDebugLog("Extracted text: '\(combinedText)' from element: \(targetElement.briefDescription())")
+                return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: combinedText)))
+            }
+        } else if let errorMsg = findResult.error {
+            let errorMessage = "handleExtractText: Error finding element: \(errorMsg)"
             axErrorLog(errorMessage)
-            return HandlerResponse(error: "Error finding element: \(errorInfo.message)")
-        }
-
-        guard appElementInstance != nil else {
-            let appNameToLog = application ?? AXMiscConstants.focusedApplicationKey
-            let errorMsg = "Could not get application element for path generation in handleExtractText for appKey: \(appNameToLog)."
-            axErrorLog(errorMsg)
-            // Return nil for textContent as part of TextExtractionResponse, not in HandlerResponse.error
-            return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: nil)), error: errorMsg)
-        }
-
-        // Text extraction logic
-        var allTextValues: [String] = []
-        if let title: String = targetElement.attribute(.title) { allTextValues.append(title) }
-        if let desc: String = targetElement.attribute(.description) { allTextValues.append(desc) }
-        if let valStr: String = targetElement.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { allTextValues.append(valStr) }
-        if let selectedText: String = targetElement.attribute(.selectedText) { allTextValues.append(selectedText) }
-        if let placeholder: String = targetElement.attribute(.placeholderValue) { allTextValues.append(placeholder) }
-
-        let combinedText = allTextValues.joined(separator: " ").lowercased()
-
-        if combinedText.isEmpty {
-            axDebugLog("No textual content found for element: \(targetElement.briefDescription())")
-            // Return nil for textContent as part of TextExtractionResponse
-            return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: nil)), error: "No textual content found")
+            return HandlerResponse(error: errorMessage)
         } else {
-            axDebugLog("Extracted text: '\(combinedText)' from element: \(targetElement.briefDescription())")
-            // Return extracted text
-            return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: combinedText)))
+            let errorMessage = "handleExtractText: Unknown error finding element."
+            axErrorLog(errorMessage)
+            return HandlerResponse(error: errorMessage)
         }
     }
 }

@@ -8,6 +8,12 @@ public actor GlobalAXLogger {
     public static let shared = GlobalAXLogger()
 
     private var logEntries: [AXLogEntry] = []
+    // For duplicate suppression
+    private var lastCondensedMessage: String? = nil
+    private var duplicateCount: Int = 0
+    private let duplicateSummaryThreshold: Int = 5
+    // Maximum characters to keep in a log message before truncating (for readability)
+    private let maxMessageLength: Int = 300
     // private var subscribers: [UUID: @MainActor (AXLogEntry) -> Void] = [:] // REMOVED
 
     // Publicly accessible for direct checks if needed, though usually consumers use subscription.
@@ -26,12 +32,67 @@ public actor GlobalAXLogger {
     // This method is called by the global ax...Log functions.
     // It's actor-isolated, so access to logEntries is serialized.
     func log(_ entry: AXLogEntry) {
-        logEntries.append(entry)
+        // Condense the message to avoid overly verbose output
+        let condensedMessage: String = {
+            if entry.message.count > maxMessageLength {
+                let prefix = entry.message.prefix(maxMessageLength)
+                return "\(prefix)… (\(entry.message.count) chars)"
+            } else {
+                return entry.message
+            }
+        }()
+
+        // Suppress consecutive duplicate messages, but emit a summary every duplicateSummaryThreshold repeats
+        if let last = lastCondensedMessage, last == condensedMessage {
+            duplicateCount += 1
+            if duplicateCount % duplicateSummaryThreshold != 0 {
+                return // Skip storing/logging this duplicate
+            } else {
+                let summaryEntry = AXLogEntry(
+                    level: .debug,
+                    message: "⟳ Previous message repeated \(duplicateSummaryThreshold) more times",
+                    file: entry.file,
+                    function: entry.function,
+                    line: entry.line,
+                    details: nil
+                )
+                logEntries.append(summaryEntry)
+                // Fall through to log the duplicate after summary emission
+            }
+        } else {
+            // If a series of duplicates ended, optionally summarise the total count if it exceeds threshold
+            if duplicateCount >= duplicateSummaryThreshold && lastCondensedMessage != nil {
+                let summaryEntry = AXLogEntry(
+                    level: .debug,
+                    message: "⟳ Previous message repeated \(duplicateCount) times in total",
+                    file: entry.file,
+                    function: entry.function,
+                    line: entry.line,
+                    details: nil
+                )
+                logEntries.append(summaryEntry)
+            }
+            // Reset duplicate tracking
+            lastCondensedMessage = condensedMessage
+            duplicateCount = 0
+        }
+
+        // Store the (potentially condensed) entry
+        let processedEntry = AXLogEntry(
+            level: entry.level,
+            message: condensedMessage,
+            file: entry.file,
+            function: entry.function,
+            line: entry.line,
+            details: entry.details
+        )
+
+        logEntries.append(processedEntry)
 
         // JSON logging to stderr if enabled
         if isJSONLoggingEnabled {
             do {
-                let jsonData = try JSONEncoder().encode(entry)
+                let jsonData = try JSONEncoder().encode(processedEntry)
                 if let jsonString = String(data: jsonData, encoding: .utf8) {
                     fputs(jsonString + "\\n", stderr) // Output JSON string to stderr
                 }

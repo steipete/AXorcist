@@ -47,10 +47,17 @@ struct CommandExecutor {
     }
 
     private static func setupLogging(for command: CommandEnvelope) async -> (Bool, AXLogDetailLevel) {
+        // DIAGNOSTIC LOG: Print the received value of command.debugLogging
+        fputs("CommandExecutor.setupLogging: Received command.debugLogging = \(command.debugLogging)\n", stderr)
+        fflush(stderr) // Ensure it prints immediately for CLI debugging
+
+        // Also log it via axDebugLog so it becomes part of the collected logs
+        axDebugLog("[CommandExecutor.setupLogging] Received command.debugLogging = \(command.debugLogging)")
+
         let initialLoggingEnabled = await GlobalAXLogger.shared.isLoggingEnabled()
         let initialDetailLevel = await GlobalAXLogger.shared.getDetailLevel()
 
-        if let cmdDebug = command.debugLogging, cmdDebug {
+        if command.debugLogging {
             await GlobalAXLogger.shared.setLoggingEnabled(true)
             await GlobalAXLogger.shared.setDetailLevel(.verbose)
         }
@@ -94,12 +101,12 @@ struct CommandExecutor {
             return await axorcist.handleCollectAll(
                 for: command.application,
                 locator: command.locator,
-                pathHint: command.pathHint, // from CommandEnvelope
                 maxDepth: command.maxDepth,
                 requestedAttributes: command.attributes,
                 outputFormat: command.outputFormat,
                 commandId: command.commandId,
-                debugCLI: debugCLI // Pass the flag
+                debugCLI: debugCLI, // Pass the flag
+                filterCriteria: command.filterCriteria // ADDED
             )
 
         case .batch:
@@ -117,6 +124,9 @@ struct CommandExecutor {
         case .observe:
             // Pass debugCLI to handler
             return await handleObserveCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+
+        case .setFocusedValue:
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeSetFocusedValue)
         }
     }
 
@@ -125,19 +135,14 @@ struct CommandExecutor {
             let error = "Missing actionName for performAction"
             axErrorLog(error) // Log error
             // Conditionally include logs in error response based on debugCLI
-            let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
-            let queryResponse = QueryResponse(
-                success: false,
+            let errorResponse = HandlerResponse(data: nil, error: error)
+            return await finalizeAndEncodeResponse(
                 commandId: command.commandId,
-                command: command.command.rawValue,
-                error: error, // This is a String, QueryResponse legacy init handles String for error
-                debugLogs: logsToInclude
+                commandType: command.command.rawValue,
+                handlerResponse: errorResponse,
+                debugCLI: debugCLI,
+                commandDebugLogging: command.debugLogging
             )
-            let jsonString = encodeToJson(queryResponse)
-            let fallbackJson = """
-            {"error": "Encoding error response failed"}
-            """
-            return jsonString ?? fallbackJson
         }
 
         let handlerResponse = await executePerformAction(
@@ -150,7 +155,8 @@ struct CommandExecutor {
             commandId: command.commandId,
             commandType: command.command.rawValue,
             handlerResponse: handlerResponse,
-            debugCLI: debugCLI
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
         )
     }
 
@@ -161,12 +167,13 @@ struct CommandExecutor {
         executor: (CommandEnvelope, AXorcist) async -> HandlerResponse
     ) async -> String {
         let handlerResponse = await executor(command, axorcist)
-        // Pass debugCLI to finalizeAndEncodeResponse
+        // Pass debugCLI and command.debugLogging to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
             handlerResponse: handlerResponse,
-            debugCLI: debugCLI
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
         )
     }
 
@@ -199,12 +206,13 @@ struct CommandExecutor {
             data: nil,
             error: nil
         )
-        // Pass debugCLI to finalizeAndEncodeResponse
+        // Pass debugCLI and command.debugLogging to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
             handlerResponse: pingHandlerResponse,
-            debugCLI: debugCLI
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
         )
     }
 
@@ -213,12 +221,13 @@ struct CommandExecutor {
             data: nil,
             error: message
         )
-        // Pass debugCLI to finalizeAndEncodeResponse
+        // Pass debugCLI and command.debugLogging to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
             handlerResponse: notImplementedResponse,
-            debugCLI: debugCLI
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
         )
     }
 
@@ -229,29 +238,33 @@ struct CommandExecutor {
         axorcist: AXorcist,
         actionName: String
     ) async -> HandlerResponse {
-        guard let locator = command.locator else {
-            let error = "Missing locator for performAction"
+        var locator: Locator? = command.locator
+        
+        // If pathHint is valid and locator is nil, create a default empty locator
+        if let pathHint = command.pathHint, !pathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator because pathHint was provided but locator was nil.")
+        }
+        
+        // If locator is still nil (no pathHint provided and no locator in command), return error
+        guard var validLocator = locator else {
+            let error = "Missing locator or pathHint for performAction"
             axErrorLog(error)
             return HandlerResponse(data: nil, error: error)
         }
 
-        // Convert path_hint from [String] to [PathHintComponent] if needed
-        var pathHintComponents: [PathHintComponent]?
-        if let pathHints = command.pathHint {
-            pathHintComponents = []
-            for hint in pathHints {
-                if let component = await PathHintComponent(pathSegment: hint) {
-                    pathHintComponents?.append(component)
-                }
-            }
+        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
+        // transfer the pathHint to the locator.
+        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint.")
+            validLocator.rootElementPathHint = topLevelPathHint
         }
 
-        return await axorcist.handlePerformAction( // This handler uses GlobalAXLogger
+        return await axorcist.handlePerformAction(
             for: command.application,
-            locator: locator,
+            locator: validLocator,
             actionName: actionName,
             actionValue: command.actionValue,
-            pathHint: pathHintComponents,
             maxDepth: command.maxElements
         )
     }
@@ -260,7 +273,7 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        return await axorcist.handleGetFocusedElement( // This handler uses GlobalAXLogger
+        return await axorcist.handleGetFocusedElement(
             for: command.application,
             requestedAttributes: command.attributes
         )
@@ -270,17 +283,22 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard let locator = command.locator else {
-            let error = "Missing locator for getAttributes"
-            axErrorLog(error)
-            return HandlerResponse(data: nil, error: error)
+        guard var locator = command.locator else {
+            axErrorLog("Missing locator for getAttributes")
+            return HandlerResponse(data: nil, error: "Missing locator for getAttributes")
         }
-        return await axorcist.handleGetAttributes( // This handler uses GlobalAXLogger
+        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
+        // transfer the pathHint to the locator.
+        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
+            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for getAttributes.")
+            locator.rootElementPathHint = topLevelPathHint
+        }
+
+        return await axorcist.handleGetAttributes(
             for: command.application,
             locator: locator,
             requestedAttributes: command.attributes,
-            pathHint: command.pathHint,
-            maxDepth: command.maxElements,
+            maxDepth: command.maxDepth,
             outputFormat: command.outputFormat
         )
     }
@@ -289,16 +307,21 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard let locator = command.locator else {
-            let error = "Missing locator for query"
-            axErrorLog(error)
-            return HandlerResponse(data: nil, error: error)
+        guard var locator = command.locator else {
+            axErrorLog("Missing locator for query")
+            return HandlerResponse(data: nil, error: "Missing locator for query")
         }
-        return await axorcist.handleQuery( // This handler uses GlobalAXLogger
+        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
+        // transfer the pathHint to the locator.
+        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
+            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for query.")
+            locator.rootElementPathHint = topLevelPathHint
+        }
+
+        return await axorcist.handleQuery(
             for: command.application,
             locator: locator,
-            pathHint: command.pathHint,
-            maxDepth: command.maxElements,
+            maxDepth: command.maxDepth,
             requestedAttributes: command.attributes,
             outputFormat: command.outputFormat
         )
@@ -308,16 +331,21 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard let locator = command.locator else {
-            let error = "Missing locator for describeElement"
-            axErrorLog(error)
-            return HandlerResponse(data: nil, error: error)
+        guard var locator = command.locator else {
+            axErrorLog("Missing locator for describeElement")
+            return HandlerResponse(data: nil, error: "Missing locator for describeElement")
         }
-        return await axorcist.handleDescribeElement( // This handler uses GlobalAXLogger
+        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
+        // transfer the pathHint to the locator.
+        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
+            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for describeElement.")
+            locator.rootElementPathHint = topLevelPathHint
+        }
+
+        return await axorcist.handleDescribeElement(
             for: command.application,
             locator: locator,
-            pathHint: command.pathHint,
-            maxDepth: command.maxElements,
+            maxDepth: command.maxDepth,
             requestedAttributes: command.attributes,
             outputFormat: command.outputFormat
         )
@@ -327,26 +355,21 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard let locator = command.locator else {
-            let error = "Missing locator for extractText"
-            axErrorLog(error)
-            return HandlerResponse(data: nil, error: error)
+        guard var locator = command.locator else {
+            axErrorLog("Missing locator for extractText")
+            return HandlerResponse(data: nil, error: "Missing locator for extractText")
         }
-        // Convert path_hint from [String] to [PathHintComponent] if needed
-        var pathHintComponents: [PathHintComponent]?
-        if let pathHints = command.pathHint {
-            pathHintComponents = []
-            for hint in pathHints {
-                if let component = await PathHintComponent(pathSegment: hint) {
-                    pathHintComponents?.append(component)
-                }
-            }
+        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
+        // transfer the pathHint to the locator.
+        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
+            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for extractText.")
+            locator.rootElementPathHint = topLevelPathHint
         }
-
-        return await axorcist.handleExtractText( // This handler uses GlobalAXLogger
+        
+        return await axorcist.handleExtractText(
             for: command.application,
             locator: locator,
-            pathHint: pathHintComponents
+            maxDepth: command.maxDepth
         )
     }
 
@@ -408,15 +431,101 @@ struct CommandExecutor {
         )
     }
 
+    // MARK: - NEW COMMAND: setFocusedValue
+
+    private static func executeSetFocusedValue(
+        command: CommandEnvelope,
+        axorcist: AXorcist
+    ) async -> HandlerResponse {
+        // 1. Retrieve the currently-focused element in the target application
+        let focusedResp = await axorcist.handleGetFocusedElement(for: command.application, requestedAttributes: nil)
+        if let err = focusedResp.error {
+            return HandlerResponse(data: nil, error: "Failed to fetch focused element: \(err)")
+        }
+
+        guard let raw = focusedResp.data?.value as? Element else {
+            return HandlerResponse(data: nil, error: "Focused element missing from response or not the correct Element type")
+        }
+
+        // 2. Determine the operation
+        let actionName = command.actionName ?? "AXSetValue"
+
+        // We handle the most common cases directly to avoid another brittle lookup
+        // Standard press-style actions
+        let standardActions: Set<String> = [
+            AXActionNames.kAXPressAction,
+            AXActionNames.kAXPickAction,
+            AXActionNames.kAXConfirmAction,
+            AXActionNames.kAXCancelAction,
+            AXActionNames.kAXIncrementAction,
+            AXActionNames.kAXDecrementAction,
+            AXActionNames.kAXShowMenuAction,
+            AXActionNames.kAXRaiseAction
+        ]
+
+        if standardActions.contains(actionName) {
+            let status = AXUIElementPerformAction(raw.underlyingElement, actionName as CFString)
+            if status == .success {
+                return HandlerResponse(data: AnyCodable(PerformResponse(commandId: command.commandId, success: true)))
+            } else {
+                return HandlerResponse(error: "AX action \(actionName) failed: \(axErrorToString(status))")
+            }
+        } else {
+            // Treat actionName as an attribute to be set (e.g., AXSetValue / AXValue)
+            let attrName = (actionName == "AXSetValue") ? AXAttributeNames.kAXValueAttribute : actionName
+            guard let val = command.actionValue?.value else {
+                return HandlerResponse(error: "No actionValue provided for \(actionName)")
+            }
+
+            // Bridge Swift value → CFTypeRef where possible
+            var cf: CFTypeRef?
+            if let s = val as? String { cf = s as CFString }
+            else if let b = val as? Bool { cf = (b ? kCFBooleanTrue : kCFBooleanFalse) }
+            else if let n = val as? NSNumber { cf = n }
+            else { return HandlerResponse(error: "Unsupported value type \(type(of: val)) for \(attrName)") }
+
+            let status = AXUIElementSetAttributeValue(raw.underlyingElement, attrName as CFString, cf!)
+            if status == .success {
+                return HandlerResponse(data: AnyCodable(PerformResponse(commandId: command.commandId, success: true)))
+            } else {
+                return HandlerResponse(error: "Failed to set \(attrName): \(axErrorToString(status))")
+            }
+        }
+    }
+
     // MARK: - Helper Functions
 
     private static func finalizeAndEncodeResponse(
         commandId: String,
         commandType: String,
         handlerResponse: HandlerResponse, // This is from AXorcist library
-        debugCLI: Bool // Added debugCLI
+        debugCLI: Bool, // Added debugCLI
+        commandDebugLogging: Bool // MODIFIED: Now non-optional Bool
     ) async -> String {
-        let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
+        let shouldIncludeLogs = debugCLI || commandDebugLogging
+        fputs("[FEAR] shouldIncludeLogs: \(shouldIncludeLogs), debugCLI: \(debugCLI), cmdDebugLogging: \(commandDebugLogging)\n", stderr) // fputs DIAGNOSTIC
+        axDebugLog("[finalizeAndEncodeResponse] shouldIncludeLogs: \(shouldIncludeLogs), debugCLI: \(debugCLI), cmdDebugLogging: \(commandDebugLogging)") // DIAGNOSTIC
+        
+        let logsToInclude: [String]?
+        if shouldIncludeLogs {
+            fputs("[FEAR] Attempting to fetch logs...\n", stderr) // fputs DIAGNOSTIC
+            axDebugLog("[finalizeAndEncodeResponse] Attempting to fetch logs...") // DIAGNOSTIC
+            logsToInclude = await GlobalAXLogger.shared.getLogsAsStrings(
+                format: .text, 
+                includeTimestamps: false, 
+                includeLevels: false, 
+                includeDetails: false,
+                includeAppName: false,
+                includeCommandID: false
+            )
+            fputs("[FEAR] Fetched logs. Count: \(logsToInclude?.count ?? -1)\n", stderr) // fputs DIAGNOSTIC
+            axDebugLog("[finalizeAndEncodeResponse] Fetched logs. Count: \(logsToInclude?.count ?? -1)") // DIAGNOSTIC
+        } else {
+            fputs("[FEAR] Not fetching logs.\n", stderr) // fputs DIAGNOSTIC
+            logsToInclude = nil
+            axDebugLog("[finalizeAndEncodeResponse] Not fetching logs.") // DIAGNOSTIC
+        }
+        fflush(stderr) // Ensure all fputs are flushed
 
         // Use the specialized QueryResponse initializer that takes a HandlerResponse
         let response = QueryResponse(
@@ -461,7 +570,8 @@ struct CommandExecutor {
                 commandId: command.commandId,
                 commandType: command.command.rawValue,
                 handlerResponse: HandlerResponse(data: nil, error: errorMsg),
-                debugCLI: debugCLI
+                debugCLI: debugCLI,
+                commandDebugLogging: command.debugLogging
             )
         }
 
@@ -520,32 +630,9 @@ struct CommandExecutor {
                 commandId: command.commandId,
                 commandType: command.command.rawValue,
                 handlerResponse: HandlerResponse(data: nil, error: errorMsg),
-                debugCLI: debugCLI
+                debugCLI: debugCLI,
+                commandDebugLogging: command.debugLogging
             )
         }
-    }
-}
-
-// Extension to GlobalAXLogger for convenience
-extension GlobalAXLogger {
-    func getLogsAsStringsIfEnabled(
-        format: AXLogOutputFormat,
-        includeTimestamps: Bool = true,
-        includeLevels: Bool = true,
-        includeDetails: Bool = false,
-        includeAppName: Bool = false,
-        includeCommandID: Bool = false
-    ) async -> [String]? {
-        if await self.isLoggingEnabled() {
-            return await self.getLogsAsStrings(
-                format: format,
-                includeTimestamps: includeTimestamps,
-                includeLevels: includeLevels,
-                includeDetails: includeDetails,
-                includeAppName: includeAppName,
-                includeCommandID: includeCommandID
-            )
-        }
-        return nil
     }
 }
