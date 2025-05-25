@@ -22,6 +22,11 @@ public struct CommandEnvelope: Codable {
     public let point: CGPoint? // Added for getElementAtPoint
     public let pid: Int? // Added for getElementAtPoint (optional specific PID)
 
+    // Parameters for 'observe' command
+    public let notifications: [String]?
+    public let includeElementDetails: [String]?
+    public let watchChildren: Bool?
+
     enum CodingKeys: String, CodingKey {
         case commandId
         case command
@@ -39,6 +44,10 @@ public struct CommandEnvelope: Codable {
         case subCommands
         case point
         case pid
+        // CodingKeys for observe parameters
+        case notifications
+        case includeElementDetails
+        case watchChildren
     }
 
     // Added a public initializer for convenience, matching fields.
@@ -57,7 +66,12 @@ public struct CommandEnvelope: Codable {
                 actionValue: AnyCodable? = nil,
                 subCommands: [CommandEnvelope]? = nil,
                 point: CGPoint? = nil,
-                pid: Int? = nil) {
+                pid: Int? = nil,
+                // Init parameters for observe
+                notifications: [String]? = nil,
+                includeElementDetails: [String]? = nil,
+                watchChildren: Bool? = nil
+    ) {
         self.commandId = commandId
         self.command = command
         self.application = application
@@ -74,6 +88,10 @@ public struct CommandEnvelope: Codable {
         self.subCommands = subCommands
         self.point = point
         self.pid = pid
+        // Assignments for observe parameters
+        self.notifications = notifications
+        self.includeElementDetails = includeElementDetails
+        self.watchChildren = watchChildren
     }
 }
 

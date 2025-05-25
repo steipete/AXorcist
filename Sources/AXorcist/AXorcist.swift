@@ -91,8 +91,130 @@ public class AXorcist {
         }
         return foundElement
     }
+
+    // MARK: - Observe Command Handler
+
+    @MainActor
+    public func handleObserve(
+        for appIdentifierOrNil: String?,
+        notifications: [String], // These are AXNotification strings
+        includeElementDetails: [String],
+        watchChildren: Bool, // Parameter not used yet
+        commandId: String,
+        debugCLI: Bool
+    ) async -> Bool {
+        let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
+        axInfoLog("[AXorcist.handleObserve][CmdID: \(commandId)] Starting observe for app: \(appIdentifier), notifications: \(notifications.joined(separator: ", ")), details: \(includeElementDetails.joined(separator: ", "))")
+
+        guard let appElement = applicationElement(for: appIdentifier) else {
+            axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Application not found: \(appIdentifier)")
+            return false
+        }
+
+        var subscriptionTokens: [AXObserverCenter.SubscriptionToken] = []
+
+        // This callback now captures necessary variables from the outer scope.
+        // It matches the AXNotificationSubscriptionHandler signature.
+        let observerCallback: AXNotificationSubscriptionHandler = {
+            // Captured: commandId, includeElementDetails, appIdentifier, appElement
+            obsPid, notificationNameString, rawObservedElement, nsUserInfo in 
+
+            let observedElement = Element(rawObservedElement)
+            // Ensure appElement is valid for path generation, otherwise path might be too long/incorrect
+            let elementPath = observedElement.generatePathArray(upTo: appElement.pid() == obsPid ? appElement : nil)
+
+            let (attributes, _) = getElementAttributes(
+                element: observedElement,
+                attributes: includeElementDetails, // Captured
+                outputFormat: .smart
+            )
+
+
+            // Build a raw element dictionary (sanitized) using plain Swift types
+            var sanitizedElement: [String: Any] = [:]
+            if !attributes.isEmpty {
+                var sanitizedAttrs: [String: Any] = [:]
+                for (k, v) in attributes {
+                    sanitizedAttrs[k] = sanitizeValue(v.value)
+                }
+                sanitizedElement["attributes"] = sanitizedAttrs
+            }
+            if !elementPath.isEmpty {
+                sanitizedElement["path"] = elementPath
+            }
+
+            // Build overall payload with primitive types after sanitization
+            let payloadRaw: [String: Any] = [
+                "timestamp": Date().timeIntervalSince1970,
+                "commandId": commandId,
+                "notification": notificationNameString.rawValue,
+                "pid": obsPid,
+                "application": appIdentifier,
+                "element": sanitizedElement.mapValues { $0 }
+            ]
+
+
+            let safePayload = makeJSONCompatible(payloadRaw) as! [String: Any]
+
+            if let data = try? JSONSerialization.data(withJSONObject: safePayload, options: []),
+               let jsonStr = String(data: data, encoding: .utf8) {
+                fputs("\(jsonStr)\n", stdout)
+                fflush(stdout)
+            } else {
+                fputs("{\"error\": \"Unencodable payload\"}\n", stderr)
+                fflush(stderr)
+            }
+        }
+
+        var allSubscriptionsSuccessful = true
+        for notificationNameString in notifications {
+            // Ensure axNotificationName is valid before using it
+            guard let axNotificationName = AXNotification(rawValue: notificationNameString) else {
+                axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Invalid notification name string: \(notificationNameString). Skipping.")
+                continue // Skip to the next notification string
+            }
+            
+            guard let targetPid = appElement.pid() else {
+                axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Could not get PID for appElement: \(appIdentifier)")
+                allSubscriptionsSuccessful = false
+                break
+            }
+            
+            let result = AXObserverCenter.shared.subscribe(
+                pid: targetPid, 
+                element: appElement, // Observe the application element itself
+                notification: axNotificationName, // Now safely unwrapped
+                handler: observerCallback
+            )
+
+            switch result {
+            case .success(let token):
+                subscriptionTokens.append(token)
+                axDebugLog("[AXorcist.handleObserve][CmdID: \(commandId)] Subscribed to \(notificationNameString) for \(appIdentifier) (PID: \(targetPid))")
+            case .failure(let error):
+                axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Error subscribing to \(notificationNameString) for \(appIdentifier): \(error.description)")
+                allSubscriptionsSuccessful = false
+                break 
+            }
+            if !allSubscriptionsSuccessful { break }
+        }
+
+        if !allSubscriptionsSuccessful || subscriptionTokens.isEmpty {
+            axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Failed to subscribe to one or more notifications for \(appIdentifier). Cleaning up...")
+            for token in subscriptionTokens {
+                do {
+                    try AXObserverCenter.shared.unsubscribe(token: token)
+                    axDebugLog("[AXorcist.handleObserve][CmdID: \(commandId)] Unsubscribed token \(token.id) during cleanup.")
+                } catch {
+                    axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Error unsubscribing token \(token.id) during cleanup: \(error.localizedDescription)")
+                }
+            }
+            return false
+        }
+
+        axInfoLog("[AXorcist.handleObserve][CmdID: \(commandId)] Successfully subscribed to \(subscriptionTokens.count) notifications for \(appIdentifier). Streaming output to stdout.")
+        return true
+    }
 }
 
-// NOTE: The global function `findElementViaPathAndCriteria` (likely in a different file)
-// still needs to be refactored to use GlobalAXLogger and remove its logging parameters.
-// The call above anticipates this change.
+// NOTE: The global function `findElementViaPathAndCriteria`

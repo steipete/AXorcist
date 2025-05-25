@@ -113,6 +113,10 @@ struct CommandExecutor {
         case .getElementAtPoint:
             // Pass debugCLI to handler
             return await handleNotImplementedCommand(command: command, message: "getElementAtPoint command not yet implemented", debugCLI: debugCLI)
+
+        case .observe:
+            // Pass debugCLI to handler
+            return await handleObserveCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         }
     }
 
@@ -443,6 +447,81 @@ struct CommandExecutor {
             FileHandle.standardError.write(errorDescription.data(using: .utf8) ?? Data())
             axCriticalLog("JSON ENCODING ERROR: \(error.localizedDescription). Details: \(error)") // Also log to GlobalAXLogger
             return nil
+        }
+    }
+
+    // Placeholder for handleObserveCommand
+    private static func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) async -> String {
+        axDebugLog("Observe command received by CommandExecutor. debugCLI: \(debugCLI)")
+
+        guard let notifications = command.notifications, !notifications.isEmpty else {
+            let errorMsg = "Missing or empty 'notifications' array for observe command."
+            axErrorLog(errorMsg)
+            return await finalizeAndEncodeResponse(
+                commandId: command.commandId,
+                commandType: command.command.rawValue,
+                handlerResponse: HandlerResponse(data: nil, error: errorMsg),
+                debugCLI: debugCLI
+            )
+        }
+
+        let includeDetails = command.includeElementDetails ?? []
+        let watchChildren = command.watchChildren ?? false
+
+        let observerSetupSuccess = await axorcist.handleObserve(
+            for: command.application,
+            notifications: notifications,
+            includeElementDetails: includeDetails,
+            watchChildren: watchChildren,
+            commandId: command.commandId,
+            debugCLI: debugCLI
+        )
+
+        if observerSetupSuccess {
+            // Observer started successfully. Print initial success message to stdout.
+            // Further notification data will be streamed directly to stdout by AXorcist.handleObserve's callback.
+            
+            let successResponsePayload: [String: AnyCodable] = [
+                "commandId": AnyCodable(command.commandId),
+                "command": AnyCodable(command.command.rawValue),
+                "status": AnyCodable("observer_started"),
+                "success": AnyCodable(true) // Indicate successful setup
+            ]
+            // let logs = await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text)
+            // No logs are added to this initial success message for observe, 
+            // as the primary output is the stream of notifications.
+
+            do {
+                let jsonData = try JSONEncoder().encode(successResponsePayload)
+                if let jsonString = String(data: jsonData, encoding: .utf8) {
+                    // This will be the only JSON output from CommandExecutor for a successful observe setup.
+                    // AXORCMain will need to ensure the process stays alive.
+                    return jsonString
+                } else {
+                    let errorMsg = "{\"error\": \"Failed to encode initial success response for observe command.\"}"
+                    fputs("\(errorMsg)\n", stderr)
+                    fflush(stderr)
+                    return errorMsg // Return error string
+                }
+            } catch {
+                let errorMsg = "{\"error\": \"Exception encoding initial success response: \(error.localizedDescription)\"}"
+                fputs("\(errorMsg)\n", stderr)
+                fflush(stderr)
+                return errorMsg // Return error string
+            }
+
+            // DO NOT CALL RunLoop.current.run() here.
+            // AXORCMain will handle keeping the process alive.
+        } else {
+            // Failed to start observer
+            let errorMsg = "Failed to start observer for application: \(command.application ?? "focused")"
+            axErrorLog(errorMsg)
+            return await finalizeAndEncodeResponse(
+                commandId: command.commandId,
+                commandType: command.command.rawValue,
+                handlerResponse: HandlerResponse(data: nil, error: errorMsg),
+                debugCLI: debugCLI
+            )
         }
     }
 }

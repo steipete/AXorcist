@@ -65,7 +65,7 @@ extension AXorcist {
         case .ping:
             return processPingCommand(subCmdID)
 
-        case .collectAll, .batch: // Recursive batch calls are not supported
+        case .collectAll, .batch, .observe:
             return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
 
         @unknown default:

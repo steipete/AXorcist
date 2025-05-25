@@ -22,5 +22,6 @@ public enum CommandType: String, Codable {
     case extractText
     case ping
     case getElementAtPoint
+    case observe
     // Add future commands here, ensuring case matches JSON or provide explicit raw value
 }

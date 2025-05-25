@@ -1,6 +1,7 @@
 import Foundation
 import CoreGraphics // Import for CGPoint, CGSize, CGRect
 import Accessibility // Import for AXTextMarker, AXTextMarkerRange
+import ApplicationServices // For AXUIElement
 // It's likely AXorcist module, where this file lives, already imports Accessibility or AppKit,
 // which would make AXTextMarker and AXTextMarkerRange available.
 // If not, a more dynamic type check might be needed, or this file needs to import them.
@@ -125,7 +126,22 @@ public struct AnyCodable: Codable, @unchecked Sendable {
             try container.encode(url.absoluteString)
         case let rect as CGRect:
             try container.encode(["x": rect.origin.x, "y": rect.origin.y, "width": rect.size.width, "height": rect.size.height])
+        case let notif as AXNotification:
+            // AXorcist: Handle AXNotification by encoding its raw string value.
+            try container.encode(notif.rawValue)
+        case let attrStr as NSAttributedString:
+            // AXorcist: Handle NSAttributedString by encoding its string content.
+            try container.encode(attrStr.string)
+        case let element as Element:
+            // AXorcist: Handle AXorcist 'Element' type by encoding its string description as a fallback.
+            // Prefer specific serialization if a structured JSON representation is needed.
+            try container.encode(String(describing: element))
+        case let axEl as AXUIElement:
+            // AXorcist: Handle CoreFoundation AXUIElement by encoding its string description as a fallback.
+            // This avoids direct encoding of an opaque CFType.
+            try container.encode(String(describing: axEl))
         case let val where String(describing: type(of: val)) == "__NSCFType":
+            // Fallback for other __NSCFType instances (CoreFoundation types not explicitly handled).
             try container.encode(String(describing: val))
         case let array as [AnyCodable]:
             try container.encode(array)

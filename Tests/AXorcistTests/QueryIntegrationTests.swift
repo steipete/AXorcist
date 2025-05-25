@@ -219,7 +219,7 @@ func testQueryForTextEditTextArea() async throws {
             "Debug logs should indicate query execution."
         )
 
-    }
+}
 
 @Test("Describe TextEdit Text Area")
 @MainActor
@@ -293,7 +293,7 @@ func testDescribeTextEditTextArea() async throws {
             "Debug logs should indicate describeElement execution."
         )
 
-    }
+}
 
 // MARK: - Helper Functions
 

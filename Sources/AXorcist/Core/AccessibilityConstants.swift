@@ -365,3 +365,4 @@ public enum AXMiscConstants {
     public static let maxPathSegments = 20 // Limit for path segment generation to avoid infinite loops
     // pathHintAttributeKey was for Element.swift's pathHint property, which is different from AXAttributeNames.kAXPathHintAttribute
 }
+ 

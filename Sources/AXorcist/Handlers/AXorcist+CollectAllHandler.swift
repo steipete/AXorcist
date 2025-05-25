@@ -93,7 +93,7 @@ extension AXorcist {
         logCollectAllStart(params)
 
         // Get app element
-        guard let appElement = await applicationElement(for: params.appIdentifier) else {
+        guard let appElement = applicationElement(for: params.appIdentifier) else {
             return await createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
@@ -202,7 +202,7 @@ extension AXorcist {
             let pathHintString = hint.joined(separator: " -> ")
             axDebugLog("[CollectAll] Navigating to path hint: \(pathHintString)")
 
-            guard let navigatedElement = await navigateToElement(
+            guard let navigatedElement = navigateToElement(
                 from: appElement,
                 pathHint: hint,
                 maxDepth: AXMiscConstants.defaultMaxDepthSearch
