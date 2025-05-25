@@ -187,7 +187,8 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     }
 
     print("Sending command: \(jsonString)")
-    let (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
+    let result = try runAXORCCommand(arguments: [jsonString])
+    let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
     #expect(exitCode == 0, "Command failed. Error: \(errorOutput ?? "N/A")")
     #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR should be empty. Got: \(errorOutput ?? "")")
