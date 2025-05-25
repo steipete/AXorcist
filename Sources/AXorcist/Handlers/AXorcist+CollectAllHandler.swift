@@ -77,7 +77,7 @@ extension AXorcist {
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?,
         commandId: String?
-    ) -> String {
+    ) async -> String {
         SearchVisitor.resetGlobalVisitCount()
 
         let params = CollectAllParameters(
@@ -95,7 +95,7 @@ extension AXorcist {
 
         // Get app element
         guard let appElement = applicationElement(for: params.appIdentifier) else {
-            return createErrorResponse(
+            return await createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
                 error: "Failed to get app element for identifier: \(params.appIdentifier)"
@@ -103,7 +103,7 @@ extension AXorcist {
         }
 
         // Determine start element
-        let startElementResult = determineStartElement(
+        let startElementResult = await determineStartElement(
             appElement: appElement,
             pathHint: pathHint,
             locator: locator,
@@ -111,7 +111,7 @@ extension AXorcist {
         )
 
         guard let startElement = startElementResult.element else {
-            return createErrorResponse(
+            return await createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
                 error: startElementResult.error ?? "Failed to determine start element"
@@ -119,13 +119,13 @@ extension AXorcist {
         }
 
         // Perform collection
-        let collectedElements = performCollectionTraversal(
+        let collectedElements = await performCollectionTraversal(
             startElement: startElement,
             appElement: appElement,
             params: params
         )
 
-        return createSuccessResponse(
+        return await createSuccessResponse(
             commandId: params.effectiveCommandId,
             appIdentifier: params.appIdentifier,
             collectedElements: collectedElements
@@ -191,45 +191,52 @@ extension AXorcist {
         pathHint: [String]?,
         locator: Locator?,
         params: CollectAllParameters
-    ) -> (element: Element?, error: String?) {
+    ) async -> (element: Element?, error: String?) {
         var startElement = appElement
+        var pathNavigated = false
 
         // Navigate to path hint if provided
         if let hint = pathHint, !hint.isEmpty {
             let pathHintString = hint.joined(separator: " -> ")
-            axDebugLog("Navigating to path hint: \(pathHintString)")
+            axDebugLog("[CollectAll] Navigating to path hint: \(pathHintString)")
 
             guard let navigatedElement = navigateToElement(
                 from: appElement,
                 pathHint: hint,
-                maxDepth: AXMiscConstants.defaultMaxDepthSearch
+                maxDepth: AXMiscConstants.defaultMaxDepthSearch 
             ) else {
                 return (nil, "Failed to navigate to path: \(pathHintString)")
             }
             startElement = navigatedElement
+            pathNavigated = true
+            axDebugLog("[CollectAll] Path navigation successful. Current startElement: \(startElement.briefDescription())")
         } else {
-            axDebugLog("Using app element as start element")
+            axDebugLog("[CollectAll] No pathHint provided. Current startElement: \(startElement.briefDescription()) (app root)")
         }
 
-        // Apply locator if provided
-        if let locator = locator {
+        if !pathNavigated, let loc = locator, !loc.criteria.isEmpty {
+            axDebugLog("[CollectAll] Path navigation did not occur. Trying locator.criteria from startElement: \(startElement.briefDescription())")
             if let locatedElement = findElementByLocator(
                 startElement: startElement,
-                locator: locator
+                locator: loc
             ) {
                 axDebugLog(
-                    "Locator found element: \(locatedElement.briefDescription()). " +
+                    "[CollectAll] Locator (criteria-only) found element: \(locatedElement.briefDescription()). " +
                         "This will be the root for collectAll recursion."
                 )
                 startElement = locatedElement
             } else {
-                let locatorDescription = String(describing: locator.criteria)
-                let elementDescription = startElement.briefDescription()
+                let locatorDescription = String(describing: loc.criteria)
+                let currentStartDesc = startElement.briefDescription()
                 axWarningLog(
-                    "Locator provided but no element found for: \(locatorDescription). " +
-                        "CollectAll will proceed from the current start element: \(elementDescription)."
+                    "[CollectAll] Locator (criteria-only) provided but no element found for: \(locatorDescription) from \(currentStartDesc). " +
+                        "CollectAll will proceed from \(currentStartDesc)."
                 )
             }
+        } else if pathNavigated {
+             axDebugLog("[CollectAll] Path navigation occurred. Using element from path as definitive root: \(startElement.briefDescription()). Locator.criteria (if any) will not be used to further refine this root.")
+        } else if let loc = locator, loc.criteria.isEmpty {
+            axDebugLog("[CollectAll] Locator provided with empty criteria and no path hint. Using current startElement: \(startElement.briefDescription()) as root.")
         }
 
         return (startElement, nil)
@@ -259,7 +266,7 @@ extension AXorcist {
         startElement: Element,
         appElement: Element,
         params: CollectAllParameters
-    ) -> [AXElement] {
+    ) async -> [AXElement] {
         var traverser = TreeTraverser()
         let visitor = CollectAllVisitor(
             attributesToFetch: params.attributesToFetch,
@@ -269,10 +276,11 @@ extension AXorcist {
 
         var traversalState = TraversalState(
             maxDepth: params.recursionDepthLimit,
-            startElement: startElement
+            startElement: startElement,
+            strictChildren: true
         )
 
-        axDebugLog("Starting unified tree traversal from start element: \(startElement.briefDescription())")
+        axDebugLog("[Pre-Traverse PCT] Handler: validStartElement is: \(startElement.briefDescription(option: .default)) with strictChildren=true")
         _ = traverser.traverse(from: startElement, visitor: visitor, state: &traversalState)
 
         let collectedElementsData = visitor.collectedElements
@@ -293,15 +301,17 @@ extension AXorcist {
         commandId: String,
         appIdentifier: String,
         error: String
-    ) -> String {
+    ) async -> String {
         axErrorLog(error)
+        // Fetch logs
+        let logs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
         return encode(CollectAllOutput(
             commandId: commandId,
             success: false,
             command: "collectAll",
             collectedElements: [],
             appBundleId: appIdentifier,
-            debugLogs: [],
+            debugLogs: logs,
             errorMessage: error
         ))
     }
@@ -311,14 +321,16 @@ extension AXorcist {
         commandId: String,
         appIdentifier: String,
         collectedElements: [AXElement]
-    ) -> String {
+    ) async -> String {
+        // Fetch logs
+        let logs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
         let output = CollectAllOutput(
             commandId: commandId,
             success: true,
             command: "collectAll",
             collectedElements: collectedElements,
             appBundleId: appIdentifier,
-            debugLogs: [],
+            debugLogs: logs,
             errorMessage: nil
         )
         return encode(output)
@@ -350,11 +362,11 @@ extension AXorcist {
 
         var traversalState = TraversalState(
             maxDepth: recursionDepthLimit,
-            startElement: startElement
+            startElement: startElement,
+            strictChildren: true
         )
 
-        axDebugLog("Beginning tree traversal for collectAll (CommandEnvelope) from: \(startElement.briefDescription())")
-
+        axDebugLog("[Pre-Traverse CGHEH] Handler: validStartElement is: \(startElement.briefDescription(option: .default)) with strictChildren=true")
         _ = traverser.traverse(from: startElement, visitor: visitor, state: &traversalState)
 
         let collectedElementsData = visitor.collectedElements

@@ -38,7 +38,7 @@ struct CommandExecutor {
 
         // Clear logs for this specific operation after processing,
         // so next command in a batch (if any) or next CLI call starts fresh for its specific logs.
-        await GlobalAXLogger.shared.clearLogs()
+        await axClearLogs()
         await GlobalAXLogger.shared.updateOperationDetails(commandID: nil, appName: nil) // Reset context
 
         return responseString
@@ -77,7 +77,16 @@ struct CommandExecutor {
             return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeExtractText)
 
         case .collectAll:
-            return await handleCollectAllCommand(command: command, axorcist: axorcist)
+            // Directly await the call to the now async axorcist.handleCollectAll
+            return await axorcist.handleCollectAll(
+                for: command.application,
+                locator: command.locator,
+                pathHint: command.pathHint, // from CommandEnvelope
+                maxDepth: command.maxDepth,
+                requestedAttributes: command.attributes,
+                outputFormat: command.outputFormat,
+                commandId: command.commandId
+            )
 
         case .batch:
             return await handleBatchCommand(command: command, axorcist: axorcist)
@@ -125,20 +134,6 @@ struct CommandExecutor {
             commandId: command.commandId,
             commandType: command.command.rawValue,
             handlerResponse: handlerResponse
-        )
-    }
-
-    private static func handleCollectAllCommand(command: CommandEnvelope, axorcist: AXorcist) async -> String {
-        // handleCollectAll itself was refactored to use GlobalAXLogger.
-        // It returns a JSON string directly.
-        return await axorcist.handleCollectAll(
-            for: command.application,
-            locator: command.locator,
-            pathHint: command.pathHint,
-            maxDepth: command.maxDepth,
-            requestedAttributes: command.attributes,
-            outputFormat: command.outputFormat,
-            commandId: command.commandId
         )
     }
 

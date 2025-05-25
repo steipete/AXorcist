@@ -1,4 +1,9 @@
 import Foundation
+import CoreGraphics // Import for CGPoint, CGSize, CGRect
+import Accessibility // Import for AXTextMarker, AXTextMarkerRange
+// It's likely AXorcist module, where this file lives, already imports Accessibility or AppKit,
+// which would make AXTextMarker and AXTextMarkerRange available.
+// If not, a more dynamic type check might be needed, or this file needs to import them.
 
 // For encoding/decoding 'Any' type in JSON, especially for element attributes.
 // Note: @unchecked Sendable is used because 'Any' cannot guarantee thread safety
@@ -112,6 +117,16 @@ public struct AnyCodable: Codable, @unchecked Sendable {
             try container.encode(float)
         case let string as String:
             try container.encode(string)
+        case let point as CGPoint:
+            try container.encode(["x": point.x, "y": point.y])
+        case let size as CGSize:
+            try container.encode(["width": size.width, "height": size.height])
+        case let url as NSURL:
+            try container.encode(url.absoluteString)
+        case let rect as CGRect:
+            try container.encode(["x": rect.origin.x, "y": rect.origin.y, "width": rect.size.width, "height": rect.size.height])
+        case let val where String(describing: type(of: val)) == "__NSCFType":
+            try container.encode(String(describing: val))
         case let array as [AnyCodable]:
             try container.encode(array)
         case let array as [Any?]:
@@ -121,6 +136,8 @@ public struct AnyCodable: Codable, @unchecked Sendable {
         case let dictionary as [String: Any?]:
             try container.encode(dictionary.mapValues { AnyCodable($0) })
         default:
+            // DEBUG: Print the type of unhandled values
+            print("AnyCodable unhandled type: \(String(describing: type(of: value))), value: \(String(describing: value))")
             return false
         }
         return true

@@ -16,11 +16,13 @@ public enum TraversalAction {
 public struct TraversalState {
     public let maxDepth: Int
     public let startElement: Element // Could be useful for context if GlobalAXLogger needs it indirectly
+    public let strictChildren: Bool // New flag
     // Add other non-logging state if needed by visitors, e.g., a shared Set for specific tracking.
 
-    public init(maxDepth: Int, startElement: Element) {
+    public init(maxDepth: Int, startElement: Element, strictChildren: Bool = false) { // Default to false
         self.maxDepth = maxDepth
         self.startElement = startElement
+        self.strictChildren = strictChildren
     }
 }
 
@@ -45,12 +47,19 @@ public struct TreeTraverser {
 
     public init() {}
 
-    public mutating func traverse(from element: Element, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
+    public mutating func traverse(from startNode: Element, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
+        let startNodeDesc = startNode.briefDescription(option: .default)
+        let logMaxDepth = state.maxDepth // Capture value for logging
+        let logStrictChildren = state.strictChildren // Capture value for logging
+        axDebugLog("[Traverse Entry] TreeTraverser.traverse starting from: \(startNodeDesc). MaxDepth: \(logMaxDepth), StrictChildren: \(logStrictChildren)")
         visitedElements.removeAll()
-        return _traverse(currentElement: element, depth: 0, visitor: visitor, state: &state)
+        return _traverse(currentElement: startNode, depth: 0, visitor: visitor, state: &state)
     }
 
     private mutating func _traverse(currentElement: Element, depth: Int, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
+        let currentDesc = currentElement.briefDescription(option: .default) // Corrected label
+        axDebugLog("[_Traverse Entry] Visiting \(currentDesc) at depth \(depth)") // MODIFIED LOG
+
         if depth > state.maxDepth {
             let maxDepth = state.maxDepth
             axDebugLog("Max depth (\(maxDepth)) reached at \(currentElement.briefDescription())")
@@ -75,7 +84,7 @@ public struct TreeTraverser {
             break
         }
 
-        guard let children = currentElement.children() else {
+        guard let children = currentElement.children(strict: state.strictChildren) else {
             axDebugLog("No children for \(currentElement.briefDescription()) or error fetching them.")
             return nil
         }

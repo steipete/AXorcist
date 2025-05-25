@@ -92,7 +92,4 @@ extension AXorcist {
         return HandlerResponse(data: AnyCodable(axElement), error: nil)
     }
 
-    // TODO: Add remaining command handler methods here...
-    // This is a placeholder file to demonstrate the refactoring approach
-    // The complete implementation would include all handle* methods
 }

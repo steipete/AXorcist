@@ -6,16 +6,19 @@ import Foundation
 
 extension Element {
     @MainActor
-    public func children() -> [Element]? { // Removed logging params
+    public func children(strict: Bool = false) -> [Element]? { // Added strict parameter
         // Logging for this top-level call
         // self.briefDescription() is assumed to be refactored and available
-        axDebugLog("Getting children for element: \(self.briefDescription(option: .default))")
+        axDebugLog("Getting children for element: \(self.briefDescription(option: .default)), strict: \(strict)")
 
         var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
         collectDirectChildren(collector: &childCollector)
-        collectAlternativeChildren(collector: &childCollector)
-        collectApplicationWindows(collector: &childCollector)
+        
+        if !strict { // Only collect alternatives if not strict
+            collectAlternativeChildren(collector: &childCollector)
+            collectApplicationWindows(collector: &childCollector)
+        }
 
         let result = childCollector.finalizeResults()
         axDebugLog("Final children count: \(result?.count ?? 0)")

@@ -81,7 +81,7 @@ struct AXORCCommand: AsyncParsableCommand {
         // Parse JSON command
         guard let jsonData = jsonString.data(using: .utf8) else {
             // Clear logs after error
-            await GlobalAXLogger.shared.clearLogs()
+            await axClearLogs()
             print("{\"error\": \"Failed to convert JSON string to data\"}")
             return
         }
@@ -109,7 +109,7 @@ struct AXORCCommand: AsyncParsableCommand {
 
             // Stop collecting logs after successful execution
             // Clear logs after error
-            await GlobalAXLogger.shared.clearLogs()
+            await axClearLogs()
 
         } catch {
             axErrorLog("DECODE_ERROR_DEBUG: Original jsonString that led to this error: [\(jsonString)]")
@@ -125,7 +125,7 @@ struct AXORCCommand: AsyncParsableCommand {
                 await GlobalAXLogger.shared.setDetailLevel(.verbose)
             }
             let collectedLogs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true)
-            await GlobalAXLogger.shared.clearLogs()
+            await axClearLogs()
 
             let errorResponse = ErrorResponse(
                 commandId: "decode_error",

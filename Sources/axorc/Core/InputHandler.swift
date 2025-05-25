@@ -36,9 +36,9 @@ struct InputHandler {
             if trimmedJsonString.isEmpty {
                 let error = "Error: --json argument was provided but the string is empty or only whitespace."
                 axErrorLog(error)
-                return (nil, "--json argument", error)
+                return ParseResult(jsonString: nil, sourceDescription: "--json argument", error: error)
             }
-            return (trimmedJsonString, "--json argument", nil)
+            return ParseResult(jsonString: trimmedJsonString, sourceDescription: "--json argument", error: nil)
         } else if positionalPayloadProvided {
             return handleDirectPayload(directPayload: directPayload)
         } else {
