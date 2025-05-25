@@ -30,7 +30,7 @@ extension AXUIElement {
         let systemWideElement = AXUIElementCreateSystemWide()
         var focusedApp: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(systemWideElement, AXAttributeNames.kAXFocusedApplicationAttribute as CFString, &focusedApp)
-        
+
         guard error == .success, let app = focusedApp, CFGetTypeID(app) == AXUIElementGetTypeID() else {
             let errorDetails = "AXError: \(error.rawValue) - \(error.localizedDescription)"
             axErrorLog("Failed to get focused application: \(errorDetails)")

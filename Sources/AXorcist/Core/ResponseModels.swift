@@ -153,17 +153,17 @@ public struct TextExtractionResponse: Codable, HandlerDataRepresentable {
 // For now, commenting out, replaced by TextExtractionResponse for HandlerResponse.data
 /*
  public struct TextContentResponse: Codable {
-     public var command_id: String
-     public var text_content: String?
-     public var error: String?
-     public var debug_logs: [String]?
+ public var command_id: String
+ public var text_content: String?
+ public var error: String?
+ public var debug_logs: [String]?
 
-     public init(command_id: String, text_content: String? = nil, error: String? = nil, debug_logs: [String]? = nil) {
-         self.command_id = command_id
-         self.text_content = text_content
-         self.error = error
-         self.debug_logs = debug_logs
-     }
+ public init(command_id: String, text_content: String? = nil, error: String? = nil, debug_logs: [String]? = nil) {
+ self.command_id = command_id
+ self.text_content = text_content
+ self.error = error
+ self.debug_logs = debug_logs
+ }
  }
  */
 

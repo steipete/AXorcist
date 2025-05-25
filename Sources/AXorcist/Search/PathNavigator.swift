@@ -5,29 +5,55 @@ import Foundation
 
 // Note: Assumes Element, PathUtils, Attribute are available.
 
-// Helper to check if the current element matches a specific attribute-value pair
+// New helper to check if an element matches all given criteria
 @MainActor
-internal func currentElementMatchesPathComponent(
+private func elementMatchesAllCriteria(
     _ element: Element,
-    attributeName: String,
-    expectedValue: String
-) -> Bool {
-    if attributeName.isEmpty { // Should not happen if parsePathComponent is robust
-        axWarningLog(
-            "currentElementMatchesPathComponent: attributeName is empty.",
-            file: #file,
-            function: #function,
-            line: #line
-        )
+    criteria: [String: String],
+    forPathComponent pathComponentForLog: String // For logging
+) async -> Bool {
+    let elementDescriptionForLog = element.briefDescription(option: .short)
+    // Explicitly log the element being checked and the criteria count
+    axDebugLog("PathNav/EMAC: Checking element [\(elementDescriptionForLog)] against criteria for component [\(pathComponentForLog)]. Criteria count: \(criteria.count). Criteria: \(criteria)", file: #file, function: #function, line: #line)
+
+    guard !criteria.isEmpty else {
+        axWarningLog("PathNav/EMAC: Criteria IS EMPTY for path component [\(pathComponentForLog)] on element [\(elementDescriptionForLog)]. Bailing out.", file: #file, function: #function, line: #line)
         return false
     }
-    // Element.attribute uses GlobalAXLogger internally
-    if let actualValue: String = element.attribute(Attribute(attributeName)) {
-        if actualValue == expectedValue {
-            return true
+
+    for (key, expectedValue) in criteria {
+        if key == "PID" { // Special handling for PID
+            guard let actualPid_t = await element.pid() else { // Uses existing pid() -> pid_t?, await call
+                axDebugLog("Element [\\(elementDescriptionForLog)] failed to provide PID (for path component [\\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                return false
+            }
+            let actualPid = Int(actualPid_t) // Convert pid_t to Int for comparison
+            guard let expectedPid = Int(expectedValue) else {
+                axDebugLog("Element [\\(elementDescriptionForLog)] PID criteria '\\(expectedValue)' is not a valid Int (for path component [\\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                return false
+            }
+            if actualPid != expectedPid {
+                axDebugLog("Element [\\(elementDescriptionForLog)] PID [\\(actualPid)] != expected [\\(expectedPid)] (for path component [\\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                return false
+            }
+            axDebugLog("Element [\\(elementDescriptionForLog)] PID [\\(actualPid)] == expected [\\(expectedPid)] (for path component [\\(pathComponentForLog)]). Criterion met.", file: #file, function: #function, line: #line)
+        } else { // Handle other attributes as before
+            let fetchedAttributeValue: String? = await element.attribute(Attribute(key)) // await call
+            axDebugLog("PathNav/EMAC: For element [\\(elementDescriptionForLog)], component [\\(pathComponentForLog)], attr [\\(key)], fetched value is: [\\(String(describing: fetchedAttributeValue))]. About to check if nil.", file: #file, function: #function, line: #line) // NEW DETAILED LOG
+
+            guard let actualValue = fetchedAttributeValue else { 
+                axDebugLog("Element [\\(elementDescriptionForLog)] lacks attribute [\\(key)] (value was nil after fetch) for path component [\\(pathComponentForLog)]. No match.", file: #file, function: #function, line: #line) // Modified log
+                return false
+            }
+            if actualValue != expectedValue {
+                axDebugLog("Element [\\(elementDescriptionForLog)] attribute [\\(key)] value [\\(actualValue)] != expected [\\(expectedValue)] (for path component [\\(pathComponentForLog)]). No match.", file: #file, function: #function, line: #line)
+                return false
+            }
+            axDebugLog("Element [\\(elementDescriptionForLog)] attribute [\\(key)] value [\\(actualValue)] == expected [\\(expectedValue)] (for path component [\\(pathComponentForLog)]). Criterion met.", file: #file, function: #function, line: #line)
         }
     }
-    return false
+    axDebugLog("Element [\\(elementDescriptionForLog)] matches ALL criteria for path component [\\(pathComponentForLog)]. Match!", file: #file, function: #function, line: #line)
+    return true
 }
 
 // Updated navigateToElement to prioritize children
@@ -35,18 +61,26 @@ internal func currentElementMatchesPathComponent(
 internal func navigateToElement(
     from startElement: Element,
     pathHint: [String],
-    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch // Added maxDepth with a default
-) -> Element? {
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
+) async -> Element? {
     var currentElement = startElement
     var currentPathSegmentForLog = ""
 
     for (index, pathComponentString) in pathHint.enumerated() {
         currentPathSegmentForLog += (index > 0 ? " -> " : "") + pathComponentString
 
+        // Special handling for "application" as the first component
+        // It implies the context is already the application element itself.
+        if index == 0 && pathComponentString.lowercased() == "application" {
+            axDebugLog("Path component 'application' encountered. Using current element (app root) as context for next component.", file: #file, function: #function, line: #line)
+            // currentElement is already appElement, so just continue to the next component
+            continue
+        }
+
         if index >= maxDepth {
             axDebugLog(
-                "Navigation aborted: Path hint index \(index) reached maxDepth \(maxDepth). " +
-                    "Path so far: \(currentPathSegmentForLog)",
+                "Navigation aborted: Path hint index \\(index) reached maxDepth \\(maxDepth). " +
+                    "Path so far: \\(currentPathSegmentForLog)",
                 file: #file,
                 function: #function,
                 line: #line
@@ -54,11 +88,11 @@ internal func navigateToElement(
             return nil
         }
 
-        let (attributeName, expectedValue) = PathUtils.parsePathComponent(pathComponentString)
-        guard !attributeName.isEmpty else {
+        let criteriaToMatch = PathUtils.parseRichPathComponent(pathComponentString)
+        guard !criteriaToMatch.isEmpty else {
             axErrorLog(
-                "CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty attribute name from " +
-                    "pathComponentString '\(pathComponentString)'",
+                "CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty or unparsable criteria from " +
+                    "pathComponentString '\\(pathComponentString)'",
                 file: #file,
                 function: #function,
                 line: #line
@@ -67,21 +101,21 @@ internal func navigateToElement(
         }
 
         // Process this path component
-        if let nextElement = processPathComponent(
+        if let nextElement = await processPathComponent(
             currentElement: currentElement,
-            pathComponentString: pathComponentString,
-            attributeName: attributeName,
-            expectedValue: expectedValue,
-            currentPathSegmentForLog: currentPathSegmentForLog
+            pathComponentString: pathComponentString, // Still useful for logging
+            criteriaToMatch: criteriaToMatch,
+            currentPathSegmentForLog: currentPathSegmentForLog // Still useful for logging
         ) {
             currentElement = nextElement
         } else {
+            // Log already done in processPathComponent or its callees
             return nil
         }
     }
 
     axDebugLog(
-        "Navigation successful. Final element: \(currentElement.briefDescription(option: .default))",
+        "Navigation successful. Final element: \\(currentElement.briefDescription(option: .default))",
         file: #file,
         function: #function,
         line: #line
@@ -93,38 +127,36 @@ internal func navigateToElement(
 @MainActor
 private func processPathComponent(
     currentElement: Element,
-    pathComponentString: String,
-    attributeName: String,
-    expectedValue: String,
-    currentPathSegmentForLog: String
-) -> Element? {
+    pathComponentString: String, // For logging
+    criteriaToMatch: [String: String],
+    currentPathSegmentForLog: String // For logging
+) async -> Element? {
     let briefDesc = currentElement.briefDescription(option: .default)
     logPathComponentProcessing(pathComponentString: pathComponentString, briefDesc: briefDesc)
 
     // Priority 1: Check children
-    if let matchedChild = findMatchingChild(
+    if let matchedChild = await findMatchingChild(
         currentElement: currentElement,
-        attributeName: attributeName,
-        expectedValue: expectedValue
+        criteriaToMatch: criteriaToMatch,
+        pathComponentForLog: pathComponentString // Pass for logging inside elementMatchesAllCriteria
     ) {
         return matchedChild
     }
 
     // Priority 2: If no child matched, check current element itself
-    if checkCurrentElementMatch(
-        currentElement: currentElement,
-        attributeName: attributeName,
-        expectedValue: expectedValue,
-        briefDesc: briefDesc
-    ) {
+    if await elementMatchesAllCriteria(currentElement, criteria: criteriaToMatch, forPathComponent: pathComponentString) {
+         axDebugLog(
+            "Current element \\(briefDesc) itself matches component '\\(pathComponentString)'. " +
+                "Retaining current element for this step.",
+            file: #file, function: #function, line: #line
+        )
         return currentElement
     }
 
     // No match found
     logNoMatchFound(
         briefDesc: briefDesc,
-        attributeName: attributeName,
-        expectedValue: expectedValue,
+        pathComponentString: pathComponentString,
         currentPathSegmentForLog: currentPathSegmentForLog
     )
     return nil
@@ -134,53 +166,25 @@ private func processPathComponent(
 @MainActor
 private func logPathComponentProcessing(pathComponentString: String, briefDesc: String) {
     axDebugLog(
-        "Navigating: Processing path component '\(pathComponentString)' " +
-            "from current element: \(briefDesc)",
+        "Navigating: Processing path component '\\(pathComponentString)' " +
+            "from current element: \\(briefDesc)",
         file: #file,
         function: #function,
         line: #line
     )
 }
 
-// Helper to check if current element matches
-@MainActor
-private func checkCurrentElementMatch(
-    currentElement: Element,
-    attributeName: String,
-    expectedValue: String,
-    briefDesc: String
-) -> Bool {
-    let matchResult = currentElementMatchesPathComponent(
-        currentElement,
-        attributeName: attributeName,
-        expectedValue: expectedValue
-    )
-
-    if matchResult {
-        axDebugLog(
-            "Current element \(briefDesc) itself matches '\(attributeName):\(expectedValue)'. " +
-                "Retaining current element for this step.",
-            file: #file,
-            function: #function,
-            line: #line
-        )
-    }
-
-    return matchResult
-}
-
 // Helper to log when no match is found
 @MainActor
 private func logNoMatchFound(
     briefDesc: String,
-    attributeName: String,
-    expectedValue: String,
+    pathComponentString: String, // Changed from attributeName/expectedValue
     currentPathSegmentForLog: String
 ) {
     axDebugLog(
-        "Neither current element \(briefDesc) nor its children (after all checks) " +
-            "matched '\(attributeName):\(expectedValue)'. " +
-            "Path: \(currentPathSegmentForLog) // CHILD_MATCH_FAILURE_MARKER",
+        "Neither current element \\(briefDesc) nor its children (after all checks) " +
+            "matched criteria for path component '\\(pathComponentString)'. " +
+            "Path: \\(currentPathSegmentForLog) // CHILD_MATCH_FAILURE_MARKER",
         file: #file,
         function: #function,
         line: #line
@@ -191,32 +195,29 @@ private func logNoMatchFound(
 @MainActor
 private func findMatchingChild(
     currentElement: Element,
-    attributeName: String,
-    expectedValue: String
-) -> Element? {
-    guard let children = getChildrenFromElement(currentElement) else {
-        return nil
+    criteriaToMatch: [String: String],
+    pathComponentForLog: String // Pass for logging inside elementMatchesAllCriteria
+) async -> Element? {
+    guard let children = await getChildrenFromElement(currentElement) else {
+        return nil // Logged in getChildrenFromElement if no children
     }
 
-    logChildCount(count: children.count)
+    logChildCount(count: children.count) // Optional: log how many children are being checked
 
-    return findMatchInChildren(
+    return await findMatchInChildren(
         children: children,
-        attributeName: attributeName,
-        expectedValue: expectedValue
+        criteriaToMatch: criteriaToMatch,
+        pathComponentForLog: pathComponentForLog
     )
 }
 
 // Helper to get children from element
 @MainActor
-private func getChildrenFromElement(_ element: Element) -> [Element]? {
-    // Element.children() is now the sole source for child elements.
-    // It internally prioritizes kAXChildrenAttribute and then checks alternatives.
-    // Element.children() uses GlobalAXLogger internally
-    guard let children = element.children() else {
-        let briefDesc = element.briefDescription(option: .default)
+private func getChildrenFromElement(_ element: Element) async -> [Element]? {
+    guard let children = await element.children() else {
+        let currentElementDescForLog = element.briefDescription(option: .default)
         axDebugLog(
-            "Current element \(briefDesc) has no children from Element.children() " +
+            "Current element [\\(currentElementDescForLog)] has no children from Element.children() " +
                 "or children array was nil.",
             file: #file,
             function: #function,
@@ -231,7 +232,7 @@ private func getChildrenFromElement(_ element: Element) -> [Element]? {
 @MainActor
 private func logChildCount(count: Int) {
     axDebugLog(
-        "Child count from Element.children(): \(count)",
+        "Child count from Element.children(): \\(count)",
         file: #file,
         function: #function,
         line: #line
@@ -242,37 +243,86 @@ private func logChildCount(count: Int) {
 @MainActor
 private func findMatchInChildren(
     children: [Element],
-    attributeName: String,
-    expectedValue: String
-) -> Element? {
-    for child in children {
-        if let matchedChild = checkChildMatch(
-            child: child,
-            attributeName: attributeName,
-            expectedValue: expectedValue
-        ) {
-            return matchedChild
+    criteriaToMatch: [String: String],
+    pathComponentForLog: String // Pass for logging inside elementMatchesAllCriteria
+) async -> Element? {
+    axDebugLog("PathNav/FMIC: Iterating \(children.count) children for component [\(pathComponentForLog)]. Criteria to match: \(criteriaToMatch)", file: #file, function: #function, line: #line)
+    for (childIndex, child) in children.enumerated() {
+        let childDescriptionForLog = child.briefDescription(option: .default)
+        axDebugLog("PathNav/FMIC: Child [\(childIndex)]/[\(children.count - 1)]: [\(childDescriptionForLog)]. About to call EMAC for component [\(pathComponentForLog)].", file: #file, function: #function, line: #line)
+        if await elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
+            // Matched child! Log before returning.
+            axDebugLog("Matched component [\\(pathComponentForLog)] to child: [\\(childDescriptionForLog)]",
+                       file: #file, function: #function, line: #line)
+            return child
         }
     }
+    // No child matched all criteria for this component
     return nil
 }
 
-// Helper to check if a child matches
+// MARK: - Index-based Navigation (If still needed, would need careful review)
+// The PathUtils.parseRichPathComponent currently does not produce index-based hints.
+// If "@index" style hints are required, parseRichPathComponent and the matching logic
+// would need to be extended. For now, focusing on attribute-based matching.
+
+/*
+    // Example of how index-based logic might be integrated if parseRichPathComponent supported it
+    // (e.g., by returning a special key like "@index" in criteriaToMatch)
+
+    // In processPathComponent, after trying findMatchingChild and elementMatchesAllCriteria(currentElement...):
+    if let indexStr = criteriaToMatch["@index"], let index = Int(indexStr) {
+        if let children = getChildrenFromElement(currentElement), index >= 0, index < children.count {
+            let indexedChild = children[index]
+            axDebugLog("Path component '\\(pathComponentString)' resolved to child at index \\(index): \\(indexedChild.briefDescription())")
+            return indexedChild
+        } else {
+            axDebugLog("Path component '\\(pathComponentString)' (index \\(index)) out of bounds for \\(currentElement.briefDescription()) with \\(getChildrenFromElement(currentElement)?.count ?? 0) children.")
+            // logNoMatchFound would have been called if attribute matching failed before this.
+            // If ONLY index was provided and it failed, this is the failure point.
+            return nil
+        }
+    }
+*/
+
+// MARK: - Deprecated/Replaced original path navigation helpers
+
+// The following functions were part of an older path navigation system or single-attribute matching
+// and are now replaced by the richer criteria-based matching using elementMatchesAllCriteria.
+// They are kept here commented out for reference during transition and can be removed later.
+
+/*
 @MainActor
-private func checkChildMatch(
+internal func original_currentElementMatchesPathComponent( // Marked as original
+    _ element: Element,
+    attributeName: String,
+    expectedValue: String
+) -> Bool {
+    if attributeName.isEmpty {
+        axWarningLog("original_currentElementMatchesPathComponent: attributeName is empty.")
+        return false
+    }
+    if let actualValue: String = element.attribute(Attribute(attributeName)) {
+        if actualValue == expectedValue {
+            return true
+        }
+    }
+    return false
+}
+
+@MainActor
+private func original_checkChildMatch( // Marked as original
     child: Element,
     attributeName: String,
     expectedValue: String
 ) -> Element? {
     let childBriefDescForLog = child.briefDescription(option: .default)
 
-    // Check if this child matches the current path component's criteria
-    // Element.attribute() uses GlobalAXLogger internally
     guard let actualValue: String = child.attribute(Attribute(attributeName)) else {
         return nil
     }
 
-    logChildCheck(
+    original_logChildCheck( // Use original log
         childDesc: childBriefDescForLog,
         attributeName: attributeName,
         actualValue: actualValue,
@@ -280,46 +330,43 @@ private func checkChildMatch(
     )
 
     if actualValue == expectedValue {
-        logChildMatch(
+        original_logChildMatch( // Use original log
             childDesc: childBriefDescForLog,
             attributeName: attributeName,
             expectedValue: expectedValue
         )
         return child
     }
-
     return nil
 }
 
-// Helper to log child attribute check
 @MainActor
-private func logChildCheck(
+private func original_logChildCheck( // Marked as original
     childDesc: String,
     attributeName: String,
     actualValue: String,
     expectedValue: String
 ) {
+    let matchStatus = (actualValue == expectedValue) ? "==" : "!="
     axDebugLog(
-        "  [Nav Child Check] Child: \(childDesc), " +
-            "Attribute '\(attributeName)': [\(actualValue)] (Expected: [\(expectedValue)])",
+        "Checking child: \\(childDesc) | Attribute: \\(attributeName) | Actual: '\\(actualValue)' \\(matchStatus) Expected: '\\(expectedValue)'",
         file: #file,
         function: #function,
         line: #line
     )
 }
 
-// Helper to log child match
 @MainActor
-private func logChildMatch(
+private func original_logChildMatch( // Marked as original
     childDesc: String,
     attributeName: String,
     expectedValue: String
 ) {
     axDebugLog(
-        "Matched child (from Element.children): \(childDesc) " +
-            "for '\(attributeName):\(expectedValue)'",
+        "MATCHED child: \\(childDesc) for \\(attributeName):\\(expectedValue)",
         file: #file,
         function: #function,
         line: #line
     )
 }
+*/

@@ -95,7 +95,7 @@ public class NotificationWatcher {
             targetDescription = "Global"
             effectivePid = nil // AXObserverCenter handles pid: nil for global
         }
-        
+
         let pidToLog = effectivePid ?? 0
         let logStart = "NotificationWatcher starting for target: \(targetDescription) (PID: \(pidToLog)), notification: \(self.notification.rawValue)"
         axInfoLog(logStart)
@@ -106,7 +106,7 @@ public class NotificationWatcher {
             notification: self.notification,
             handler: self.handler
         )
-        
+
         switch subscribeResult {
         case .success(let token):
             self.subscriptionToken = token

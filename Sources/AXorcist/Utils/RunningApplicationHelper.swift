@@ -219,8 +219,8 @@ public struct RunningApplicationHelper {
     public static func isAccessible(_ app: NSRunningApplication) -> Bool {
         #if canImport(AppKit)
         return app.activationPolicy != .prohibited &&
-               app.processIdentifier > 0 &&
-               app.bundleIdentifier != nil
+            app.processIdentifier > 0 &&
+            app.bundleIdentifier != nil
         #else
         return app.processIdentifier > 0
         #endif

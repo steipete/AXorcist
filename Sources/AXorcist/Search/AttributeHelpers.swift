@@ -684,36 +684,36 @@ private func formatFocusedUIElementAttribute(
 /*
  @MainActor
  func formatValue(_ value: Any?, outputFormat: OutputFormat, valueFormatOption: ValueFormatOption) -> AnyCodable? {
-     guard let val = value else { return nil }
+ guard let val = value else { return nil }
 
-     if outputFormat == .textContent {
-         if let strVal = val as? String { return AnyCodable(strVal) }
-         if let attrStrVal = val as? NSAttributedString { return AnyCodable(attrStrVal.string) }
-         if let boolVal = val as? Bool { return AnyCodable(boolVal.description) }
-         if let numVal = val as? NSNumber { return AnyCodable(numVal.stringValue) }
-         // For other complex types, a generic description
-         return AnyCodable("<".appending(String(describing: type(of: val))).appending(">"))
-     }
+ if outputFormat == .textContent {
+ if let strVal = val as? String { return AnyCodable(strVal) }
+ if let attrStrVal = val as? NSAttributedString { return AnyCodable(attrStrVal.string) }
+ if let boolVal = val as? Bool { return AnyCodable(boolVal.description) }
+ if let numVal = val as? NSNumber { return AnyCodable(numVal.stringValue) }
+ // For other complex types, a generic description
+ return AnyCodable("<".appending(String(describing: type(of: val))).appending(">"))
+ }
 
-     // For JSON or other structured output, try to preserve type or use AnyCodable
-     if let axVal = val as? AXValue { // AXValue might not be directly Codable
-         return AnyCodable(formatAXValue(axVal, option: valueFormatOption))
-     } else if let elementVal = val as? Element { // Element might not be directly Codable in all contexts
-         return AnyCodable(elementVal.briefDescription(option: valueFormatOption))
-     } else if let arrayVal = val as? [Any?] {
-         return AnyCodable(
-             arrayVal.map {
-                 formatValue($0, outputFormat: outputFormat, valueFormatOption: valueFormatOption)?.value
-             }
-         ) // Recursively format
-     } else if let dictVal = val as? [String: Any?] {
-         return AnyCodable(
-             dictVal.mapValues {
-                 formatValue($0, outputFormat: outputFormat, valueFormatOption: valueFormatOption)?.value
-             }
-         )
-     }
+ // For JSON or other structured output, try to preserve type or use AnyCodable
+ if let axVal = val as? AXValue { // AXValue might not be directly Codable
+ return AnyCodable(formatAXValue(axVal, option: valueFormatOption))
+ } else if let elementVal = val as? Element { // Element might not be directly Codable in all contexts
+ return AnyCodable(elementVal.briefDescription(option: valueFormatOption))
+ } else if let arrayVal = val as? [Any?] {
+ return AnyCodable(
+ arrayVal.map {
+ formatValue($0, outputFormat: outputFormat, valueFormatOption: valueFormatOption)?.value
+ }
+ ) // Recursively format
+ } else if let dictVal = val as? [String: Any?] {
+ return AnyCodable(
+ dictVal.mapValues {
+ formatValue($0, outputFormat: outputFormat, valueFormatOption: valueFormatOption)?.value
+ }
+ )
+ }
 
-     return AnyCodable(val) // Fallback to AnyCodable directly
+ return AnyCodable(val) // Fallback to AnyCodable directly
  }
  */

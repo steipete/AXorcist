@@ -10,7 +10,7 @@ public enum AXPermissions {
                 continuation.yield(lastStatus)
 
                 // Keep the timer optional, and manage its lifecycle strictly on MainActor
-                var timer: Timer? = nil
+                var timer: Timer?
                 timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in // Capture [weak timer] if needed, but direct usage is fine here
                     let currentStatus = AXIsProcessTrusted()
                     if currentStatus != lastStatus {
@@ -28,13 +28,13 @@ public enum AXPermissions {
                     Task { @MainActor in
                         // Capture timer by its reference if it's an instance property or managed elsewhere.
                         // If timer is local to the outer Task, it cannot be directly captured here safely across @Sendable boundary.
-                        // For this structure, timer needs to be accessible here. 
+                        // For this structure, timer needs to be accessible here.
                         // A common pattern is to make the timer an actor-isolated property or pass it in a way that respects Sendable.
                         // However, since we re-assign the local `timer` variable, the one in onTermination might be an old one or nil.
                         // This needs careful handling. For now, assume the intent is to invalidate the one set up by this stream instance.
                         // This will be problematic if multiple streams are created.
                         // A better approach would be to pass the timer to the termination handler or use a shared cancellation mechanism.
-                        
+
                         // Simplest fix for the warning IF `timer` was an instance variable made Sendable or actor-isolated:
                         // timer?.invalidate()
                         // timer = nil
@@ -64,7 +64,7 @@ public enum AXPermissions {
                         // The problem is `timer` itself being captured.
                         // Let's assume the user wants `timer` to be specific to this AsyncStream instance.
                         // We can pass it to the task if needed.
-                        
+
                         // The original `edit_file` call just put `timer.invalidate()` inside a Task @MainActor.
                         // The warnings are: `RunLoop.current` and `capture of timer`.
                         // 1. `RunLoop.current` -> `RunLoop.main`
@@ -92,9 +92,9 @@ public enum AXPermissions {
                         // }
                         // The compiler correctly warns that `timer` (non-sendable) is captured by `@Sendable` `onTermination`.
                         // The solution is to not capture `timer` in the `@Sendable` part.
-                        // The invalidation must happen on the MainActor. 
+                        // The invalidation must happen on the MainActor.
                         // We can set a flag in `onTermination` and have the main actor task periodically check it, or use another mechanism.
-                        
+
                         // Let's make the timer an optional instance variable of an @MainActor helper object if this were a class context.
                         // Since it's a static var `statusUpdates`, we could use a static @MainActor var for the timer.
                         // This seems the most direct way to deal with the capture for a static AsyncStream factory.

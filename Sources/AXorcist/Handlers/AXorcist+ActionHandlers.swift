@@ -234,6 +234,6 @@ extension AXorcist {
 // struct TextExtractionResponse: Codable { let textContent: String? }
 
 // Removed stub PathHintComponent struct - the canonical one is in SearchCriteriaUtils.swift
-// struct PathHintComponent { 
+// struct PathHintComponent {
 //    let originalSegment: String?
 // }

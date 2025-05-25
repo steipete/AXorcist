@@ -214,17 +214,17 @@ public func search(element: Element,
 /*
  @MainActor
  public func searchWithCycleDetection(element: Element,
-                                    locator: Locator,
-                                    requireAction: String?,
-                                    depth: Int = 0,
-                                    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
-                                    visitedElements: inout Set<Element>
-                                    // This param is problematic for a global logger model
-                                   ) -> Element? {
-     // This function's original purpose is now handled by TreeTraverser's internal visitedElements set.
-     axDebugLog("searchWithCycleDetection called (now an alias for regular search). Consider direct use of search().")
-     return search(element: element, locator: locator, requireAction: requireAction,
-                   depth: depth, maxDepth: maxDepth)
+ locator: Locator,
+ requireAction: String?,
+ depth: Int = 0,
+ maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
+ visitedElements: inout Set<Element>
+ // This param is problematic for a global logger model
+ ) -> Element? {
+ // This function's original purpose is now handled by TreeTraverser's internal visitedElements set.
+ axDebugLog("searchWithCycleDetection called (now an alias for regular search). Consider direct use of search().")
+ return search(element: element, locator: locator, requireAction: requireAction,
+ depth: depth, maxDepth: maxDepth)
  }
  */
 

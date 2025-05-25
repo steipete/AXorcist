@@ -146,13 +146,6 @@ public class SearchVisitor: TreeVisitor {
     private let requireAction: String?
     private var foundElement: Element?
     private var elementsProcessed: Int = 0
-    public static var totalVisitsGlobally: Int = 0
-    public static var lastLoggedTotalVisits: Int = 0
-
-    public static func resetGlobalVisitCount() {
-        totalVisitsGlobally = 0
-        lastLoggedTotalVisits = 0
-    }
 
     public init(locator: Locator, requireAction: String? = nil) {
         self.locator = locator
@@ -161,23 +154,13 @@ public class SearchVisitor: TreeVisitor {
 
     public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
         elementsProcessed += 1
-        SearchVisitor.totalVisitsGlobally += 1
-
-        if SearchVisitor.totalVisitsGlobally % 250 == 0 {
-            axDebugLog("[TEMP DEBUG] SearchVisitor Global Visits: \(SearchVisitor.totalVisitsGlobally)")
-        }
-
-        if SearchVisitor.totalVisitsGlobally % 500 == 0 && SearchVisitor.totalVisitsGlobally > SearchVisitor.lastLoggedTotalVisits {
-            axDebugLog("SearchVisitor.visit global call count reached: \(SearchVisitor.totalVisitsGlobally)")
-            SearchVisitor.lastLoggedTotalVisits = SearchVisitor.totalVisitsGlobally
-        }
 
         if foundElement != nil {
             return .stop
         }
 
         if depth == 0 && elementsProcessed == 1 {
-            axDebugLog("SearchVisitor: Starting new search. Global visits: \(SearchVisitor.totalVisitsGlobally). Locator: \(self.locator.criteria)")
+            axDebugLog("SearchVisitor: Starting new search. Locator: \(self.locator.criteria)")
         }
 
         let matchStatus = evaluateElementAgainstCriteria(

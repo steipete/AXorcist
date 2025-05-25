@@ -76,10 +76,9 @@ extension AXorcist {
         maxDepth: Int?,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?,
-        commandId: String?
+        commandId: String?,
+        debugCLI: Bool
     ) async -> String {
-        SearchVisitor.resetGlobalVisitCount()
-
         let params = CollectAllParameters(
             appIdentifierOrNil: appIdentifierOrNil,
             locator: locator,
@@ -94,11 +93,12 @@ extension AXorcist {
         logCollectAllStart(params)
 
         // Get app element
-        guard let appElement = applicationElement(for: params.appIdentifier) else {
+        guard let appElement = await applicationElement(for: params.appIdentifier) else {
             return await createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
-                error: "Failed to get app element for identifier: \(params.appIdentifier)"
+                error: "Failed to get app element for identifier: \(params.appIdentifier)",
+                debugCLI: debugCLI
             )
         }
 
@@ -114,7 +114,8 @@ extension AXorcist {
             return await createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
-                error: startElementResult.error ?? "Failed to determine start element"
+                error: startElementResult.error ?? "Failed to determine start element",
+                debugCLI: debugCLI
             )
         }
 
@@ -128,7 +129,8 @@ extension AXorcist {
         return await createSuccessResponse(
             commandId: params.effectiveCommandId,
             appIdentifier: params.appIdentifier,
-            collectedElements: collectedElements
+            collectedElements: collectedElements,
+            debugCLI: debugCLI
         )
     }
 
@@ -200,10 +202,10 @@ extension AXorcist {
             let pathHintString = hint.joined(separator: " -> ")
             axDebugLog("[CollectAll] Navigating to path hint: \(pathHintString)")
 
-            guard let navigatedElement = navigateToElement(
+            guard let navigatedElement = await navigateToElement(
                 from: appElement,
                 pathHint: hint,
-                maxDepth: AXMiscConstants.defaultMaxDepthSearch 
+                maxDepth: AXMiscConstants.defaultMaxDepthSearch
             ) else {
                 return (nil, "Failed to navigate to path: \(pathHintString)")
             }
@@ -234,7 +236,7 @@ extension AXorcist {
                 )
             }
         } else if pathNavigated {
-             axDebugLog("[CollectAll] Path navigation occurred. Using element from path as definitive root: \(startElement.briefDescription()). Locator.criteria (if any) will not be used to further refine this root.")
+            axDebugLog("[CollectAll] Path navigation occurred. Using element from path as definitive root: \(startElement.briefDescription()). Locator.criteria (if any) will not be used to further refine this root.")
         } else if let loc = locator, loc.criteria.isEmpty {
             axDebugLog("[CollectAll] Locator provided with empty criteria and no path hint. Using current startElement: \(startElement.briefDescription()) as root.")
         }
@@ -300,11 +302,12 @@ extension AXorcist {
     private func createErrorResponse(
         commandId: String,
         appIdentifier: String,
-        error: String
+        error: String,
+        debugCLI: Bool
     ) async -> String {
         axErrorLog(error)
-        // Fetch logs
-        let logs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
+        // Conditionally fetch logs based on debugCLI
+        let logs = debugCLI ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
         return encode(CollectAllOutput(
             commandId: commandId,
             success: false,
@@ -320,10 +323,11 @@ extension AXorcist {
     private func createSuccessResponse(
         commandId: String,
         appIdentifier: String,
-        collectedElements: [AXElement]
+        collectedElements: [AXElement],
+        debugCLI: Bool
     ) async -> String {
-        // Fetch logs
-        let logs = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
+        // Conditionally fetch logs based on debugCLI
+        let logs = debugCLI ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
         let output = CollectAllOutput(
             commandId: commandId,
             success: true,
@@ -334,66 +338,5 @@ extension AXorcist {
             errorMessage: nil
         )
         return encode(output)
-    }
-
-    @MainActor
-    func handleCollectAll(
-        commandRequest: CommandEnvelope,
-        appElement: Element,
-        startElement: Element,
-        attributesToFetch: [String],
-        maxElements: Int, // This parameter seems unused in the original logic
-        recursionDepthLimit: Int,
-        outputFormat: OutputFormat
-    ) async -> Result<ResponseContainer, AccessibilityError> {
-        SearchVisitor.resetGlobalVisitCount()
-
-        // Context setting removed - GlobalAXLogger doesn't have these properties
-        // The command executor should handle context if needed
-
-        axInfoLog("Starting collectAll operation (CommandEnvelope version). Command ID: \(commandRequest.commandId)")
-
-        var traverser = TreeTraverser()
-        let visitor = CollectAllVisitor(
-            attributesToFetch: attributesToFetch,
-            outputFormat: outputFormat,
-            appElement: appElement
-        )
-
-        var traversalState = TraversalState(
-            maxDepth: recursionDepthLimit,
-            startElement: startElement,
-            strictChildren: true
-        )
-
-        axDebugLog("[Pre-Traverse CGHEH] Handler: validStartElement is: \(startElement.briefDescription(option: .default)) with strictChildren=true")
-        _ = traverser.traverse(from: startElement, visitor: visitor, state: &traversalState)
-
-        let collectedElementsData = visitor.collectedElements
-
-        axDebugLog("Traversal complete (CommandEnvelope). Collected \(collectedElementsData.count) elements.")
-
-        if collectedElementsData.isEmpty {
-            axInfoLog("No elements collected (CommandEnvelope), but traversal itself was successful.")
-        }
-
-        let responseData = ResponseData.elementsList(collectedElementsData)
-
-        // Get logs from GlobalAXLogger
-        let debugLogsForResponse = await GlobalAXLogger.shared.getLogsAsStrings(format: .text)
-
-        let response = ResponseContainer(
-            commandId: commandRequest.commandId,
-            success: true,
-            command: commandRequest.command.rawValue,
-            message: "Collected \(collectedElementsData.count) elements.",
-            data: responseData,
-            error: nil,
-            debugLogs: debugLogsForResponse
-        )
-
-        // Context cleanup removed - GlobalAXLogger doesn't have these properties
-
-        return .success(response)
     }
 }

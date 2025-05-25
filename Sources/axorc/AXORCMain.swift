@@ -102,7 +102,8 @@ struct AXORCCommand: AsyncParsableCommand {
             let axorcist = AXorcist()
             let result = await CommandExecutor.execute(
                 command: command,
-                axorcist: axorcist
+                axorcist: axorcist,
+                debugCLI: debug
             )
 
             print(result) // CommandExecutor.execute should return a string (JSON response)

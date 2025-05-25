@@ -122,7 +122,7 @@ public class AXObserverCenter {
     public func unsubscribe(token: SubscriptionToken) throws {
         subscriptionsLock.lock()
         defer { subscriptionsLock.unlock() }
-        
+
         guard let key = subscriptionTokens.removeValue(forKey: token.id) else {
             axErrorLog("Unsubscribe failed: Token ID \(token.id) not found.")
             throw AccessibilityError.tokenNotFound(tokenId: token.id)
@@ -329,7 +329,7 @@ public class AXObserverCenter {
                     }
                     nsUserInfo = tempDict
                 } else {
-                     axWarningLog("Could not cast userInfo CFDictionary to Dictionary<CFString, CFTypeRef> for initial conversion.")
+                    axWarningLog("Could not cast userInfo CFDictionary to Dictionary<CFString, CFTypeRef> for initial conversion.")
                 }
             }
 
@@ -401,9 +401,9 @@ public class AXObserverCenter {
                 return false
             }
             // Fallback for other CFBoolean representations if any, or if direct Bool bridging works
-            if let boolVal = cfValue as? Bool { 
+            if let boolVal = cfValue as? Bool {
                 return boolVal
-            }            
+            }
             axWarningLog("Could not convert CFBoolean to Bool: \(String(describing: cfValue))")
             return nil // Or handle as error
         case CFArrayGetTypeID():
@@ -481,7 +481,7 @@ public class AXObserverCenter {
                 handler(pid, axNotification, axElement, nsUserInfo) // Pass raw axElement, handler expects AXUIElement
             }
         }
-        
+
         if center.subscriptions[specificKey] == nil && center.subscriptions[globalKey] == nil {
             axWarningLog("No handlers found for notification \(axNotification.rawValue).")
         }
@@ -584,7 +584,7 @@ public class AXObserverCenter {
         if let globalHandlers = subscriptions[globalKey] {
             handlersToCall.append(contentsOf: globalHandlers.values)
         }
-        
+
         // Deduplicate handlers if any subscribed to both specific and global for the same notification (though unlikely with UUID keys)
         // let uniqueHandlers = Array(Set(handlersToCall)) // Set requires AXNotificationSubscriptionHandler to be Hashable, which it might not be (closure).
         // For now, direct invocation. If a handler is in both lists, it will be called twice.

@@ -15,9 +15,8 @@ extension AXorcist {
         batchCommandID: String, // The ID of the overall batch command
         subCommands: [CommandEnvelope] // The array of sub-commands to process
     ) async -> [HandlerResponse] {
-        SearchVisitor.resetGlobalVisitCount() // Reset counter at the start of the whole batch
-
-        axDebugLog("[AXorcist.handleBatchCommands][BatchID: \(batchCommandID)] Starting batch processing with \(subCommands.count) sub-commands.")
+        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset counter at the start of the whole batch
+        axInfoLog("Starting batch command execution. Batch ID: \(batchCommandID), Number of sub-commands: \(subCommands.count)")
 
         var batchResults: [HandlerResponse] = []
 

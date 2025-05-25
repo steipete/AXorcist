@@ -15,10 +15,11 @@ struct CommandExecutor {
 
     static func execute(
         command: CommandEnvelope,
-        axorcist: AXorcist
-        // debug parameter removed
+        axorcist: AXorcist,
+        debugCLI: Bool // Added debugCLI flag
     ) async -> String {
-        // Setup logging
+        // Setup logging based on command.debugLogging (per-command debug flag)
+        // The debugCLI flag (from main CLI --debug) will be used for log *inclusion in output*.
         let (initialLoggingEnabled, initialDetailLevel) = await setupLogging(for: command)
 
         // Defer resetting logger to initial state
@@ -32,9 +33,10 @@ struct CommandExecutor {
         // Update GlobalAXLogger operation details
         await GlobalAXLogger.shared.updateOperationDetails(commandID: command.commandId, appName: command.application)
 
-        axDebugLog("Executing command: \(command.command) (ID: \(command.commandId)), cmdDebug: \(String(describing: command.debugLogging))")
+        axDebugLog("Executing command: \(command.command) (ID: \(command.commandId)), cmdDebug: \(String(describing: command.debugLogging)), cliDebug: \(debugCLI)")
 
-        let responseString = await processCommand(command: command, axorcist: axorcist)
+        // Pass debugCLI to processCommand
+        let responseString = await processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
 
         // Clear logs for this specific operation after processing,
         // so next command in a batch (if any) or next CLI call starts fresh for its specific logs.
@@ -56,28 +58,39 @@ struct CommandExecutor {
         return (initialLoggingEnabled, initialDetailLevel)
     }
 
-    private static func processCommand(command: CommandEnvelope, axorcist: AXorcist) async -> String {
+    private static func processCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) async -> String {
         switch command.command {
         case .performAction:
-            return await handlePerformActionCommand(command: command, axorcist: axorcist)
+            // Pass debugCLI to handler
+            return await handlePerformActionCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
 
         case .getFocusedElement:
-            return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeGetFocusedElement)
+            // Pass debugCLI to handler
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetFocusedElement)
 
         case .getAttributes:
-            return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeGetAttributes)
+            // Pass debugCLI to handler
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetAttributes)
 
         case .query:
-            return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeQuery)
+            // Pass debugCLI to handler
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeQuery)
 
         case .describeElement:
-            return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeDescribeElement)
+            // Pass debugCLI to handler
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeDescribeElement)
 
         case .extractText:
-            return await handleSimpleCommand(command: command, axorcist: axorcist, executor: executeExtractText)
+            // Pass debugCLI to handler
+            return await handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeExtractText)
 
         case .collectAll:
-            // Directly await the call to the now async axorcist.handleCollectAll
+            // For collectAll, the AXorcist library function directly returns the JSON string.
+            // This function needs to be made aware of debugCLI if its *returned JSON string*
+            // is to conditionally omit logs. This is a deeper change.
+            // The debugCLI flag is primarily for the CommandExecutor's own response wrapping.
+            // We are now modifying handleCollectAll to accept debugCLI.
+            axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
             return await axorcist.handleCollectAll(
                 for: command.application,
                 locator: command.locator,
@@ -85,31 +98,42 @@ struct CommandExecutor {
                 maxDepth: command.maxDepth,
                 requestedAttributes: command.attributes,
                 outputFormat: command.outputFormat,
-                commandId: command.commandId
+                commandId: command.commandId,
+                debugCLI: debugCLI // Pass the flag
             )
 
         case .batch:
-            return await handleBatchCommand(command: command, axorcist: axorcist)
+            // Pass debugCLI to handler
+            return await handleBatchCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
 
         case .ping:
-            return await handlePingCommand(command: command)
+            // Pass debugCLI to handler
+            return await handlePingCommand(command: command, debugCLI: debugCLI)
 
         case .getElementAtPoint:
-            return await handleNotImplementedCommand(command: command, message: "getElementAtPoint command not yet implemented")
+            // Pass debugCLI to handler
+            return await handleNotImplementedCommand(command: command, message: "getElementAtPoint command not yet implemented", debugCLI: debugCLI)
         }
     }
 
-    private static func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist) async -> String {
+    private static func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) async -> String {
         guard let actionName = command.actionName else {
             let error = "Missing actionName for performAction"
             axErrorLog(error) // Log error
-            return encodeToJson(QueryResponse(
+            // Conditionally include logs in error response based on debugCLI
+            let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
+            let queryResponse = QueryResponse(
                 success: false,
                 commandId: command.commandId,
                 command: command.command.rawValue,
-                error: error,
-                debugLogs: await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text) // Get logs if enabled
-            )) ?? "{\"error\": \"Encoding error response failed\"}"
+                error: error, // This is a String, QueryResponse legacy init handles String for error
+                debugLogs: logsToInclude
+            )
+            let jsonString = encodeToJson(queryResponse)
+            let fallbackJson = """
+            {"error": "Encoding error response failed"}
+            """
+            return jsonString ?? fallbackJson
         }
 
         let handlerResponse = await executePerformAction(
@@ -117,56 +141,80 @@ struct CommandExecutor {
             axorcist: axorcist,
             actionName: actionName
         )
+        // Pass debugCLI to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
-            handlerResponse: handlerResponse
+            handlerResponse: handlerResponse,
+            debugCLI: debugCLI
         )
     }
 
     private static func handleSimpleCommand(
         command: CommandEnvelope,
         axorcist: AXorcist,
+        debugCLI: Bool, // Added debugCLI
         executor: (CommandEnvelope, AXorcist) async -> HandlerResponse
     ) async -> String {
         let handlerResponse = await executor(command, axorcist)
+        // Pass debugCLI to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
-            handlerResponse: handlerResponse
+            handlerResponse: handlerResponse,
+            debugCLI: debugCLI
         )
     }
 
-    private static func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist) async -> String {
+    private static func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) async -> String {
+        // Batch response likely needs careful handling of debugCLI for its sub-responses
+        // and the overall batch response.
+        // Assuming executeBatch and its encoding handle this or need similar modifications.
+        // For now, passing debugCLI down.
+        axDebugLog("handleBatchCommand called with debugCLI: \(debugCLI). Further impl needed for log control in batch items.")
         let batchResponse = await executeBatch(
             command: command,
-            axorcist: axorcist
+            axorcist: axorcist,
+            debugCLI: debugCLI
         )
-        return encodeToJson(batchResponse) ?? "{\"error\": \"Encoding batch response failed\"}"
+        // The top-level batchResponse might also need conditional logging.
+        // If BatchQueryResponse has a debugLogs field:
+        // var modifiedBatchResponse = batchResponse
+        // if !debugCLI { modifiedBatchResponse.debugLogs = nil } // Example
+
+        let jsonString = encodeToJson(batchResponse)
+        let fallbackJson = """
+        {"error": "Encoding batch response failed"}
+        """
+        return jsonString ?? fallbackJson
     }
 
-    private static func handlePingCommand(command: CommandEnvelope) async -> String {
+    private static func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) async -> String {
         axDebugLog("Ping command received. Responding with pong.")
         let pingHandlerResponse = HandlerResponse(
             data: nil,
             error: nil
         )
+        // Pass debugCLI to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
-            handlerResponse: pingHandlerResponse
+            handlerResponse: pingHandlerResponse,
+            debugCLI: debugCLI
         )
     }
 
-    private static func handleNotImplementedCommand(command: CommandEnvelope, message: String) async -> String {
+    private static func handleNotImplementedCommand(command: CommandEnvelope, message: String, debugCLI: Bool) async -> String {
         let notImplementedResponse = HandlerResponse(
             data: nil,
             error: message
         )
+        // Pass debugCLI to finalizeAndEncodeResponse
         return await finalizeAndEncodeResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,
-            handlerResponse: notImplementedResponse
+            handlerResponse: notImplementedResponse,
+            debugCLI: debugCLI
         )
     }
 
@@ -300,18 +348,19 @@ struct CommandExecutor {
 
     private static func executeBatch(
         command: CommandEnvelope,
-        axorcist: AXorcist
-        // effectiveDebugLogging and localDebugLogs removed
+        axorcist: AXorcist,
+        debugCLI: Bool // Added debugCLI
     ) async -> BatchResponse {
         guard let subCommands = command.subCommands else {
             let error = "Missing subCommands for batch command"
             axErrorLog(error)
-            // BatchResponse itself will get logs from GlobalAXLogger if enabled
+            // Conditionally include logs in BatchResponse for error case
+            let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
             return BatchResponse(
                 commandId: command.commandId,
                 success: false,
                 results: [],
-                debugLogs: await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text)
+                debugLogs: logsToInclude
             )
         }
 
@@ -345,11 +394,13 @@ struct CommandExecutor {
             )
         }
 
+        // Conditionally include logs in the final BatchResponse
+        let finalLogsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
         return BatchResponse(
             commandId: command.commandId,
             success: overallSuccess,
             results: queryResults,
-            debugLogs: await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text) // All logs from the batch operation
+            debugLogs: finalLogsToInclude // All logs from the batch operation, conditional
         )
     }
 
@@ -358,23 +409,25 @@ struct CommandExecutor {
     private static func finalizeAndEncodeResponse(
         commandId: String,
         commandType: String,
-        handlerResponse: HandlerResponse
-        // localDebugLogs and effectiveDebugLogging removed
+        handlerResponse: HandlerResponse, // This is from AXorcist library
+        debugCLI: Bool // Added debugCLI
     ) async -> String {
+        let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
 
-        // HandlerResponse no longer contains debug_logs.
-        // Get logs from GlobalAXLogger if it's enabled.
-        let collectedLogs = await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text)
-
-        let queryResponse = QueryResponse(
+        // Use the specialized QueryResponse initializer that takes a HandlerResponse
+        let response = QueryResponse(
             commandId: commandId,
-            success: handlerResponse.error == nil,
+            success: handlerResponse.error == nil, // Success is determined by error presence
             command: commandType,
-            handlerResponse: handlerResponse, // contains .data and .error
-            debugLogs: collectedLogs // Logs from GlobalAXLogger
+            handlerResponse: handlerResponse, // Pass the whole HandlerResponse
+            debugLogs: logsToInclude
         )
 
-        return encodeToJson(queryResponse) ?? "{\"error\": \"Encoding \(commandType) response failed\"}"
+        let jsonString = encodeToJson(response)
+        let fallbackJson = """
+        {"error": "Encoding response failed"}
+        """
+        return jsonString ?? fallbackJson
     }
 
     private static func encodeToJson<T: Codable>(_ object: T) -> String? {

@@ -12,4 +12,31 @@ public enum PathUtils {
         }
         return (attributeName: String(parts[0]), expectedValue: String(parts[1]))
     }
+
+    public static func parseRichPathComponent(_ pathComponent: String) -> [String: String] {
+        var criteria: [String: String] = [:]
+        let trimmedPathComponent = pathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Split by comma, but be careful about commas inside quoted values if we encounter them later
+        // For now, assuming commas are reliable delimiters between key:value pairs
+        let pairs = trimmedPathComponent.split(separator: ",")
+
+        for pair in pairs {
+            let keyValue = pair.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ":", maxSplits: 1)
+            if keyValue.count == 2 {
+                let key = String(keyValue[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+                var value = String(keyValue[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+                // Remove surrounding quotes from value if present (e.g., Title: "XYZ" or Title: 'XYZ')
+                if value.count >= 2 {
+                    if value.hasPrefix("\"") && value.hasSuffix("\"") {
+                        value = String(value.dropFirst().dropLast())
+                    } else if value.hasPrefix("'") && value.hasSuffix("'") {
+                        value = String(value.dropFirst().dropLast())
+                    }
+                }
+                criteria[key] = value
+            }
+        }
+        return criteria
+    }
 }

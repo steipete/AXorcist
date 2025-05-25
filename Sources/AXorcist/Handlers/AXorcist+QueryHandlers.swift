@@ -22,7 +22,7 @@ extension AXorcist {
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?
     ) async -> HandlerResponse {
-        SearchVisitor.resetGlobalVisitCount()
+        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset before each query-like operation
 
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling query for app: \(appIdentifier)",
@@ -263,7 +263,7 @@ extension AXorcist {
         maxDepth: Int?,
         outputFormat: OutputFormat?
     ) async -> HandlerResponse {
-        SearchVisitor.resetGlobalVisitCount()
+        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset for getAttributes
 
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling get_attributes command for app: \(appIdentifier)",
@@ -322,7 +322,7 @@ extension AXorcist {
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?
     ) async -> HandlerResponse {
-        SearchVisitor.resetGlobalVisitCount()
+        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset for describeElement
 
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Handling describe_element for app: \(appIdentifier)",
@@ -383,7 +383,7 @@ extension AXorcist {
         includeActions: Bool,
         outputFormat: OutputFormat?
     ) async -> HandlerResponse {
-        SearchVisitor.resetGlobalVisitCount()
+        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset for fetchElementTree
 
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axDebugLog("Fetching element tree for app: \(appIdentifier)",

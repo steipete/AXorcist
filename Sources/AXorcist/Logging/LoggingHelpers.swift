@@ -6,10 +6,10 @@ import Foundation
 public func axDebugLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
     let actualMessage = message() // Evaluate the message here
     #if DEBUG // Only log debug messages in DEBUG builds, or if explicitly enabled otherwise
-        Task {
-            let entry = AXLogEntry(level: .debug, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-            await GlobalAXLogger.shared.log(entry)
-        }
+    Task {
+        let entry = AXLogEntry(level: .debug, message: actualMessage, file: file, function: function, line: Int(line), details: details)
+        await GlobalAXLogger.shared.log(entry)
+    }
     #endif
 }
 

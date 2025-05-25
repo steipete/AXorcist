@@ -192,7 +192,7 @@ extension Element {
         return rowsUI.map { Element($0) }
     }
 
-    /// Get visible columns  
+    /// Get visible columns
     @MainActor
     public func visibleColumns() -> [Element]? {
         guard let columnsUI: [AXUIElement] = attribute(.visibleColumns) else { return nil }

@@ -275,7 +275,7 @@ class Scanner {
 
     static var identifierFollowingCharSet: CustomCharacterSet {
         CustomCharacterSet(charactersInString: characterSets.lowercaseLetters + characterSets
-            .uppercaseLetters + characterSets.digits + "_"
+                            .uppercaseLetters + characterSets.digits + "_"
         )
     }
 

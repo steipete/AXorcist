@@ -79,7 +79,7 @@ extension Element {
             if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
             axDebugLog(
                 "Failed to cast unwrapped value for String attribute \(attribute.rawValue). " +
-                "Value: \(finalValue)"
+                    "Value: \(finalValue)"
             )
             return nil
         }
@@ -90,7 +90,7 @@ extension Element {
 
         axWarningLog(
             "Fallback cast attempt for parameterized attribute '\(attribute.rawValue)' " +
-            "to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)"
+                "to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)"
         )
         return nil
     }

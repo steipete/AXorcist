@@ -133,7 +133,7 @@ private func formatCFDictionary(
         } else {
             axWarningLog(
                 "formatCFDictionary: Failed to bridge CFDictionary to [String: AnyObject]. " +
-                "Iteration might be incomplete.",
+                    "Iteration might be incomplete.",
                 file: #file,
                 function: #function,
                 line: #line

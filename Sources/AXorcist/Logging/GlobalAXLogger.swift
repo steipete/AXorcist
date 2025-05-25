@@ -66,16 +66,16 @@ public actor GlobalAXLogger {
 
     // MARK: - Subscription Management (REMOVED)
     /*
-    func subscribeToLogs(_ onNewLog: @escaping @MainActor (AXLogEntry) -> Void) -> UUID {
-        let id = UUID()
-        subscribers[id] = onNewLog
-        return id
-    }
+     func subscribeToLogs(_ onNewLog: @escaping @MainActor (AXLogEntry) -> Void) -> UUID {
+     let id = UUID()
+     subscribers[id] = onNewLog
+     return id
+     }
 
-    func unsubscribeFromLogs(subscriberId: UUID) {
-        subscribers.removeValue(forKey: subscriberId)
-    }
-    */
+     func unsubscribeFromLogs(subscriberId: UUID) {
+     subscribers.removeValue(forKey: subscriberId)
+     }
+     */
 }
 
 // MARK: - Global Logging Functions (Convenience Wrappers)
@@ -97,18 +97,18 @@ public func axClearLogs() async {
 
 // MARK: - Global Subscription Wrappers (REMOVED)
 /*
-// Subscribes to new log entries. The callback is invoked on the MainActor.
-// The returned UUID can be used to unsubscribe later.
-@MainActor
-public func axSubscribeToLogs(_ onNewLog: @escaping (AXLogEntry) -> Void) async -> UUID {
-    return await GlobalAXLogger.shared.subscribeToLogs(onNewLog)
-}
+ // Subscribes to new log entries. The callback is invoked on the MainActor.
+ // The returned UUID can be used to unsubscribe later.
+ @MainActor
+ public func axSubscribeToLogs(_ onNewLog: @escaping (AXLogEntry) -> Void) async -> UUID {
+ return await GlobalAXLogger.shared.subscribeToLogs(onNewLog)
+ }
 
-// Unsubscribes from log entries using the ID obtained from axSubscribeToLogs.
-public func axUnsubscribeFromLogs(subscriberId: UUID) async {
-    await GlobalAXLogger.shared.unsubscribeFromLogs(subscriberId: subscriberId)
-}
-*/
+ // Unsubscribes from log entries using the ID obtained from axSubscribeToLogs.
+ public func axUnsubscribeFromLogs(subscriberId: UUID) async {
+ await GlobalAXLogger.shared.unsubscribeFromLogs(subscriberId: subscriberId)
+ }
+ */
 // MARK: - Environment Variable Check for JSON Logging (REMOVED - handled in init)
 // private func checkJSONLoggingEnvironmentVariable() -> Bool { ... }
 
