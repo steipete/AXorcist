@@ -16,8 +16,7 @@ extension AXorcist {
     @MainActor
     public func handleQuery(
         for appIdentifierOrNil: String?,
-        locator: Locator, // Only locator is needed
-        // pathHint: [String]?, // REMOVED
+        locator: Locator,
         maxDepth: Int?,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?
@@ -26,11 +25,10 @@ extension AXorcist {
         axDebugLog("Handling query for app: \(appIdentifier), locator: \(locator)",
                    file: #file, function: #function, line: #line)
 
-        // findTargetElement will handle app element creation and use locator.rootElementPathHint
+        // findTargetElement is sync
         let findResult = await findTargetElement(
             for: appIdentifier,
             locator: locator,
-            // pathHint parameter removed from findTargetElement call
             maxDepthForSearch: maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
         )
 
@@ -41,20 +39,17 @@ extension AXorcist {
             )
         }
         
-        // Need appElement for path generation in buildQueryResponse
+        // applicationElement is sync
         guard let appElement = applicationElement(for: appIdentifier) else {
              axErrorLog("Application not found for path context: \(appIdentifier)")
-             // Proceed with foundElement but path might be relative or incomplete
              return buildQueryResponse(
                  element: foundElement,
-                 appElement: nil, // Pass nil for appElement
+                 appElement: nil, 
                  requestedAttributes: requestedAttributes,
                  outputFormat: outputFormat
              )
         }
 
-
-        // Get attributes and build response
         return buildQueryResponse(
             element: foundElement,
             appElement: appElement,
@@ -103,19 +98,19 @@ extension AXorcist {
     @MainActor
     internal func buildQueryResponse(
         element: Element,
-        appElement: Element?, // Changed to optional
+        appElement: Element?,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?
-    ) -> HandlerResponse {
-        let (attributes, _) = getElementAttributes(
+    ) async -> HandlerResponse {
+        let (attributes, _) = await getElementAttributes(
             element: element,
             attributes: requestedAttributes ?? [],
             outputFormat: outputFormat ?? .smart
         )
-
+        // element.generatePathArray is sync
         let axElement = AXElement(
             attributes: attributes,
-            path: element.generatePathArray(upTo: appElement) // Pass appElement (optional)
+            path: element.generatePathArray(upTo: appElement)
         )
 
         return HandlerResponse(
@@ -130,7 +125,6 @@ extension AXorcist {
     public func handleGetAttributes(
         for appIdentifierOrNil: String?,
         locator: Locator,
-        // pathHint: [String]?, // REMOVED
         requestedAttributes: [String]?,
         maxDepth: Int?,
         outputFormat: OutputFormat?
@@ -139,11 +133,10 @@ extension AXorcist {
         axDebugLog("Handling getAttributes for app: \(appIdentifier), locator: \(locator)",
                    file: #file, function: #function, line: #line)
 
-        // findTargetElement will handle app element creation and use locator.rootElementPathHint
+        // findTargetElement is sync
         let findResult = await findTargetElement(
             for: appIdentifier,
             locator: locator,
-            // pathHint parameter removed
             maxDepthForSearch: maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
         )
 
@@ -154,19 +147,13 @@ extension AXorcist {
             )
         }
         
-        // Get attributes (without path for this specific handler)
-        let (attributes, _) = getElementAttributes(
+        let (attributes, _) = await getElementAttributes(
             element: foundElement,
             attributes: requestedAttributes ?? AXorcist.defaultAttributesToFetch,
             outputFormat: outputFormat ?? .smart
         )
         
-        // For getAttributes, the data is often just the attributes dictionary directly.
-        // Wrapping it in AXElement like query does might be okay, or return attributes directly.
-        // For consistency with QueryResponse, let's make data be AXElement with only attributes set.
         let axElementData = AXElement(attributes: attributes, path: nil)
-
-
         return HandlerResponse(data: AnyCodable(axElementData), error: nil)
     }
 
@@ -176,8 +163,7 @@ extension AXorcist {
     public func handleDescribeElement(
         for appIdentifierOrNil: String?,
         locator: Locator,
-        // pathHint: [String]?, // REMOVED
-        maxDepth: Int?, // This maxDepth is for the description tree, not necessarily search
+        maxDepth: Int?,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat?
     ) async -> HandlerResponse {
@@ -185,14 +171,11 @@ extension AXorcist {
         axDebugLog("Handling describeElement for app: \(appIdentifier), locator: \(locator)",
                    file: #file, function: #function, line: #line)
 
-        // Search maxDepth for finding the element itself.
-        let searchMaxDepth = AXMiscConstants.defaultMaxDepthSearch // Use a sensible default for finding the element
-
-        // findTargetElement will handle app element creation and use locator.rootElementPathHint
+        let searchMaxDepth = AXMiscConstants.defaultMaxDepthSearch
+        // findTargetElement is sync
         let findResult = await findTargetElement(
             for: appIdentifier,
             locator: locator,
-            // pathHint parameter removed
             maxDepthForSearch: searchMaxDepth
         )
 
@@ -203,19 +186,18 @@ extension AXorcist {
             )
         }
         
-        // Need appElement for path generation if it's part of the description
+        // applicationElement is sync
         guard let appElement = applicationElement(for: appIdentifier) else {
             axErrorLog("Application not found for path context in describeElement: \(appIdentifier)")
-            // Fallback or error
             return HandlerResponse(error: "Application \(appIdentifier) not found for describeElement context.")
         }
 
-        // maxDepth for describe is how deep the description tree should go
         let descriptionTreeMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthDescribe
 
+        // describeElementTree is sync (assuming its internal calls are sync)
         let elementTree = describeElementTree(
             element: foundElement,
-            appElement: appElement, // For path context in description
+            appElement: appElement,
             maxDepth: descriptionTreeMaxDepth,
             currentDepth: 0,
             requestedAttributes: requestedAttributes,
@@ -225,31 +207,30 @@ extension AXorcist {
         return HandlerResponse(data: AnyCodable(elementTree), error: nil)
     }
 
-
-    // MARK: - Helper: Describe Element Tree (Recursive)
-    // Made internal to be accessible
     @MainActor
     internal func describeElementTree(
         element: Element,
-        appElement: Element, // For path generation context
+        appElement: Element,
         maxDepth: Int,
         currentDepth: Int,
         requestedAttributes: [String]?,
         outputFormat: OutputFormat
-    ) -> AXElementNode { // AXElementNode would be a new struct for tree description
-        let (attributes, _) = getElementAttributes(
+    ) async -> AXElementNode {
+        let (attributes, _) = await getElementAttributes(
             element: element,
             attributes: requestedAttributes ?? AXorcist.defaultAttributesToFetch,
             outputFormat: outputFormat
         )
-        
+        // element.generatePathArray is sync
         let pathArray = element.generatePathArray(upTo: appElement)
 
         var childrenNodes: [AXElementNode]?
         if currentDepth < maxDepth {
-            if let children = element.children() { // Consider if strict:true should be an option here
+            // element.children is sync
+            if let children = element.children() { 
                 childrenNodes = children.map { childElement in
-                    describeElementTree(
+                    // Recursive call is sync
+                    return describeElementTree(
                         element: childElement,
                         appElement: appElement,
                         maxDepth: maxDepth,
@@ -260,17 +241,56 @@ extension AXorcist {
                 }
             }
         }
+        return AXElementNode(attributes: attributes, path: pathArray, children: childrenNodes)
+    }
+    
+    // Gets attributes of an element, handling errors and output format.
+    // This function itself doesn't need to be async if its callees (element.attribute, element.computedName) are sync.
+    // This is an internal helper, potentially an instance method if it uses instance state,
+    // or could be a static/global utility if it doesn't.
+    // Renaming to avoid conflict with the global getElementAttributes.
+    @MainActor
+    internal func fetchInstanceElementAttributes(element: Element, attributes names: [String], outputFormat: OutputFormat) -> (attributes: [String: AnyCodable], errors: [String]) {
+        var fetchedAttributes: [String: AnyCodable] = [:]
+        var errors: [String] = []
+        var effectiveAttributeNames = names
+
+        if names.contains("*") || names.contains("all") {
+            // element.attributeNames() is sync
+            effectiveAttributeNames = element.attributeNames() ?? []
+            // Ensure some defaults if wildcard is used
+            let defaults: Set<String> = [AXAttributeNames.kAXRoleAttribute, AXAttributeNames.kAXTitleAttribute, AXAttributeNames.kAXRoleDescriptionAttribute]
+            effectiveAttributeNames.append(contentsOf: defaults.filter { !effectiveAttributeNames.contains($0) })
+        }
         
-        // Define AXElementNode if it doesn't exist.
-        // For now, assuming it's similar to AXElement but with explicit children for tree.
-        return AXElementNode(
-            attributes: attributes,
-            path: pathArray,
-            children: childrenNodes
-        )
+        // Always try to include a few key attributes for identification if not present
+        let minimumDefaults: Set<String> = [AXAttributeNames.kAXRoleAttribute, AXAttributeNames.kAXTitleAttribute, "computedName"]
+        for defaultAttr in minimumDefaults {
+            if !effectiveAttributeNames.contains(defaultAttr) {
+                effectiveAttributeNames.append(defaultAttr)
+            }
+        }
+
+        for name in effectiveAttributeNames {
+            if name == "computedName" { // Handle pseudo-attribute
+                // element.computedName() is sync
+                if let computed = element.computedName() {
+                    fetchedAttributes[name] = AnyCodable(computed)
+                } else {
+                    // Optionally represent nil or skip
+                }
+                continue
+            }
+            // element.attribute() is sync
+            if let value = element.attribute(Attribute<Any>(name)) { // Use Attribute<Any> for generic fetching
+                fetchedAttributes[name] = AnyCodable(value)
+            } else {
+                // errors.append("Attribute '\(name)' not found or nil.") // Optionally log errors for missing attributes
+            }
+        }
+        return (fetchedAttributes, errors)
     }
 }
-
 
 // Define AXElementNode for describeElement output (if not already defined)
 // This struct represents a node in the described element tree.

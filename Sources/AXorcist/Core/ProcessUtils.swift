@@ -5,7 +5,6 @@ import Foundation
 
 // GlobalAXLogger is assumed to be available
 
-@MainActor
 public func pid(forAppIdentifier ident: String) -> pid_t? {
     axDebugLog(
         "ProcessUtils: Attempting to find PID for identifier: '\(ident)'",
@@ -48,7 +47,6 @@ public func pid(forAppIdentifier ident: String) -> pid_t? {
     return nil
 }
 
-@MainActor
 private func pidForFocusedApp(_ ident: String) -> pid_t? {
     guard ident == "focused" else { return nil }
 
@@ -80,7 +78,6 @@ private func pidForFocusedApp(_ ident: String) -> pid_t? {
     }
 }
 
-@MainActor
 private func pidByBundleIdentifier(_ ident: String) -> pid_t? {
     axDebugLog(
         "ProcessUtils: Trying by bundle identifier '\(ident)'.",
@@ -129,7 +126,6 @@ private func pidByBundleIdentifier(_ ident: String) -> pid_t? {
     }
 }
 
-@MainActor
 private func pidByLocalizedName(_ ident: String) -> pid_t? {
     axDebugLog(
         "ProcessUtils: Trying by localized name (case-insensitive) '\(ident)'.",
@@ -139,34 +135,38 @@ private func pidByLocalizedName(_ ident: String) -> pid_t? {
     )
 
     let allApps = NSWorkspace.shared.runningApplications
-    if let appByName = allApps.first(where: {
-        !$0.isTerminated && $0.localizedName?.lowercased() == ident.lowercased()
-    }) {
+    axDebugLog(
+        "ProcessUtils: pidByLocalizedName - NSWorkspace.shared.runningApplications returned \(allApps.count) total apps.",
+        file: #file, function: #function, line: #line
+    )
+
+    for (idx, app) in allApps.enumerated() {
         axDebugLog(
-            "ProcessUtils: Found non-terminated app by localized name: " +
-                "'\(appByName.localizedName ?? "nil")' (PID: \(appByName.processIdentifier), " +
-                "BundleID: '\(appByName.bundleIdentifier ?? "nil")')",
-            file: #file,
-            function: #function,
-            line: #line
+            "ProcessUtils: pidByLocalizedName - Checking app [\(idx)]: '\(app.localizedName ?? "NIL_NAME")' (Terminated: \(app.isTerminated), BundleID: \(app.bundleIdentifier ?? "NIL_BID")) against target '\(ident)'.",
+            file: #file, function: #function, line: #line
         )
-        return appByName.processIdentifier
-    } else {
-        let terminatedCount = allApps.filter {
-            $0.localizedName?.lowercased() == ident.lowercased()
-        }.count
-        axDebugLog(
-            "ProcessUtils: No non-terminated app found matching localized name '\(ident)'. " +
-                "Found \(terminatedCount) terminated or non-matching apps by this name.",
-            file: #file,
-            function: #function,
-            line: #line
-        )
-        return nil
+        if !app.isTerminated && app.localizedName?.lowercased() == ident.lowercased() {
+            axDebugLog(
+                "ProcessUtils: Found non-terminated app by localized name (in loop): " +
+                "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier), " +
+                "BundleID: '\(app.bundleIdentifier ?? "nil")')",
+                file: #file,
+                function: #function,
+                line: #line
+            )
+            return app.processIdentifier
+        }
     }
+
+    axDebugLog(
+        "ProcessUtils: No non-terminated app found matching localized name '\(ident)' in the loop. Original filter logic will be skipped as redundant.",
+        file: #file,
+        function: #function,
+        line: #line
+    )
+    return nil
 }
 
-@MainActor
 private func pidByPath(_ ident: String) -> pid_t? {
     axDebugLog(
         "ProcessUtils: Trying by path '\(ident)'.",
@@ -199,7 +199,6 @@ private func pidByPath(_ ident: String) -> pid_t? {
     return pidForResolvedBundleID(bundleId, fromPath: potentialPath)
 }
 
-@MainActor
 private func pidForResolvedBundleID(_ bundleId: String, fromPath path: String) -> pid_t? {
     let appsByResolvedBundleID = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
     guard !appsByResolvedBundleID.isEmpty else {
@@ -243,7 +242,6 @@ private func pidForResolvedBundleID(_ bundleId: String, fromPath path: String) -
     }
 }
 
-@MainActor
 private func pidByPIDString(_ ident: String) -> pid_t? {
     axDebugLog(
         "ProcessUtils: Trying by interpreting '\(ident)' as a PID string.",
@@ -283,7 +281,6 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
     }
 }
 
-@MainActor
 private func logRunningApplications(_ apps: [NSRunningApplication]) {
     for (index, app) in apps.enumerated() {
         axDebugLog(
@@ -296,7 +293,6 @@ private func logRunningApplications(_ apps: [NSRunningApplication]) {
     }
 }
 
-@MainActor
 private func logRunningApplicationsFromPath(_ apps: [NSRunningApplication]) {
     for (index, app) in apps.enumerated() {
         axDebugLog(
@@ -310,7 +306,6 @@ private func logRunningApplicationsFromPath(_ apps: [NSRunningApplication]) {
     }
 }
 
-@MainActor
 func findFrontmostApplicationPid() -> pid_t? {
     axDebugLog(
         "ProcessUtils: findFrontmostApplicationPid called.",

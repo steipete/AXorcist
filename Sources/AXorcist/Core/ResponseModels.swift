@@ -265,19 +265,39 @@ public struct BatchResponse: Codable {
 public struct CollectAllOutput: Codable {
     public let commandId: String
     public let success: Bool
-    public let command: String
-    public let collectedElements: [AXElementData]
-    public let appBundleId: String?
-    public let debugLogs: [String]?
-    public let errorMessage: String?
+    public let command: String // e.g., "collectAll"
+    public let collectedElements: [AXElementData]? // MODIFIED: Made optional
+    public let appIdentifier: String?             // MODIFIED: Renamed from appBundleId
+    public var debugLogs: [String]?
+    public let message: String?                   // MODIFIED: Renamed from errorMessage
 
     enum CodingKeys: String, CodingKey {
-        case commandId
+        case commandId = "command_id"
         case success
         case command
-        case collectedElements
-        case appBundleId
-        case debugLogs
-        case errorMessage
+        case collectedElements = "collected_elements"
+        case appIdentifier = "app_identifier"       // MODIFIED: CodingKey updated
+        case debugLogs = "debug_logs"
+        case message = "message"                    // MODIFIED: CodingKey updated
+    }
+
+    // Add a new initializer or ensure the existing one matches these fields.
+    // Assuming the default memberwise initializer will now work with these changes, 
+    // or one will be synthesized. If a custom one exists, it will need updating.
+    // For safety, let's add one that matches the typical usage pattern.
+    public init(commandId: String, 
+                success: Bool, 
+                command: String, 
+                collectedElements: [AXElementData]?, 
+                appIdentifier: String?, 
+                debugLogs: [String]?, 
+                message: String?) {
+        self.commandId = commandId
+        self.success = success
+        self.command = command
+        self.collectedElements = collectedElements
+        self.appIdentifier = appIdentifier
+        self.debugLogs = debugLogs
+        self.message = message
     }
 }

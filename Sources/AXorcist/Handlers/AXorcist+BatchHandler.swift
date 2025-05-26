@@ -12,45 +12,32 @@ extension AXorcist {
 
     @MainActor
     private func prepareLocator(for subCommandEnvelope: CommandEnvelope, existingLocator: Locator?) -> Locator? {
-        guard var newLocator = existingLocator else {
-            // If there's a pathHint on the envelope but no locator, this is problematic.
-            // For now, if no base locator, we can't effectively use the pathHint from the envelope alone
-            // unless we construct a new locator, but that might miss criteria.
-            // This case should ideally be handled by validation upstream or clearer contract.
-            // If pathHint is the ONLY way to locate, the CommandEnvelope should reflect that.
-            // For now, just return the locator as is (which might be nil).
-            if subCommandEnvelope.pathHint != nil && !subCommandEnvelope.pathHint!.isEmpty {
-                axWarningLog("SubCommand \(subCommandEnvelope.commandId) has a pathHint but no base locator. PathHint will not be used unless locator also has criteria.")
-                // Optionally, create a locator with only pathHint if that's a valid use case:
-                // return Locator(criteria: [:], rootElementPathHint: subCommandEnvelope.pathHint)
+        guard let newLocator = existingLocator else {
+            if let oldPathHint = subCommandEnvelope.pathHint, !oldPathHint.isEmpty {
+                axWarningLog("SubCommand \(subCommandEnvelope.commandId) has a CommandEnvelope.pathHint (old [String] format) but no base locator. This old pathHint will NOT be used. Provide path hints via locator.rootElementPathHint in JSON format.")
             }
             return existingLocator
         }
 
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = subCommandEnvelope.pathHint,
-           !topLevelPathHint.isEmpty,
+        // If CommandEnvelope.pathHint ([String]?) is provided, AND locator.rootElementPathHint ([JSONPathHintComponent]?) is NOT,
+        // this indicates an attempt to use the old path hint format. We log a warning as it won't be used by the new system.
+        if let topLevelOldPathHint = subCommandEnvelope.pathHint, 
+           !topLevelOldPathHint.isEmpty, 
            newLocator.rootElementPathHint == nil || newLocator.rootElementPathHint!.isEmpty {
-            axDebugLog("AXorcist+BatchHandler: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for sub-command \(subCommandEnvelope.commandId).")
-            newLocator.rootElementPathHint = topLevelPathHint
+            axWarningLog("AXorcist+BatchHandler: CommandEnvelope.pathHint (old [String] format) provided for sub-command \(subCommandEnvelope.commandId), but new JSON format (locator.rootElementPathHint) is nil or empty. The old format pathHint will NOT be used. Please update your query to use the new JSON format for rootElementPathHint within the locator object.")
+            // DO NOT ASSIGN: newLocator.rootElementPathHint = topLevelOldPathHint // This would be a type error
         }
         return newLocator
     }
 
     @MainActor
-    public func handleBatchCommands(
-        batchCommandID: String, // The ID of the overall batch command
-        subCommands: [CommandEnvelope] // The array of sub-commands to process
-    ) async -> [HandlerResponse] {
-        // REMOVED: SearchVisitor.resetGlobalVisitCount() // Reset counter at the start of the whole batch
-        axInfoLog("Starting batch command execution. Batch ID: \(batchCommandID), Number of sub-commands: \(subCommands.count)")
-
+    public func handleBatchCommands(commandEnvelopes: [CommandEnvelope], batchCommandID: String) async -> [HandlerResponse] {
         var batchResults: [HandlerResponse] = []
+        axDebugLog("[AXorcist.handleBatchCommands][BatchID: \(batchCommandID)] Received \(commandEnvelopes.count) sub-commands.")
 
-        for subCommandEnvelope in subCommands {
-            let subCommandResponse = await processSingleBatchCommand(subCommandEnvelope)
-            batchResults.append(subCommandResponse)
+        for subCommandEnvelope in commandEnvelopes {
+            let result = await processSingleBatchCommand(subCommandEnvelope)
+            batchResults.append(result)
         }
 
         // Batch processing complete
@@ -70,34 +57,37 @@ extension AXorcist {
 
         switch subCommandEnvelope.command {
         case .getFocusedElement:
-            return processFocusedElementCommand(subCommandEnvelope)
+            return await processFocusedElementCommand(subCommandEnvelope)
 
         case .getAttributes:
-            return await processGetAttributesCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return await processGetAttributes(subCommandEnvelope, subCmdID: subCmdID)
 
         case .query:
-            return await processQueryCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return await processQuery(subCommandEnvelope, subCmdID: subCmdID)
 
         case .describeElement:
-            return await processDescribeElementCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return await processDescribeElement(subCommandEnvelope, subCmdID: subCmdID)
 
         case .performAction:
-            return await processPerformActionCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return await processPerformAction(subCommandEnvelope, subCmdID: subCmdID)
 
         case .setFocusedValue:
             axWarningLog("Command 'setFocusedValue' found in batch. Current batch handler does not specifically process it. Returning as unsupported for now.")
             return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
 
         case .extractText:
-            return await processExtractTextCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return await processExtractText(subCommandEnvelope, subCmdID: subCmdID)
 
         case .getElementAtPoint:
-            return processGetElementAtPointCommand(subCommandEnvelope, subCmdID: subCmdID)
+            return processGetElementAtPoint(subCommandEnvelope, subCmdID: subCmdID)
 
         case .ping:
             return processPingCommand(subCmdID)
 
-        case .collectAll, .batch, .observe:
+        case .collectAll:
+            return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
+
+        case .observe:
             return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
 
         @unknown default:
@@ -114,7 +104,7 @@ extension AXorcist {
     }
 
     @MainActor
-    private func processGetAttributesCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
+    private func processGetAttributes(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let originalLocator = subCommandEnvelope.locator else {
             let errorMsg = "Locator missing for getAttributes in batch (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
@@ -124,15 +114,15 @@ extension AXorcist {
 
         return await self.handleGetAttributes(
             for: subCommandEnvelope.application,
-            locator: finalLocator!, // Safe to force unwrap as we checked originalLocator
+            locator: finalLocator!,
             requestedAttributes: subCommandEnvelope.attributes,
-            maxDepth: subCommandEnvelope.maxElements, // maxElements often used as maxDepth for search in handlers
+            maxDepth: subCommandEnvelope.maxElements,
             outputFormat: subCommandEnvelope.outputFormat
         )
     }
 
     @MainActor
-    private func processQueryCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
+    private func processQuery(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let originalLocator = subCommandEnvelope.locator else {
             let errorMsg = "Locator missing for query in batch (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
@@ -142,7 +132,7 @@ extension AXorcist {
 
         return await self.handleQuery(
             for: subCommandEnvelope.application,
-            locator: finalLocator!, // Safe to force unwrap
+            locator: finalLocator!,
             maxDepth: subCommandEnvelope.maxElements,
             requestedAttributes: subCommandEnvelope.attributes,
             outputFormat: subCommandEnvelope.outputFormat
@@ -150,7 +140,7 @@ extension AXorcist {
     }
 
     @MainActor
-    private func processDescribeElementCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
+    private func processDescribeElement(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let originalLocator = subCommandEnvelope.locator else {
             let errorMsg = "Locator missing for describeElement in batch (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
@@ -160,15 +150,15 @@ extension AXorcist {
 
         return await self.handleDescribeElement(
             for: subCommandEnvelope.application,
-            locator: finalLocator!, // Safe to force unwrap
-            maxDepth: subCommandEnvelope.maxDepth, // Use maxDepth for describeElement
+            locator: finalLocator!,
+            maxDepth: subCommandEnvelope.maxDepth,
             requestedAttributes: subCommandEnvelope.attributes,
             outputFormat: subCommandEnvelope.outputFormat
         )
     }
 
     @MainActor
-    private func processPerformActionCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
+    private func processPerformAction(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let originalLocator = subCommandEnvelope.locator else {
             let errorMsg = "Locator missing for performAction in batch (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
@@ -183,15 +173,15 @@ extension AXorcist {
 
         return await self.handlePerformAction(
             for: subCommandEnvelope.application,
-            locator: finalLocator!, // Safe to force unwrap
+            locator: finalLocator!,
             actionName: actionName,
             actionValue: subCommandEnvelope.actionValue,
-            maxDepth: subCommandEnvelope.maxElements // maxElements often used as maxDepth for search in handlers
+            maxDepth: subCommandEnvelope.maxElements
         )
     }
 
     @MainActor
-    private func processExtractTextCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
+    private func processExtractText(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let originalLocator = subCommandEnvelope.locator else {
             let errorMsg = "Locator missing for extractText in batch (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
@@ -201,23 +191,23 @@ extension AXorcist {
 
         return await self.handleExtractText(
             for: subCommandEnvelope.application,
-            locator: finalLocator!, // Safe to force unwrap
-            maxDepth: subCommandEnvelope.maxElements // maxElements often used as maxDepth for search in handlers
+            locator: finalLocator!,
+            maxDepth: subCommandEnvelope.maxElements
         )
     }
 
     @MainActor
-    private func processGetElementAtPointCommand(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) -> HandlerResponse {
+    private func processGetElementAtPoint(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) -> HandlerResponse {
         guard let point = subCommandEnvelope.point else {
             let errorMsg = "Missing point for getElementAtPoint command (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
             return HandlerResponse(error: errorMsg)
         }
-        return self.getElementAtPoint(
-            pid: subCommandEnvelope.pid.map { pid_t($0) },
+        return self.handleGetElementAtPoint(
+            for: subCommandEnvelope.application,
             point: point,
-            appIdentifierOrNil: subCommandEnvelope.application,
-            requestedAttributes: subCommandEnvelope.attributes
+            requestedAttributes: subCommandEnvelope.attributes,
+            outputFormat: subCommandEnvelope.outputFormat
         )
     }
 

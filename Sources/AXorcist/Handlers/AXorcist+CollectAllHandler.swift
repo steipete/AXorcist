@@ -46,7 +46,6 @@ public enum ResponseData: Codable {
 // MARK: - CollectAll Handler Extension
 extension AXorcist {
 
-    // Helper to encode CollectAllOutput, now using GlobalAXLogger for errors
     @MainActor
     private func encode(_ output: CollectAllOutput) -> String {
         let encoder = JSONEncoder()
@@ -56,7 +55,7 @@ extension AXorcist {
             return String(data: jsonData, encoding: .utf8) ?? "{\"error\":\"Failed to encode CollectAllOutput to string (fallback)\"}"
         } catch {
             axErrorLog("Exception encoding CollectAllOutput: \(error.localizedDescription)")
-            let cmdId = output.commandId // Assuming these are direct properties
+            let cmdId = output.commandId
             let cmdType = output.command
             let errorJson = """
             {"command_id":"\(cmdId)", \
@@ -93,18 +92,14 @@ extension AXorcist {
         )
 
         logCollectAllStart(params)
-
-        // Get app element
         guard let appElement = applicationElement(for: params.appIdentifier) else {
-            return await createErrorResponse(
+            return createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
                 error: "Failed to get app element for identifier: \(params.appIdentifier)",
                 debugCLI: debugCLI
             )
         }
-
-        // Determine start element using locator.rootElementPathHint
         let startElementResult = await determineStartElementForCollectAll(
             appElement: appElement,
             locator: locator,
@@ -112,7 +107,7 @@ extension AXorcist {
         )
 
         guard let startElement = startElementResult.element else {
-            return await createErrorResponse(
+            return createErrorResponse(
                 commandId: params.effectiveCommandId,
                 appIdentifier: params.appIdentifier,
                 error: startElementResult.error ?? "Failed to determine start element for collectAll",
@@ -120,14 +115,12 @@ extension AXorcist {
             )
         }
 
-        // Perform collection
         let collectedElements = await performCollectionTraversal(
             startElement: startElement,
             appElement: appElement,
             params: params
         )
-
-        return await createSuccessResponse(
+        return createSuccessResponse(
             commandId: params.effectiveCommandId,
             appIdentifier: params.appIdentifier,
             collectedElements: collectedElements,
@@ -171,12 +164,12 @@ extension AXorcist {
     private func logCollectAllStart(_ params: CollectAllParameters) {
         let appNameForLog = params.appIdentifier
         let locatorCriteriaDesc = params.locator?.criteria.isEmpty == false ? String(describing: params.locator!.criteria) : "nil"
-        let locatorPathHintDesc = params.locator?.rootElementPathHint?.joined(separator: "->") ?? "nil"
+        let locatorPathHintDesc = params.locator?.rootElementPathHint?.map { "(attr:\($0.attribute),val:\($0.value),d:\($0.depth ?? -1))" }.joined(separator: " -> ") ?? "nil"
         let maxDepthDesc = String(describing: params.recursionDepthLimit)
 
         axInfoLog(
             "[AXorcist.handleCollectAll] Starting. App: \(appNameForLog), " +
-            "LocatorCriteria: \(locatorCriteriaDesc), LocatorPathHint: \(locatorPathHintDesc), MaxDepth: \(maxDepthDesc)"
+            "LocatorCriteria: \(locatorCriteriaDesc), LocatorJSONPathHint: [\(locatorPathHintDesc)], MaxDepth: \(maxDepthDesc)"
         )
         axDebugLog(
             "Effective recursionDepthLimit: \(params.recursionDepthLimit), " +
@@ -192,39 +185,23 @@ extension AXorcist {
         locator: Locator?,
         params: CollectAllParameters
     ) async -> (element: Element?, error: String?) {
-        // If locator.rootElementPathHint is provided, use it to find the start element.
-        if let pathHintStrings = locator?.rootElementPathHint, !pathHintStrings.isEmpty {
-            let pathHintComponents = pathHintStrings.compactMap { PathHintComponent(pathSegment: $0) }
-            
-            if pathHintComponents.count != pathHintStrings.count {
-                 let errorMsg = "[CollectAll] Invalid path hint components in locator for collectAll."
-                 axWarningLog(errorMsg)
-                 return (nil, errorMsg)
-            }
-            
-            if pathHintComponents.isEmpty {
-                axDebugLog("[CollectAll] Locator provided with empty or unparsable rootElementPathHint. Starting from app root.")
-                return (appElement, nil)
-            }
+        if let jsonPathComponents = locator?.rootElementPathHint, !jsonPathComponents.isEmpty {
+            let pathHintDebug = jsonPathComponents.map { "(attr:\($0.attribute),val:\($0.value),d:\($0.depth ?? -1))" }.joined(separator: " -> ")
+            axDebugLog("[CollectAll] Navigating for start element using JSONPathHint: [\(pathHintDebug)] (\(jsonPathComponents.count) components)")
 
-            let pathHintString = pathHintStrings.joined(separator: " -> ")
-            axDebugLog("[CollectAll] Navigating for start element using locator.rootElementPathHint: \(pathHintString)")
-
-            if let navigatedElement = navigateToElementByPathHint(
-                pathHint: pathHintComponents, // Assuming this is already defined, if not, use global one
-                initialSearchElement: appElement,
-                pathHintMaxDepth: pathHintComponents.count - 1
+            if let navigatedElement = await navigateToElementByJSONPathHint(
+                pathHint: jsonPathComponents, 
+                initialSearchElement: appElement
             ) {
-                axDebugLog("[CollectAll] Path navigation successful. Start element for collectAll: \(navigatedElement.briefDescription())")
+                axDebugLog("[CollectAll] JSONPathHint navigation successful. Start element for collectAll: \(navigatedElement.briefDescription())")
                 return (navigatedElement, nil)
             } else {
-                let errorMsg = "[CollectAll] Failed to navigate to start element using locator.rootElementPathHint: \(pathHintString)"
+                let errorMsg = "[CollectAll] Failed to navigate to start element using JSONPathHint: [\(pathHintDebug)]"
                 axWarningLog(errorMsg)
                 return (nil, errorMsg)
             }
         } else {
-            // No rootElementPathHint in locator, or locator is nil. Start from the application element.
-            axDebugLog("[CollectAll] No rootElementPathHint in locator or locator is nil. Starting collectAll from app root: \(appElement.briefDescription())")
+            axDebugLog("[CollectAll] No rootElementPathHint (JSON) in locator or locator is nil. Starting collectAll from app root: \(appElement.briefDescription())")
             return (appElement, nil)
         }
     }
@@ -239,24 +216,21 @@ extension AXorcist {
             "[CollectAll.performCollectionTraversal] Starting traversal from: \(startElement.briefDescription()), " +
             "MaxDepth: \(params.recursionDepthLimit)"
         )
-        let visitor = CollectAllVisitor(
+        
+        let effectiveLocatorCriteria = params.locator?.criteria ?? params.filterCriteria ?? [: ]
+        let matchingLocator = Locator(criteria: effectiveLocatorCriteria)
+        let collectedData = await collectAllElements(
+            from: startElement,
+            matching: matchingLocator,
+            appElementForContext: appElement,
             attributesToFetch: params.attributesToFetch,
             outputFormat: params.effectiveOutputFormat,
-            appElement: appElement,
-            valueFormatOption: .default,
-            filterCriteria: params.filterCriteria
-        )
-        /* ElementSearch. */collectAll(
-            appElement: appElement,
-            locator: params.locator ?? Locator(criteria: [:]),
-            currentElement: startElement,
-            depth: 0,
-            maxDepth: params.recursionDepthLimit,
             maxElements: AXMiscConstants.defaultMaxElementsToCollect,
-            visitor: visitor
+            maxSearchDepth: params.recursionDepthLimit
         )
-        axDebugLog("[CollectAll.performCollectionTraversal] Traversal complete. Collected \(visitor.collectedElements.count) elements.")
-        return visitor.collectedElements
+        
+        axDebugLog("[CollectAll.performCollectionTraversal] Traversal complete. Collected \(collectedData.count) AXElementData items.")
+        return collectedData
     }
 
     @MainActor
@@ -265,17 +239,16 @@ extension AXorcist {
         appIdentifier: String,
         error: String,
         debugCLI: Bool
-    ) async -> String {
-        axErrorLog("[CollectAll] Error for app \(appIdentifier): \(error)")
-        let logs = debugCLI ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
+    ) -> String {
+        let logs = debugCLI ? axGetLogsAsStrings(format: .text) : nil
         let output = CollectAllOutput(
             commandId: commandId,
             success: false,
             command: "collectAll",
-            collectedElements: [], // Empty for error response
-            appBundleId: appIdentifier,
+            collectedElements: nil,
+            appIdentifier: appIdentifier,
             debugLogs: logs,
-            errorMessage: error
+            message: error
         )
         return encode(output)
     }
@@ -284,47 +257,22 @@ extension AXorcist {
     private func createSuccessResponse(
         commandId: String,
         appIdentifier: String,
-        collectedElements collectedElementsData: [AXElementData],
+        collectedElements: [AXElementData],
         debugCLI: Bool
-    ) async -> String {
-        axInfoLog("[CollectAll] Successfully collected \(collectedElementsData.count) elements for app \(appIdentifier).")
-        let logs = debugCLI ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
+    ) -> String {
+        let logs = debugCLI ? axGetLogsAsStrings(format: .text) : nil
         let output = CollectAllOutput(
             commandId: commandId,
             success: true,
             command: "collectAll",
-            collectedElements: collectedElementsData, // Pass the data directly
-            appBundleId: appIdentifier,
+            collectedElements: collectedElements,
+            appIdentifier: appIdentifier,
             debugLogs: logs,
-            errorMessage: nil
+            message: "Successfully collected \(collectedElements.count) elements."
         )
         return encode(output)
     }
 }
-
-// Assuming CollectAllOutput is defined something like this:
-// struct CollectAllOutput: Codable {
-// var commandId: String
-// var success: Bool
-// var command: String // e.g., "collectAll"
-// var errorMessage: String?
-// var collectedElements: [AXElementData]
-// var appBundleId: String
-// var debugLogs: [String]?
-//
-// enum CodingKeys: String, CodingKey {
-// case commandId = "command_id"
-// case success
-// case command
-// case errorMessage = "error_message" // Ensure consistency if CommandEnvelope uses error_message
-// case collectedElements = "collected_elements"
-// case appBundleId = "app_bundle_id"
-// case debugLogs = "debug_logs"
-// }
-// }
-
-// Make sure AXElementData is defined, probably in DataModels.swift or similar
-// public struct AXElementData: Codable { ... }
 
 // Ensure navigateToElementByPathHint is accessible. It is private in ElementSearch.swift.
 // For this refactor, we'll assume it's made internal or public, or we use findTargetElement.
@@ -337,3 +285,31 @@ extension AXorcist {
 // they should be marked `internal` or `public` in ElementSearch.swift if AXorcist+CollectAllHandler.swift
 // is in a different file but same module, or `public` if different modules.
 // For simplicity of this step, I'm writing the logic as if they are callable.
+
+// Assuming CollectAllOutput and ErrorDetails structs are defined appropriately.
+// Removed duplicate definition of CollectAllOutput, it's defined in Core/ResponseModels.swift
+// public struct CollectAllOutput: Codable {
+//     public let commandId: String
+//     public let success: Bool
+//     public let command: String // e.g. "collectAll"
+//     public var collectedElements: [AXElementData] = []
+//     public var errorMessage: String?
+//     public var debugLogs: [String]?
+//     public var errorDetails: ErrorDetails?
+// 
+//     enum CodingKeys: String, CodingKey {
+//         case commandId = "command_id"
+//         case success
+//         case command
+//         case collectedElements = "collected_elements"
+//         case errorMessage = "error_message"
+//         case debugLogs = "debug_logs"
+//         case errorDetails = "error_details"
+//     }
+// }
+
+// public struct ErrorDetails: Codable {
+//     public var code: Int? // e.g., AXError raw value or a custom error code
+//     public var domain: String? // e.g., "AXorcist.AXErrorDomain"
+//     public var context: String? // Additional context about the error
+// }

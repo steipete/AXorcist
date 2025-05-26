@@ -26,6 +26,7 @@ public enum AXActionNames {
 // MARK: - Accessibility Attribute Names
 public enum AXAttributeNames {
     // Core Element Attributes
+    public static let kAXPIDAttribute = "AXPid" // Process ID attribute
     public static let kAXRoleAttribute = "AXRole"
     public static let kAXSubroleAttribute = "AXSubrole"
     public static let kAXRoleDescriptionAttribute = "AXRoleDescription"
@@ -126,8 +127,8 @@ public enum AXAttributeNames {
     // Web-specific (often found in WebArea roles)
     public static let kAXURLAttribute = "AXURL" // URL or String
     public static let kAXDocumentAttribute = "AXDocument" // String (URL or path of document)
+    public static let kAXDOMClassListAttribute = "AXDOMClassList" // [String] or String
     // public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // String
-    // public static let kAXDOMClassListAttribute = "AXDOMClassList" // [String]
     // public static let kAXARIADOMResourceAttribute = "AXARIADOMResource"
     // public static let kAXARIADOMFunctionAttribute = "AXARIADOM-función" // Keep original as it might be specific
     // public static let kAXARIADOMChildrenAttribute = "AXARIADOMChildren"
@@ -345,6 +346,7 @@ public enum AXMiscConstants {
     public static let defaultMaxDepthSearch = 10
     public static let defaultMaxDepthPathResolution = 10
     public static let defaultMaxDepthDescribe = 3
+    public static let defaultMaxDepthSearchForHintStep = 3 // Default depth for JSON path hint navigation per step
     public static let defaultMaxElementsToCollect = 1000 // New constant for element collection limit
     public static let defaultTimeoutPerElementCollectAll: TimeInterval = 2.0 // seconds
 

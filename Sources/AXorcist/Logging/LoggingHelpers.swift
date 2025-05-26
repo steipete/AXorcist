@@ -1,46 +1,14 @@
-import Foundation
+// LoggingHelpers.swift - Global logging functions for convenience and potential async offload.
+// AXorcist - Created by Sendhil Panchadsaram
 
-// Public log functions that wrap GlobalAXLogger.shared.log
-// These are the primary interface for logging from other modules.
+// This file previously contained @autoclosure versions of logging functions (axDebugLog, axInfoLog, etc.)
+// which wrapped calls to GlobalAXLogger.shared.log within a Task for potential async behavior.
 
-public func axDebugLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
-    let actualMessage = message() // Evaluate the message here
-    #if DEBUG // Only log debug messages in DEBUG builds, or if explicitly enabled otherwise
-    Task {
-        let entry = AXLogEntry(level: .debug, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-        await GlobalAXLogger.shared.log(entry)
-    }
-    #endif
-}
+// As part of a refactoring to make AXorcist fully synchronous and rely on main-thread execution
+// for all accessibility and logging operations, GlobalAXLogger was made synchronous.
+// The global logging functions (axDebugLog, axInfoLog, etc.) are now directly defined
+// as synchronous functions in GlobalAXLogger.swift, taking simple String messages.
 
-public func axInfoLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
-    let actualMessage = message() // Evaluate the message here
-    Task {
-        let entry = AXLogEntry(level: .info, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-        await GlobalAXLogger.shared.log(entry)
-    }
-}
-
-public func axWarningLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
-    let actualMessage = message() // Evaluate the message here
-    Task {
-        let entry = AXLogEntry(level: .warning, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-        await GlobalAXLogger.shared.log(entry)
-    }
-}
-
-public func axErrorLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
-    let actualMessage = message() // Evaluate the message here
-    Task {
-        let entry = AXLogEntry(level: .error, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-        await GlobalAXLogger.shared.log(entry)
-    }
-}
-
-public func axCriticalLog(_ message: @autoclosure @escaping () -> String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: UInt = #line) {
-    let actualMessage = message() // Evaluate the message here
-    Task {
-        let entry = AXLogEntry(level: .critical, message: actualMessage, file: file, function: function, line: Int(line), details: details)
-        await GlobalAXLogger.shared.log(entry)
-    }
-}
+// To resolve ambiguity between those synchronous String-based log functions and the
+// @autoclosure versions previously in this file, the contents of this file have been removed.
+// All logging calls should now resolve to the synchronous global functions in GlobalAXLogger.swift.

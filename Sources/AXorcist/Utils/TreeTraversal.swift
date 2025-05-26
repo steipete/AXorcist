@@ -1,34 +1,62 @@
-// TreeTraversal.swift - Unified accessibility tree traversal with cycle detection
+// TreeTraversal.swift - Defines protocols and classes for traversing the accessibility tree.
 
 import ApplicationServices
 import Foundation
 // GlobalAXLogger is assumed available
 
-// MARK: - Core Traversal Types & Protocols
+// MARK: - Tree Traversal Protocols and Classes
 
-public enum TraversalAction {
-    case continueTraversal
-    case found(Element)
-    case stop
+// Protocol for a visitor that processes elements during traversal.
+@MainActor
+public protocol TreeVisitor {
+    // Called for each element visited.
+    func visit(element: Element, depth: Int, state: inout TraversalState) async -> TraversalAction
 }
 
-// TraversalState now only holds non-logging related traversal state.
-public struct TraversalState {
-    public let maxDepth: Int
-    public let startElement: Element // Could be useful for context if GlobalAXLogger needs it indirectly
-    public let strictChildren: Bool // New flag
-    // Add other non-logging state if needed by visitors, e.g., a shared Set for specific tracking.
+// Represents the result of a visitor's processing of an element.
+public enum TraversalAction {
+    case continueTraversal // Continue traversing children and siblings.
+    case stop // Stop traversal immediately.
+    case found(Element) // Element found, stop traversal.
+}
 
-    public init(maxDepth: Int, startElement: Element, strictChildren: Bool = false) { // Default to false
+// Holds the current state of a traversal (e.g., depth).
+public struct TraversalState {
+    public var currentDepth: Int
+    public let maxDepth: Int
+    public var elementsProcessed: Int
+    public var branchesPruned: Int
+    public let startTime: Date
+    public let startElement: Element // The element from which traversal began.
+    public let strictChildren: Bool // Whether to use strict children mode
+
+    public init(maxDepth: Int, startElement: Element, strictChildren: Bool = false) {
+        self.currentDepth = 0
         self.maxDepth = maxDepth
+        self.elementsProcessed = 0
+        self.branchesPruned = 0
+        self.startTime = Date()
         self.startElement = startElement
         self.strictChildren = strictChildren
     }
+
+    // Method to check if max depth has been exceeded.
+    public func shouldStopForDepth() -> Bool {
+        return currentDepth >= maxDepth
+    }
+    
+    public mutating func incrementProcessedCount() {
+        elementsProcessed += 1
+    }
+    
+    public mutating func incrementPrunedCount() {
+        branchesPruned += 1
+    }
 }
 
-public protocol TreeVisitor {
-    @MainActor func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction
-}
+// REMOVED: TreeTraverser class - keeping the struct version below which is more complete
+
+// REMOVED: CollectAllVisitor class - keeping the more complete version below
 
 // This is the actual data structure that CollectAllVisitor.collectedElements will contain.
 // Moved here from CollectAllHandler as it's part of the traversal output.
@@ -47,50 +75,50 @@ public struct TreeTraverser {
 
     public init() {}
 
-    public mutating func traverse(from startNode: Element, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
-        let startNodeDesc = startNode.briefDescription(option: .default)
+    public mutating func traverse(from startNode: Element, visitor: TreeVisitor, state: inout TraversalState) async -> Element? {
+        let startNodeDesc = startNode.briefDescription(option: .smart)
         let logMaxDepth = state.maxDepth // Capture value for logging
         let logStrictChildren = state.strictChildren // Capture value for logging
-        axDebugLog("[Traverse Entry] TreeTraverser.traverse starting from: \(startNodeDesc). MaxDepth: \(logMaxDepth), StrictChildren: \(logStrictChildren)")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "[Traverse Entry] TreeTraverser.traverse starting from: \(startNodeDesc). MaxDepth: \(logMaxDepth), StrictChildren: \(logStrictChildren)"))
         visitedElements.removeAll()
-        return _traverse(currentElement: startNode, depth: 0, visitor: visitor, state: &state)
+        return await _traverse(currentElement: startNode, depth: 0, visitor: visitor, state: &state)
     }
 
-    private mutating func _traverse(currentElement: Element, depth: Int, visitor: TreeVisitor, state: inout TraversalState) -> Element? {
-        let currentDesc = currentElement.briefDescription(option: .default) // Corrected label
-        axDebugLog("[_Traverse Entry] Visiting \(currentDesc) at depth \(depth)") // MODIFIED LOG
+    private mutating func _traverse(currentElement: Element, depth: Int, visitor: TreeVisitor, state: inout TraversalState) async -> Element? {
+        let currentDesc = currentElement.briefDescription(option: .smart)
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "[_Traverse Entry] Visiting \(currentDesc) at depth \(depth)"))
 
         if depth > state.maxDepth {
             let maxDepth = state.maxDepth
-            axDebugLog("Max depth (\(maxDepth)) reached at \(currentElement.briefDescription())")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Max depth (\(maxDepth)) reached at \(currentElement.briefDescription(option: .raw))"))
             return nil
         }
 
         if visitedElements.contains(currentElement) {
-            axDebugLog("Cycle detected at \(currentElement.briefDescription()). Skipping.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Cycle detected at \(currentElement.briefDescription(option: .raw)). Skipping."))
             return nil
         }
         visitedElements.insert(currentElement)
-        axDebugLog("Visiting \(currentElement.briefDescription()) at depth \(depth)")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Visiting \(currentElement.briefDescription(option: .raw)) at depth \(depth)"))
 
-        switch visitor.visit(element: currentElement, depth: depth, state: &state) {
+        switch await visitor.visit(element: currentElement, depth: depth, state: &state) {
         case .found(let foundElement):
-            axDebugLog("Element found by visitor: \(foundElement.briefDescription())")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element found by visitor: \(foundElement.briefDescription(option: .raw))"))
             return foundElement
         case .stop:
-            axDebugLog("Traversal stopped by visitor at \(currentElement.briefDescription())")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Traversal stopped by visitor at \(currentElement.briefDescription(option: .raw))"))
             return nil
         case .continueTraversal:
             break
         }
 
         guard let children = currentElement.children(strict: state.strictChildren) else {
-            axDebugLog("No children for \(currentElement.briefDescription()) or error fetching them.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "No children for \(currentElement.briefDescription(option: .raw)) or error fetching them."))
             return nil
         }
 
         for child in children {
-            if let found = _traverse(currentElement: child, depth: depth + 1, visitor: visitor, state: &state) {
+            if let found = await _traverse(currentElement: child, depth: depth + 1, visitor: visitor, state: &state) {
                 return found
             }
         }
@@ -110,7 +138,7 @@ public class CollectAllVisitor: TreeVisitor {
     private let valueFormatOption: ValueFormatOption
     private let filterCriteria: [String: String]?
 
-    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .default, filterCriteria: [String: String]? = nil) {
+    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .smart, filterCriteria: [String: String]? = nil) {
         self.attributesToFetch = attributesToFetch
         self.outputFormat = outputFormat
         self.appElement = appElement
@@ -118,36 +146,26 @@ public class CollectAllVisitor: TreeVisitor {
         self.filterCriteria = filterCriteria
     }
 
-    public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
-        // Check against filterCriteria if provided
+    public func visit(element: Element, depth: Int, state: inout TraversalState) async -> TraversalAction {
         if let criteria = self.filterCriteria, !criteria.isEmpty {
-            // Assuming SearchCriteriaUtils.criteriaMatch is accessible here.
-            // If not, this logic needs to be adapted or the function made available.
-            // Defaulting matchAll to true, as filters usually imply all conditions must pass.
-            let matchesFilter = criteriaMatch(
-                element: element, 
-                criteria: criteria, 
-                matchAll: true, 
-                appProcessId: element.pid() // Pass PID for context if needed by criteriaMatch
-            )
+            let matchesFilter = await elementMatchesCriteria(element, criteria: criteria)
             if !matchesFilter {
-                axDebugLog("[CollectAllVisitor] Element \(element.briefDescription()) did NOT match filterCriteria. Skipping.")
-                return .continueTraversal // Skip this element, but continue traversal for its children
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "[CollectAllVisitor] Element \(element.briefDescription(option: .raw)) did NOT match filterCriteria. Skipping."))
+                return .continueTraversal
             }
-            axDebugLog("[CollectAllVisitor] Element \(element.briefDescription()) MATCHED filterCriteria.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "[CollectAllVisitor] Element \(element.briefDescription(option: .raw)) MATCHED filterCriteria."))
         }
 
-        // getElementAttributes is now a global function
-        let (fetchedAttrs, _) = getElementAttributes(
+        let (fetchedAttrs, _) = await getElementAttributes(
             element: element,
-            attributes: attributesToFetch, // Pass the correct attributes list
+            attributes: attributesToFetch,
             outputFormat: outputFormat,
-            valueFormatOption: self.valueFormatOption // Use the stored/defaulted option
+            valueFormatOption: self.valueFormatOption
         )
 
-        let elementPath = element.generatePathArray(upTo: appElement)
-        let role = element.role()
-        let compName = element.computedName()
+        let elementPath = await element.generatePathArray(upTo: appElement)
+        let role = await element.role()
+        let compName = await element.computedName()
 
         let elementData = AXElementData(
             path: elementPath,
@@ -172,7 +190,7 @@ public class SearchVisitor: TreeVisitor {
         self.requireAction = requireAction
     }
 
-    public func visit(element: Element, depth: Int, state: inout TraversalState) -> TraversalAction {
+    public func visit(element: Element, depth: Int, state: inout TraversalState) async -> TraversalAction {
         elementsProcessed += 1
 
         if foundElement != nil {
@@ -180,7 +198,7 @@ public class SearchVisitor: TreeVisitor {
         }
 
         if depth == 0 && elementsProcessed == 1 {
-            axDebugLog("SearchVisitor: Starting new search. Locator: \(self.locator.criteria)")
+            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchVisitor: Starting new search. Locator: \(self.locator.criteria)"))
         }
 
         let matchStatus = evaluateElementAgainstCriteria(

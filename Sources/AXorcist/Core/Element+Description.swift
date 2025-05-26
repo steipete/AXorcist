@@ -8,19 +8,19 @@ import Foundation
 
 extension Element {
     @MainActor
-    public func briefDescription(option: ValueFormatOption = .default) -> String {
+    public func briefDescription(option: ValueFormatOption = .smart) -> String {
         var descriptionParts: [String] = []
 
         // Always add role if available
         addRoleDescription(to: &descriptionParts)
 
-        // Add standard details for default and verbose
-        if option == .default || option == .verbose {
+        // Add standard details for smart and stringified
+        if option == .smart || option == .stringified {
             addStandardDetails(to: &descriptionParts)
         }
 
-        // Add verbose details
-        if option == .verbose {
+        // Add verbose details for stringified option
+        if option == .stringified {
             addVerboseDetails(to: &descriptionParts)
         }
 
@@ -29,8 +29,8 @@ extension Element {
             return handleEmptyDescription()
         }
 
-        // Handle short option
-        if option == .short && descriptionParts.count > 1 {
+        // Handle raw option
+        if option == .raw && descriptionParts.count > 1 {
             return formatShortDescription(descriptionParts)
         }
 

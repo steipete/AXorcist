@@ -240,24 +240,27 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         
-        // If pathHint is valid and locator is nil, create a default empty locator
-        if let pathHint = command.pathHint, !pathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
-            axDebugLog("CommandExecutor: Created default empty locator because pathHint was provided but locator was nil.")
+        // If CommandEnvelope.pathHint (old [String] format) is valid and locator is nil, 
+        // we create a default empty locator. However, we cannot directly use this old pathHint 
+        // with the new JSONPathHintComponent system.
+        // The expectation is that new-style path hints come via locator.rootElementPathHint.
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:]) // Create an empty locator
+            axDebugLog("CommandExecutor: Created default empty locator because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used for navigation.")
         }
         
         // If locator is still nil (no pathHint provided and no locator in command), return error
         guard var validLocator = locator else {
-            let error = "Missing locator or pathHint for performAction"
+            let error = "Missing locator for performAction (and no old-format CommandEnvelope.pathHint to trigger default locator creation)"
             axErrorLog(error)
             return HandlerResponse(data: nil, error: error)
         }
 
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, validLocator.rootElementPathHint == nil {
-            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint.")
-            validLocator.rootElementPathHint = topLevelPathHint
+        // If CommandEnvelope.pathHint ([String]?) is provided, AND locator.rootElementPathHint ([JSONPathHintComponent]?) is NOT,
+        // this indicates an attempt to use the old path hint format. We log a warning as it won't be used by the new system.
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) was provided, but locator.rootElementPathHint (new JSON format) is nil. The old format pathHint will NOT be used for navigation. Please update your query to use the new JSON format for rootElementPathHint within the locator object.")
+            // DO NOT ASSIGN: validLocator.rootElementPathHint = topLevelOldPathHint // This would be a type error
         }
 
         return await axorcist.handlePerformAction(
@@ -283,20 +286,22 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard var locator = command.locator else {
-            axErrorLog("Missing locator for getAttributes")
-            return HandlerResponse(data: nil, error: "Missing locator for getAttributes")
+        var locator: Locator? = command.locator
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator for getAttributes because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
-            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for getAttributes.")
-            locator.rootElementPathHint = topLevelPathHint
+        guard var validLocator = locator else {
+            let error = "Missing locator for getAttributes"
+            axErrorLog(error)
+            return HandlerResponse(data: nil, error: error)
         }
-
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) provided for getAttributes, but new JSON format (locator.rootElementPathHint) is nil. Old pathHint will NOT be used.")
+        }
         return await axorcist.handleGetAttributes(
             for: command.application,
-            locator: locator,
+            locator: validLocator,
             requestedAttributes: command.attributes,
             maxDepth: command.maxDepth,
             outputFormat: command.outputFormat
@@ -307,20 +312,22 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard var locator = command.locator else {
-            axErrorLog("Missing locator for query")
-            return HandlerResponse(data: nil, error: "Missing locator for query")
+        var locator: Locator? = command.locator
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator for query because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
-            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for query.")
-            locator.rootElementPathHint = topLevelPathHint
+        guard var validLocator = locator else {
+            let error = "Missing locator for query"
+            axErrorLog(error)
+            return HandlerResponse(data: nil, error: error)
         }
-
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) provided for query, but new JSON format (locator.rootElementPathHint) is nil. Old pathHint will NOT be used.")
+        }
         return await axorcist.handleQuery(
             for: command.application,
-            locator: locator,
+            locator: validLocator,
             maxDepth: command.maxDepth,
             requestedAttributes: command.attributes,
             outputFormat: command.outputFormat
@@ -331,20 +338,22 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard var locator = command.locator else {
-            axErrorLog("Missing locator for describeElement")
-            return HandlerResponse(data: nil, error: "Missing locator for describeElement")
+        var locator: Locator? = command.locator
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator for describeElement because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
-            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for describeElement.")
-            locator.rootElementPathHint = topLevelPathHint
+        guard var validLocator = locator else {
+            let error = "Missing locator for describeElement"
+            axErrorLog(error)
+            return HandlerResponse(data: nil, error: error)
         }
-
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) provided for describeElement, but new JSON format (locator.rootElementPathHint) is nil. Old pathHint will NOT be used.")
+        }
         return await axorcist.handleDescribeElement(
             for: command.application,
-            locator: locator,
+            locator: validLocator,
             maxDepth: command.maxDepth,
             requestedAttributes: command.attributes,
             outputFormat: command.outputFormat
@@ -355,20 +364,22 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        guard var locator = command.locator else {
-            axErrorLog("Missing locator for extractText")
-            return HandlerResponse(data: nil, error: "Missing locator for extractText")
+        var locator: Locator? = command.locator
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator for extractText because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
-        // If CommandEnvelope.pathHint is provided, and locator.rootElementPathHint is not,
-        // transfer the pathHint to the locator.
-        if let topLevelPathHint = command.pathHint, !topLevelPathHint.isEmpty, locator.rootElementPathHint == nil {
-            axDebugLog("CommandExecutor: Populating locator.rootElementPathHint from CommandEnvelope.pathHint for extractText.")
-            locator.rootElementPathHint = topLevelPathHint
+        guard var validLocator = locator else {
+            let error = "Missing locator for extractText"
+            axErrorLog(error)
+            return HandlerResponse(data: nil, error: error)
         }
-        
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) provided for extractText, but new JSON format (locator.rootElementPathHint) is nil. Old pathHint will NOT be used.")
+        }
         return await axorcist.handleExtractText(
             for: command.application,
-            locator: locator,
+            locator: validLocator,
             maxDepth: command.maxDepth
         )
     }
@@ -382,7 +393,7 @@ struct CommandExecutor {
             let error = "Missing subCommands for batch command"
             axErrorLog(error)
             // Conditionally include logs in BatchResponse for error case
-            let logsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
+            let logsToInclude = debugCLI ? await axGetLogsAsStrings(format: .text) : nil
             return BatchResponse(
                 commandId: command.commandId,
                 success: false,
@@ -395,8 +406,8 @@ struct CommandExecutor {
         // It no longer takes isDebugLoggingEnabled or currentDebugLogs.
         // It will manage its own sub-command logging context.
         let batchResults: [HandlerResponse] = await axorcist.handleBatchCommands(
-            batchCommandID: command.commandId, // Passed for potential top-level logging within handler
-            subCommands: subCommands
+            commandEnvelopes: subCommands, // Corrected parameter name
+            batchCommandID: command.commandId 
         )
 
         let overallSuccess = batchResults.allSatisfy { $0.error == nil }
@@ -422,7 +433,7 @@ struct CommandExecutor {
         }
 
         // Conditionally include logs in the final BatchResponse
-        let finalLogsToInclude = debugCLI ? await GlobalAXLogger.shared.getLogsAsStringsIfEnabled(format: .text, includeTimestamps: false, includeLevels: false) : nil
+        let finalLogsToInclude = debugCLI ? await axGetLogsAsStrings(format: .text) : nil
         return BatchResponse(
             commandId: command.commandId,
             success: overallSuccess,
@@ -437,60 +448,25 @@ struct CommandExecutor {
         command: CommandEnvelope,
         axorcist: AXorcist
     ) async -> HandlerResponse {
-        // 1. Retrieve the currently-focused element in the target application
-        let focusedResp = await axorcist.handleGetFocusedElement(for: command.application, requestedAttributes: nil)
-        if let err = focusedResp.error {
-            return HandlerResponse(data: nil, error: "Failed to fetch focused element: \(err)")
+        var locator: Locator? = command.locator
+        if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
+            locator = Locator(criteria: [:])
+            axDebugLog("CommandExecutor: Created default empty locator for setFocusedValue because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
-
-        guard let raw = focusedResp.data?.value as? Element else {
-            return HandlerResponse(data: nil, error: "Focused element missing from response or not the correct Element type")
+        guard var validLocator = locator else {
+            let error = "Missing locator for setFocusedValue"
+            axErrorLog(error)
+            return HandlerResponse(data: nil, error: error)
         }
-
-        // 2. Determine the operation
-        let actionName = command.actionName ?? "AXSetValue"
-
-        // We handle the most common cases directly to avoid another brittle lookup
-        // Standard press-style actions
-        let standardActions: Set<String> = [
-            AXActionNames.kAXPressAction,
-            AXActionNames.kAXPickAction,
-            AXActionNames.kAXConfirmAction,
-            AXActionNames.kAXCancelAction,
-            AXActionNames.kAXIncrementAction,
-            AXActionNames.kAXDecrementAction,
-            AXActionNames.kAXShowMenuAction,
-            AXActionNames.kAXRaiseAction
-        ]
-
-        if standardActions.contains(actionName) {
-            let status = AXUIElementPerformAction(raw.underlyingElement, actionName as CFString)
-            if status == .success {
-                return HandlerResponse(data: AnyCodable(PerformResponse(commandId: command.commandId, success: true)))
-            } else {
-                return HandlerResponse(error: "AX action \(actionName) failed: \(axErrorToString(status))")
-            }
-        } else {
-            // Treat actionName as an attribute to be set (e.g., AXSetValue / AXValue)
-            let attrName = (actionName == "AXSetValue") ? AXAttributeNames.kAXValueAttribute : actionName
-            guard let val = command.actionValue?.value else {
-                return HandlerResponse(error: "No actionValue provided for \(actionName)")
-            }
-
-            // Bridge Swift value → CFTypeRef where possible
-            var cf: CFTypeRef?
-            if let s = val as? String { cf = s as CFString }
-            else if let b = val as? Bool { cf = (b ? kCFBooleanTrue : kCFBooleanFalse) }
-            else if let n = val as? NSNumber { cf = n }
-            else { return HandlerResponse(error: "Unsupported value type \(type(of: val)) for \(attrName)") }
-
-            let status = AXUIElementSetAttributeValue(raw.underlyingElement, attrName as CFString, cf!)
-            if status == .success {
-                return HandlerResponse(data: AnyCodable(PerformResponse(commandId: command.commandId, success: true)))
-            } else {
-                return HandlerResponse(error: "Failed to set \(attrName): \(axErrorToString(status))")
-            }
+        if let topLevelOldPathHint = command.pathHint, !topLevelOldPathHint.isEmpty, validLocator.rootElementPathHint == nil {
+            axWarningLog("CommandExecutor: CommandEnvelope.pathHint (old [String] format) provided for setFocusedValue, but new JSON format (locator.rootElementPathHint) is nil. Old pathHint will NOT be used.")
         }
+        return await axorcist.handleSetFocusedValue(
+            for: command.application,
+            locator: validLocator,
+            actionName: command.actionName ?? "AXSetValue",
+            actionValue: command.actionValue
+        )
     }
 
     // MARK: - Helper Functions

@@ -67,27 +67,25 @@ public class AXorcist {
 
     @MainActor
     public func search(
-        element: Element, // This is the starting element for the search
+        element: Element, 
         locator: Locator,
-        requireAction: String?,
-        depth: Int, // Initial depth, usually 0 from external call
-        maxDepth: Int
-    ) -> Element? { // Returns Element? directly
-        // Initial log for this AXorcist-level search call
-        axDebugLog("AXorcist.search called with locator: \(locator.criteria), path_hint: \(locator.rootElementPathHint ?? []) starting from \(element.briefDescription(option: .short))")
+        requireAction: String? = nil,
+        depth: Int = 0,
+        maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
+    ) async -> Element? {
+        axDebugLog("AXorcist.search: Starting search from element \(element.briefDescription()). Locator: \(locator)")
 
-        // Call the global findElementViaPathAndCriteria
-        // This function is already refactored to use GlobalAXLogger and return Element?.
-        let foundElement = findElementViaPathAndCriteria(
-            application: element,
-            locator: locator,
+        // findElementViaCriteriaAndJSONPathHint is async
+        let foundElement = await findElementViaCriteriaAndJSONPathHint(
+            application: element, 
+            locator: locator,    
             maxDepth: maxDepth
         )
 
         if foundElement != nil {
-            axDebugLog("AXorcist.search: findElementViaPathAndCriteria found an element.")
+            axDebugLog("AXorcist.search: findElementViaCriteriaAndJSONPathHint found an element.")
         } else {
-            axDebugLog("AXorcist.search: findElementViaPathAndCriteria did NOT find an element.")
+            axDebugLog("AXorcist.search: findElementViaCriteriaAndJSONPathHint did NOT find an element.")
         }
         return foundElement
     }
@@ -97,15 +95,15 @@ public class AXorcist {
     @MainActor
     public func handleObserve(
         for appIdentifierOrNil: String?,
-        notifications: [String], // These are AXNotification strings
+        notifications: [String], 
         includeElementDetails: [String],
-        watchChildren: Bool, // Parameter not used yet
+        watchChildren: Bool, 
         commandId: String,
         debugCLI: Bool
     ) async -> Bool {
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey
         axInfoLog("[AXorcist.handleObserve][CmdID: \(commandId)] Starting observe for app: \(appIdentifier), notifications: \(notifications.joined(separator: ", ")), details: \(includeElementDetails.joined(separator: ", "))")
-
+        // applicationElement is sync
         guard let appElement = applicationElement(for: appIdentifier) else {
             axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Application not found: \(appIdentifier)")
             return false
@@ -113,24 +111,22 @@ public class AXorcist {
 
         var subscriptionTokens: [AXObserverCenter.SubscriptionToken] = []
 
-        // This callback now captures necessary variables from the outer scope.
-        // It matches the AXNotificationSubscriptionHandler signature.
         let observerCallback: AXNotificationSubscriptionHandler = {
-            // Captured: commandId, includeElementDetails, appIdentifier, appElement
             obsPid, notificationNameString, rawObservedElement, nsUserInfo in 
 
             let observedElement = Element(rawObservedElement)
-            // Ensure appElement is valid for path generation, otherwise path might be too long/incorrect
+            // generatePathArray is sync, pid() is sync
             let elementPath = observedElement.generatePathArray(upTo: appElement.pid() == obsPid ? appElement : nil)
+            
+            // Since getElementAttributes is async but we're in a sync context,
+            // we need to use Task to call it
+            Task { @MainActor in
+                let (attributes, _) = await getElementAttributes(
+                    element: observedElement,
+                    attributes: includeElementDetails, 
+                    outputFormat: .smart
+                )
 
-            let (attributes, _) = getElementAttributes(
-                element: observedElement,
-                attributes: includeElementDetails, // Captured
-                outputFormat: .smart
-            )
-
-
-            // Build a raw element dictionary (sanitized) using plain Swift types
             var sanitizedElement: [String: Any] = [:]
             if !attributes.isEmpty {
                 var sanitizedAttrs: [String: Any] = [:]
@@ -143,7 +139,6 @@ public class AXorcist {
                 sanitizedElement["path"] = elementPath
             }
 
-            // Build overall payload with primitive types after sanitization
             let payloadRaw: [String: Any] = [
                 "timestamp": Date().timeIntervalSince1970,
                 "commandId": commandId,
@@ -152,7 +147,6 @@ public class AXorcist {
                 "application": appIdentifier,
                 "element": sanitizedElement.mapValues { $0 }
             ]
-
 
             let safePayload = makeJSONCompatible(payloadRaw) as! [String: Any]
 
@@ -164,16 +158,16 @@ public class AXorcist {
                 fputs("{\"error\": \"Unencodable payload\"}\n", stderr)
                 fflush(stderr)
             }
+            }
         }
 
         var allSubscriptionsSuccessful = true
         for notificationNameString in notifications {
-            // Ensure axNotificationName is valid before using it
             guard let axNotificationName = AXNotification(rawValue: notificationNameString) else {
                 axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Invalid notification name string: \(notificationNameString). Skipping.")
-                continue // Skip to the next notification string
+                continue 
             }
-            
+            // pid() is sync
             guard let targetPid = appElement.pid() else {
                 axErrorLog("[AXorcist.handleObserve][CmdID: \(commandId)] Could not get PID for appElement: \(appIdentifier)")
                 allSubscriptionsSuccessful = false
@@ -182,8 +176,8 @@ public class AXorcist {
             
             let result = AXObserverCenter.shared.subscribe(
                 pid: targetPid, 
-                element: appElement, // Observe the application element itself
-                notification: axNotificationName, // Now safely unwrapped
+                element: appElement, 
+                notification: axNotificationName, 
                 handler: observerCallback
             )
 

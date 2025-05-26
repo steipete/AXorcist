@@ -2,11 +2,7 @@
 
 import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
-// GlobalAXLogger is now expected to be imported if this file is part of AXorcistLib, or accessible if in the same target.
-// Assuming AXorcistLib is a separate module, you'd need:
-// import AXorcistLib // If GlobalAXLogger is in AXorcistLib and this file is in AXorcist module.
-
-// The AXORC_JSON_LOG_ENABLED and related fputs can be removed as GlobalAXLogger manages its state.
+import AppKit // Added to provide NSRunningApplication and NSWorkspace
 
 // Element struct is NOT @MainActor. Isolation is applied to members that need it.
 public struct Element: Equatable, Hashable {
@@ -33,18 +29,17 @@ public struct Element: Equatable, Hashable {
         self.actions = actions
     }
 
-    // Implement Equatable - no longer needs nonisolated as struct is not @MainActor
+    // Implement Equatable
     public static func == (lhs: Element, rhs: Element) -> Bool {
         return CFEqual(lhs.underlyingElement, rhs.underlyingElement)
     }
 
-    // Implement Hashable - no longer needs nonisolated
+    // Implement Hashable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(CFHash(underlyingElement))
     }
 
     // Generic method to get an attribute's value (converted to Swift type T)
-    // Now tries to read from stored attributes first, then fetches if not available.
     @MainActor
     public func attribute<T>(_ attribute: Attribute<T>) -> T? {
         // Try to get from pre-fetched attributes first
@@ -52,7 +47,7 @@ public struct Element: Equatable, Hashable {
             return storedValue
         }
 
-        axDebugLog("'\(attribute.rawValue)' not in stored. Fetching...")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "'\\(attribute.rawValue)' not in stored. Fetching..."))
 
         if T.self == [AXUIElement].self {
             return fetchAXUIElementArray(attribute)
@@ -68,7 +63,7 @@ public struct Element: Equatable, Hashable {
             return nil
         }
 
-        axDebugLog("Found '\(attribute.rawValue)' in stored attributes.")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Found '\\(attribute.rawValue)' in stored attributes."))
 
         // Attempt to convert AnyCodable to T
         if T.self == String.self, let strValue = anyCodableValue.value as? String { return strValue as? T }
@@ -84,56 +79,56 @@ public struct Element: Equatable, Hashable {
         if let val = anyCodableValue.value as? T {
             return val
         } else {
-            axDebugLog("Stored attribute '\(attribute.rawValue)' (type \(type(of: anyCodableValue.value))) could not be cast to \(String(describing: T.self))")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Stored attribute '\\(attribute.rawValue)' (type \\(type(of: anyCodableValue.value))) could not be cast to \\(String(describing: T.self))"))
             return nil
         }
     }
 
     @MainActor
     private func fetchAXUIElementArray<T>(_ attribute: Attribute<T>) -> T? {
-        axDebugLog("Special handling for T == [AXUIElement]. Attribute: \(attribute.rawValue)")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Special handling for T == [AXUIElement]. Attribute: \\(attribute.rawValue)"))
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
 
         guard error == .success else {
             if error == .noValue {
-                axDebugLog("Attribute '\(attribute.rawValue)' has no value.")
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attribute '\\(attribute.rawValue)' has no value."))
             } else {
-                axDebugLog("Error fetching '\(attribute.rawValue)': \(error.rawValue)")
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error fetching '\\(attribute.rawValue)': \\(error.rawValue)"))
             }
             return nil
         }
 
         if let cfArray = value, CFGetTypeID(cfArray) == CFArrayGetTypeID() {
             if let axElements = cfArray as? [AXUIElement] {
-                axDebugLog("Successfully fetched and cast \(axElements.count) AXUIElements for '\(attribute.rawValue)'.")
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully fetched and cast \\(axElements.count) AXUIElements for '\\(attribute.rawValue)'."))
                 return axElements as? T
             } else {
-                axDebugLog("CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement].")
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "CFArray for '\\(attribute.rawValue)' failed to cast to [AXUIElement]."))
             }
         } else if value != nil {
-            axDebugLog("Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(String(describing: CFGetTypeID(value!)))")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\\(attribute.rawValue)' was not a CFArray. TypeID: \\(String(describing: CFGetTypeID(value!)))"))
         } else {
-            axDebugLog("Value for '\(attribute.rawValue)' was nil despite .success.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\\(attribute.rawValue)' was nil despite .success."))
         }
         return nil
     }
 
     @MainActor
     private func fetchAndConvertAttribute<T>(_ attribute: Attribute<T>) -> T? {
-        axDebugLog("Using basic CFTypeRef conversion for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue).")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Using basic CFTypeRef conversion for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."))
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
 
         if error != .success {
             if error != .noValue {
-                axDebugLog("Error \(error.rawValue) fetching '\(attribute.rawValue)' for basic conversion.")
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error \\(error.rawValue) fetching '\\(attribute.rawValue)' for basic conversion."))
             }
             return nil
         }
 
         guard let unwrappedCFValue = value else {
-            axDebugLog("Value was nil for '\(attribute.rawValue)' after fetch for basic conversion.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value was nil for '\\(attribute.rawValue)' after fetch for basic conversion."))
             return nil
         }
 
@@ -166,157 +161,224 @@ public struct Element: Equatable, Hashable {
             }
         }
 
-        // If it's 'Any' or other complex types, ValueUnwrapper might be appropriate.
-        if T.self == Any.self || T.self == AnyObject.self { // If T is Any, try ValueUnwrapper
-            axDebugLog("Attribute \(attribute.rawValue): T is Any/AnyObject. Using ValueUnwrapper.")
+        if T.self == Any.self || T.self == AnyObject.self {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attribute \\(attribute.rawValue): T is Any/AnyObject. Using ValueUnwrapper."))
             return ValueUnwrapper.unwrap(cfValue) as? T
         }
 
         if let directCast = cfValue as? T {
-            axDebugLog("Basic conversion succeeded with direct cast for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue).")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Basic conversion succeeded with direct cast for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."))
             return directCast
         }
 
-        axDebugLog("Attempting ValueUnwrapper for T = \(String(describing: T.self)), Attribute: \(attribute.rawValue).")
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attempting ValueUnwrapper for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."))
         if let valueFromUnwrapper = ValueUnwrapper.unwrap(cfValue) as? T {
             return valueFromUnwrapper
         }
 
-        let warningMessage = "Basic conversion and ValueUnwrapper FAILED for T = \(String(describing: T.self)), "
-        let warningDetail = "Attribute: \(attribute.rawValue). Value type: \(String(describing: CFGetTypeID(cfValue)))"
-        axWarningLog(warningMessage + warningDetail)
+        let warningMessage = "Basic conversion and ValueUnwrapper FAILED for T = \\(String(describing: T.self)), "
+        let warningDetail = "Attribute: \\(attribute.rawValue). Value type: \\(String(describing: CFGetTypeID(cfValue)))\\"
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: warningMessage + warningDetail))
         return nil
     }
 
-    // Method to get the raw CFTypeRef? for an attribute
-    // This is useful for functions like attributesMatch that do their own CFTypeID checking.
-    // This also needs to be @MainActor as AXUIElementCopyAttributeValue should be on main thread.
     @MainActor
     public func rawAttributeValue(named attributeName: String) -> CFTypeRef? {
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attributeName as CFString, &value)
         if error == .success {
-            return value // Caller is responsible for CFRelease if this is not ARC-managed (it should be with Swift)
+            return value
         } else if error == .attributeUnsupported {
-            axDebugLog("Attribute \(attributeName) unsupported for element.") // Removed self.underlyingElement for brevity, context is clear
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attribute \\(attributeName) unsupported for element."))
         } else if error == .noValue {
-            axDebugLog("Attribute \(attributeName) has no value for element.")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attribute \\(attributeName) has no value for element."))
         } else {
-            axDebugLog("Error getting attribute \(attributeName) for element: \(error.rawValue)")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error getting attribute \\(attributeName) for element: \\(error.rawValue)"))
         }
         return nil
     }
 
-    // Remaining properties and methods will stay here for now
-    // (e.g., children, parameterizedAttribute, briefDescription, generatePathString, static factories)
-    // Action methods have been moved to Element+Actions.swift
-
-    // MARK: - Attribute Settability Check
     @MainActor
     public func isAttributeSettable(named attributeName: String) -> Bool {
         var settable: DarwinBoolean = false
         let error = AXUIElementIsAttributeSettable(underlyingElement, attributeName as CFString, &settable)
         if error != .success {
-            // Log error or handle it, e.g., return false
-            axWarningLog("Error checking if attribute \(attributeName) is settable: \(axErrorToString(error))")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Error checking if attribute \\(attributeName) is settable: \\(axErrorToString(error))"))
             return false
         }
         return settable.boolValue
     }
 
-    // MARK: - Attribute Accessors (Raw and Typed)
-
-    // ... existing attribute accessors ...
-
-    // MARK: - Computed Properties for Common Attributes & Heuristics
-
-    // ... existing properties like role, title, isEnabled ...
-
-    /// A computed name for the element, derived from common attributes like title, value, description, etc.
-    /// This provides a general-purpose, human-readable name.
     @MainActor
-    public func computedName() -> String? {
-        if let titleStr = self.title(), !titleStr.isEmpty, titleStr != AXMiscConstants.kAXNotAvailableString { return titleStr }
-
-        if let valueAny = self.value(), let valueStr = valueAny as? String, !valueStr.isEmpty, valueStr != AXMiscConstants.kAXNotAvailableString { return valueStr }
-
-        if let descStr = self.descriptionText(), !descStr.isEmpty, descStr != AXMiscConstants.kAXNotAvailableString { return descStr }
-
-        if let helpStr: String = self.attribute(Attribute(AXAttributeNames.kAXHelpAttribute)), !helpStr.isEmpty, helpStr != AXMiscConstants.kAXNotAvailableString { return helpStr }
-        if let phValueStr: String = self.attribute(Attribute(AXAttributeNames.kAXPlaceholderValueAttribute)),
-           !phValueStr.isEmpty, phValueStr != AXMiscConstants.kAXNotAvailableString { return phValueStr }
-
-        let roleNameStr: String = self.role() ?? "Element"
-
-        if let roleDescStr = self.roleDescription(), !roleDescStr.isEmpty, roleDescStr != AXMiscConstants.kAXNotAvailableString {
-            return "\(roleDescStr) (\(roleNameStr))"
+    public func parameterizedAttribute<T>(_ attribute: Attribute<T>, parameter: Any) -> T? {
+        var value: CFTypeRef?
+        let error: AXError
+        
+        // Need to bridge the parameter to CFTypeRef
+        let cfParameter: CFTypeRef
+        if let num = parameter as? NSNumber {
+            cfParameter = num
+        } else if let str = parameter as? String {
+            cfParameter = str as CFString
+        } else if let el = parameter as? Element {
+             cfParameter = el.underlyingElement
+        } else {
+            // Fallback for other types or if bridging is complex; might need more specific handling
+            // For now, attempt to bridge directly, or log error if not possible
+            if CFGetTypeID(parameter as CFTypeRef) == 0 { // Heuristic: Check if it's already a CFTypeRef or bridgable
+                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Parameterized attribute '\(attribute.rawValue)' called with non-CF bridgable Swift type: \(type(of: parameter)). This might fail."))
+            }
+            cfParameter = parameter as CFTypeRef // This can crash if parameter is not CF-bridgable
         }
-        axDebugLog("computedName: Could not determine a descriptive name.")
+
+        error = AXUIElementCopyParameterizedAttributeValue(self.underlyingElement, attribute.rawValue as CFString, cfParameter, &value)
+
+        if error != .success {
+            if error != .noValue {
+                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."))
+            }
+            return nil
+        }
+        guard let unwrappedCFValue = value else {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Parameterized attribute '\(attribute.rawValue)' value was nil after fetch."))
+            return nil
+        }
+        return convertCFTypeToSwiftType(unwrappedCFValue, attribute: attribute)
+    }
+
+    @MainActor
+    public func press() -> Bool {
+        do {
+            _ = try performAction(AXActionNames.kAXPressAction)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    @MainActor
+    public func pick() -> Bool {
+        do {
+            _ = try performAction(AXActionNames.kAXPickAction)
+            return true
+        } catch {
+            return false
+        }
+    }
+    
+    @MainActor
+    public func showMenu() -> Bool {
+        do {
+            _ = try performAction(AXActionNames.kAXShowMenuAction)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    @MainActor
+    public func setValue(_ value: Any, forAttribute attributeName: String) -> Bool {
+        // Bridge the Swift value to CFTypeRef
+        // Note: This bridging is basic. For complex types or specific CF types, more handling may be needed.
+        let cfValue: CFTypeRef
+        if let strValue = value as? String {
+            cfValue = strValue as CFString
+        } else if let boolValue = value as? Bool {
+            cfValue = (boolValue ? kCFBooleanTrue : kCFBooleanFalse) as CFBoolean
+        } else if let numValue = value as? NSNumber { // Handles Int, Double, etc. that bridge to NSNumber
+            cfValue = numValue
+        } else if let elementValue = value as? Element {
+             cfValue = elementValue.underlyingElement
+        } else {
+            // Attempt direct bridging for other types; may fail if not directly bridgable.
+            // Consider logging a warning or throwing an error for unhandled types.
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Attempting to set attribute '\\(attributeName)' with potentially non-CF-bridgable Swift type: \\(type(of: value)). This might fail or lead to unexpected behavior."))
+            cfValue = value as CFTypeRef // This can crash if 'value' is not CF-bridgable
+        }
+
+        let error = AXUIElementSetAttributeValue(self.underlyingElement, attributeName as CFString, cfValue)
+        if error == .success {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully set attribute '\\(attributeName)' to '\\(value)' on \\(self.briefDescription(option: .short))"))
+            return true
+        } else {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "Failed to set attribute '\\(attributeName)' to '\\(value)' on \\(self.briefDescription(option: .short)): \\(axErrorToString(error))"))
+            return false
+        }
+    }
+}
+
+func axErrorToString(_ error: AXError) -> String {
+    switch error {
+    case .success: return "success"
+    case .failure: return "failure"
+    case .apiDisabled: return "apiDisabled"
+    case .invalidUIElement: return "invalidUIElement"
+    case .invalidUIElementObserver: return "invalidUIElementObserver"
+    case .cannotComplete: return "cannotComplete"
+    case .attributeUnsupported: return "attributeUnsupported"
+    case .actionUnsupported: return "actionUnsupported"
+    case .notificationUnsupported: return "notificationUnsupported"
+    case .notImplemented: return "notImplemented"
+    case .notificationAlreadyRegistered: return "notificationAlreadyRegistered"
+    case .notificationNotRegistered: return "notificationNotRegistered"
+    case .noValue: return "noValue"
+    case .parameterizedAttributeUnsupported: return "parameterizedAttributeUnsupported"
+    default: return "unknownError (\(error.rawValue))"
+    }
+}
+
+// MARK: - Static Factory Methods for System-Wide and Application Elements
+extension Element {
+    @MainActor
+    public static func systemWide() -> Element {
+        return Element(AXUIElementCreateSystemWide())
+    }
+
+    @MainActor
+    public static func application(for pid: pid_t) -> Element? {
+        let appElementRef = AXUIElementCreateApplication(pid)
+        let testElement = Element(appElementRef)
+        // A basic check to see if the application element is valid (e.g., by trying to get its role)
+        if testElement.role() != nil { // role() is synchronous
+            return testElement
+        }
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Failed to create a valid application Element for PID \(pid). Role check failed."))
         return nil
     }
 
-    // MARK: - Path and Hierarchy
-
     @MainActor
-    public func getValueType(forAttribute attributeName: String) -> AXAttributeValueType {
-        var cfValue: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(self.underlyingElement, attributeName as CFString, &cfValue)
-
-        if error == .noValue {
-            axDebugLog("Attribute '\(attributeName)' has no value.")
-            return .noValue
+    public static func application(bundleIdentifier: String) -> Element? {
+        guard let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "No running application found with bundle identifier: \(bundleIdentifier)"))
+            return nil
         }
-
-        guard error == .success, let value = cfValue else {
-            axDebugLog("Error fetching attribute '\(attributeName)': \(error.rawValue)")
-            return .error
+        return Element.application(for: runningApp.processIdentifier) // application(for:) is synchronous
+    }
+    
+    @MainActor
+    public static func focusedApplication() -> Element? {
+        guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Could not get frontmost application from NSWorkspace."))
+            return nil
         }
-
-        let typeID = CFGetTypeID(value)
-
-        if typeID == AXUIElementGetTypeID() {
-            return .axElement
-        } else if typeID == CFArrayGetTypeID() {
-            let array = value as! CFArray // Safe cast due to typeID check
-            if CFArrayGetCount(array) > 0 {
-                let firstElementPtr = CFArrayGetValueAtIndex(array, 0) // Returns UnsafeRawPointer
-                let firstElementTypeID = CFGetTypeID(firstElementPtr as CFTypeRef?)
-
-                if firstElementTypeID == AXUIElementGetTypeID() {
-                    return .axElementArray
-                } else {
-                    // Could be an array of other CFType, e.g., CFString, CFNumber
-                    // For simplicity, classify as .array and let ValueUnwrapper handle specifics if needed elsewhere.
-                    axDebugLog("Attribute '\(attributeName)' is an array, first element type ID: \(firstElementTypeID)")
-                    return .array // Generic array type
+        let pid = frontmostApp.processIdentifier
+        if pid == -1 { // Sometimes frontmostApplication can be non-normal app (e.g. Dock when no windows are open)
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Frontmost application has PID -1, might be a system process without typical AX support."))
+            // Attempt to get focused element from system-wide, might give better results
+            let systemElement = Element.systemWide()
+            if let focusedElement = systemElement.focusedUIElement() { // focusedUIElement() is sync
+                // Try to get the app element containing this focused element
+                var current: Element? = focusedElement
+                while let parent = current?.parent() { // parent() is sync
+                    if parent.role() == AXRoleNames.kAXApplicationRole { // role() is sync
+                        return parent
+                    }
+                    if parent == systemElement { break } // Stop if we reach systemWide
+                    current = parent
                 }
-            } else {
-                return .emptyArray // Empty array
             }
-        } else if typeID == CFBooleanGetTypeID() {
-            return .boolean
-        } else if typeID == CFNumberGetTypeID() {
-            return .number
-        } else if typeID == CFStringGetTypeID() {
-            return .string
-        } else if typeID == CFAttributedStringGetTypeID() {
-            return .attributedString
-        } else if typeID == AXValueGetTypeID() {
-            // Further inspect AXValue to determine its specific type (e.g., CGPoint, CGSize, CGRect, CFRange)
-            let axValue = value as! AXValue // Force cast since we already checked the typeID
-            let valueTypeEnum = AXValueGetType(axValue)
-            switch valueTypeEnum {
-            case .cgPoint: return .point
-            case .cgSize: return .size
-            case .cgRect: return .rect
-            case .cfRange: return .range
-            default:
-                axDebugLog("Unhandled AXValueType: \(valueTypeEnum.rawValue) for attribute '\(attributeName)'")
-                return .unknown // Other AXValue types not specifically handled
-            }
+            return nil // Fallback if no app found via focused element
         }
-
-        axDebugLog("Attribute '\(attributeName)' has an unknown or unhandled CFTypeID: \(typeID)")
-        return .unknown
+        return Element.application(for: pid) // application(for:) is sync
     }
 }

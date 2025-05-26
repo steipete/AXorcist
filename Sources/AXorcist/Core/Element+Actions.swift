@@ -24,7 +24,7 @@ extension Element {
     public func performAction(_ actionName: Attribute<String>) throws -> Element { // Removed logging params
         // self.briefDescription() is refactored and uses GlobalAXLogger internally
         // Assumes self.briefDescription() is refactored in Element+Description.swift
-        let descForLog = self.briefDescription(option: .default)
+        let descForLog = self.briefDescription(option: .smart)
         axDebugLog("Attempting to perform action '\(actionName.rawValue)' on element: \(descForLog)")
 
         let error = AXUIElementPerformAction(self.underlyingElement, actionName.rawValue as CFString)
@@ -39,7 +39,7 @@ extension Element {
     @MainActor
     @discardableResult
     public func performAction(_ actionName: String) throws -> Element { // Removed logging params
-        let descForLog = self.briefDescription(option: .default)
+        let descForLog = self.briefDescription(option: .smart)
         axDebugLog("Attempting to perform action '\(actionName)' on element: \(descForLog)")
 
         let error = AXUIElementPerformAction(self.underlyingElement, actionName as CFString)

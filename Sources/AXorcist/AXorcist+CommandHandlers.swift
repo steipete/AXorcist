@@ -13,7 +13,7 @@ extension AXorcist {
     public func handleGetFocusedElement(
         for appIdentifierOrNil: String? = nil,
         requestedAttributes: [String]? = nil
-    ) -> HandlerResponse {
+    ) async -> HandlerResponse {
         let appIdentifier = appIdentifierOrNil ?? AXMiscConstants.focusedApplicationKey // Corrected: Use AXMiscConstants.focusedApplicationKey
         axDebugLog("[AXorcist.handleGetFocusedElement] Handling for app: \(appIdentifier)",
                    file: #file,
@@ -79,7 +79,7 @@ extension AXorcist {
             line: #line
         )
 
-        let (fetchedAttributes, _) = getElementAttributes(
+        let (fetchedAttributes, _) = await getElementAttributes(
             element: focusedElement,
             attributes: requestedAttributes ?? [],
             outputFormat: .smart

@@ -179,12 +179,12 @@ internal func matchComputedNameAttributes(
     computedNameEquals: String?,
     computedNameContains: String?,
     depth: Int
-) -> Bool {
+) async -> Bool {
     if computedNameEquals == nil && computedNameContains == nil {
         return true // No computed name criteria to match, so this part passes.
     }
 
-    let computedAttrs = getComputedAttributes(for: element)
+    let computedAttrs = await getComputedAttributes(for: element)
     let computedNameKey = AXMiscConstants.computedNameAttributeKey
     if let currentComputedNameAnyCodable = computedAttrs[computedNameKey]?.value as? AnyCodable,
        let currentComputedName = currentComputedNameAnyCodable.value as? String {

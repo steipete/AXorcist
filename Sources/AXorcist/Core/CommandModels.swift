@@ -108,7 +108,7 @@ public struct CommandEnvelope: Codable {
 public struct Locator: Codable {
     public var matchAll: Bool?
     public var criteria: [String: String]
-    public var rootElementPathHint: [String]?
+    public var rootElementPathHint: [JSONPathHintComponent]?
     public var descendantCriteria: [String: String]?
     public var requireAction: String?
     public var computedNameContains: String?
@@ -125,7 +125,7 @@ public struct Locator: Codable {
     public init(
         matchAll: Bool? = nil,
         criteria: [String: String] = [:],
-        rootElementPathHint: [String]? = nil,
+        rootElementPathHint: [JSONPathHintComponent]? = nil,
         descendantCriteria: [String: String]? = nil,
         requireAction: String? = nil,
         computedNameContains: String? = nil

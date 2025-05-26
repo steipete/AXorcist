@@ -1,6 +1,22 @@
 import Foundation
 
 public enum PathUtils {
+    // Mapping of common attribute shortcuts to their full AX attribute names
+    public static let attributeKeyMappings: [String: String] = [
+        "role": AXAttributeNames.kAXRoleAttribute,
+        "subrole": AXAttributeNames.kAXSubroleAttribute,
+        "title": AXAttributeNames.kAXTitleAttribute,
+        "value": AXAttributeNames.kAXValueAttribute,
+        "identifier": AXAttributeNames.kAXIdentifierAttribute,
+        "id": AXAttributeNames.kAXIdentifierAttribute,
+        "domid": AXAttributeNames.kAXDOMIdentifierAttribute,
+        "domclass": AXAttributeNames.kAXDOMClassListAttribute,
+        "help": AXAttributeNames.kAXHelpAttribute,
+        "description": AXAttributeNames.kAXDescriptionAttribute,
+        "placeholder": AXAttributeNames.kAXPlaceholderValueAttribute,
+        "enabled": AXAttributeNames.kAXEnabledAttribute,
+        "focused": AXAttributeNames.kAXFocusedAttribute
+    ]
     public static func parsePathComponent(_ pathComponent: String) -> (attributeName: String, expectedValue: String) {
         let trimmedPathComponentString = pathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmedPathComponentString.split(separator: ":", maxSplits: 1)

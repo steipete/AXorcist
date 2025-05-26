@@ -40,7 +40,7 @@ extension AXorcist {
         }
 
         guard targetElement.isAttributeSettable(named: attributeName) else {
-            let errorMsg = "Attribute '\(attributeName)' is not settable on element \(targetElement.briefDescription())."
+            let errorMsg = "Attribute '\(attributeName)' is not settable on element \(targetElement.briefDescription(option: .smart))."
             axErrorLog(errorMsg)
             return (errorMsg, .attributeUnsupported)
         }
@@ -100,7 +100,7 @@ extension AXorcist {
         for application: String?,
         locator: Locator,
         actionName: String,
-        actionValue: ActionValueCodable? = nil,
+        actionValue: AnyCodable? = nil,
         maxDepth: Int? = nil
     ) async -> HandlerResponse {
         let logMessage2 = "handlePerformAction: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator), Action=\(actionName), Value=\(String(describing: actionValue))"
@@ -115,7 +115,7 @@ extension AXorcist {
         )
 
         if let targetElement = findResult.element {
-            axDebugLog("handlePerformAction: Element found: \(targetElement.briefDescription())")
+            axDebugLog("handlePerformAction: Element found: \(targetElement.briefDescription(option: .smart))")
             // Proceed with targetElement
             let axStatus: AXError
             var actionErrorString: String?
@@ -140,10 +140,10 @@ extension AXorcist {
             }
 
             if axStatus == .success {
-                axDebugLog("Action '\(actionName)' performed successfully on \(targetElement.briefDescription()).")
+                axDebugLog("Action '\(actionName)' performed successfully on \(targetElement.briefDescription(option: .smart)).")
                 return HandlerResponse(data: AnyCodable(PerformResponse(commandId: "", success: true)))
             } else {
-                let finalErrorMessage = actionErrorString ?? "Action '\(actionName)' failed on \(targetElement.briefDescription()) with status: \(axErrorToString(axStatus))"
+                let finalErrorMessage = actionErrorString ?? "Action '\(actionName)' failed on \(targetElement.briefDescription(option: .smart)) with status: \(axErrorToString(axStatus))"
                 axErrorLog(finalErrorMessage)
                 return HandlerResponse(error: finalErrorMessage)
             }
@@ -164,13 +164,13 @@ extension AXorcist {
         for application: String?,
         locator: Locator,
         maxDepth: Int? = nil
-    ) async -> HandlerResponse {
+    ) -> HandlerResponse {
         let logMessage3 = "handleExtractText: App=\(application ?? AXMiscConstants.focusedApplicationKey), Locator=\(locator)"
         axInfoLog(logMessage3)
 
         let searchMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthSearch
 
-        let findResult = await findTargetElement(
+        let findResult = findTargetElement(
             for: application,
             locator: locator,
             maxDepthForSearch: searchMaxDepth
@@ -179,7 +179,7 @@ extension AXorcist {
         let appElementInstance = applicationElement(for: application ?? AXMiscConstants.focusedApplicationKey)
 
         if let targetElement = findResult.element {
-            axDebugLog("handleExtractText: Element found: \(targetElement.briefDescription())")
+            axDebugLog("handleExtractText: Element found: \(targetElement.briefDescription(option: .smart))")
             // Proceed with targetElement
             guard appElementInstance != nil else {
                 let appNameToLog = application ?? AXMiscConstants.focusedApplicationKey
@@ -198,11 +198,11 @@ extension AXorcist {
             let combinedText = allTextValues.joined(separator: " ").lowercased()
 
             if combinedText.isEmpty {
-                axDebugLog("No textual content found for element: \(targetElement.briefDescription())")
+                axDebugLog("No textual content found for element: \(targetElement.briefDescription(option: .smart))")
                 return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: nil)), error: "No textual content found")
             } else {
-                axDebugLog("Extracted text: '\(combinedText)' from element: \(targetElement.briefDescription())")
-                return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: combinedText)))
+                axDebugLog("Extracted text: '\(combinedText)' from element: \(targetElement.briefDescription(option: .smart))")
+                return HandlerResponse(data: AnyCodable(TextExtractionResponse(textContent: combinedText.isEmpty ? nil : combinedText)))
             }
         } else if let errorMsg = findResult.error {
             let errorMessage = "handleExtractText: Error finding element: \(errorMsg)"
@@ -212,6 +212,61 @@ extension AXorcist {
             let errorMessage = "handleExtractText: Unknown error finding element."
             axErrorLog(errorMessage)
             return HandlerResponse(error: errorMessage)
+        }
+    }
+
+    // MARK: - Set Focused Value Handler
+
+    @MainActor
+    public func handleSetFocusedValue(
+        for applicationName: String?,
+        locator: Locator?, // Optional: to verify the focused element if provided
+        actionName: String, // Typically kAXValueAttribute or similar
+        actionValue: AnyCodable? // The value to set
+    ) -> HandlerResponse {
+        let appID = applicationName ?? AXMiscConstants.focusedApplicationKey
+        axInfoLog("[handleSetFocusedValue] App=\(appID), Locator=\(locator?.description ?? "nil"), Action=\(actionName), Value=\(String(describing: actionValue))")
+
+        guard let focusedElement = getFocusedElement(for: appID) else {
+            let errorMsg = "[handleSetFocusedValue] Could not get focused element for app: \(appID)"
+            axErrorLog(errorMsg)
+            return HandlerResponse(error: errorMsg)
+        }
+        axDebugLog("[handleSetFocusedValue] Found focused element: \(focusedElement.briefDescription())")
+
+        // Optional: Validate against locator if provided
+        if let aLocator = locator {
+            // evaluateElementAgainstCriteria is synchronous
+            let matchStatus = evaluateElementAgainstCriteria(
+                element: focusedElement, 
+                locator: aLocator, 
+                actionToVerify: nil, // Not verifying an action here, just the element itself
+                depth: 0 // Depth is not relevant for a single element check
+            )
+            if matchStatus != .fullMatch {
+                let errorMsg = "[handleSetFocusedValue] Focused element \(focusedElement.briefDescription()) does not match provided locator: \(aLocator.description)"
+                axWarningLog(errorMsg)
+                // Depending on strictness, one might return an error here or proceed.
+                // For now, proceeding but logging a warning.
+            }
+        }
+
+        guard let valueToSet = actionValue else {
+            let errorMsg = "[handleSetFocusedValue] Value to set is nil for attribute/action '\(actionName)'."
+            axErrorLog(errorMsg)
+            return HandlerResponse(error: errorMsg)
+        }
+        
+        // Use the existing helper for setting attribute values
+        let setResult = executeSetAttributeValueAction(attributeName: actionName, value: valueToSet, on: focusedElement)
+
+        if setResult.axStatus == .success {
+            axDebugLog("[handleSetFocusedValue] Action/Attribute '\(actionName)' set successfully on focused element \(focusedElement.briefDescription()).")
+            return HandlerResponse(data: AnyCodable(PerformResponse(commandId: "", success: true, message: "Value set successfully.")))
+        } else {
+            let finalErrorMessage = setResult.errorMessage ?? "[handleSetFocusedValue] Failed to set '\(actionName)' on focused element \(focusedElement.briefDescription()) with status: \(axErrorToString(setResult.axStatus))"
+            axErrorLog(finalErrorMessage)
+            return HandlerResponse(error: finalErrorMessage)
         }
     }
 }

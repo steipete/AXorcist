@@ -26,3 +26,10 @@ public enum CommandType: String, Codable {
     case setFocusedValue // New: sets a value on the currently focused element
     // Add future commands here, ensuring case matches JSON or provide explicit raw value
 }
+
+// Enum for how values should be formatted, especially when dealing with complex types
+public enum ValueFormatOption: String, Codable {
+    case smart       // Try to provide the most useful representation (e.g., string for URL, number for size)
+    case raw         // Provide the raw underlying value if possible (e.g., CFTypeRef as String description, or basic data type)
+    case stringified // Force a string representation of the value
+}

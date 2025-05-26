@@ -9,7 +9,7 @@ internal func attributesMatch(
     element: Element,
     matchDetails: [String: String],
     depth: Int
-) -> Bool {
+) async -> Bool {
     let criteriaDesc = matchDetails.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
     let roleForLog = element.role() ?? "nil"
     let titleForLog = element.title() ?? "nil"
@@ -21,12 +21,12 @@ internal func attributesMatch(
         line: #line
     )
 
-    if !matchComputedNameAttributes(
+    if !(await matchComputedNameAttributes(
         element: element,
         computedNameEquals: matchDetails[AXMiscConstants.computedNameAttributeKey + "_equals"],
         computedNameContains: matchDetails[AXMiscConstants.computedNameAttributeKey + "_contains"],
         depth: depth
-    ) {
+    )) {
         return false
     }
 

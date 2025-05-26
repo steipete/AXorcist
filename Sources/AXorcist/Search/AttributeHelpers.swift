@@ -150,15 +150,15 @@ private func determineAttributesToFetch(
         if AXUIElementCopyAttributeNames(element.underlyingElement, &attrNames) == .success,
            let names = attrNames as? [String] {
             attributesToFetch.append(contentsOf: names)
-            axDebugLog(
+            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
                 "determineAttributesToFetch: No specific attributes requested, " +
                     "fetched all \(names.count) available: \(names.joined(separator: ", "))"
-            )
+            ))
         } else {
-            axDebugLog(
+            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
                 "determineAttributesToFetch: No specific attributes requested and " +
                     "failed to fetch all available names."
-            )
+            ))
         }
     }
     return attributesToFetch
@@ -171,110 +171,77 @@ public func getElementAttributes(
     element: Element,
     attributes attrNames: [String],
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption = .default
-    // Removed old logging params & forMultiDefault/targetRole
-) -> ([String: AnyCodable], [AXLogEntry]) {
-    // Return type is now ([String: AnyCodable], [AXLogEntry]) as per original, but logs will be empty.
+    valueFormatOption: ValueFormatOption = .smart
+) async -> ([String: AnyCodable], [AXLogEntry]) {
     var result: [String: AnyCodable] = [:]
 
     let requestingStr = attrNames.isEmpty ? "all" : attrNames.joined(separator: ", ")
-    axDebugLog(
-        "getElementAttributes called for element: \(element.briefDescription(option: .short)), " +
-            "requesting: \(requestingStr)"
-    )
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+        "getElementAttributes called for element: \(element.briefDescription(option: .raw)), " +
+        "requesting: \(requestingStr)"
+    ))
 
     let attributesToProcess = attrNames.isEmpty ? (element.attributeNames() ?? []) : attrNames
 
     for attr in attributesToProcess {
         if attr == AXAttributeNames.kAXParentAttribute {
             let parent = element.parent()
-            result[AXAttributeNames.kAXParentAttribute] = formatParentAttribute(
+            result[AXAttributeNames.kAXParentAttribute] = await formatParentAttribute(
                 parent,
                 outputFormat: outputFormat,
                 valueFormatOption: valueFormatOption
             )
         } else if attr == AXAttributeNames.kAXChildrenAttribute {
             let children = element.children()
-            result[attr] = formatChildrenAttribute(
+            result[attr] = await formatChildrenAttribute(
                 children,
                 outputFormat: outputFormat,
                 valueFormatOption: valueFormatOption
             )
         } else if attr == AXAttributeNames.kAXFocusedUIElementAttribute {
             let focused = element.focusedUIElement()
-            result[attr] = formatFocusedUIElementAttribute(
+            result[attr] = await formatFocusedUIElementAttribute(
                 focused,
                 outputFormat: outputFormat,
                 valueFormatOption: valueFormatOption
             )
         } else {
-            // Use the refactored extractAndFormatAttribute.
-            // The knownAttributes parameter is passed as empty as this function doesn't use that logic directly.
-            if let formattedValue = extractAndFormatAttribute(
+            result[attr] = await extractAndFormatAttribute(
                 element: element,
                 attributeName: attr,
                 outputFormat: outputFormat,
-                valueFormatOption: valueFormatOption,
-                knownAttributes: [:]
-            ) {
-                result[attr] = formattedValue
-            } else {
-                if outputFormat != .textContent { // For non-text, represent nil explicitly
-                    result[attr] = AnyCodable(nil as String?)
-                }
-                // Log if important, e.g., if an attribute was specifically requested but not found/formatted
-                if attrNames.contains(attr) { // only log if it was explicitly requested
-                    axDebugLog(
-                        "Attribute '\(attr)' specifically requested but resulted in " +
-                            "nil or no value after formatting."
-                    )
-                }
-            }
+                valueFormatOption: valueFormatOption
+            )
         }
     }
 
-    // Add computed properties based on outputFormat
-    if outputFormat != .textContent {
-        if result[AXMiscConstants.computedNameAttributeKey] == nil {
-            if let name = element.computedName() {
-                result[AXMiscConstants.computedNameAttributeKey] = AnyCodable(name)
-            }
-        }
-        if result[AXMiscConstants.isClickableAttributeKey] == nil {
-            let isButton = (element.role() == AXRoleNames.kAXButtonRole)
-            let hasPressAction = element.isActionSupported(AXActionNames.kAXPressAction)
-            if isButton || hasPressAction {
-                result[AXMiscConstants.isClickableAttributeKey] = AnyCodable(true)
-            }
-        }
-    }
     if outputFormat == .verbose && result[AXMiscConstants.computedPathAttributeKey] == nil {
         let path = element.generatePathString()
         result[AXMiscConstants.computedPathAttributeKey] = AnyCodable(path)
     }
 
-    axDebugLog(
-        "getElementAttributes finished for element: \(element.briefDescription(option: .short)). " +
-            "Returning \(result.count) attributes."
-    )
-    return (result, []) // Return empty logs, global logger is used.
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+        "getElementAttributes finished for element: \(element.briefDescription(option: .raw)). " +
+        "Returning \(result.count) attributes."
+    ))
+    return (result, [])
 }
 
 @MainActor
 public func getAllElementDataForAXpector(
     for element: Element,
     outputFormat: OutputFormat = .jsonString, // Typically .jsonString for AXpector
-    valueFormatOption: ValueFormatOption = .default
-) -> ([String: AnyCodable], ElementDetails) {
+    valueFormatOption: ValueFormatOption = .smart
+) async -> ([String: AnyCodable], ElementDetails) {
 
     var attributes: [String: AnyCodable] = [:]
     var elementDetails = ElementDetails()
 
     let allAttributeNames = element.attributeNames() ?? []
-    axDebugLog(
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getAllElementDataForAXpector: Fetching \(allAttributeNames.count) attributes for " +
-            "\(element.briefDescription(option: .short))."
-    )
+            "\(element.briefDescription(option: .raw))."
+    ))
 
     for attrName in allAttributeNames {
         if attrName == AXAttributeNames.kAXChildrenAttribute || attrName == AXAttributeNames.kAXParentAttribute {
@@ -312,40 +279,34 @@ public func getAllElementDataForAXpector(
     let hasPressAction = elementDetails.actions?.contains(AXActionNames.kAXPressAction) ?? false
     elementDetails.isClickable = hasPressAction || pressActionSupported
 
-    if let name = element.computedName() {
+    if let name = await element.computedName() {
         let attributeData = AttributeData(value: AnyCodable(name), source: .computed)
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(attributeData)
     }
-    elementDetails.computedName = element.computedName()
-    axDebugLog("getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .short)).")
+    elementDetails.computedName = await element.computedName()
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .raw))."))
     return (attributes, elementDetails)
 }
 
 // Function to get specifically computed attributes for an element
 @MainActor
-internal func getComputedAttributes(for element: Element) -> [String: AttributeData] {
+internal func getComputedAttributes(for element: Element) async -> [String: AttributeData] {
     var computedAttrs: [String: AttributeData] = [:]
 
-    if let name = element.computedName() { // element.computedName() uses GlobalAXLogger
+    if let name = await element.computedName() {
         computedAttrs[AXMiscConstants.computedNameAttributeKey] = AttributeData(
             value: AnyCodable(name),
             source: .computed
         )
-        axDebugLog(
+        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "getComputedAttributes: Computed name for element " +
-                "\(element.briefDescription(option: .short)) is '\(name)'.",
-            file: #file,
-            function: #function,
-            line: #line
-        )
+                "\(element.briefDescription(option: .raw)) is '\(name)'."
+        ))
     } else {
-        axDebugLog(
-            "getComputedAttributes: Element \(element.briefDescription(option: .short)) " +
-                "has no computed name.",
-            file: #file,
-            function: #function,
-            line: #line
-        )
+        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+            "getComputedAttributes: Element \(element.briefDescription(option: .raw)) " +
+                "has no computed name."
+        ))
     }
 
     // Placeholder for other future purely computed attributes if needed
@@ -363,7 +324,7 @@ internal func getComputedAttributes(for element: Element) -> [String: AttributeD
 
 // Helper for formatting raw CFTypeRef values for .textContent output
 @MainActor
-internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) -> String {
+internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
     if typeID == CFStringGetTypeID() {
@@ -372,17 +333,17 @@ internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) -> String {
         return (value as! NSAttributedString).string
     } else if typeID == AXValueGetTypeID() {
         let axVal = value as! AXValue
-        return formatAXValue(axVal, option: .default)
+        return formatAXValue(axVal, option: ValueFormatOption.smart)
     } else if typeID == CFNumberGetTypeID() {
         return (value as! NSNumber).stringValue
     } else if typeID == CFBooleanGetTypeID() {
         return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
     } else {
         let typeDesc = CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType"
-        axDebugLog(
+        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "formatRawCFValueForTextContent: Encountered unhandled CFTypeID \(typeID) - " +
                 "\(typeDesc). Returning placeholder."
-        )
+        ))
         return "<\(typeDesc)>"
     }
 }
@@ -394,22 +355,21 @@ internal func extractAndFormatAttribute(
     element: Element,
     attributeName: String,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption,
-    knownAttributes: [String: AttributeData] // Parameter is present but logic for it removed for now
-) -> AnyCodable? {
-    axDebugLog("extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .short))")
+    valueFormatOption: ValueFormatOption
+) async -> AnyCodable? {
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .raw))"))
 
     // Try to extract using known attribute handlers first
-    if let extractedValue = extractKnownAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat) {
+    if let extractedValue = await extractKnownAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat) {
         return AnyCodable(extractedValue)
     }
 
     // Fallback to raw attribute value
-    return extractRawAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat)
+    return await extractRawAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat)
 }
 
 @MainActor
-private func extractKnownAttribute(element: Element, attributeName: String, outputFormat: OutputFormat) -> Any? {
+private func extractKnownAttribute(element: Element, attributeName: String, outputFormat: OutputFormat) async -> Any? {
     switch attributeName {
     case AXAttributeNames.kAXPathHintAttribute:
         return element.attribute(Attribute<String>(AXAttributeNames.kAXPathHintAttribute))
@@ -452,11 +412,11 @@ private func formatOptionalIntAttribute(_ value: Int32?, outputFormat: OutputFor
 }
 
 @MainActor
-private func extractRawAttribute(element: Element, attributeName: String, outputFormat: OutputFormat) -> AnyCodable? {
+private func extractRawAttribute(element: Element, attributeName: String, outputFormat: OutputFormat) async -> AnyCodable? {
     let rawCFValue = element.rawAttributeValue(named: attributeName)
 
     if outputFormat == .textContent {
-        let formatted = formatRawCFValueForTextContent(rawCFValue)
+        let formatted = await formatRawCFValueForTextContent(rawCFValue)
         return AnyCodable(formatted)
     }
 
@@ -464,10 +424,10 @@ private func extractRawAttribute(element: Element, attributeName: String, output
         // Only log if rawCFValue was not nil initially
         if rawCFValue != nil {
             let cfTypeID = String(describing: CFGetTypeID(rawCFValue!))
-            axDebugLog(
+            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                 "extractAndFormatAttribute: '\(attributeName)' was non-nil CFTypeRef " +
                     "but unwrapped to nil. CFTypeID: \(cfTypeID)"
-            )
+            ))
             return AnyCodable("<Raw CFTypeRef: \(cfTypeID)>")
         }
         return nil
@@ -479,41 +439,41 @@ private func extractRawAttribute(element: Element, attributeName: String, output
 @MainActor
 public func getElementFullDescription(
     element: Element,
-    valueFormatOption: ValueFormatOption = .default,
+    valueFormatOption: ValueFormatOption = .smart,
     includeActions: Bool = true,
     includeStoredAttributes: Bool = true,
     knownAttributes: [String: AttributeData]? = nil
-) -> ([String: AnyCodable], [AXLogEntry]) {
+) async -> ([String: AnyCodable], [AXLogEntry]) {
     var attributes: [String: AnyCodable] = [:]
-    axDebugLog("getElementFullDescription called for element: \(element.briefDescription(option: .short))")
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getElementFullDescription called for element: \(element.briefDescription(option: .raw))"))
 
     // Collect attributes in logical groups
-    addBasicAttributes(to: &attributes, element: element)
-    addStateAttributes(to: &attributes, element: element)
-    addGeometryAttributes(to: &attributes, element: element)
-    addHierarchyAttributes(to: &attributes, element: element, valueFormatOption: valueFormatOption)
+    await addBasicAttributes(to: &attributes, element: element)
+    await addStateAttributes(to: &attributes, element: element)
+    await addGeometryAttributes(to: &attributes, element: element)
+    await addHierarchyAttributes(to: &attributes, element: element, valueFormatOption: valueFormatOption)
 
     if includeActions {
-        addActionAttributes(to: &attributes, element: element)
+        await addActionAttributes(to: &attributes, element: element)
     }
 
-    addStandardStringAttributes(to: &attributes, element: element)
+    await addStandardStringAttributes(to: &attributes, element: element)
 
     if includeStoredAttributes {
         addStoredAttributes(to: &attributes, element: element)
     }
 
-    addComputedProperties(to: &attributes, element: element)
+    await addComputedProperties(to: &attributes, element: element)
 
-    axDebugLog(
+    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementFullDescription finished for element: " +
-            "\(element.briefDescription(option: .short)). Returning \(attributes.count) attributes."
-    )
+            "\(element.briefDescription(option: .raw)). Returning \(attributes.count) attributes."
+    ))
     return (attributes, [])
 }
 
 @MainActor
-private func addBasicAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+private func addBasicAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     if let role = element.role() {
         attributes[AXAttributeNames.kAXRoleAttribute] = AnyCodable(role)
     }
@@ -538,7 +498,7 @@ private func addBasicAttributes(to attributes: inout [String: AnyCodable], eleme
 }
 
 @MainActor
-private func addStateAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+private func addStateAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     attributes[AXAttributeNames.kAXEnabledAttribute] = AnyCodable(element.isEnabled())
     attributes[AXAttributeNames.kAXFocusedAttribute] = AnyCodable(element.isFocused())
     attributes[AXAttributeNames.kAXHiddenAttribute] = AnyCodable(element.isHidden())
@@ -547,7 +507,7 @@ private func addStateAttributes(to attributes: inout [String: AnyCodable], eleme
 }
 
 @MainActor
-private func addGeometryAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+private func addGeometryAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     if let position = element.attribute(Attribute<CGPoint>(AXAttributeNames.kAXPositionAttribute)) {
         attributes[AXAttributeNames.kAXPositionAttribute] = AnyCodable(NSPointToDictionary(position))
     }
@@ -557,21 +517,21 @@ private func addGeometryAttributes(to attributes: inout [String: AnyCodable], el
 }
 
 @MainActor
-private func addHierarchyAttributes(to attributes: inout [String: AnyCodable], element: Element, valueFormatOption: ValueFormatOption) {
+private func addHierarchyAttributes(to attributes: inout [String: AnyCodable], element: Element, valueFormatOption: ValueFormatOption) async {
     if let parent = element.parent() {
         attributes[AXAttributeNames.kAXParentAttribute] = AnyCodable(
-            parent.briefDescription(option: valueFormatOption)
+            parent.briefDescription(option: .raw)
         )
     }
     if let children = element.children() {
         attributes[AXAttributeNames.kAXChildrenAttribute] = AnyCodable(
-            children.map { $0.briefDescription(option: valueFormatOption) }
+            children.map { $0.briefDescription(option: .raw) }
         )
     }
 }
 
 @MainActor
-private func addActionAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+private func addActionAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     var actionsToStore: [String]?
 
     if let currentActions = element.supportedActions(), !currentActions.isEmpty {
@@ -580,7 +540,7 @@ private func addActionAttributes(to attributes: inout [String: AnyCodable], elem
         Attribute<[String]>(AXAttributeNames.kAXActionsAttribute)
     ), !fallbackActions.isEmpty {
         actionsToStore = fallbackActions
-        axDebugLog("Used fallback kAXActionsAttribute for \(element.briefDescription(option: .short))")
+        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"))
     }
 
     attributes[AXAttributeNames.kAXActionsAttribute] = actionsToStore != nil
@@ -593,7 +553,7 @@ private func addActionAttributes(to attributes: inout [String: AnyCodable], elem
 }
 
 @MainActor
-private func addStandardStringAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+private func addStandardStringAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     let standardAttributes = [
         AXAttributeNames.kAXRoleDescriptionAttribute,
         AXAttributeNames.kAXValueDescriptionAttribute,
@@ -618,9 +578,9 @@ private func addStoredAttributes(to attributes: inout [String: AnyCodable], elem
 }
 
 @MainActor
-private func addComputedProperties(to attributes: inout [String: AnyCodable], element: Element) {
+private func addComputedProperties(to attributes: inout [String: AnyCodable], element: Element) async {
     if attributes[AXMiscConstants.computedNameAttributeKey] == nil,
-       let name = element.computedName() {
+       let name = await element.computedName() {
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(name)
     }
 
@@ -642,12 +602,13 @@ private func formatParentAttribute(
     _ parent: Element?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
-) -> AnyCodable? {
-    guard let parentElement = parent else { return nil }
+) async -> AnyCodable {
+    guard let parentElement = parent else { return AnyCodable(nil as String?) }
     if outputFormat == .textContent {
-        return AnyCodable(parentElement.briefDescription(option: .short))
+        return AnyCodable("Element: \(parentElement.role() ?? "?Role")")
+    } else {
+        return AnyCodable(parentElement.briefDescription(option: .raw))
     }
-    return AnyCodable(parentElement.briefDescription(option: valueFormatOption))
 }
 
 @MainActor
@@ -655,14 +616,20 @@ private func formatChildrenAttribute(
     _ children: [Element]?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
-) -> AnyCodable? {
-    guard let childElements = children else { return nil }
-    if outputFormat == .textContent {
-        return AnyCodable(
-            childElements.map { $0.briefDescription(option: .short) }.joined(separator: ", ")
-        )
+) async -> AnyCodable {
+    guard let actualChildren = children, !actualChildren.isEmpty else {
+        return AnyCodable(nil as String?)
     }
-    return AnyCodable(childElements.map { $0.briefDescription(option: valueFormatOption) })
+    if outputFormat == .textContent {
+        var childrenSummaries: [String] = []
+        for childElement in actualChildren {
+            childrenSummaries.append(childElement.briefDescription(option: .raw))
+        }
+        return AnyCodable("[\(childrenSummaries.joined(separator: ", "))]")
+    } else {
+        let childrenDescriptions = actualChildren.map { $0.briefDescription(option: .raw) }
+        return AnyCodable(childrenDescriptions)
+    }
 }
 
 @MainActor
@@ -670,12 +637,13 @@ private func formatFocusedUIElementAttribute(
     _ focusedElement: Element?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
-) -> AnyCodable? {
-    guard let focusedElem = focusedElement else { return nil }
+) async -> AnyCodable {
+    guard let element = focusedElement else { return AnyCodable(nil as String?) }
     if outputFormat == .textContent {
-        return AnyCodable(focusedElem.briefDescription(option: .short))
+        return AnyCodable("Focused: \(element.role() ?? "?Role") - \(element.title() ?? "?Title")")
+    } else {
+        return AnyCodable(element.briefDescription(option: .raw))
     }
-    return AnyCodable(focusedElem.briefDescription(option: valueFormatOption))
 }
 
 // formatValue is likely not needed anymore if ValueUnwrapper is robust and

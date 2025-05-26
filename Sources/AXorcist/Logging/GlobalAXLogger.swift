@@ -1,10 +1,11 @@
 import Foundation
 import os // For OSLog specific configurations if ever needed directly.
 
-// Ensure AXLogEntry is Sendable
+// Ensure AXLogEntry is Sendable - this might not be strictly necessary if logger is fully synchronous
+// and not passing entries across actor boundaries, but good for robustness.
 // public struct AXLogEntry: Codable, Identifiable, Sendable { ... }
 
-public actor GlobalAXLogger {
+public class GlobalAXLogger {
     public static let shared = GlobalAXLogger()
 
     private var logEntries: [AXLogEntry] = []
@@ -14,25 +15,22 @@ public actor GlobalAXLogger {
     private let duplicateSummaryThreshold: Int = 5
     // Maximum characters to keep in a log message before truncating (for readability)
     private let maxMessageLength: Int = 300
-    // private var subscribers: [UUID: @MainActor (AXLogEntry) -> Void] = [:] // REMOVED
+    
+    // No DispatchQueue needed if all calls are on the main thread.
+    // Callers must ensure main-thread execution for all logger interactions.
 
-    // Publicly accessible for direct checks if needed, though usually consumers use subscription.
-    public var isJSONLoggingEnabled: Bool = false
+    public var isJSONLoggingEnabled: Bool = false // Direct access, assuming main-thread safety
 
     private init() {
-        // Check environment variable for JSON logging preference on init
         if let envVar = ProcessInfo.processInfo.environment["AXORC_JSON_LOG_ENABLED"], envVar.lowercased() == "true" {
             isJSONLoggingEnabled = true
-            // Use fputs for direct stderr output to avoid os_log/print overhead if pure JSON is desired
-            fputs("{\\\"axorc_log_stream_type\\\": \\\"json_objects\\\", \\\"status\\\": \\\"AXGlobalLogger initialized with JSON output to stderr.\"}\\n", stderr)
+            fputs("{\\\"axorc_log_stream_type\\\": \\\"json_objects\\\", \\\"status\\\": \\\"AXGlobalLogger initialized with JSON output to stderr.\"}\n", stderr)
         }
     }
 
     // MARK: - Logging Core
-    // This method is called by the global ax...Log functions.
-    // It's actor-isolated, so access to logEntries is serialized.
-    func log(_ entry: AXLogEntry) {
-        // Condense the message to avoid overly verbose output
+    // Assumes this method is always called on the main thread.
+    public func log(_ entry: AXLogEntry) {
         let condensedMessage: String = {
             if entry.message.count > maxMessageLength {
                 let prefix = entry.message.prefix(maxMessageLength)
@@ -42,42 +40,37 @@ public actor GlobalAXLogger {
             }
         }()
 
-        // Suppress consecutive duplicate messages, but emit a summary every duplicateSummaryThreshold repeats
-        if let last = lastCondensedMessage, last == condensedMessage {
-            duplicateCount += 1
-            if duplicateCount % duplicateSummaryThreshold != 0 {
-                return // Skip storing/logging this duplicate
+        if let last = self.lastCondensedMessage, last == condensedMessage {
+            self.duplicateCount += 1
+            if self.duplicateCount % self.duplicateSummaryThreshold != 0 {
+                return
             } else {
                 let summaryEntry = AXLogEntry(
                     level: .debug,
-                    message: "⟳ Previous message repeated \(duplicateSummaryThreshold) more times",
+                    message: "⟳ Previous message repeated \(self.duplicateSummaryThreshold) more times",
                     file: entry.file,
                     function: entry.function,
                     line: entry.line,
                     details: nil
                 )
-                logEntries.append(summaryEntry)
-                // Fall through to log the duplicate after summary emission
+                self.logEntries.append(summaryEntry)
             }
         } else {
-            // If a series of duplicates ended, optionally summarise the total count if it exceeds threshold
-            if duplicateCount >= duplicateSummaryThreshold && lastCondensedMessage != nil {
+            if self.duplicateCount >= self.duplicateSummaryThreshold && self.lastCondensedMessage != nil {
                 let summaryEntry = AXLogEntry(
                     level: .debug,
-                    message: "⟳ Previous message repeated \(duplicateCount) times in total",
+                    message: "⟳ Previous message repeated \(self.duplicateCount) times in total",
                     file: entry.file,
                     function: entry.function,
                     line: entry.line,
                     details: nil
                 )
-                logEntries.append(summaryEntry)
+                self.logEntries.append(summaryEntry)
             }
-            // Reset duplicate tracking
-            lastCondensedMessage = condensedMessage
-            duplicateCount = 0
+            self.lastCondensedMessage = condensedMessage
+            self.duplicateCount = 0
         }
 
-        // Store the (potentially condensed) entry
         let processedEntry = AXLogEntry(
             level: entry.level,
             message: condensedMessage,
@@ -86,92 +79,93 @@ public actor GlobalAXLogger {
             line: entry.line,
             details: entry.details
         )
+        self.logEntries.append(processedEntry)
 
-        logEntries.append(processedEntry)
-
-        // JSON logging to stderr if enabled
-        if isJSONLoggingEnabled {
+        if self.isJSONLoggingEnabled {
             do {
                 let jsonData = try JSONEncoder().encode(processedEntry)
                 if let jsonString = String(data: jsonData, encoding: .utf8) {
-                    fputs(jsonString + "\\n", stderr) // Output JSON string to stderr
+                    fputs(jsonString + "\n", stderr)
                 }
             } catch {
-                // Fallback or error logging for JSON serialization failure
-                fputs("{\\\"error\\\": \\\"Failed to serialize AXLogEntry to JSON: \\(error.localizedDescription)\\\"}\\n", stderr)
+                fputs("{\\\"error\\\": \\\"Failed to serialize AXLogEntry to JSON: \(error.localizedDescription)\\\"}\n", stderr)
             }
         }
-
-        // REMOVED SUBSCRIBER LOOP
-        // subscribers.values.forEach { subscriber in
-        //     // The subscriber closure expects to be called on the MainActor.
-        //     // AXLogEntry must be Sendable.
-        //     Task { @MainActor in
-        //         subscriber(entry)
-        //     }
-        // }
     }
 
     // MARK: - Log Retrieval
-    // These methods are also actor-isolated.
-    func getEntries() -> [AXLogEntry] {
-        return logEntries
+    // Assumes these methods are always called on the main thread.
+    public func getEntries() -> [AXLogEntry] {
+        return self.logEntries
     }
 
-    func clearEntries() {
-        logEntries.removeAll()
-        // Optionally log the clear action itself if needed, depending on requirements.
+    public func clearEntries() {
+        self.logEntries.removeAll()
+        // Optionally log the clear action itself
         // let clearEntry = AXLogEntry(level: .info, message: "GlobalAXLogger log entries cleared.")
-        // logEntries.append(clearEntry) // careful about re-entrancy or immediate re-logging
+        // self.log(clearEntry)
     }
-
-    // MARK: - Subscription Management (REMOVED)
-    /*
-     func subscribeToLogs(_ onNewLog: @escaping @MainActor (AXLogEntry) -> Void) -> UUID {
-     let id = UUID()
-     subscribers[id] = onNewLog
-     return id
-     }
-
-     func unsubscribeFromLogs(subscriberId: UUID) {
-     subscribers.removeValue(forKey: subscriberId)
-     }
-     */
+    
+    public func getLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
+        let currentEntries = self.getEntries()
+        
+        switch format {
+        case .json:
+            return currentEntries.compactMap { entry in
+                do {
+                    let jsonData = try JSONEncoder().encode(entry)
+                    return String(data: jsonData, encoding: .utf8)
+                } catch {
+                    return "{\\\"error\\\": \\\"Failed to serialize log entry to JSON: \\(error.localizedDescription)\\\"}"
+                }
+            }
+        case .text:
+            return currentEntries.map { $0.formattedForTextLog() }
+        }
+    }
 }
 
 // MARK: - Global Logging Functions (Convenience Wrappers)
-// These call into the actor's log method.
+// These are synchronous and assume GlobalAXLogger.shared.log is safe to call directly (i.e., from main thread).
 
-// ... (axDebugLog, axInfoLog, etc. remain unchanged) ...
-
-// MARK: - Global Log Access Functions (Convenience Wrappers for actor methods)
-
-// Fetches all log entries directly from the actor.
-public func axGetLogEntries() async -> [AXLogEntry] {
-    return await GlobalAXLogger.shared.getEntries()
+public func axDebugLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+    let entry = AXLogEntry(level: .debug, message: message, file: file, function: function, line: line, details: details)
+    GlobalAXLogger.shared.log(entry)
 }
 
-// Clears all log entries in the actor.
-public func axClearLogs() async {
-    await GlobalAXLogger.shared.clearEntries()
+public func axInfoLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+    let entry = AXLogEntry(level: .info, message: message, file: file, function: function, line: line, details: details)
+    GlobalAXLogger.shared.log(entry)
 }
 
-// MARK: - Global Subscription Wrappers (REMOVED)
-/*
- // Subscribes to new log entries. The callback is invoked on the MainActor.
- // The returned UUID can be used to unsubscribe later.
- @MainActor
- public func axSubscribeToLogs(_ onNewLog: @escaping (AXLogEntry) -> Void) async -> UUID {
- return await GlobalAXLogger.shared.subscribeToLogs(onNewLog)
- }
+public func axWarningLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+    let entry = AXLogEntry(level: .warning, message: message, file: file, function: function, line: line, details: details)
+    GlobalAXLogger.shared.log(entry)
+}
 
- // Unsubscribes from log entries using the ID obtained from axSubscribeToLogs.
- public func axUnsubscribeFromLogs(subscriberId: UUID) async {
- await GlobalAXLogger.shared.unsubscribeFromLogs(subscriberId: subscriberId)
- }
- */
-// MARK: - Environment Variable Check for JSON Logging (REMOVED - handled in init)
-// private func checkJSONLoggingEnvironmentVariable() -> Bool { ... }
+public func axErrorLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+    let entry = AXLogEntry(level: .error, message: message, file: file, function: function, line: line, details: details)
+    GlobalAXLogger.shared.log(entry)
+}
 
-// MARK: - Public Property for JSON Logging State (REMOVED - handled by actor's property)
-// public var isAXJSONLoggingEnabled: Bool { ... }
+public func axFatalLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+    let entry = AXLogEntry(level: .critical, message: message, file: file, function: function, line: line, details: details)
+    GlobalAXLogger.shared.log(entry)
+}
+
+// MARK: - Global Log Access Functions
+
+public func axGetLogEntries() -> [AXLogEntry] {
+    return GlobalAXLogger.shared.getEntries()
+}
+
+public func axClearLogs() {
+    GlobalAXLogger.shared.clearEntries()
+}
+
+public func axGetLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
+    return GlobalAXLogger.shared.getLogsAsStrings(format: format)
+}
+
+// Assuming AXLogEntry and its formattedForTextBasedOutput() method are defined elsewhere
+// and compatible with synchronous, main-thread only logging.

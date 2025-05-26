@@ -4,19 +4,19 @@ import Foundation
 
 // MARK: - Value Format Options
 
-public enum ValueFormatOption {
-    case `default`
-    case verbose
-    case short
-    // Add more variants as needed, like .minimal, .debug, etc.
-}
+// Remove local SimpleValueFormatOption, use ModelEnums.ValueFormatOption
+// public enum SimpleValueFormatOption {
+//    case `default`
+//    case verbose
+//    case short
+// }
 
 // MARK: - CFTypeRef Formatting
 
 @MainActor
 public func formatCFTypeRef(
     _ cfValue: CFTypeRef?,
-    option: ValueFormatOption = .default
+    option: ValueFormatOption = .smart // Changed from SimpleValueFormatOption & .default to ValueFormatOption & .smart
 ) -> String {
     guard let value = cfValue else { return "<nil>" }
     let typeID = CFGetTypeID(value)
@@ -32,7 +32,7 @@ public func formatCFTypeRef(
 private func formatCFTypeByID(
     _ value: CFTypeRef,
     typeID: CFTypeID,
-    option: ValueFormatOption
+    option: ValueFormatOption // Changed from SimpleValueFormatOption
 ) -> String {
     switch typeID {
     case AXUIElementGetTypeID():
@@ -41,6 +41,8 @@ private func formatCFTypeByID(
             option: option
         )
     case AXValueGetTypeID():
+        // Map SimpleValueFormatOption concepts to ValueFormatOption if needed, or pass directly if compatible
+        // Assuming formatAXValue (from AXValueSpecificFormatter) now takes ValueFormatOption directly
         return formatAXValue(value as! AXValue, option: option)
     case CFStringGetTypeID():
         return "\"\(escapeStringForDisplay(value as! String))\""
@@ -69,7 +71,7 @@ private func formatCFTypeByID(
 @MainActor
 private func formatAXUIElement(
     _ value: CFTypeRef,
-    option: ValueFormatOption
+    option: ValueFormatOption // Changed from SimpleValueFormatOption
 ) -> String {
     let element = Element(value as! AXUIElement)
 
@@ -77,24 +79,26 @@ private func formatAXUIElement(
     let role = element.role() ?? "Unknown"
     let title = element.title()
 
+    // Adjust logic based on ValueFormatOption cases (.smart, .raw, .stringified)
     if let title = title, !title.isEmpty {
-        return option == .verbose ?
-            "<\(role): \"\(escapeStringForDisplay(title))\">" :
-            "\(role):\"\(escapeStringForDisplay(title))\""
+        return option == .raw ? // Example: .raw means minimal
+            "\\(role):\\\"\\(escapeStringForDisplay(title))\\\"" :
+            "<\\(role): \\\"\\(escapeStringForDisplay(title))\\\">" // .smart or .stringified are more verbose
     } else {
-        return option == .verbose ? "<\(role)>" : role
+        return option == .raw ? role : "<\\(role)>"
     }
 }
 
 @MainActor
 private func formatCFArray(
     _ value: CFTypeRef,
-    option: ValueFormatOption
+    option: ValueFormatOption // Changed from SimpleValueFormatOption
 ) -> String {
     let cfArray = value as! CFArray
     let count = CFArrayGetCount(cfArray)
 
-    if option == .verbose || count <= 5 { // Arbitrary limit for verbose array printing
+    // Adjust logic based on ValueFormatOption cases
+    if option != .raw || count <= 5 { // Example: .raw might mean short, others verbose
         var swiftArray: [String] = []
         for index in 0..<count {
             guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
@@ -103,10 +107,10 @@ private func formatCFArray(
             }
             swiftArray.append(formatCFTypeRef(
                 Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
-                option: .default // Recursive calls typically use default/short format for elements
+                option: .smart // Recursive calls, .smart is a good default
             ))
         }
-        return "[\(swiftArray.joined(separator: ", "))]" // Added space for readability
+        return "[\\(swiftArray.joined(separator: \", \"))]"
     } else {
         return "<Array of size \(count)>"
     }
@@ -115,19 +119,20 @@ private func formatCFArray(
 @MainActor
 private func formatCFDictionary(
     _ value: CFTypeRef,
-    option: ValueFormatOption
+    option: ValueFormatOption // Changed from SimpleValueFormatOption
 ) -> String {
     let cfDict = value as! CFDictionary
     let count = CFDictionaryGetCount(cfDict)
 
-    if option == .verbose || count <= 3 { // Arbitrary limit for verbose dictionary printing
+    // Adjust logic based on ValueFormatOption cases
+    if option != .raw || count <= 3 { // Example: .raw might mean short, others verbose
         var swiftDict: [String: String] = [:]
         // More robust CFDictionary iteration if direct bridging fails
         if let nsDict = cfDict as? [String: AnyObject] {
             for (key, val) in nsDict {
                 swiftDict[key] = formatCFTypeRef(
                     val,
-                    option: .default // Recursive calls typically use default/short format for values
+                    option: .smart // Recursive calls, .smart is a good default
                 )
             }
         } else {

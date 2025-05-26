@@ -10,6 +10,9 @@ import Foundation
 #if canImport(AppKit)
 import AppKit
 #endif
+#if canImport(CoreGraphics)
+import CoreGraphics // Added for CGWindowListCopyWindowInfo
+#endif
 
 public struct RunningApplicationHelper {
     /// Options for filtering running applications
@@ -92,6 +95,36 @@ public struct RunningApplicationHelper {
             excludeSystemProcesses: true,
             sortAlphabetically: true
         ))
+    }
+
+    /// Get running applications that have on-screen windows and are accessible.
+    public static func accessibleApplicationsWithOnScreenWindows() -> [NSRunningApplication] {
+        #if canImport(AppKit) && canImport(CoreGraphics)
+        // 1. Get ALL visible windows in one native call
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else {
+            // Consider logging an error here if a logging mechanism is available
+            // For now, returning empty or falling back to just accessible apps
+            axErrorLog("RunningApplicationHelper: Failed to get CGWindowListCopyWindowInfo")
+            return [] // Or potentially: return accessibleApplications()
+        }
+        
+        // 2. Collect PIDs that own at least one window
+        let pidsWithWindows = Set(list.compactMap { $0[kCGWindowOwnerPID as String] as? pid_t })
+        
+        // 3. Get all running applications that are also accessible
+        let accessibleApps = self.accessibleApplications()
+        
+        // 4. Filter accessible applications to include only those with on-screen windows
+        return accessibleApps.filter { pidsWithWindows.contains($0.processIdentifier) }
+        #else
+        // Fallback for platforms without AppKit or CoreGraphics (e.g., Linux if ever supported)
+        // Or if one of them is missing, which is unlikely for macOS targets
+        axWarningLog("RunningApplicationHelper: AppKit or CoreGraphics not available, cannot filter for on-screen windows.")
+        return accessibleApplications() // Return all accessible apps as a fallback
+        #endif
     }
 
     /// Get a running application by its process ID

@@ -9,11 +9,11 @@ extension Element {
     public func children(strict: Bool = false) -> [Element]? { // Added strict parameter
         // Logging for this top-level call
         // self.briefDescription() is assumed to be refactored and available
-        axDebugLog("Getting children for element: \(self.briefDescription(option: .default)), strict: \(strict)")
+        axDebugLog("Getting children for element: \(self.briefDescription(option: .smart)), strict: \(strict)")
 
         var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
-        // print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .default))")
+        // print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .smart))")
         collectDirectChildren(collector: &childCollector)
         // print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
 
@@ -40,7 +40,7 @@ extension Element {
         )
 
         // self.briefDescription() is assumed to be refactored
-        let selfDescForLog = self.briefDescription(option: .short)
+        let selfDescForLog = self.briefDescription(option: .smart)
 
         if error == .success {
             if let childrenCFArray = value, CFGetTypeID(childrenCFArray) == CFArrayGetTypeID() {

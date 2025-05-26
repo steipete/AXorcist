@@ -13,8 +13,8 @@ extension Element {
 
         // self.briefDescription and ancestor?.briefDescription now use GlobalAXLogger
         // Assumes self.briefDescription() has been refactored in Element+Description.swift
-        let ancestorDesc = ancestor?.briefDescription(option: .default) ?? "nil"
-        let logMessage1 = "generatePathString started for element: \(self.briefDescription(option: .default)) upTo: \(ancestorDesc)"
+        let ancestorDesc = ancestor?.briefDescription(option: .smart) ?? "nil"
+        let logMessage1 = "generatePathString started for element: \(self.briefDescription(option: .smart)) upTo: \(ancestorDesc)"
         axDebugLog(logMessage1)
 
         while let element = currentElement, depth < maxDepth {
@@ -22,7 +22,7 @@ extension Element {
             // are now using their refactored, logger-less signatures.
             // Internal logging happens within those methods via GlobalAXLogger.
             // Assumes these methods are refactored in Element+Properties.swift and Element+Description.swift
-            let briefDesc = element.briefDescription(option: .default)
+            let briefDesc = element.briefDescription(option: .smart)
             pathComponents.append(briefDesc)
 
             if let ancestor = ancestor, element == ancestor {
@@ -68,12 +68,14 @@ extension Element {
         var depth = 0
         let maxDepth = 25
 
-        let logMessage3 = "generatePathArray started for element: \(self.briefDescription(option: .default)) upTo: \(ancestor?.briefDescription(option: .default) ?? "nil")"
+        let logMessage3 = "generatePathArray started for element: \(self.briefDescription(option: .smart)) upTo: \(ancestor?.briefDescription(option: .smart) ?? "nil")"
         axDebugLog(logMessage3)
 
         while let element = currentElement, depth < maxDepth {
-            let briefDesc = element.briefDescription(option: .default)
+            let briefDesc = element.briefDescription(option: .smart)
+            let dump = element.dump()
             pathComponents.append(briefDesc)
+            pathComponents.append(dump)
 
             if let ancestor = ancestor, element == ancestor {
                 axDebugLog("Reached specified ancestor: \(briefDesc)")
