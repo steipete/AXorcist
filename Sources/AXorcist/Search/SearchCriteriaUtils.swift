@@ -47,8 +47,7 @@ public struct PathHintComponent {
             return nil
         }
         self.criteria = mappedCriteria
-        let critDesc = mappedCriteria
-        axDebugLog("PathHintComponent initialized. Segment: '\\(pathSegment)' => criteria: \\(critDesc)")
+        axDebugLog("PathHintComponent initialized. Segment: '\\(pathSegment)' => criteria: \\(mappedCriteria)")
     }
 
     init(criteria: [String: String], originalSegment: String = "") {
@@ -67,152 +66,205 @@ public struct PathHintComponent {
 @MainActor
 public func elementMatchesCriteria(
     _ element: Element,
-    criteria: [String: String],
+    criteria: [Criterion],
     matchType: JSONPathHintComponent.MatchType = .exact
-) async -> Bool { // Made async
+) async -> Bool {
     if criteria.isEmpty {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "elementMatchesCriteria: Criteria dictionary is empty. Element '\\(element.briefDescription(option: .raw))' is considered a match by default."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "elementMatchesCriteria: Criteria dictionary is empty. Element '\\(element.briefDescription(option: .raw))' is considered a match by default."))
         return true
     }
 
-    for (key, expectedValue) in criteria {
-        // matchSingleCriterion needs to be awaited if it becomes async
-        if !(await matchSingleCriterion(element: element, key: key, expectedValue: expectedValue, matchType: matchType)) {
+    for criterion in criteria {
+        let effectiveMatchType = criterion.match_type.flatMap { JSONPathHintComponent.MatchType(rawValue: $0) } ?? matchType
+        if await !matchSingleCriterion(element: element, key: criterion.attribute, expectedValue: criterion.value, matchType: effectiveMatchType, elementDescriptionForLog: element.briefDescription(option: .raw)) {
             return false
         }
     }
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "elementMatchesCriteria: Element '\\(element.briefDescription(option: .raw))' MATCHED ALL \\(criteria.count) criteria: \\(criteria)."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "elementMatchesCriteria: Element '\\(element.briefDescription(option: .raw))' MATCHED ALL \\(criteria.count) criteria: \\(criteria)."))
     return true
+}
+
+// Overload for backward compatibility with dictionary
+@MainActor
+public func elementMatchesCriteria(
+    _ element: Element,
+    criteria: [String: String],
+    matchType: JSONPathHintComponent.MatchType = .exact
+) async -> Bool {
+    let criterionArray = criteria.map { key, value in
+        Criterion(attribute: key, value: value, match_type: nil)
+    }
+    return await elementMatchesCriteria(element, criteria: criterionArray, matchType: matchType)
 }
 
 // MARK: - Single Criterion Matching Logic
 
 @MainActor
-private func matchSingleCriterion( // Should this be async if its callees are? Yes.
+internal func matchSingleCriterion(
     element: Element,
     key: String,
     expectedValue: String,
-    matchType: JSONPathHintComponent.MatchType
-) async -> Bool { // Made async, and added await to callers
-    let elementDescriptionForLog = element.briefDescription(option: .raw)
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC: Matching key '\\(key)' (expected: '\\(expectedValue)', type: \\(matchType.rawValue)) on \\(elementDescriptionForLog)"))
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) async -> Bool {
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC: Matching key '\\(key)' (expected: '\\(expectedValue)', type: \\(matchType.rawValue)) on \\(elementDescriptionForLog)"))
 
     switch key.lowercased() {
+    case AXAttributeNames.kAXRoleAttribute.lowercased(), "role":
+        return compareStrings(element.role(), expectedValue, matchType, attributeName: AXAttributeNames.kAXRoleAttribute, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXSubroleAttribute.lowercased(), "subrole":
+        return compareStrings(element.subrole(), expectedValue, matchType, attributeName: AXAttributeNames.kAXSubroleAttribute, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXIdentifierAttribute.lowercased(), "identifier", "id":
+        return compareStrings(element.identifier(), expectedValue, matchType, attributeName: AXAttributeNames.kAXIdentifierAttribute, elementDescriptionForLog: elementDescriptionForLog)
     case "pid":
-        return await matchPidCriterion(element: element, expectedPid: expectedValue, elementDescriptionForLog: elementDescriptionForLog) // Added await
-    case AXMiscConstants.isIgnoredAttributeKey.lowercased():
-        return await matchIsIgnoredCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog) // Added await
-    case AXAttributeNames.kAXDOMClassListAttribute:
-        return await matchDomClassListCriterion(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog) // Added await
+        return matchPidCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist":
+        return await matchDomClassListCriterion(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    case AXMiscConstants.isIgnoredAttributeKey.lowercased(), "isignored", "ignored":
+        return matchIsIgnoredCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+    case AXMiscConstants.computedNameAttributeKey.lowercased(), "computedname", "name":
+        return await matchComputedNameAttributes(element: element, expectedValue: expectedValue, matchType: matchType, attributeName: AXMiscConstants.computedNameAttributeKey, elementDescriptionForLog: elementDescriptionForLog)
+    case "computednamewithvalue", "namewithvalue":
+        return await matchComputedNameAttributes(element: element, expectedValue: expectedValue, matchType: matchType, attributeName: "computedNameWithValue", elementDescriptionForLog: elementDescriptionForLog, includeValueInComputedName: true)
     default:
         guard let actualValue: String = element.attribute(Attribute(key)) else {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC: Attribute '\\(key)' not found or nil on \\(elementDescriptionForLog). No match."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC: Attribute '\\(key)' not found or nil on \\(elementDescriptionForLog). No match."))
             return false
         }
-        return await compareValues(actual: actualValue, expected: expectedValue, matchType: matchType, attributeName: key, elementDescriptionForLog: elementDescriptionForLog) // Added await
+        return compareStrings(actualValue, expectedValue, matchType, attributeName: key, elementDescriptionForLog: elementDescriptionForLog)
     }
 }
 
 // MARK: - Specific Criterion Matchers
 
 @MainActor
-private func matchPidCriterion(element: Element, expectedPid: String, elementDescriptionForLog: String) async -> Bool { // Made async
+private func matchPidCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
+    let expectedPid = expectedValue
     if element.role() == AXRoleNames.kAXApplicationRole {
         guard let actualPid_t = element.pid() else {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) failed to provide PID. No match."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) failed to provide PID. No match."))
             return false
         }
         if String(actualPid_t) == expectedPid {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) PID \\(actualPid_t) MATCHES expected \\(expectedPid)."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) PID \\(actualPid_t) MATCHES expected \\(expectedPid)."))
             return true
         } else {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) PID \\(actualPid_t) MISMATCHES expected \\(expectedPid)."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) (app role) PID \\(actualPid_t) MISMATCHES expected \\(expectedPid)."))
             return false
         }
     }
     guard let actualPid_t = element.pid() else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) failed to provide PID. No match."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) failed to provide PID. No match."))
         return false
     }
     let actualPidString = String(actualPid_t)
     if actualPidString == expectedPid {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) PID \\(actualPidString) MATCHES expected \\(expectedPid)."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) PID \\(actualPidString) MATCHES expected \\(expectedPid)."))
         return true
     } else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) PID \\(actualPidString) MISMATCHES expected \\(expectedPid)."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/PID: \\(elementDescriptionForLog) PID \\(actualPidString) MISMATCHES expected \\(expectedPid)."))
         return false
     }
 }
 
 @MainActor
-private func matchIsIgnoredCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) async -> Bool { // Made async
-    let actualIsIgnored = element.isIgnored()
+private func matchIsIgnoredCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
+    let actualIsIgnored: Bool = element.isIgnored()
     let expectedBool = (expectedValue.lowercased() == "true")
     if actualIsIgnored == expectedBool {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/IsIgnored: \\(elementDescriptionForLog) actual (\'(actualIsIgnored)\') MATCHES expected (\'(expectedBool)\')."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/IsIgnored: \\(elementDescriptionForLog) actual ('\\(actualIsIgnored)\') MATCHES expected ('\\(expectedBool)\')."))
         return true
     } else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/IsIgnored: \\(elementDescriptionForLog) actual (\'(actualIsIgnored)\') MISMATCHES expected (\'(expectedBool)\')."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/IsIgnored: \\(elementDescriptionForLog) actual ('\\(actualIsIgnored)\') MISMATCHES expected ('\\(expectedBool)\')."))
         return false
     }
 }
 
 @MainActor
-private func matchDomClassListCriterion(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) async -> Bool { // Made async
+private func matchDomClassListCriterion(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) async -> Bool {
     guard let domClassListValue: Any = element.attribute(Attribute(AXAttributeNames.kAXDOMClassListAttribute)) else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) attribute was nil. No match."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) attribute was nil. No match."))
         return false
     }
 
-    let matchFound: Bool
+    var matchFound = false
     if let classListArray = domClassListValue as? [String] {
         switch matchType {
         case .exact:
             matchFound = classListArray.contains(expectedValue)
         case .contains:
             matchFound = classListArray.contains { $0.localizedCaseInsensitiveContains(expectedValue) }
-        case .regex: // Added regex case
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/DOMClass: Regex match type not yet implemented for array. Defaulting to false."))
+        case .regex:
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/DOMClass: Regex match type not yet implemented for array. Defaulting to false."))
             matchFound = false
         }
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) (Array: \\(classListArray)) match type \'\\(matchType.rawValue)\' with \'\\(expectedValue)\': \\(matchFound)."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) (Array: \\(classListArray)) match type '\\(matchType.rawValue)\' with '\\(expectedValue)\': \\(matchFound)."))
     } else if let classListString = domClassListValue as? String {
         switch matchType {
         case .exact:
             matchFound = classListString.split(separator: " ").map(String.init).contains(expectedValue)
         case .contains:
             matchFound = classListString.localizedCaseInsensitiveContains(expectedValue)
-        case .regex: // Added regex case
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/DOMClass: Regex match type not yet implemented for string. Defaulting to false."))
+        case .regex:
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/DOMClass: Regex match type not yet implemented for string. Defaulting to false."))
             matchFound = false
         }
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) (String: \'\\(classListString)\') match type \'\\(matchType.rawValue)\' with \'\\(expectedValue)\': \\(matchFound)."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) (String: '\\(classListString)\') match type '\\(matchType.rawValue)\' with '\\(expectedValue)\': \\(matchFound)."))
     } else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) attribute was not [String] or String. Type: \\(type(of: domClassListValue)). No match."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/DOMClass: \\(elementDescriptionForLog) attribute was not [String] or String. Type: \\(type(of: domClassListValue)). No match."))
         return false
     }
     return matchFound
 }
 
+// MARK: - Computed Name Matcher Helper
+
+@MainActor
+private func matchComputedNameAttributes(
+    element: Element,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    attributeName: String,
+    elementDescriptionForLog: String,
+    includeValueInComputedName: Bool = false
+) async -> Bool {
+    let computedName = element.computedName()
+    
+    if includeValueInComputedName {
+        // For computedNameWithValue, we might need to include the value attribute
+        if let value = element.value() as? String {
+            let combinedName = (computedName ?? "") + " " + value
+            return compareStrings(combinedName, expectedValue, matchType, attributeName: attributeName, elementDescriptionForLog: elementDescriptionForLog)
+        }
+    }
+    
+    return compareStrings(computedName, expectedValue, matchType, attributeName: attributeName, elementDescriptionForLog: elementDescriptionForLog)
+}
+
 // MARK: - Value Comparison Helper
 
 @MainActor
-private func compareValues(actual: String, expected: String, matchType: JSONPathHintComponent.MatchType, attributeName: String, elementDescriptionForLog: String) async -> Bool { // Made async
+internal func compareStrings(_ actual: String?, _ expected: String, _ matchType: JSONPathHintComponent.MatchType, attributeName: String, elementDescriptionForLog: String) -> Bool {
+    guard let actual = actual else {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/Compare: '\\(attributeName)\' on \\(elementDescriptionForLog): Actual value is nil. Expected '\\(expected)'. No match."))
+        return false
+    }
+
     let comparisonResult: Bool
     switch matchType {
     case .exact:
         comparisonResult = (actual == expected)
     case .contains:
         comparisonResult = actual.localizedCaseInsensitiveContains(expected)
-    case .regex: // Added regex case
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/Compare: Regex match type not yet implemented for attribute \'\\(attributeName)\'. Defaulting to false."))
+    case .regex:
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "SearchCrit/Compare: Regex match type not yet implemented for attribute '\\(attributeName)\'. Defaulting to false."))
         comparisonResult = false
     }
 
     if comparisonResult {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/Compare: \'\\(attributeName)\' on \\(elementDescriptionForLog): Actual (\'\\(actual)\') MATCHED Expected (\'\\(expected)\') with type \'\\(matchType.rawValue)\'."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/Compare: '\\(attributeName)\' on \\(elementDescriptionForLog): Actual ('\\(actual)\') MATCHED Expected ('\\(expected)\') with type '\\(matchType.rawValue)\'."))
     } else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/Compare: \'\\(attributeName)\' on \\(elementDescriptionForLog): Actual (\'\\(actual)\') MISMATCHED Expected (\'\\(expected)\') with type \'\\(matchType.rawValue)\'."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/Compare: '\\(attributeName)\' on \\(elementDescriptionForLog): Actual ('\\(actual)\') MISMATCHED Expected ('\\(expected)\') with type '\\(matchType.rawValue)\'."))
     }
     return comparisonResult
 }

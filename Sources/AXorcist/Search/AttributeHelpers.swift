@@ -146,19 +146,32 @@ private func determineAttributesToFetch(
             ]
         }
     } else if attributesToFetch.isEmpty {
-        var attrNames: CFArray?
-        if AXUIElementCopyAttributeNames(element.underlyingElement, &attrNames) == .success,
-           let names = attrNames as? [String] {
-            attributesToFetch.append(contentsOf: names)
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
-                "determineAttributesToFetch: No specific attributes requested, " +
-                    "fetched all \(names.count) available: \(names.joined(separator: ", "))"
-            ))
-        } else {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
-                "determineAttributesToFetch: No specific attributes requested and " +
-                    "failed to fetch all available names."
-            ))
+        if requestedAttributes == nil || requestedAttributes!.isEmpty {
+            // If no specific attributes are requested, decide what to do based on context
+            // This part of the logic for deciding what to fetch if nothing specific is requested
+            // has been simplified or might be intended to be expanded.
+            // For now, if forMultiDefault is true, it implies fetching a default set (e.g., for multi-element views)
+            // otherwise, it might fetch all or a basic set.
+            // This example assumes if not forMultiDefault, and no specifics, it fetches all available.
+            if !forMultiDefault {
+                // Example: Fetch all attribute names if none are specified and not for a multi-default scenario
+                if let names = element.attributeNames() {
+                    attributesToFetch.append(contentsOf: names)
+                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "determineAttributesToFetch: No specific attributes requested, fetched all \(names.count) available: \(names.joined(separator: ", "))"))
+                } else {
+                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+                        "determineAttributesToFetch: No specific attributes requested and " +
+                            "failed to fetch all available names."
+                    ))
+                }
+            } else {
+                // For multi-default, or if the above block doesn't execute,
+                // it might rely on a predefined default set or do nothing further here,
+                // letting subsequent logic handle AXorcist.defaultAttributesToFetch if attributesToFetch remains empty.
+                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+                    "determineAttributesToFetch: No specific attributes requested. Using defaults or context-specific set."
+                ))
+            }
         }
     }
     return attributesToFetch
@@ -176,7 +189,7 @@ public func getElementAttributes(
     var result: [String: AnyCodable] = [:]
 
     let requestingStr = attrNames.isEmpty ? "all" : attrNames.joined(separator: ", ")
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
         "getElementAttributes called for element: \(element.briefDescription(option: .raw)), " +
         "requesting: \(requestingStr)"
     ))
@@ -220,7 +233,7 @@ public func getElementAttributes(
         result[AXMiscConstants.computedPathAttributeKey] = AnyCodable(path)
     }
 
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
         "getElementAttributes finished for element: \(element.briefDescription(option: .raw)). " +
         "Returning \(result.count) attributes."
     ))
@@ -238,7 +251,7 @@ public func getAllElementDataForAXpector(
     var elementDetails = ElementDetails()
 
     let allAttributeNames = element.attributeNames() ?? []
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getAllElementDataForAXpector: Fetching \(allAttributeNames.count) attributes for " +
             "\(element.briefDescription(option: .raw))."
     ))
@@ -279,12 +292,12 @@ public func getAllElementDataForAXpector(
     let hasPressAction = elementDetails.actions?.contains(AXActionNames.kAXPressAction) ?? false
     elementDetails.isClickable = hasPressAction || pressActionSupported
 
-    if let name = await element.computedName() {
+    if let name = element.computedName() {
         let attributeData = AttributeData(value: AnyCodable(name), source: .computed)
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(attributeData)
     }
-    elementDetails.computedName = await element.computedName()
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .raw))."))
+    elementDetails.computedName = element.computedName()
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .raw))."))
     return (attributes, elementDetails)
 }
 
@@ -293,17 +306,17 @@ public func getAllElementDataForAXpector(
 internal func getComputedAttributes(for element: Element) async -> [String: AttributeData] {
     var computedAttrs: [String: AttributeData] = [:]
 
-    if let name = await element.computedName() {
+    if let name = element.computedName() {
         computedAttrs[AXMiscConstants.computedNameAttributeKey] = AttributeData(
             value: AnyCodable(name),
             source: .computed
         )
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "getComputedAttributes: Computed name for element " +
                 "\(element.briefDescription(option: .raw)) is '\(name)'."
         ))
     } else {
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "getComputedAttributes: Element \(element.briefDescription(option: .raw)) " +
                 "has no computed name."
         ))
@@ -340,7 +353,7 @@ internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> St
         return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
     } else {
         let typeDesc = CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType"
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "formatRawCFValueForTextContent: Encountered unhandled CFTypeID \(typeID) - " +
                 "\(typeDesc). Returning placeholder."
         ))
@@ -357,7 +370,7 @@ internal func extractAndFormatAttribute(
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
 ) async -> AnyCodable? {
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .raw))"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .raw))"))
 
     // Try to extract using known attribute handlers first
     if let extractedValue = await extractKnownAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat) {
@@ -424,7 +437,7 @@ private func extractRawAttribute(element: Element, attributeName: String, output
         // Only log if rawCFValue was not nil initially
         if rawCFValue != nil {
             let cfTypeID = String(describing: CFGetTypeID(rawCFValue!))
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                 "extractAndFormatAttribute: '\(attributeName)' was non-nil CFTypeRef " +
                     "but unwrapped to nil. CFTypeID: \(cfTypeID)"
             ))
@@ -445,7 +458,7 @@ public func getElementFullDescription(
     knownAttributes: [String: AttributeData]? = nil
 ) async -> ([String: AnyCodable], [AXLogEntry]) {
     var attributes: [String: AnyCodable] = [:]
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getElementFullDescription called for element: \(element.briefDescription(option: .raw))"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getElementFullDescription called for element: \(element.briefDescription(option: .raw))"))
 
     // Collect attributes in logical groups
     await addBasicAttributes(to: &attributes, element: element)
@@ -465,7 +478,7 @@ public func getElementFullDescription(
 
     await addComputedProperties(to: &attributes, element: element)
 
-    await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementFullDescription finished for element: " +
             "\(element.briefDescription(option: .raw)). Returning \(attributes.count) attributes."
     ))
@@ -540,7 +553,7 @@ private func addActionAttributes(to attributes: inout [String: AnyCodable], elem
         Attribute<[String]>(AXAttributeNames.kAXActionsAttribute)
     ), !fallbackActions.isEmpty {
         actionsToStore = fallbackActions
-        await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"))
     }
 
     attributes[AXAttributeNames.kAXActionsAttribute] = actionsToStore != nil
@@ -580,7 +593,7 @@ private func addStoredAttributes(to attributes: inout [String: AnyCodable], elem
 @MainActor
 private func addComputedProperties(to attributes: inout [String: AnyCodable], element: Element) async {
     if attributes[AXMiscConstants.computedNameAttributeKey] == nil,
-       let name = await element.computedName() {
+       let name = element.computedName() {
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(name)
     }
 

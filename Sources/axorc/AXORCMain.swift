@@ -80,13 +80,13 @@ struct AXORCCommand: AsyncParsableCommand {
                 #else
                 fputs("{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases and will not run indefinitely in this release build. Exiting.\"}\n", stderr)
                 fflush(stderr)
-                exit(1)
+                Foundation.exit(EXIT_FAILURE)
                 #endif
             } else {
                 axErrorLog("AXORCMain: Observe command setup reported failure or result was not a success status. Exiting.")
             }
         } else {
-            await axClearLogs() // Clear logs for non-observe commands after execution
+            axClearLogs() // Clear logs for non-observe commands after execution
         }
     }
 

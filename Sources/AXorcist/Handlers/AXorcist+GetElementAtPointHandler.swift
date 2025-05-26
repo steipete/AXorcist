@@ -36,7 +36,7 @@ extension AXorcist {
             // This case should ideally not be reached if the above logic is sound
             let errorMsg = "Could not determine root element for hit-testing."
             axErrorLog("[AXorcist.handleGetElementAtPoint][CmdID: \(effectiveCommandId)] \(errorMsg)")
-            return HandlerResponse(commandId: effectiveCommandId, error: errorMsg)
+            return HandlerResponse(data: nil, error: errorMsg)
         }
 
         // 2. Perform the hit-test
@@ -46,7 +46,7 @@ extension AXorcist {
         if error != .success {
             let errorMsg = "AXUIElementCopyElementAtPosition failed: \(axErrorToString(error))"
             axErrorLog("[AXorcist.handleGetElementAtPoint][CmdID: \(effectiveCommandId)] \(errorMsg)")
-            return HandlerResponse(commandId: effectiveCommandId, error: errorMsg)
+            return HandlerResponse(data: nil, error: errorMsg)
         }
 
         guard let foundAxElement = hitElementRef else {
@@ -60,7 +60,7 @@ extension AXorcist {
         axInfoLog("[AXorcist.handleGetElementAtPoint][CmdID: \(effectiveCommandId)] Found element: \(foundElement.briefDescription(option: .smart))")
 
         // 3. Fetch attributes if requested (similar to handleQuery)
-        let (attributes, attrErrors) = getElementAttributes(
+        let (attributes, attrErrors) = await getElementAttributes(
             element: foundElement,
             attributes: attributesToFetch ?? AXorcist.defaultAttributesToFetch,
             outputFormat: outputFormat ?? .smart,
@@ -74,10 +74,10 @@ extension AXorcist {
         let appElementForPath = applicationElement(for: application ?? AXMiscConstants.focusedApplicationKey)
 
         let elementData = AXElementData(
-            path: await PathNavigator.calculatePath(from: foundElement, rootElement: appElementForPath),
+            path: foundElement.generatePathArray(upTo: appElementForPath),
             attributes: attributes,
             role: attributes[AXAttributeNames.kAXRoleAttribute]?.value as? String,
-            computedName: foundElement.computedName(includeDescription: true, includeValue: true)
+            computedName: foundElement.computedName()
         )
 
         return HandlerResponse(data: AnyCodable(elementData), error: nil)

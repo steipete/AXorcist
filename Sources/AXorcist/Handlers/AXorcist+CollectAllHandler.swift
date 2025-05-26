@@ -217,7 +217,18 @@ extension AXorcist {
             "MaxDepth: \(params.recursionDepthLimit)"
         )
         
-        let effectiveLocatorCriteria = params.locator?.criteria ?? params.filterCriteria ?? [: ]
+        // Convert filterCriteria dictionary to [Criterion] if needed
+        let effectiveLocatorCriteria: [Criterion]
+        if let locatorCriteria = params.locator?.criteria, !locatorCriteria.isEmpty {
+            effectiveLocatorCriteria = locatorCriteria
+        } else if let filterDict = params.filterCriteria, !filterDict.isEmpty {
+            // Convert dictionary to [Criterion] array
+            effectiveLocatorCriteria = filterDict.map { key, value in
+                Criterion(attribute: key, value: value, match_type: nil)
+            }
+        } else {
+            effectiveLocatorCriteria = []
+        }
         let matchingLocator = Locator(criteria: effectiveLocatorCriteria)
         let collectedData = await collectAllElements(
             from: startElement,

@@ -42,7 +42,7 @@ extension AXorcist {
         // applicationElement is sync
         guard let appElement = applicationElement(for: appIdentifier) else {
              axErrorLog("Application not found for path context: \(appIdentifier)")
-             return buildQueryResponse(
+             return await buildQueryResponse(
                  element: foundElement,
                  appElement: nil, 
                  requestedAttributes: requestedAttributes,
@@ -50,7 +50,7 @@ extension AXorcist {
              )
         }
 
-        return buildQueryResponse(
+        return await buildQueryResponse(
             element: foundElement,
             appElement: appElement,
             requestedAttributes: requestedAttributes,
@@ -194,8 +194,8 @@ extension AXorcist {
 
         let descriptionTreeMaxDepth = maxDepth ?? AXMiscConstants.defaultMaxDepthDescribe
 
-        // describeElementTree is sync (assuming its internal calls are sync)
-        let elementTree = describeElementTree(
+        // describeElementTree is async
+        let elementTree = await describeElementTree(
             element: foundElement,
             appElement: appElement,
             maxDepth: descriptionTreeMaxDepth,
@@ -228,16 +228,25 @@ extension AXorcist {
         if currentDepth < maxDepth {
             // element.children is sync
             if let children = element.children() { 
-                childrenNodes = children.map { childElement in
-                    // Recursive call is sync
-                    return describeElementTree(
-                        element: childElement,
-                        appElement: appElement,
-                        maxDepth: maxDepth,
-                        currentDepth: currentDepth + 1,
-                        requestedAttributes: requestedAttributes,
-                        outputFormat: outputFormat
-                    )
+                childrenNodes = await withTaskGroup(of: AXElementNode.self) { group in
+                    for childElement in children {
+                        group.addTask {
+                            await self.describeElementTree(
+                                element: childElement,
+                                appElement: appElement,
+                                maxDepth: maxDepth,
+                                currentDepth: currentDepth + 1,
+                                requestedAttributes: requestedAttributes,
+                                outputFormat: outputFormat
+                            )
+                        }
+                    }
+                    
+                    var results: [AXElementNode] = []
+                    for await node in group {
+                        results.append(node)
+                    }
+                    return results
                 }
             }
         }

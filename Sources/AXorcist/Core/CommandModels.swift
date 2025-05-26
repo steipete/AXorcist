@@ -104,10 +104,17 @@ public struct CommandEnvelope: Codable {
     }
 }
 
+// Represents a single criterion for element matching
+public struct Criterion: Codable {
+    public let attribute: String
+    public let value: String
+    public let match_type: String? // Match type can be optional, defaulting to exact if nil
+}
+
 // Locator for finding elements
 public struct Locator: Codable {
     public var matchAll: Bool?
-    public var criteria: [String: String]
+    public var criteria: [Criterion] // Changed from [String: String] to [Criterion]
     public var rootElementPathHint: [JSONPathHintComponent]?
     public var descendantCriteria: [String: String]?
     public var requireAction: String?
@@ -124,7 +131,7 @@ public struct Locator: Codable {
 
     public init(
         matchAll: Bool? = nil,
-        criteria: [String: String] = [:],
+        criteria: [Criterion] = [], // Adjusted default value
         rootElementPathHint: [JSONPathHintComponent]? = nil,
         descendantCriteria: [String: String]? = nil,
         requireAction: String? = nil,

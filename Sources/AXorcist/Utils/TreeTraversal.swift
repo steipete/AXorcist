@@ -136,14 +136,22 @@ public class CollectAllVisitor: TreeVisitor {
     public var collectedElements: [AXElementData] = []
     // Default valueFormatOption for CollectAllVisitor if not specified otherwise
     private let valueFormatOption: ValueFormatOption
-    private let filterCriteria: [String: String]?
+    private let filterCriteria: [Criterion]?
 
-    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .smart, filterCriteria: [String: String]? = nil) {
+    public init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .smart, filterCriteria: [Criterion]? = nil) {
         self.attributesToFetch = attributesToFetch
         self.outputFormat = outputFormat
         self.appElement = appElement
         self.valueFormatOption = valueFormatOption
         self.filterCriteria = filterCriteria
+    }
+    
+    // Convenience initializer for backward compatibility with dictionary
+    public convenience init(attributesToFetch: [String], outputFormat: OutputFormat, appElement: Element, valueFormatOption: ValueFormatOption = .smart, filterCriteria: [String: String]?) {
+        let criterionArray = filterCriteria?.map { key, value in
+            Criterion(attribute: key, value: value, match_type: nil)
+        }
+        self.init(attributesToFetch: attributesToFetch, outputFormat: outputFormat, appElement: appElement, valueFormatOption: valueFormatOption, filterCriteria: criterionArray)
     }
 
     public func visit(element: Element, depth: Int, state: inout TraversalState) async -> TraversalAction {
@@ -163,9 +171,9 @@ public class CollectAllVisitor: TreeVisitor {
             valueFormatOption: self.valueFormatOption
         )
 
-        let elementPath = await element.generatePathArray(upTo: appElement)
-        let role = await element.role()
-        let compName = await element.computedName()
+        let elementPath = element.generatePathArray(upTo: appElement)
+        let role = element.role()
+        let compName = element.computedName()
 
         let elementData = AXElementData(
             path: elementPath,
@@ -198,10 +206,10 @@ public class SearchVisitor: TreeVisitor {
         }
 
         if depth == 0 && elementsProcessed == 1 {
-            await GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchVisitor: Starting new search. Locator: \(self.locator.criteria)"))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchVisitor: Starting new search. Locator: \(self.locator.criteria)"))
         }
 
-        let matchStatus = evaluateElementAgainstCriteria(
+        let matchStatus = await evaluateElementAgainstCriteria(
             element: element,
             locator: locator,
             actionToVerify: requireAction ?? locator.requireAction,

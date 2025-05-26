@@ -58,7 +58,7 @@ extension AXorcist {
         appIdentifierOrNil: String? = nil, // Can be bundle ID or app name
         requestedAttributes: [String]? = nil,
         isScreenCoordinatesTopLeft: Bool = false
-    ) -> HandlerResponse {
+    ) async -> HandlerResponse {
 
         var targetPID: pid_t = 0
         var appElementForPath: Element?
@@ -129,11 +129,11 @@ extension AXorcist {
             axDebugLog("getElementAtPoint: Successfully found element at (\(Float(point.x))), \(finalY)). Element: \(foundElement.briefDescription())")
 
             // Call the global getElementAttributes function
-            let (attributes, _) = getElementAttributes(
+            let (attributes, _) = await getElementAttributes(
                 element: foundElement,
                 attributes: requestedAttributes ?? AXorcist.defaultAttributesToFetch,
                 outputFormat: .jsonString, // Using jsonString format
-                valueFormatOption: .default // Assuming default options
+                valueFormatOption: .smart // Assuming default options
             )
             let pathArray = appElementForPath != nil ? foundElement.generatePathArray(upTo: appElementForPath!) : foundElement.generatePathArray()
             let axElement = AXElement(attributes: attributes, path: pathArray)

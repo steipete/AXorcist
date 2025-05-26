@@ -44,7 +44,7 @@ extension GlobalAXLogger {
         includeAppName: Bool = false,
         includeCommandID: Bool = false
     ) async -> [String] {
-        let entries = await GlobalAXLogger.shared.getEntries()
+        let entries = GlobalAXLogger.shared.getEntries()
 
         return entries.map { entry in
             var components: [String] = []
@@ -79,7 +79,7 @@ extension GlobalAXLogger {
     }
 
     internal func getLogEntriesAsJSON() async throws -> String {
-        let entries = await GlobalAXLogger.shared.getEntries()
+        let entries = GlobalAXLogger.shared.getEntries()
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         let jsonData = try encoder.encode(entries)

@@ -245,7 +245,7 @@ struct CommandExecutor {
         // with the new JSONPathHintComponent system.
         // The expectation is that new-style path hints come via locator.rootElementPathHint.
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:]) // Create an empty locator
+            locator = Locator(criteria: []) // Create an empty locator
             axDebugLog("CommandExecutor: Created default empty locator because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used for navigation.")
         }
         
@@ -288,7 +288,7 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
+            locator = Locator(criteria: [])
             axDebugLog("CommandExecutor: Created default empty locator for getAttributes because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
         guard var validLocator = locator else {
@@ -314,7 +314,7 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
+            locator = Locator(criteria: [])
             axDebugLog("CommandExecutor: Created default empty locator for query because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
         guard var validLocator = locator else {
@@ -340,7 +340,7 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
+            locator = Locator(criteria: [])
             axDebugLog("CommandExecutor: Created default empty locator for describeElement because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
         guard var validLocator = locator else {
@@ -366,7 +366,7 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
+            locator = Locator(criteria: [])
             axDebugLog("CommandExecutor: Created default empty locator for extractText because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
         guard var validLocator = locator else {
@@ -450,7 +450,7 @@ struct CommandExecutor {
     ) async -> HandlerResponse {
         var locator: Locator? = command.locator
         if let oldPathHint = command.pathHint, !oldPathHint.isEmpty, locator == nil {
-            locator = Locator(criteria: [:])
+            locator = Locator(criteria: [])
             axDebugLog("CommandExecutor: Created default empty locator for setFocusedValue because CommandEnvelope.pathHint (old format) was provided but locator was nil. This old pathHint will NOT be used.")
         }
         guard var validLocator = locator else {
@@ -530,7 +530,7 @@ struct CommandExecutor {
             let errorDescription = "JSON ENCODING ERROR: \(error.localizedDescription). Details: \(error)"
             // Standard error logging for the CLI tool itself, not part of JSON response normally
             FileHandle.standardError.write(errorDescription.data(using: .utf8) ?? Data())
-            axCriticalLog("JSON ENCODING ERROR: \(error.localizedDescription). Details: \(error)") // Also log to GlobalAXLogger
+            axFatalLog("JSON ENCODING ERROR: \(error.localizedDescription). Details: \(error)") // Also log to GlobalAXLogger
             return nil
         }
     }

@@ -79,7 +79,7 @@ extension AXorcist {
             return await processExtractText(subCommandEnvelope, subCmdID: subCmdID)
 
         case .getElementAtPoint:
-            return processGetElementAtPoint(subCommandEnvelope, subCmdID: subCmdID)
+            return await processGetElementAtPoint(subCommandEnvelope, subCmdID: subCmdID)
 
         case .ping:
             return processPingCommand(subCmdID)
@@ -89,6 +89,11 @@ extension AXorcist {
 
         case .observe:
             return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
+            
+        case .batch:
+            // Nested batch commands are not supported
+            axWarningLog("Command 'batch' found within batch. Nested batch commands are not supported.")
+            return processUnsupportedCommand(subCommandEnvelope, subCmdID: subCmdID)
 
         @unknown default:
             return processUnknownCommand(subCommandEnvelope, subCmdID: subCmdID)
@@ -96,8 +101,8 @@ extension AXorcist {
     }
 
     @MainActor
-    private func processFocusedElementCommand(_ subCommandEnvelope: CommandEnvelope) -> HandlerResponse {
-        return self.handleGetFocusedElement(
+    private func processFocusedElementCommand(_ subCommandEnvelope: CommandEnvelope) async -> HandlerResponse {
+        return await self.handleGetFocusedElement(
             for: subCommandEnvelope.application,
             requestedAttributes: subCommandEnvelope.attributes
         )
@@ -197,16 +202,17 @@ extension AXorcist {
     }
 
     @MainActor
-    private func processGetElementAtPoint(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) -> HandlerResponse {
+    private func processGetElementAtPoint(_ subCommandEnvelope: CommandEnvelope, subCmdID: String) async -> HandlerResponse {
         guard let point = subCommandEnvelope.point else {
             let errorMsg = "Missing point for getElementAtPoint command (sub-command ID: \(subCmdID))"
             axErrorLog(errorMsg)
             return HandlerResponse(error: errorMsg)
         }
-        return self.handleGetElementAtPoint(
+        return await self.handleGetElementAtPoint(
             for: subCommandEnvelope.application,
             point: point,
-            requestedAttributes: subCommandEnvelope.attributes,
+            commandId: subCmdID,
+            attributesToFetch: subCommandEnvelope.attributes,
             outputFormat: subCommandEnvelope.outputFormat
         )
     }

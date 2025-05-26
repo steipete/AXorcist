@@ -16,71 +16,24 @@ private func elementMatchesAllCriteria(
     let elementDescriptionForLog = element.briefDescription(option: .smart)
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Checking element [\\(elementDescriptionForLog)] against criteria for component [\\(pathComponentForLog)]. Criteria count: \\(criteria.count). Criteria: \\(criteria)"))
 
-    guard !criteria.isEmpty else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/EMAC: Criteria IS EMPTY for path component [\\(pathComponentForLog)] on element [\\(elementDescriptionForLog)]. Returning false as no criteria to match."))
-        return false // If criteria is empty, technically nothing to match against.
+    if criteria.isEmpty {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Criteria empty for component [\\(pathComponentForLog)]. Element [\\(elementDescriptionForLog)] considered a match by default."))
+        return true
     }
 
     for (key, expectedValue) in criteria {
-        if key == "PID" { // Special handling for PID
-            if element.role() == AXRoleNames.kAXApplicationRole {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] is AXApplication (role check). PID criterion '\\(expectedValue)' from path component '\\(pathComponentForLog)' considered met by context."))
-                continue
-            }
+        // Determine matchType based on key or default to .exact
+        // This is a simplified placeholder. Real logic might infer from key or have explicit matchTypes per criterion.
+        let matchTypeForKey: JSONPathHintComponent.MatchType = (key.lowercased() == AXAttributeNames.kAXDOMClassListAttribute.lowercased()) ? .contains : .exact
 
-            guard let actualPid_t = element.pid() else {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] failed to provide PID (for path component [\\(pathComponentForLog)]). No match."))
-                return false
-            }
-            let actualPid = Int(actualPid_t)
-            guard let expectedPid = Int(expectedValue) else {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] PID criteria '\\(expectedValue)' is not a valid Int (for path component [\\(pathComponentForLog)]). No match."))
-                return false
-            }
-            if actualPid != expectedPid {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] PID [\\(actualPid)] != expected [\\(expectedPid)] (for path component [\\(pathComponentForLog)]). No match."))
-                return false
-            }
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] PID [\\(actualPid)] == expected [\\(expectedPid)] (for path component [\\(pathComponentForLog)]). Criterion met."))
-        } else {
-            let rawAttributeValue: Any? = element.attribute(Attribute<Any>(key))
-
-            if key == AXAttributeNames.kAXDOMClassListAttribute {
-                guard let domClassListValue = rawAttributeValue else {
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] attribute [\\(key)] (DOMClassList) was nil. No match."))
-                    return false
-                }
-                let matchFound: Bool
-                if let classListArray = domClassListValue as? [String] {
-                    matchFound = classListArray.contains(expectedValue)
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] DOMClassList (Array: \\(classListArray)) contains '\\(expectedValue)': \\(matchFound)."))
-                } else if let classListString = domClassListValue as? String {
-                    matchFound = classListString.split(separator: " ").map(String.init).contains(expectedValue)
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] DOMClassList (String: '\\(classListString)') contains '\\(expectedValue)' as whole word: \\(matchFound)."))
-                } else {
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] DOMClassList attribute was neither [String] nor String. Actual type: \\(type(of: domClassListValue)). No match."))
-                    return false
-                }
-                if !matchFound {
-                    return false
-                }
-            } else {
-                let fetchedAttributeValue: String? = element.attribute(Attribute(key))
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: For element [\\(elementDescriptionForLog)], component [\\(pathComponentForLog)], attr [\\(key)], fetched value is: [\\(String(describing: fetchedAttributeValue))]."))
-
-                guard let actualValue = fetchedAttributeValue else {
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] lacks attribute [\\(key)] (value was nil after fetch) for path component [\\(pathComponentForLog)]. No match."))
-                    return false
-                }
-                if actualValue != expectedValue {
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] attribute [\\(key)] value [\\(actualValue)] != expected [\\(expectedValue)] (for path component [\\(pathComponentForLog)]). No match."))
-                    return false
-                }
-            }
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] attribute [\\(key)] value matched expected [\\(expectedValue)] (for path component [\\(pathComponentForLog)]). Criterion met."))
+        // matchSingleCriterion is async
+        if await !matchSingleCriterion(element: element, key: key, expectedValue: expectedValue, matchType: matchTypeForKey, elementDescriptionForLog: elementDescriptionForLog) {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\\(elementDescriptionForLog)] FAILED to match criterion '\\(key): \\(expectedValue)' for component [\\(pathComponentForLog)]."))
+            return false
         }
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(elementDescriptionForLog)] matches ALL criteria for path component [\\(pathComponentForLog)]. Match!"))
+
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\\(elementDescriptionForLog)] successfully MATCHED ALL criteria for component [\\(pathComponentForLog)]."))
     return true
 }
 
