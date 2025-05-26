@@ -14,12 +14,15 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"), // Added swift-argument-parser
-        .package(url: "https://github.com/apple/swift-testing.git", from: "0.6.0") // Added swift-testing
+        .package(url: "https://github.com/apple/swift-testing.git", from: "0.6.0"), // Added swift-testing
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4") // Added swift-log
     ],
     targets: [
         .target(
             name: "AXorcist",
-            dependencies: [],
+            dependencies: [
+                .product(name: "Logging", package: "swift-log") // Added Logging product from swift-log
+            ],
             path: "Sources/AXorcist", // Be very direct about the source path
             exclude: [],             // Explicitly no excludes
             sources: nil             // Explicitly let SPM find all sources in the path
