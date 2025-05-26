@@ -124,7 +124,7 @@ public class CollectAllVisitor: TreeVisitor {
             // Assuming SearchCriteriaUtils.criteriaMatch is accessible here.
             // If not, this logic needs to be adapted or the function made available.
             // Defaulting matchAll to true, as filters usually imply all conditions must pass.
-            let matchesFilter = SearchCriteriaUtils.criteriaMatch(
+            let matchesFilter = criteriaMatch(
                 element: element, 
                 criteria: criteria, 
                 matchAll: true, 
