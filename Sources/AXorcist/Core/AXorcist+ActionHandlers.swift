@@ -8,7 +8,7 @@ extension AXorcist {
     public func handlePerformAction(command: PerformActionCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "AXorcist/HandlePerformAction: App '\(String(describing: command.appIdentifier))', " +
+            message: "HandlePerformAction: App '\(String(describing: command.appIdentifier))', " +
                 "Locator: \(command.locator), Action: \(command.action), " +
                 "Value: \(String(describing: command.value))"
         ))
@@ -20,20 +20,20 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = error ?? "AXorcist/HandlePerformAction: Element not found for app " +
+            let errorMessage = error ?? "HandlePerformAction: Element not found for app " +
                 "'\(String(describing: command.appIdentifier))' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "AXorcist/HandlePerformAction: Found element: " +
+            message: "HandlePerformAction: Found element: " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))"
         ))
 
         // Check if action is supported before attempting
         if !element.isActionSupported(command.action) {
-            let errorMessage = "AXorcist/HandlePerformAction: Action '\(command.action)' " +
+            let errorMessage = "HandlePerformAction: Action '\(command.action)' " +
                 "is NOT supported by element " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))."
             GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: errorMessage))
@@ -52,14 +52,14 @@ extension AXorcist {
             if let actionValue = command.value?.value {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .warning,
-                    message: "AXorcist/HandlePerformAction: Action value provided but not used: \(actionValue)"
+                    message: "HandlePerformAction: Action value provided but not used: \(actionValue)"
                 ))
             }
 
             try element.performAction(command.action)
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "AXorcist/HandlePerformAction: Successfully performed action " +
+                message: "HandlePerformAction: Successfully performed action " +
                     "'\(command.action)' on " +
                     "\(element.briefDescription(option: ValueFormatOption.smart))."
             ))
@@ -67,7 +67,7 @@ extension AXorcist {
                 payload: AnyCodable(["message": "Action '\(command.action)' performed successfully."])
             )
         } catch {
-            let errorMessage = "AXorcist/HandlePerformAction: Failed to perform action " +
+            let errorMessage = "HandlePerformAction: Failed to perform action " +
                 "'\(command.action)' on " +
                 "\(element.briefDescription(option: ValueFormatOption.smart)). " +
                 "Error: \(error)"
@@ -80,7 +80,7 @@ extension AXorcist {
     public func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "AXorcist/HandleSetFocusedValue: App '\(String(describing: command.appIdentifier))', " +
+            message: "HandleSetFocusedValue: App '\(String(describing: command.appIdentifier))', " +
                 "Locator: \(command.locator), Value: '\(command.value)'"
         ))
 
@@ -91,14 +91,14 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = error ?? "AXorcist/HandleSetFocusedValue: Element not found for app " +
+            let errorMessage = error ?? "HandleSetFocusedValue: Element not found for app " +
                 "'\(String(describing: command.appIdentifier))' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "AXorcist/HandleSetFocusedValue: Found element: " +
+            message: "HandleSetFocusedValue: Found element: " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))"
         ))
 
@@ -118,7 +118,7 @@ extension AXorcist {
             if element.isActionSupported(AXActionNames.kAXPressAction) {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "AXorcist/HandleSetFocusedValue: Element not directly " +
+                    message: "HandleSetFocusedValue: Element not directly " +
                         "focusable by kAXFocusedAttribute, but supports kAXPressAction. " +
                         "Attempting press."
                 ))
@@ -126,18 +126,18 @@ extension AXorcist {
                     try element.performAction(AXActionNames.kAXPressAction)
                     GlobalAXLogger.shared.log(AXLogEntry(
                         level: .debug,
-                        message: "AXorcist/HandleSetFocusedValue: Successfully pressed " +
+                        message: "HandleSetFocusedValue: Successfully pressed " +
                             "element to potentially gain focus."
                     ))
                 } catch {
-                    let pressError = "AXorcist/HandleSetFocusedValue: Element " +
+                    let pressError = "HandleSetFocusedValue: Element " +
                         "\(element.briefDescription(option: ValueFormatOption.smart)) " +
                         "could not be pressed to potentially gain focus."
                     GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: pressError))
                     // Continue to try setting value, but log this warning.
                 }
             } else {
-                let focusError = "AXorcist/HandleSetFocusedValue: Element " +
+                let focusError = "HandleSetFocusedValue: Element " +
                     "\(element.briefDescription(option: ValueFormatOption.smart)) " +
                     "is not focusable (kAXFocusedAttribute not settable and " +
                     "kAXPressAction not supported). Cannot reliably set focused value."
@@ -150,14 +150,14 @@ extension AXorcist {
         if isFocusable {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "AXorcist/HandleSetFocusedValue: Attempting to set " +
+                message: "HandleSetFocusedValue: Attempting to set " +
                     "kAXFocusedAttribute to true for " +
                     "\(element.briefDescription(option: ValueFormatOption.smart))"
             ))
             if !element.setValue(true, forAttribute: AXAttributeNames.kAXFocusedAttribute) {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .warning,
-                    message: "AXorcist/HandleSetFocusedValue: Failed to set " +
+                    message: "HandleSetFocusedValue: Failed to set " +
                         "kAXFocusedAttribute for " +
                         "\(element.briefDescription(option: ValueFormatOption.smart)), " +
                         "but proceeding to set value."
@@ -172,14 +172,14 @@ extension AXorcist {
         // 3. Set the value (kAXValueAttribute)
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "AXorcist/HandleSetFocusedValue: Attempting to set " +
+            message: "HandleSetFocusedValue: Attempting to set " +
                 "kAXValueAttribute to '\(command.value)' for " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))"
         ))
         if element.setValue(command.value, forAttribute: AXAttributeNames.kAXValueAttribute) {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "AXorcist/HandleSetFocusedValue: Successfully set value for " +
+                message: "HandleSetFocusedValue: Successfully set value for " +
                     "\(element.briefDescription(option: ValueFormatOption.smart))."
             ))
             return .successResponse(
@@ -188,7 +188,7 @@ extension AXorcist {
                 ])
             )
         } else {
-            let setError = "AXorcist/HandleSetFocusedValue: Failed to set " +
+            let setError = "HandleSetFocusedValue: Failed to set " +
                 "kAXValueAttribute for " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: setError))
@@ -200,7 +200,7 @@ extension AXorcist {
     public func handleExtractText(command: ExtractTextCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "AXorcist/HandleExtractText: App '\(String(describing: command.appIdentifier))', " +
+            message: "HandleExtractText: App '\(String(describing: command.appIdentifier))', " +
                 "Locator: \(command.locator), " +
                 "IncludeChildren: \(String(describing: command.includeChildren)), " +
                 "MaxDepth: \(String(describing: command.maxDepth))"
@@ -213,14 +213,14 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = error ?? "AXorcist/HandleExtractText: Element not found for app " +
+            let errorMessage = error ?? "HandleExtractText: Element not found for app " +
                 "'\(String(describing: command.appIdentifier))' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "AXorcist/HandleExtractText: Found element: " +
+            message: "HandleExtractText: Found element: " +
                 "\(element.briefDescription(option: ValueFormatOption.smart))"
         ))
 
@@ -231,11 +231,11 @@ extension AXorcist {
         ) {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "AXorcist/HandleExtractText: Extracted text: '\(textContent)'"
+                message: "HandleExtractText: Extracted text: '\(textContent)'"
             ))
             return .successResponse(payload: AnyCodable(TextPayload(text: textContent)))
         } else {
-            let message = "AXorcist/HandleExtractText: No text content found for " +
+            let message = "HandleExtractText: No text content found for " +
                 "element \(element.briefDescription(option: ValueFormatOption.smart))."
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
             return .successResponse(payload: AnyCodable(TextPayload(text: ""))) // Success, but no text

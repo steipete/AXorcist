@@ -2,8 +2,8 @@ import Foundation
 
 @MainActor
 extension AXorcist {
-    public func handleBatchCommands(command: BatchCommandEnvelope) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleBatch: Received \(command.commands.count) sub-commands."))
+    public func handleBatchCommands(command: AXBatchCommand) -> AXResponse {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "HandleBatch: Received \(command.commands.count) sub-commands."))
         var results: [AXResponse] = []
         var overallSuccess = true
         var errorMessages: [String] = []
@@ -11,7 +11,7 @@ extension AXorcist {
         for (index, subCommandEnvelope) in command.commands.enumerated() {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "AXorcist/HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): " +
+                message: "HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): " +
                     "ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"
             ))
 
@@ -22,22 +22,22 @@ extension AXorcist {
                 overallSuccess = false
                 let errorDetail = response.error?.message ?? "Unknown error in sub-command \(subCommandEnvelope.commandID)"
                 errorMessages.append("Sub-command \(subCommandEnvelope.commandID) ('\(subCommandEnvelope.command.type)') failed: \(errorDetail)")
-                GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "AXorcist/HandleBatch: Sub-command \(subCommandEnvelope.commandID) failed: \(errorDetail)"))
+                GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "HandleBatch: Sub-command \(subCommandEnvelope.commandID) failed: \(errorDetail)"))
             }
         }
 
         if overallSuccess {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleBatch: All \(command.commands.count) sub-commands succeeded."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "HandleBatch: All \(command.commands.count) sub-commands succeeded."))
             let successfulPayloads = results.map { $0.payload }
             return .successResponse(payload: AnyCodable(BatchResponsePayload(results: successfulPayloads, errors: nil)))
         } else {
-            let combinedErrorMessage = "AXorcist/HandleBatch: One or more sub-commands failed. Errors: \(errorMessages.joined(separator: "; "))"
+            let combinedErrorMessage = "HandleBatch: One or more sub-commands failed. Errors: \(errorMessages.joined(separator: "; "))"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: combinedErrorMessage))
             return .errorResponse(message: combinedErrorMessage, code: .batchOperationFailed)
         }
     }
 
-    private func processSingleBatchCommand(_ command: AXSubCommand) -> AXResponse {
+    private func processSingleBatchCommand(_ command: AXCommand) -> AXResponse {
         switch command {
         case .query(let queryCommand):
             return handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
@@ -56,7 +56,7 @@ extension AXorcist {
         case .getFocusedElement(let getFocusedElementCommand):
             return handleGetFocusedElement(command: getFocusedElementCommand)
         case .observe(let observeCommand):
-            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/BatchProc: Processing Observe command."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "BatchProc: Processing Observe command."))
             return handleObserve(command: observeCommand)
         case .collectAll(let collectAllCommand):
             return handleCollectAll(command: collectAllCommand)

@@ -6,7 +6,7 @@ extension AXorcist {
     public func handleObserve(command: ObserveCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "AXorcist/HandleObserve: App \(command.appIdentifier ?? "focused"), " +
+            message: "HandleObserve: App \(command.appIdentifier ?? "focused"), " +
                 "Notifications: \(command.notificationName.rawValue), " +
                 "Details: \(command.includeElementDetails?.joined(separator: ", ") ?? "none")"
         ))
@@ -23,11 +23,11 @@ extension AXorcist {
         )
 
         guard let elementToObserve = targetElement else {
-            let errorMessage = error ?? "AXorcist/HandleObserve: Element to observe not found for app '\(appIdentifier)' with locator \(String(describing: locator))."
+            let errorMessage = error ?? "HandleObserve: Element to observe not found for app '\(appIdentifier)' with locator \(String(describing: locator))."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleObserve: Element to observe: \(elementToObserve.briefDescription(option: ValueFormatOption.smart))"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "HandleObserve: Element to observe: \(elementToObserve.briefDescription(option: ValueFormatOption.smart))"))
 
         let callback: AXObserverManager.AXNotificationCallback = { _, axUIElement, notification, userInfo in
             let element = Element(axUIElement)
@@ -45,18 +45,18 @@ extension AXorcist {
 
         do {
             try AXObserverManager.shared.addObserver(for: elementToObserve, notification: command.notificationName, callback: callback)
-            let successMessage = "AXorcist/HandleObserve: Successfully started observing '\(command.notificationName)' on \(elementToObserve.briefDescription(option: ValueFormatOption.smart))."
+            let successMessage = "HandleObserve: Successfully started observing '\(command.notificationName)' on \(elementToObserve.briefDescription(option: ValueFormatOption.smart))."
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: successMessage))
             return .successResponse(payload: AnyCodable(["message": successMessage]))
         } catch let obError as AXObserverManager.ObserverError {
-            let errorMessage = "AXorcist/HandleObserve: Failed to add observer. " +
+            let errorMessage = "HandleObserve: Failed to add observer. " +
                 "Error: \(obError.localizedDescription) (Code: \(obError)). " +
                 "Pid for element: \(elementToObserve.pid()?.description ?? "N/A") " +
                 "Notification: \(command.notificationName)"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .observationFailed)
         } catch {
-            let errorMessage = "AXorcist/HandleObserve: Failed to add observer with unknown error: " +
+            let errorMessage = "HandleObserve: Failed to add observer with unknown error: " +
                 "\(error.localizedDescription) for element " +
                 "\(elementToObserve.briefDescription(option: ValueFormatOption.smart)) " +
                 "Notification: \(command.notificationName)"

@@ -5,7 +5,7 @@ import CoreGraphics // For CGPoint, CGSize etc.
 import Foundation
 
 // ValueFormatOption is now from ModelEnums.swift
-// Assumes stringFromAXValueType is available from ValueHelpers.swift and axErrorToString is available from ErrorUtils.swift
+// Assumes stringFromAXValueType is available from ValueHelpers.swift
 
 @MainActor
 public func formatAXValue(_ axValue: AXValue, option: ValueFormatOption = .smart) -> String {
@@ -98,12 +98,10 @@ private func formatCFRangeAXValue(_ axValue: AXValue, option: ValueFormatOption)
 private func formatAXErrorAXValue(_ axValue: AXValue, option: ValueFormatOption) -> String {
     var error = AXError.success
     if AXValueGetValue(axValue, .axError, &error) {
-        let result = axErrorToString(error) // Assumes axErrorToString is available
+        let result = error.stringValue
         return option == .raw ? result : "<AXError: \(result)>"
     }
     return "AXValue (\(stringFromAXValueType(.axError)))"
 }
 
 // stringFromAXValueType is available from ValueHelpers.swift
-
-// axErrorToString is available from ErrorUtils.swift

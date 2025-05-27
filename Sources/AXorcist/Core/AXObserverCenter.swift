@@ -146,7 +146,11 @@ public class AXObserverCenter {
 
         // After all unsubscriptions, observers and subscriptions should be empty.
         if !self.observers.isEmpty || !self.subscriptions.isEmpty || !self.subscriptionTokens.isEmpty { // Added self.
-            axWarningLog("removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), tokens: \(self.subscriptionTokens.count)") // Added self.
+            axWarningLog(
+                "removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. " +
+                    "observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), " +
+                    "tokens: \(self.subscriptionTokens.count)"
+            ) // Added self.
             // Force clear for safety, though unsubscribe should handle it.
             self.observers.removeAll() // Added self.
             self.subscriptions.removeAll() // Added self.

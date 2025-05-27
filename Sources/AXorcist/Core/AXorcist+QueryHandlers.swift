@@ -9,13 +9,13 @@ import Foundation
 extension AXorcist {
     // MARK: - Query Handler
     public func handleQuery(command: QueryCommand, maxDepth externalMaxDepth: Int?) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleQuery: App '\(command.appIdentifier ?? "focused")', Locator: \(command.locator)"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "HandleQuery: App '\(command.appIdentifier ?? "focused")', Locator: \(command.locator)"))
 
         let appIdentifier = command.appIdentifier ?? "focused"
         let resolvedMaxDepth = externalMaxDepth ?? 10
 
         // DEBUG LOG FOR MAX DEPTH
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleQuery: externalMaxDepth = \(String(describing: externalMaxDepth)), resolved maxDepth = \(resolvedMaxDepth)"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "HandleQuery: externalMaxDepth = \(String(describing: externalMaxDepth)), resolved maxDepth = \(resolvedMaxDepth)"))
 
         let (foundElement, findError) = findTargetElement(
             for: appIdentifier,
@@ -24,11 +24,11 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = findError ?? "AXorcist/HandleQuery: Element not found for app '\(appIdentifier)' with locator \(command.locator)."
+            let errorMessage = findError ?? "HandleQuery: Element not found for app '\(appIdentifier)' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleQuery: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "HandleQuery: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"))
 
         // Fetch attributes specified in command.attributesToReturn, or default if nil/empty
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
@@ -39,7 +39,11 @@ extension AXorcist {
 
     // MARK: - Get Attributes Handler
     public func handleGetAttributes(command: GetAttributesCommand) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleGetAttrs: App '\(command.appIdentifier ?? "focused")', Locator: \(command.locator), Attributes: \(command.attributes.joined(separator: ", "))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "HandleGetAttrs: App '\(command.appIdentifier ?? "focused")', " +
+                "Locator: \(command.locator), Attributes: \(command.attributes.joined(separator: ", "))"
+        ))
 
         let (foundElement, findError) = findTargetElement(
             for: command.appIdentifier ?? "focused",
@@ -48,11 +52,11 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = findError ?? "AXorcist/HandleGetAttrs: Element not found for app '\(command.appIdentifier ?? "focused")' with locator \(command.locator)."
+            let errorMessage = findError ?? "HandleGetAttrs: Element not found for app '\(command.appIdentifier ?? "focused")' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleGetAttrs: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "HandleGetAttrs: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"))
 
         var attributesDict: [String: AXValueWrapper] = [:]
         for attrName in command.attributes {
@@ -64,10 +68,18 @@ extension AXorcist {
         }
 
         let briefDesc = element.briefDescription(option: ValueFormatOption.smart)
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleGetAttrs: Attributes for '\(briefDesc)': \(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "HandleGetAttrs: Attributes for '\(briefDesc)': " +
+                "\(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"
+        ))
 
         // Log fetched attributes for debugging purposes
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/GetAttributes: Fetched attributes for \(briefDesc): \(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "GetAttributes: Fetched attributes for \(briefDesc): " +
+                "\(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"
+        ))
 
         // Construct a simple payload containing just the attributes dictionary.
         // For a more structured response like AXElementData, we'd use buildQueryResponse or similar.
@@ -82,7 +94,12 @@ extension AXorcist {
 
     // MARK: - Describe Element Handler
     public func handleDescribeElement(command: DescribeElementCommand) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleDescribe: App '\(command.appIdentifier ?? "focused")', Locator: \(command.locator), Depth: \(command.depth), IncludeIgnored: \(command.includeIgnored)"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "HandleDescribe: App '\(command.appIdentifier ?? "focused")', " +
+                "Locator: \(command.locator), Depth: \(command.depth), " +
+                "IncludeIgnored: \(command.includeIgnored)"
+        ))
 
         let (foundElement, findError) = findTargetElement(
             for: command.appIdentifier ?? "focused",
@@ -91,11 +108,11 @@ extension AXorcist {
         )
 
         guard let element = foundElement else {
-            let errorMessage = findError ?? "AXorcist/HandleDescribe: Element not found for app '\(command.appIdentifier ?? "focused")' with locator \(command.locator)."
+            let errorMessage = findError ?? "HandleDescribe: Element not found for app '\(command.appIdentifier ?? "focused")' with locator \(command.locator)."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleDescribe: Found element: \(element.briefDescription(option: ValueFormatOption.smart)). Describing tree..."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "HandleDescribe: Found element: \(element.briefDescription(option: ValueFormatOption.smart)). Describing tree..."))
 
         let descriptionTree = describeElementTree(element: element, depth: command.depth, includeIgnored: command.includeIgnored, currentDepth: 0)
 
@@ -112,7 +129,7 @@ extension AXorcist {
         let textualContent = extractTextFromElement(element, maxDepth: 3) // MaxDepth set to 3 for brief text
         let childrenBriefs = includeChildrenBrief ? (element.children()?.map { $0.briefDescription(option: ValueFormatOption.smart) } ?? []) : nil
         let fullDesc = element.briefDescription(option: .stringified) // Using .stringified for a detailed description
-        let pathArray = element.path()?.components // Assuming path() returns an optional Path struct with a components array
+        let pathArray = element.generatePathString().components(separatedBy: " -> ") // Convert path string to array
 
         let briefDescription = element.briefDescription(option: ValueFormatOption.smart)
         let role = element.role()

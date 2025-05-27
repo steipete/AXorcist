@@ -85,7 +85,13 @@ internal func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist,
     guard let axObserveCommand = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert Observe to AXCommand")
         let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Observe")
-        return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+        return finalizeAndEncodeResponse(
+            commandId: command.commandId,
+            commandType: command.command.rawValue,
+            handlerResponse: errorResponse,
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
+        )
     }
 
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axObserveCommand))

@@ -12,17 +12,21 @@ private let logger = Logger(label: "AXorcist.PathNavigationUtilities")
 
 @MainActor
 public func getApplicationElement(for bundleIdentifier: String) -> Element? {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/AppEl: Attempting to get application element for bundle identifier '\(bundleIdentifier)'."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PN/AppEl: Attempting to get application element for bundle identifier '\(bundleIdentifier)'."))
 
     guard let runningApp = NSWorkspace.shared.runningApplications.first(where: {
         $0.bundleIdentifier == bundleIdentifier
     }) else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/AppEl: Could not find running application with bundle identifier '\(bundleIdentifier)'."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PN/AppEl: Could not find running application with bundle identifier '\(bundleIdentifier)'."))
         return nil
     }
     let pid = runningApp.processIdentifier
     let appElement = Element(AXUIElementCreateApplication(pid))
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/AppEl: Obtained application element for '\(bundleIdentifier)' (PID: \(pid)): [\(appElement.briefDescription(option: ValueFormatOption.smart))]"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .info,
+        message: "PN/AppEl: Obtained application element for '\(bundleIdentifier)' (PID: \(pid)): " +
+            "[\(appElement.briefDescription(option: ValueFormatOption.smart))]"
+    ))
     return appElement
 }
 
@@ -35,7 +39,11 @@ public func getApplicationElement(for processId: pid_t) -> Element? {
     } else {
         bundleIdMessagePart = ""
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/AppEl: Obtained application element for PID \(processId)\(bundleIdMessagePart): [\(appElement.briefDescription(option: ValueFormatOption.smart))]"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .info,
+        message: "PN/AppEl: Obtained application element for PID \(processId)\(bundleIdMessagePart): " +
+            "[\(appElement.briefDescription(option: ValueFormatOption.smart))]"
+    ))
     return appElement
 }
 
@@ -47,7 +55,7 @@ public func getElement(
     pathHint: [Any],
     maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
 ) -> Element? {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Attempting to get element for app '\(appIdentifier)' with path hint (count: \(pathHint.count))."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PN/GetEl: Attempting to get element for app '\(appIdentifier)' with path hint (count: \(pathHint.count))."))
 
     let startElement: Element?
     if let pid = pid_t(appIdentifier) {
@@ -57,21 +65,33 @@ public func getElement(
     }
 
     guard let rootElement = startElement else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/GetEl: Could not get root application element for '\(appIdentifier)'."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PN/GetEl: Could not get root application element for '\(appIdentifier)'."))
         return nil
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Root element for '\(appIdentifier)' is [\(rootElement.briefDescription(option: ValueFormatOption.smart))]. Processing path hint."))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "PN/GetEl: Root element for '\(appIdentifier)' is " +
+            "[\(rootElement.briefDescription(option: ValueFormatOption.smart))]. Processing path hint."
+    ))
 
     if let stringPathHint = pathHint as? [String] {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Interpreting path hint as [String]. Count: \(stringPathHint.count). Hint: \(stringPathHint.joined(separator: " -> "))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "PN/GetEl: Interpreting path hint as [String]. Count: \(stringPathHint.count). " +
+                "Hint: \(stringPathHint.joined(separator: " -> "))"
+        ))
         return navigateToElement(from: rootElement, pathHint: stringPathHint, maxDepth: maxDepth)
     } else if let jsonPathHint = pathHint as? [JSONPathHintComponent] {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Interpreting path hint as [JSONPathHintComponent]. Count: \(jsonPathHint.count). Hint: \(jsonPathHint.map { $0.descriptionForLog() }.joined(separator: " -> "))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "PN/GetEl: Interpreting path hint as [JSONPathHintComponent]. Count: \(jsonPathHint.count). " +
+                "Hint: \(jsonPathHint.map { $0.descriptionForLog() }.joined(separator: " -> "))"
+        ))
         let initialLogSegment = rootElement.role() == AXRoleNames.kAXApplicationRole ? "Application" : rootElement.briefDescription(option: ValueFormatOption.smart)
         return navigateToElementByJSONPathHint(from: rootElement, jsonPathHint: jsonPathHint, overallMaxDepth: maxDepth, initialPathSegmentForLog: initialLogSegment)
     } else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "PathNav/GetEl: Path hint type is not [String] or [JSONPathHintComponent]. Hint: \(pathHint). Cannot navigate."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "PN/GetEl: Path hint type is not [String] or [JSONPathHintComponent]. Hint: \(pathHint). Cannot navigate."))
         return nil
     }
 }
@@ -86,10 +106,10 @@ func findDescendantAtPath(
     debugSearch: Bool
 ) -> Element? {
     var currentElement = currentRoot
-    logger.debug("PathNav/findDescendantAtPath: Starting path navigation. Initial root: \(currentElement.briefDescription(option: .smart)). Path components: \(pathComponents.count)")
+    logger.debug("PN/findDescendantAtPath: Starting path navigation. Initial root: \(currentElement.briefDescription(option: .smart)). Path components: \(pathComponents.count)")
 
     for (pathComponentIndex, component) in pathComponents.enumerated() {
-        logger.debug("PathNav/findDescendantAtPath: Processing component. Current: \(currentElement.briefDescription(option: .smart))")
+        logger.debug("PN/findDescendantAtPath: Processing component. Current: \(currentElement.briefDescription(option: .smart))")
 
         let searchVisitor = SearchVisitor(
             criteria: component.criteria,
@@ -100,20 +120,29 @@ func findDescendantAtPath(
         )
 
         // Children of the current element are where we search for the next path component
-        logger.debug("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Current element for child search: \(currentElement.briefDescription(option: .smart))")
+        logger.debug("PN/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Current element for child search: \(currentElement.briefDescription(option: .smart))")
 
         guard let childrenToSearch = currentElement.children(strict: false), !childrenToSearch.isEmpty else {
-            logger.warning("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] No children found (or list was empty) for \(currentElement.briefDescription(option: .smart)). Path navigation cannot proceed further down this branch.")
+            let componentNum = pathComponentIndex + 1
+            let elementDesc = currentElement.briefDescription(option: .smart)
+            logger.warning(
+                "PN/findDescendantAtPath: [Component \(componentNum)] No children found (or list was empty) for \(elementDesc). Path navigation cannot proceed further down this branch."
+            )
             return nil
         }
-        logger.debug("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Found \(childrenToSearch.count) children to search.")
+        logger.debug("PN/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Found \(childrenToSearch.count) children to search.")
 
         var foundMatchForThisComponent: Element?
         for child in childrenToSearch {
             searchVisitor.reset()
             traverseAndSearch(element: child, visitor: searchVisitor, currentDepth: 0, maxDepth: component.maxDepthForStep ?? 1)
             if let foundUnwrapped = searchVisitor.foundElement {
-                logger.info("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] MATCHED component criteria \(component.descriptionForLog()) on child: \(foundUnwrapped.briefDescription(option: ValueFormatOption.smart))")
+                let componentNum = pathComponentIndex + 1
+                let componentDesc = component.descriptionForLog()
+                let childDesc = foundUnwrapped.briefDescription(option: ValueFormatOption.smart)
+                logger.info(
+                    "PN/findDescendantAtPath: [Component \(componentNum)] MATCHED component criteria \(componentDesc) on child: \(childDesc)"
+                )
                 foundMatchForThisComponent = foundUnwrapped
                 break
             }
@@ -121,12 +150,17 @@ func findDescendantAtPath(
 
         if let nextElement = foundMatchForThisComponent {
             currentElement = nextElement
-            logger.debug("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Advancing to next element: \(currentElement.briefDescription(option: .smart))")
+            logger.debug("PN/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Advancing to next element: \(currentElement.briefDescription(option: .smart))")
         } else {
-            logger.warning("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] FAILED to find match for component criteria: \(component.descriptionForLog()) within children of \(currentElement.briefDescription(option: .smart))")
+            let componentNum = pathComponentIndex + 1
+            let componentDesc = component.descriptionForLog()
+            let elementDesc = currentElement.briefDescription(option: .smart)
+            logger.warning(
+                "PN/findDescendantAtPath: [Component \(componentNum)] FAILED to find match for component criteria: \(componentDesc) within children of \(elementDesc)"
+            )
             return nil
         }
     }
-    logger.info("PathNav/findDescendantAtPath: Successfully navigated full path. Final element: \(currentElement.briefDescription(option: .smart))")
+    logger.info("PN/findDescendantAtPath: Successfully navigated full path. Final element: \(currentElement.briefDescription(option: .smart))")
     return currentElement
 }

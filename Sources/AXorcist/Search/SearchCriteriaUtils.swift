@@ -132,7 +132,6 @@ public func elementMatchesAnyCriterion(
     return false
 }
 
-// Overload for backward compatibility with dictionary
 @MainActor
 public func elementMatchesCriteria(
     _ element: Element,
@@ -157,7 +156,7 @@ internal func matchSingleCriterion(
 ) -> Bool {
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "SearchCrit/MSC: Matching key '\(key)' (expected: '\(expectedValue)', " +
+        message: "SC/MSC: Matching key '\(key)' (expected: '\(expectedValue)', " +
             "type: \(matchType.rawValue)) on \(elementDescriptionForLog)"
     ))
 
@@ -171,7 +170,7 @@ internal func matchSingleCriterion(
 
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "SearchCrit/MSC: Key '\(key)', Expected='\(expectedValue)', MatchType='\(matchType.rawValue)', " +
+        message: "SC/MSC: Key '\(key)', Expected='\(expectedValue)', MatchType='\(matchType.rawValue)', " +
             "Result=\(comparisonResult) on \(elementDescriptionForLog)."
     ))
     return comparisonResult
@@ -223,12 +222,12 @@ private func matchAttributeByKey(
 @MainActor
 private func matchRoleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
     let actual = element.role()
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Role: Actual='\(actual ?? "nil")'"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/Role: Actual='\(actual ?? "nil")'"))
     if actual == AXRoleNames.kAXTextAreaRole {
         let domClassList = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "SearchCrit/MSC/Role: ELEMENT IS AXTextArea. " +
+            message: "SC/MSC/Role: ELEMENT IS AXTextArea. " +
                 "Its AXDOMClassList is: \(String(describing: domClassList))"
         ))
     }
@@ -243,7 +242,7 @@ private func matchRoleAttribute(element: Element, expectedValue: String, matchTy
 @MainActor
 private func matchSubroleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
     let actual = element.subrole()
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Subrole: Actual='\(actual ?? "nil")'"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/Subrole: Actual='\(actual ?? "nil")'"))
     return compareStrings(
         actual, expectedValue, matchType,
         caseSensitive: false,
@@ -255,7 +254,7 @@ private func matchSubroleAttribute(element: Element, expectedValue: String, matc
 @MainActor
 private func matchIdentifierAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
     let actual = element.identifier()
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/ID: Actual='\(actual ?? "nil")'"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/ID: Actual='\(actual ?? "nil")'"))
     return compareStrings(
         actual, expectedValue, matchType,
         caseSensitive: true,
@@ -269,7 +268,7 @@ private func matchDomClassListAttribute(element: Element, expectedValue: String,
     let actualRaw = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "SearchCrit/MSC/DOMClassList: ActualRaw='\(String(describing: actualRaw))'"
+        message: "SC/MSC/DOMClassList: ActualRaw='\(String(describing: actualRaw))'"
     ))
     return matchDomClassListCriterion(
         element: element,
@@ -284,7 +283,7 @@ private func matchGenericAttribute(element: Element, key: String, expectedValue:
     guard let actualValueAny: Any = element.attribute(Attribute(key)) else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/MSC/Default: Attribute '\(key)' not found or nil on " +
+            message: "SC/MSC/Default: Attribute '\(key)' not found or nil on " +
                 "\(elementDescriptionForLog). No match."
         ))
         return false
@@ -296,14 +295,14 @@ private func matchGenericAttribute(element: Element, key: String, expectedValue:
         actualValueString = "\(actualValueAny)"
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/MSC/Default: Attribute '\(key)' on \(elementDescriptionForLog) " +
+            message: "SC/MSC/Default: Attribute '\(key)' on \(elementDescriptionForLog) " +
                 "was not String (type: \(type(of: actualValueAny))), " +
                 "using string description: '\(actualValueString)' for comparison."
         ))
     }
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "SearchCrit/MSC/Default: Attribute '\(key)', Actual='\(actualValueString)'"
+        message: "SC/MSC/Default: Attribute '\(key)', Actual='\(actualValueString)'"
     ))
     return compareStrings(
         actualValueString, expectedValue, matchType,
@@ -322,21 +321,21 @@ private func matchPidCriterion(element: Element, expectedValue: String, elementD
         guard let actualPidT = element.pid() else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) failed to provide PID. No match."
+                message: "SC/PID: \(elementDescriptionForLog) (app role) failed to provide PID. No match."
             ))
             return false
         }
         if String(actualPidT) == expectedPid {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
+                message: "SC/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
                     "MATCHES expected \(expectedPid)."
             ))
             return true
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
+                message: "SC/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
                     "MISMATCHES expected \(expectedPid)."
             ))
             return false
@@ -345,7 +344,7 @@ private func matchPidCriterion(element: Element, expectedValue: String, elementD
     guard let actualPidT = element.pid() else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/PID: \(elementDescriptionForLog) failed to provide PID. No match."
+            message: "SC/PID: \(elementDescriptionForLog) failed to provide PID. No match."
         ))
         return false
     }
@@ -353,14 +352,14 @@ private func matchPidCriterion(element: Element, expectedValue: String, elementD
     if actualPidString == expectedPid {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
+            message: "SC/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
                 "MATCHES expected \(expectedPid)."
         ))
         return true
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
+            message: "SC/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
                 "MISMATCHES expected \(expectedPid)."
         ))
         return false
@@ -374,14 +373,14 @@ private func matchIsIgnoredCriterion(element: Element, expectedValue: String, el
     if actualIsIgnored == expectedBool {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
+            message: "SC/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
                 "MATCHES expected ('\(expectedBool)')."
         ))
         return true
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
+            message: "SC/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
                 "MISMATCHES expected ('\(expectedBool)')."
         ))
         return false
@@ -398,7 +397,7 @@ private func matchDomClassListCriterion(
     guard let domClassListValue: Any = element.attribute(Attribute(AXAttributeNames.kAXDOMClassListAttribute)) else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) attribute was nil. No match."
+            message: "SC/DOMClass: \(elementDescriptionForLog) attribute was nil. No match."
         ))
         return false
     }
@@ -423,7 +422,7 @@ private func matchDomClassListCriterion(
         case .regex:
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/DOMClass: Regex matching for array of classes. " +
+                message: "SC/DOMClass: Regex matching for array of classes. " +
                     "Element: \(elementDescriptionForLog) Expected: \(expectedValue)."
             ))
             matchFound = classListArray.contains { item in
@@ -435,7 +434,7 @@ private func matchDomClassListCriterion(
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) (Array: \(classListArray)) " +
+            message: "SC/DOMClass: \(elementDescriptionForLog) (Array: \(classListArray)) " +
                 "match type '\(matchType.rawValue)' with '\(expectedValue)' resolved to \(matchFound)."
         ))
     } else if let classListString = domClassListValue as? String {
@@ -458,7 +457,7 @@ private func matchDomClassListCriterion(
         case .regex:
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/DOMClass: Regex matching for space-separated class string. " +
+                message: "SC/DOMClass: Regex matching for space-separated class string. " +
                     "Element: \(elementDescriptionForLog) Expected: \(expectedValue)."
             ))
             matchFound = classes.contains { item in
@@ -470,13 +469,13 @@ private func matchDomClassListCriterion(
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) (String: '\(classListString)') " +
+            message: "SC/DOMClass: \(elementDescriptionForLog) (String: '\(classListString)') " +
                 "match type '\(matchType.rawValue)' with '\(expectedValue)' resolved to \(matchFound)."
         ))
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) attribute was not [String] or String " +
+            message: "SC/DOMClass: \(elementDescriptionForLog) attribute was not [String] or String " +
                 "(type: \(type(of: domClassListValue))). No match."
         ))
         return false
@@ -485,13 +484,13 @@ private func matchDomClassListCriterion(
     if matchFound {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) MATCHED expected '\(expectedValue)' " +
+            message: "SC/DOMClass: \(elementDescriptionForLog) MATCHED expected '\(expectedValue)' " +
                 "with type '\(matchType.rawValue)'. Classes: '\(domClassListValue)'"
         ))
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SearchCrit/DOMClass: \(elementDescriptionForLog) MISMATCHED expected '\(expectedValue)' " +
+            message: "SC/DOMClass: \(elementDescriptionForLog) MISMATCHED expected '\(expectedValue)' " +
                 "with type '\(matchType.rawValue)'. Classes: '\(domClassListValue)'"
         ))
     }
@@ -544,14 +543,14 @@ public func compareStrings(
         if isEmptyMatch {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/Compare: '\(attributeName)' on \(elementDescriptionForLog): " +
+                message: "SC/Compare: '\(attributeName)' on \(elementDescriptionForLog): " +
                     "Actual is nil/empty, Expected is empty. MATCHED with type '\(matchType.rawValue)'."
             ))
             return true
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/Compare: Attribute '\(attributeName)' on \(elementDescriptionForLog) " +
+                message: "SC/Compare: Attribute '\(attributeName)' on \(elementDescriptionForLog) " +
                     "(actual: nil/empty, expected: '\(expectedValue)', type: \(matchType.rawValue)) -> MISMATCH"
             ))
             return false
@@ -588,7 +587,7 @@ public func compareStrings(
     let matchStatus = result ? "MATCH" : "MISMATCH"
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "SearchCrit/Compare: Attribute '\(attributeName)' on \(elementDescriptionForLog) " +
+        message: "SC/Compare: Attribute '\(attributeName)' on \(elementDescriptionForLog) " +
             "(actual: '\(actualValue)', expected: '\(expectedValue)', type: \(matchType.rawValue), " +
             "caseSensitive: \(caseSensitive)) -> \(matchStatus)"
     ))

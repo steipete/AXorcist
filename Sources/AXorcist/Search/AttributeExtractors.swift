@@ -102,7 +102,11 @@ internal func determineAttributesToFetch(
                 // Example: Fetch all attribute names if none are specified and not for a multi-default scenario
                 if let names = element.attributeNames() {
                     attributesToFetch.append(contentsOf: names)
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "determineAttributesToFetch: No specific attributes requested, fetched all \(names.count) available: \(names.joined(separator: ", "))"))
+                    GlobalAXLogger.shared.log(AXLogEntry(
+                        level: .debug,
+                        message: "determineAttributesToFetch: No specific attributes requested, " +
+                            "fetched all \(names.count) available: \(names.joined(separator: ", "))"
+                    ))
                 } else {
                     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                         "determineAttributesToFetch: No specific attributes requested and " +

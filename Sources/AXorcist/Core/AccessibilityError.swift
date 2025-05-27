@@ -104,7 +104,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case let .actionFailed(action, elDesc, axErr):
             var parts: [String] = ["Action '\(action)' failed."]
             if let desc = elDesc { parts.append("On element: '\(desc)'.") }
-            if let error = axErr { parts.append("AXError: \(axErrorToString(error)).") }
+            if let error = axErr { parts.append("AXError: \(error.stringValue).") }
             return parts.joined(separator: " ")
 
         // Generic & System

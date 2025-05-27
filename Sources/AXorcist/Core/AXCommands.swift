@@ -205,7 +205,16 @@ public struct ObserveCommand: Sendable {
     public let includeElementDetails: [String]?
     public let maxDepthForSearch: Int
 
-    public init(appIdentifier: String?, locator: Locator? = nil, notifications: [String], includeDetails: Bool = true, watchChildren: Bool = false, notificationName: AXNotification, includeElementDetails: [String]? = nil, maxDepthForSearch: Int = 10) {
+    public init(
+        appIdentifier: String?,
+        locator: Locator? = nil,
+        notifications: [String],
+        includeDetails: Bool = true,
+        watchChildren: Bool = false,
+        notificationName: AXNotification,
+        includeElementDetails: [String]? = nil,
+        maxDepthForSearch: Int = 10
+    ) {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.notifications = notifications
@@ -258,7 +267,3 @@ public struct AXBatchCommand: Sendable {
         self.commands = commands
     }
 }
-
-// Alias for backward compatibility if needed
-public typealias AXSubCommand = AXCommand
-public typealias BatchCommandEnvelope = AXBatchCommand

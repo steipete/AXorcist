@@ -93,7 +93,13 @@ struct CommandExecutor {
         guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
             axErrorLog("Failed to convert CollectAll to AXCommand")
             let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
-            return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+            return finalizeAndEncodeResponse(
+                commandId: command.commandId,
+                commandType: command.command.rawValue,
+                handlerResponse: errorResponse,
+                debugCLI: debugCLI,
+                commandDebugLogging: command.debugLogging
+            )
         }
         let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
         let handlerResponse: HandlerResponse
@@ -102,7 +108,13 @@ struct CommandExecutor {
         } else {
             handlerResponse = HandlerResponse(data: nil, error: axResponse.error?.message ?? "CollectAll failed")
         }
-        return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: handlerResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+        return finalizeAndEncodeResponse(
+            commandId: command.commandId,
+            commandType: command.command.rawValue,
+            handlerResponse: handlerResponse,
+            debugCLI: debugCLI,
+            commandDebugLogging: command.debugLogging
+        )
     }
 
     @MainActor

@@ -12,7 +12,7 @@ public class AXorcist {
 
     // Central command processing function
     public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse { // Removed async
-        logger.log(AXLogEntry(level: .info, message: "AXorcist/RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)")) // Removed await
+        logger.log(AXLogEntry(level: .info, message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)")) // Removed await
 
         let response: AXResponse
         switch commandEnvelope.command {
@@ -46,14 +46,14 @@ public class AXorcist {
             //     response = .errorResponse(message: errormsg, code: .unknownCommand)
         }
 
-        logger.log(AXLogEntry(level: .info, message: "AXorcist/RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)")) // Removed await
+        logger.log(AXLogEntry(level: .info, message: "RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)")) // Removed await
         return response
     }
 
     // MARK: - CollectAll Handler (New)
     internal func handleCollectAll(command: CollectAllCommand) -> AXResponse {
         // Placeholder implementation - replace with actual logic
-        logger.log(AXLogEntry(level: .info, message: "AXorcist/HandleCollectAll: Command received for app '\(command.appIdentifier ?? "nil")'. Not yet fully implemented."))
+        logger.log(AXLogEntry(level: .info, message: "HandleCollectAll: Command received for app '\(command.appIdentifier ?? "nil")'. Not yet fully implemented."))
         // TODO: Implement actual collect all logic using command.appIdentifier, command.attributesToReturn, command.maxDepth, command.filterCriteria, command.valueFormatOption
         return .errorResponse(message: "CollectAll command not yet fully implemented.", code: .unknownCommand)
     }
@@ -66,6 +66,6 @@ public class AXorcist {
 
     public func clearLogs() {
         GlobalAXLogger.shared.clearEntries()
-        logger.log(AXLogEntry(level: .info, message: "AXorcist log history cleared."))
+        logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
     }
 }

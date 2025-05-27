@@ -137,54 +137,8 @@ public struct Element: Equatable, Hashable {
             return nil
         }
 
+        // Use the type conversion functionality from Element+TypeConversion.swift
         return convertCFTypeToSwiftType(unwrappedCFValue, attribute: attribute)
-    }
-
-    @MainActor
-    private func convertCFTypeToSwiftType<T>(_ cfValue: CFTypeRef, attribute: Attribute<T>) -> T? {
-        // Perform basic conversions
-        if T.self == String.self {
-            if CFGetTypeID(cfValue) == CFStringGetTypeID() {
-                return ((cfValue as! CFString) as String as? T)
-            } else if CFGetTypeID(cfValue) == CFAttributedStringGetTypeID() { // Handle AttributedString
-                return ((cfValue as! NSAttributedString).string as? T)
-            }
-        } else if T.self == Bool.self {
-            if CFGetTypeID(cfValue) == CFBooleanGetTypeID() {
-                return (CFBooleanGetValue((cfValue as! CFBoolean)) as? T)
-            }
-        } else if T.self == Int.self {
-            if CFGetTypeID(cfValue) == CFNumberGetTypeID() {
-                var intValue: Int = 0
-                if CFNumberGetValue((cfValue as! CFNumber), .sInt64Type, &intValue) {
-                    return (intValue as? T)
-                }
-            }
-        } else if T.self == AXUIElement.self {
-            if CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
-                return cfValue as? T
-            }
-        }
-
-        if T.self == Any.self || T.self == AnyObject.self {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attribute \\(attribute.rawValue): T is Any/AnyObject. Using ValueUnwrapper."))
-            return ValueUnwrapper.unwrap(cfValue) as? T
-        }
-
-        if let directCast = cfValue as? T {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Basic conversion succeeded with direct cast for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."))
-            return directCast
-        }
-
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Attempting ValueUnwrapper for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."))
-        if let valueFromUnwrapper = ValueUnwrapper.unwrap(cfValue) as? T {
-            return valueFromUnwrapper
-        }
-
-        let warningMessage = "Basic conversion and ValueUnwrapper FAILED for T = \\(String(describing: T.self)), "
-        let warningDetail = "Attribute: \\(attribute.rawValue). Value type: \\(String(describing: CFGetTypeID(cfValue)))\\"
-        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: warningMessage + warningDetail))
-        return nil
     }
 
     @MainActor
@@ -208,7 +162,10 @@ public struct Element: Equatable, Hashable {
         var settable: DarwinBoolean = false
         let error = AXUIElementIsAttributeSettable(underlyingElement, attributeName as CFString, &settable)
         if error != .success {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Error checking if attribute \\(attributeName) is settable: \\(axErrorToString(error))"))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .warning,
+                message: "Error checking if attribute \(attributeName) is settable: \(error.stringValue)"
+            ))
             return false
         }
         return settable.boolValue
@@ -252,6 +209,7 @@ public struct Element: Equatable, Hashable {
             GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Parameterized attribute '\(attribute.rawValue)' value was nil after fetch."))
             return nil
         }
+        // Use the type conversion functionality from Element+TypeConversion.swift
         return convertCFTypeToSwiftType(unwrappedCFValue, attribute: attribute)
     }
 
@@ -301,120 +259,32 @@ public struct Element: Equatable, Hashable {
         } else {
             // Attempt direct bridging for other types; may fail if not directly bridgable.
             // Consider logging a warning or throwing an error for unhandled types.
+            let warningMsg = "Attempting to set attribute '\\(attributeName)' with potentially "
+            let warningDetail = "non-CF-bridgable Swift type: \\(type(of: value)). "
+            let warningEnd = "This might fail or lead to unexpected behavior."
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .warning,
-                message: "Attempting to set attribute '\\(attributeName)' with potentially " +
-                    "non-CF-bridgable Swift type: \\(type(of: value)). " +
-                    "This might fail or lead to unexpected behavior."
+                message: warningMsg + warningDetail + warningEnd
             ))
             cfValue = value as CFTypeRef // This can crash if 'value' is not CF-bridgable
         }
 
         let error = AXUIElementSetAttributeValue(self.underlyingElement, attributeName as CFString, cfValue)
         if error == .success {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully set attribute '\\(attributeName)' to '\\(value)' on \\(self.briefDescription(option: .short))"))
+            let msg = "Successfully set attribute '\\(attributeName)' to '\\(value)' on "
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .debug,
+                message: msg + "\\(self.briefDescription(option: .short))"
+            ))
             return true
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .error,
                 message: "Failed to set attribute '\\(attributeName)' to '\\(value)' on " +
-                    "\\(self.briefDescription(option: .short)): \\(axErrorToString(error))"
+                    "\\(self.briefDescription(option: .short)): \\(error.stringValue)"
             ))
             return false
         }
-    }
-}
-
-func axErrorToString(_ error: AXError) -> String {
-    switch error {
-    case .success: return "success"
-    case .failure: return "failure"
-    case .apiDisabled: return "apiDisabled"
-    case .invalidUIElement: return "invalidUIElement"
-    case .invalidUIElementObserver: return "invalidUIElementObserver"
-    case .cannotComplete: return "cannotComplete"
-    case .attributeUnsupported: return "attributeUnsupported"
-    case .actionUnsupported: return "actionUnsupported"
-    case .notificationUnsupported: return "notificationUnsupported"
-    case .notImplemented: return "notImplemented"
-    case .notificationAlreadyRegistered: return "notificationAlreadyRegistered"
-    case .notificationNotRegistered: return "notificationNotRegistered"
-    case .noValue: return "noValue"
-    case .parameterizedAttributeUnsupported: return "parameterizedAttributeUnsupported"
-    default: return "unknownError (\(error.rawValue))"
-    }
-}
-
-// MARK: - Static Factory Methods for System-Wide and Application Elements
-extension Element {
-    @MainActor
-    public static func systemWide() -> Element {
-        return Element(AXUIElementCreateSystemWide())
-    }
-
-    @MainActor
-    public static func application(for pid: pid_t) -> Element? {
-        let appElementRef = AXUIElementCreateApplication(pid)
-        let testElement = Element(appElementRef)
-        // A basic check to see if the application element is valid (e.g., by trying to get its role)
-        if testElement.role() != nil { // role() is synchronous
-            return testElement
-        }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Failed to create a valid application Element for PID \(pid). Role check failed."))
-        return nil
-    }
-
-    @MainActor
-    public static func application(bundleIdentifier: String) -> Element? {
-        guard let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "No running application found with bundle identifier: \(bundleIdentifier)"))
-            return nil
-        }
-        return Element.application(for: runningApp.processIdentifier) // application(for:) is synchronous
-    }
-
-    @MainActor
-    public static func focusedApplication() -> Element? {
-        guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Could not get frontmost application from NSWorkspace."))
-            return nil
-        }
-        let pid = frontmostApp.processIdentifier
-        if pid == -1 { // Sometimes frontmostApplication can be non-normal app (e.g. Dock when no windows are open)
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Frontmost application has PID -1, might be a system process without typical AX support."))
-            // Attempt to get focused element from system-wide, might give better results
-            let systemElement = Element.systemWide()
-            if let focusedElement = systemElement.focusedUIElement() { // focusedUIElement() is sync
-                // Try to get the app element containing this focused element
-                var current: Element? = focusedElement
-                while let parent = current?.parent() { // parent() is sync
-                    if parent.role() == AXRoleNames.kAXApplicationRole { // role() is sync
-                        return parent
-                    }
-                    if parent == systemElement { break } // Stop if we reach systemWide
-                    current = parent
-                }
-            }
-            return nil // Fallback if no app found via focused element
-        }
-        return Element.application(for: pid) // application(for:) is sync
-    }
-
-    @MainActor
-    public static func elementAtPoint(_ point: CGPoint, pid: pid_t) -> Element? {
-        let appAXUIElement = AXUIElement.application(pid: pid)
-        guard let elementAXUIElement = AXUIElement.elementAtPosition(in: appAXUIElement, x: Float(point.x), y: Float(point.y)) else {
-            return nil
-        }
-        return Element(elementAXUIElement)
-    }
-
-    // MARK: - Path Generation
-
-    @MainActor
-    public func path() -> Path? {
-        let pathArray = self.generatePathArray()
-        return Path(components: pathArray)
     }
 }
 
