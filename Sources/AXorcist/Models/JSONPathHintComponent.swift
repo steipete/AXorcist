@@ -9,6 +9,9 @@ public struct JSONPathHintComponent: Codable, Sendable {
         case exact
         case contains
         case regex
+        case containsAny
+        case prefix
+        case suffix
     }
 
     /// The type of attribute to match (e.g., "ROLE", "TITLE", "DOM", "DOMCLASS"). Case-insensitive.

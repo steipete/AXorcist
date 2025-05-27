@@ -3,8 +3,12 @@
 import ApplicationServices
 import Foundation
 import AppKit // Added for NSRunningApplication
+import Logging // Import Logging
 
-// Note: Assumes Element, PathUtils, Attribute are available.
+// Note: Assumes Element, PathUtils, Attribute, AXMiscConstants are available.
+
+// Define logger for this file
+private let logger = Logger(label: "AXorcist.PathNavigator")
 
 // New helper to check if an element matches all given criteria
 @MainActor
@@ -12,28 +16,33 @@ private func elementMatchesAllCriteria(
     _ element: Element,
     criteria: [String: String],
     forPathComponent pathComponentForLog: String // For logging
-) async -> Bool {
-    let elementDescriptionForLog = element.briefDescription(option: .smart)
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Checking element [\\(elementDescriptionForLog)] against criteria for component [\\(pathComponentForLog)]. Criteria count: \\(criteria.count). Criteria: \\(criteria)"))
+) -> Bool {
+    let elementDescriptionForLog = element.briefDescription(option: ValueFormatOption.smart)
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/EMAC_START: Checking element [\(elementDescriptionForLog)] for component [\(pathComponentForLog)]. Criteria: \(criteria)"))
 
     if criteria.isEmpty {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Criteria empty for component [\\(pathComponentForLog)]. Element [\\(elementDescriptionForLog)] considered a match by default."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Criteria empty for component [\(pathComponentForLog)]. Element [\(elementDescriptionForLog)] considered a match by default."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED (empty criteria) for component [\(pathComponentForLog)]."))
         return true
     }
 
     for (key, expectedValue) in criteria {
-        // Determine matchType based on key or default to .exact
-        // This is a simplified placeholder. Real logic might infer from key or have explicit matchTypes per criterion.
         let matchTypeForKey: JSONPathHintComponent.MatchType = (key.lowercased() == AXAttributeNames.kAXDOMClassListAttribute.lowercased()) ? .contains : .exact
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC_CRITERION: Checking criterion '\(key): \(expectedValue)' (matchType: \(matchTypeForKey.rawValue)) on element [\(elementDescriptionForLog)] for component [\(pathComponentForLog)]."))
 
-        // matchSingleCriterion is async
-        if await !matchSingleCriterion(element: element, key: key, expectedValue: expectedValue, matchType: matchTypeForKey, elementDescriptionForLog: elementDescriptionForLog) {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\\(elementDescriptionForLog)] FAILED to match criterion '\\(key): \\(expectedValue)' for component [\\(pathComponentForLog)]."))
+        let criterionDidMatch = matchSingleCriterion(element: element, key: key, expectedValue: expectedValue, matchType: matchTypeForKey, elementDescriptionForLog: elementDescriptionForLog)
+        let message = "PathNav/EMAC_CRITERION_RESULT: Criterion '\(key): \(expectedValue)' on [\(elementDescriptionForLog)] for [\(pathComponentForLog)]: \(criterionDidMatch ? "MATCHED" : "FAILED")"
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: message))
+
+        if !criterionDidMatch {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\(elementDescriptionForLog)] FAILED to match criterion '\(key): \(expectedValue)' for component [\(pathComponentForLog)]."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/EMAC_END: Element [\(elementDescriptionForLog)] FAILED for component [\(pathComponentForLog)]."))
             return false
         }
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\\(elementDescriptionForLog)] successfully MATCHED ALL criteria for component [\\(pathComponentForLog)]."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/EMAC: Element [\(elementDescriptionForLog)] successfully MATCHED ALL criteria for component [\(pathComponentForLog)]."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED ALL criteria for component [\(pathComponentForLog)]."))
     return true
 }
 
@@ -42,8 +51,8 @@ private func elementMatchesAllCriteria(
 internal func navigateToElement(
     from startElement: Element,
     pathHint: [String],
-    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
-) async -> Element? {
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch 
+) -> Element? {
     var currentElement = startElement
     var currentPathSegmentForLog = ""
 
@@ -56,17 +65,17 @@ internal func navigateToElement(
         }
 
         if index >= maxDepth {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigation aborted: Path hint index \\(index) reached maxDepth \\(maxDepth). Path so far: \\(currentPathSegmentForLog)"))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigation aborted: Path hint index \(index) reached maxDepth \(maxDepth). Path so far: \(currentPathSegmentForLog)"))
             return nil
         }
 
         let criteriaToMatch = PathUtils.parseRichPathComponent(pathComponentString)
         guard !criteriaToMatch.isEmpty else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty or unparsable criteria from pathComponentString '\\(pathComponentString)'"))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty or unparsable criteria from pathComponentString '\(pathComponentString)'"))
             return nil
         }
 
-        if let nextElement = await processPathComponent(
+        if let nextElement = processPathComponent(
             currentElement: currentElement,
             pathComponentString: pathComponentString,
             criteriaToMatch: criteriaToMatch,
@@ -78,7 +87,7 @@ internal func navigateToElement(
         }
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigation successful. Final element: \\(currentElement.briefDescription(option: .smart))"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigation successful. Final element: \(currentElement.briefDescription(option: ValueFormatOption.smart))"))
     return currentElement
 }
 
@@ -88,41 +97,41 @@ private func processPathComponent(
     pathComponentString: String,
     criteriaToMatch: [String: String],
     currentPathSegmentForLog: String
-) async -> Element? {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC_DIRECT_LOG: Entered for \\(pathComponentString)"))
+) -> Element? {
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC_DIRECT_LOG: Entered for \(pathComponentString)"))
 
     var stepCounter = 0
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). Before briefDesc."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). Before briefDesc."))
     stepCounter += 1
-    let briefDesc = currentElement.briefDescription(option: .smart)
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). Before logPathComponentProcessing. BriefDesc: \\(briefDesc)"))
+    let briefDesc = currentElement.briefDescription(option: ValueFormatOption.smart)
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). Before logPathComponentProcessing. BriefDesc: \(briefDesc)"))
     stepCounter += 1
     logPathComponentProcessing(pathComponentString: pathComponentString, briefDesc: briefDesc)
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). After logPathComponentProcessing. Before PRE-CALL FMIC."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). After logPathComponentProcessing. Before PRE-CALL FMIC."))
     stepCounter += 1
 
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: PRE-CALL FMIC"))
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). After PRE-CALL FMIC. Before findMatchingChild call."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). After PRE-CALL FMIC. Before findMatchingChild call."))
     stepCounter += 1
 
-    if let matchedChild = await findMatchingChild(
+    if let matchedChild = findMatchingChild(
         currentElement: currentElement,
         criteriaToMatch: criteriaToMatch,
         pathComponentForLog: pathComponentString
     ) {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). findMatchingChild returned non-nil."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). findMatchingChild returned non-nil."))
         return matchedChild
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). findMatchingChild returned nil. Before elementMatchesAllCriteria."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). findMatchingChild returned nil. Before elementMatchesAllCriteria."))
     stepCounter += 1
 
-    if await elementMatchesAllCriteria(currentElement, criteria: criteriaToMatch, forPathComponent: pathComponentString) {
-         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Current element \\(briefDesc) itself matches component '\\(pathComponentString)'. Retaining current element for this step."))
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). elementMatchesAllCriteria on currentElement was true."))
+    if elementMatchesAllCriteria(currentElement, criteria: criteriaToMatch, forPathComponent: pathComponentString) {
+         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Current element \(briefDesc) itself matches component '\(pathComponentString)'. Retaining current element for this step."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). elementMatchesAllCriteria on currentElement was true."))
         return currentElement
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). elementMatchesAllCriteria on currentElement was false. Before logNoMatchFound."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). elementMatchesAllCriteria on currentElement was false. Before logNoMatchFound."))
     stepCounter += 1
 
     logNoMatchFound(
@@ -130,13 +139,13 @@ private func processPathComponent(
         pathComponentString: pathComponentString,
         currentPathSegmentForLog: currentPathSegmentForLog
     )
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \\(stepCounter). After logNoMatchFound. Returning nil."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/PPC: Step \(stepCounter). After logNoMatchFound. Returning nil."))
     return nil
 }
 
 @MainActor
 private func logPathComponentProcessing(pathComponentString: String, briefDesc: String) {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigating: Processing path component '\\(pathComponentString)' from current element: \\(briefDesc)"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Navigating: Processing path component '\(pathComponentString)' from current element: \(briefDesc)"))
 }
 
 @MainActor
@@ -145,7 +154,7 @@ private func logNoMatchFound(
     pathComponentString: String,
     currentPathSegmentForLog: String
 ) {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Neither current element \\(briefDesc) nor its children (after all checks) matched criteria for path component '\\(pathComponentString)'. Path: \\(currentPathSegmentForLog) // CHILD_MATCH_FAILURE_MARKER"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Neither current element \(briefDesc) nor its children (after all checks) matched criteria for path component '\(pathComponentString)'. Path: \(currentPathSegmentForLog) // CHILD_MATCH_FAILURE_MARKER"))
 }
 
 @MainActor
@@ -153,37 +162,52 @@ private func findMatchingChild(
     currentElement: Element,
     criteriaToMatch: [String: String],
     pathComponentForLog: String
-) async -> Element? {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Entered. CurrentElement: \\(currentElement.briefDescription(option: .smart)). Component: \\(pathComponentForLog)"))
+) -> Element? {
+    let parentElementDesc = currentElement.briefDescription(option: ValueFormatOption.smart)
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/FMC_START: Searching children of [\(parentElementDesc)] for component [\(pathComponentForLog)]. Criteria: \(criteriaToMatch)"))
+
     guard let children = currentElement.children() else {
-        let currentElementDescForLog = currentElement.briefDescription(option: .smart)
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(currentElementDescForLog)] has no children (returned nil for .children())."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Element [\(parentElementDesc)] has no children (returned nil for .children())."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/FMC_END: No children for [\(parentElementDesc)]. Returning nil."))
         return nil
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Element \\(currentElement.briefDescription(option: .smart)) has \\(children.count) children. Iterating..."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Element \(parentElementDesc) has \(children.count) children. Iterating..."))
 
-    for child in children {
-        let childDesc = child.briefDescription(option: .smart)
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Checking child [\\(childDesc)] against criteria for component [\\(pathComponentForLog)]."))
-        if await elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Child [\\(childDesc)] MATCHED for path component [\\(pathComponentForLog)]."))
+    if children.isEmpty {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Element \(parentElementDesc) has an empty children array."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/FMC_END: Empty children array for [\(parentElementDesc)]. Returning nil."))
+        return nil
+    }
+
+    for (childIndex, child) in children.enumerated() {
+        let childDesc = child.briefDescription(option: ValueFormatOption.smart)
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC_CHILD: [Child \(childIndex + 1)/\(children.count)] Processing child [\(childDesc)] of [\(parentElementDesc)] for component [\(pathComponentForLog)]."))
+        
+        let childMatched = elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog)
+        let message = "PathNav/FMC_CHILD_RESULT: Child [\(childDesc)] of [\(parentElementDesc)] for [\(pathComponentForLog)]: \(childMatched ? "MATCHED" : "DID NOT MATCH")"
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: message))
+
+        if childMatched {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Child [\(childDesc)] MATCHED for path component [\(pathComponentForLog)]."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/FMC_END: Found matching child [\(childDesc)] for [\(parentElementDesc)]. Returning child."))
             return child
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Child [\\(childDesc)] did NOT match criteria for [\\(pathComponentForLog)]. Continuing."))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: Child [\(childDesc)] did NOT match criteria for [\(pathComponentForLog)]. Continuing."))
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: No child of \\(currentElement.briefDescription(option: .smart)) matched criteria for [\\(pathComponentForLog)]. Returning nil."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMC: No child of \(parentElementDesc) matched criteria for [\(pathComponentForLog)]."))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/FMC_END: No matching child found for [\(parentElementDesc)]. Returning nil."))
     return nil
 }
 
 @MainActor
-private func getChildrenFromElement(_ element: Element) async -> [Element]? {
+private func getChildrenFromElement(_ element: Element) -> [Element]? {
     guard let children = element.children() else {
-        let currentElementDescForLog = element.briefDescription(option: .smart)
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(currentElementDescForLog)] has no children (returned nil for .children())."))
+        let currentElementDescForLog = element.briefDescription(option: ValueFormatOption.smart)
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\(currentElementDescForLog)] has no children (returned nil for .children())."))
         return nil
     }
     if children.isEmpty {
-         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\\(element.briefDescription(option: .smart))] has zero children (returned empty array for .children())."))
+         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Element [\(element.briefDescription(option: ValueFormatOption.smart))] has zero children (returned empty array for .children())."))
     }
     return children
 }
@@ -198,13 +222,13 @@ private func getChildrenFromElement(_ element: Element) async -> [Element]? {
     // (e.g., by returning a special key like "@index" in criteriaToMatch)
 
     // In processPathComponent, after trying findMatchingChild and elementMatchesAllCriteria(currentElement...):
-    if let indexStr = criteriaToMatch["@index"], let index = Int(indexStr) {
-        if let children = getChildrenFromElement(currentElement), index >= 0, index < children.count {
+    if let indexStr = criteriaToMatch[\"@index\"], let index = Int(indexStr) {
+        if let children = await getChildrenFromElement(currentElement), index >= 0, index < children.count { // Added await
             let indexedChild = children[index]
-            axDebugLog("Path component '\(pathComponentString)' resolved to child at index \(index): \(indexedChild.briefDescription())")
+            await axDebugLog(\"Path component \'\\(pathComponentString)\' resolved to child at index \\(index): \\(await indexedChild.briefDescription())\") // Added await
             return indexedChild
         } else {
-            axDebugLog("Path component '\(pathComponentString)' (index \(index)) out of bounds for \(currentElement.briefDescription()) with \(getChildrenFromElement(currentElement)?.count ?? 0) children.")
+            await axDebugLog(\"Path component \'\\(pathComponentString)\' (index \\(index)) out of bounds for \\(await currentElement.briefDescription()) with \\(await getChildrenFromElement(currentElement)?.count ?? 0) children.\") // Added await
             // logNoMatchFound would have been called if attribute matching failed before this.
             // If ONLY index was provided and it failed, this is the failure point.
             return nil
@@ -224,277 +248,263 @@ internal func original_currentElementMatchesPathComponent( // Marked as original
     _ element: Element,
     attributeName: String,
     expectedValue: String
-) -> Bool {
+) async -> Bool { // Made async
     if attributeName.isEmpty {
-        axWarningLog("original_currentElementMatchesPathComponent: attributeName is empty.")
+        await axWarningLog(\"original_currentElementMatchesPathComponent: attributeName is empty.\") // Added await
         return false
     }
-    if let actualValue: String = element.attribute(Attribute(attributeName)) {
-        if actualValue == expectedValue {
-            return true
+    // ... (rest of original function would need similar async/await updates for attribute access and logging) ...
+}
+*/
+
+
+// MARK: - JSON PathHint Navigation
+
+// Helper to convert JSONPathHintComponent.AttributeName to actual AXAttribute string
+// This might be better placed in a utility struct/enum for AttributeName if it becomes complex
+// For now, a simple switch based on the rawValue of the enum.
+// UPDATE: This function is problematic because JSONPathHintComponent.AttributeName does not exist.
+// The `attribute` in JSONPathHintComponent is already a String.
+// This function might have been intended for an earlier version of JSONPathHintComponent.
+// Keeping it commented out for now. If direct attribute string usage in JSONPathHintComponent is correct, this is not needed.
+/*
+private func jsonPathHintAttrToAXAttribute(_ attrName: JSONPathHintComponent.AttributeName) -> String {
+    switch attrName {
+    case .role: return AXAttributeNames.kAXRoleAttribute
+    case .subrole: return AXAttributeNames.kAXSubroleAttribute
+    case .identifier: return AXAttributeNames.kAXIdentifierAttribute
+    case .title: return AXAttributeNames.kAXTitleAttribute
+    case .value: return AXAttributeNames.kAXValueAttribute
+    case .description: return AXAttributeNames.kAXDescriptionAttribute
+    // Add other cases as necessary from JSONPathHintComponent.AttributeName
+    default:
+        // Fallback or error for unhandled cases
+        // For now, using the rawValue, but this implies AttributeName has a rawValue or is a string itself.
+        // This needs to be aligned with the actual definition of JSONPathHintComponent.AttributeName.
+        // If attrName is already the string (e.g. "AXRole"), then this function is not needed.
+        // The error "String has no member rawValue" likely points to this.
+        // If JSONPathHintComponent.attribute is already a String, this function becomes:
+        // private func jsonPathHintAttrToAXAttribute(_ attrName: String) -> String { return attrName }
+        // ... or it's just used directly.
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "jsonPathHintAttrToAXAttribute: Unhandled or direct-use attribute name '\(attrName)'. Using rawValue if available, otherwise direct string."))
+        // Assuming attrName might conform to RawRepresentable<String> if it's an enum
+        // Or if it's already a string, this part is overly complex.
+        if let raw = (attrName as? any RawRepresentable)?.rawValue as? String {
+            return raw
+        }
+        return String(describing: attrName) // Fallback, likely incorrect if attrName isn't directly the string.
+    }
+}
+*/
+
+
+// Updated navigateToElementByJSONPathHint to use the new Element API and logging
+@MainActor
+internal func navigateToElementByJSONPathHint(
+    from startElement: Element,
+    jsonPathHint: [JSONPathHintComponent],
+    overallMaxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
+    initialPathSegmentForLog: String = "Root"
+) -> Element? {
+    var currentElement = startElement
+    var currentPathSegmentForLog = initialPathSegmentForLog
+    let pathHintCount = jsonPathHint.count
+
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV_START: From [\(startElement.briefDescription(option: ValueFormatOption.smart))] with hint (count: \(pathHintCount)): \(jsonPathHint.map { $0.descriptionForLog() }.joined(separator: " -> "))"))
+
+    for (index, pathComponent) in jsonPathHint.enumerated() {
+        let componentDescForLog = pathComponent.descriptionForLog()
+        currentPathSegmentForLog += (index > 0 ? " -> " : " (Start) -> ") + componentDescForLog
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV_COMPONENT [\(index + 1)/\(pathHintCount)]: Processing '\(componentDescForLog)'. Current path: [\(currentPathSegmentForLog)]"))
+
+        let depthForThisStep = pathComponent.depth ?? AXMiscConstants.defaultMaxDepthSearchForHintStep
+
+        if index >= overallMaxDepth {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV: Path hint index \(index) reached overallMaxDepth \(overallMaxDepth). Path so far: \(currentPathSegmentForLog)"))
+            return nil
+        }
+        
+        let attributeToMatch = pathComponent.attribute
+        let valueToMatch = pathComponent.value
+        let matchType = pathComponent.matchType ?? .exact
+
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV_COMPONENT_DETAILS: Attribute: '\(attributeToMatch)', Value: '\(valueToMatch)', MatchType: '\(matchType.rawValue)', DepthForStep: \(depthForThisStep)"))
+
+        let searchCriteria = [Criterion(attribute: attributeToMatch, value: valueToMatch, matchType: matchType)]
+        
+        let foundElement = findDescendantMatchingCriteria(
+            startElement: currentElement,
+            criteria: searchCriteria,
+            maxDepth: depthForThisStep,
+            stopAtFirstMatch: true,
+            pathComponentForLog: componentDescForLog
+        )
+
+        if let nextElement = foundElement {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV_MATCH: Component '\(componentDescForLog)' matched by [\(nextElement.briefDescription(option: ValueFormatOption.smart))]. Updating current element."))
+            currentElement = nextElement
+        } else {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON_NAV_NO_MATCH: Component '\(componentDescForLog)' did not match any element from [\(currentElement.briefDescription(option: ValueFormatOption.smart))] within depth \(depthForThisStep). Path: \(currentPathSegmentForLog)"))
+            return nil
         }
     }
-    return false
+
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/JSON_NAV_SUCCESS: Navigation successful. Final element: [\(currentElement.briefDescription(option: ValueFormatOption.smart))] after path: [\(currentPathSegmentForLog)]"))
+    return currentElement
 }
 
 @MainActor
-private func original_checkChildMatch( // Marked as original
-    child: Element,
-    attributeName: String,
-    expectedValue: String
+private func findDescendantMatchingCriteria(
+    startElement: Element,
+    criteria: [Criterion],
+    maxDepth: Int,
+    stopAtFirstMatch: Bool,
+    pathComponentForLog: String
 ) -> Element? {
-    let childBriefDescForLog = child.briefDescription(option: .smart)
 
-    guard let actualValue: String = child.attribute(Attribute(attributeName)) else {
+    if elementMatchesAllCriteria(element: startElement, criteria: criteria) {
+         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FDMC: Start element [\(startElement.briefDescription(option: ValueFormatOption.smart))] itself matches criteria for path component '\(pathComponentForLog)'."))
+        return startElement
+    }
+
+    if maxDepth <= 0 {
         return nil
     }
 
-    original_logChildCheck( // Use original log
-        childDesc: childBriefDescForLog,
-        attributeName: attributeName,
-        actualValue: actualValue,
-        expectedValue: expectedValue
-    )
+    guard let children = startElement.children() else {
+        return nil
+    }
 
-    if actualValue == expectedValue {
-        original_logChildMatch( // Use original log
-            childDesc: childBriefDescForLog,
-            attributeName: attributeName,
-            expectedValue: expectedValue
-        )
-        return child
+    for child in children {
+        if let found = findDescendantMatchingCriteria(
+            startElement: child,
+            criteria: criteria,
+            maxDepth: maxDepth - 1,
+            stopAtFirstMatch: stopAtFirstMatch,
+            pathComponentForLog: pathComponentForLog
+        ) {
+            if stopAtFirstMatch {
+                return found
+            }
+        }
     }
     return nil
 }
 
-@MainActor
-private func original_logChildCheck( // Marked as original
-    childDesc: String,
-    attributeName: String,
-    actualValue: String,
-    expectedValue: String
-) {
-    let matchStatus = (actualValue == expectedValue) ? "==" : "!="
-    axDebugLog(
-        "Checking child: \(childDesc) | Attribute: \(attributeName) | Actual: '\(actualValue)' \(matchStatus) Expected: '\(expectedValue)'",
-        file: #file,
-        function: #function,
-        line: #line
-    )
-}
+// MARK: - Application Root Element Navigation
 
 @MainActor
-private func original_logChildMatch( // Marked as original
-    childDesc: String,
-    attributeName: String,
-    expectedValue: String
-) {
-    axDebugLog(
-        "MATCHED child: \(childDesc) for \(attributeName):\(expectedValue)",
-        file: #file,
-        function: #function,
-        line: #line
-    )
-}
-*/
-
-// MARK: - JSON Path Hint Navigation
-
-// Main external entry point for JSON path hint navigation
-@MainActor
-func navigateToElementByJSONPathHint(
-    from startElement: Element,
-    pathHintComponents: [JSONPathHintComponent]
-) async -> Element? {
-    var currentElement = startElement
-    let pathDescriptionForLog = pathHintComponents.map { "\($0.attribute):\($0.value)" }.joined(separator: " -> ")
-    let initialMessage = "PathNav/JSON: Starting navigation with \\(pathHintComponents.count) JSON components from \\(currentElement.briefDescription(option: .smart)). Path: \\(pathDescriptionForLog)"
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: initialMessage))
-
-    for (index, component) in pathHintComponents.enumerated() {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON: Processing component \\(index + 1)/\\(pathHintComponents.count): [\\(component.attribute):\\(component.value)] from current element [\\(currentElement.briefDescription(option: .smart))]"))
-
-        if let nextElement = await findDescendantMatchingCriteria(
-            startingFrom: currentElement,
-            hintComponent: component,
-            pathComponentForLog: "JSONHintStep_\\(index)_\(component.attribute)"
-        ) {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/JSON: Component \\(index + 1) matched. New current element: [\\(nextElement.briefDescription(option: .smart))]"))
-            currentElement = nextElement
-        } else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/JSON: Component \\(index + 1) [\\(component.attribute):\\(component.value)] did NOT match any descendant from [\\(currentElement.briefDescription(option: .smart))]. Navigation failed."))
-            return nil
-        }
+public func getApplicationElement(for bundleIdentifier: String) -> Element? {
+    guard let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).first else {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/AppEl: No running application found for bundle ID '\(bundleIdentifier)'."))
+        return nil
     }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/JSON: Navigation successful. Final element: [\\(currentElement.briefDescription(option: .smart))]"))
-    return currentElement
+    let pid = runningApp.processIdentifier
+    let appElement = Element(AXUIElementCreateApplication(pid))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/AppEl: Obtained application element for '\(bundleIdentifier)' (PID: \(pid)): [\(appElement.briefDescription(option: ValueFormatOption.smart))]"))
+    return appElement
 }
 
-// Searches descendants of `startingFrom` (inclusive of self if depth allows) for an element matching criteria in `hintComponent`.
 @MainActor
-private func findDescendantMatchingCriteria(
-    startingFrom element: Element,
-    hintComponent: JSONPathHintComponent,
-    pathComponentForLog: String // For logging, e.g., "JSONHintStep_0_ROLE"
-) async -> Element? {
-    let currentElementDesc = element.briefDescription(option: .smart)
-    let matchTypeRawValue = hintComponent.matchType?.rawValue ?? "exact_fallback"
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FindDesc: Searching for [\\(hintComponent.attribute):\\(hintComponent.value)] starting from [\\(currentElementDesc)] with depth \\(hintComponent.depth ?? -1)"))
-
-    // Convert JSONPathHintComponent to a [String: String] criteria map
-    // This uses the mapped AXAttributeName (e.g., kAXRoleAttribute)
-    var criteria: [String: String] = [:]
-    if let axAttr = hintComponent.axAttributeName {
-        criteria[axAttr] = hintComponent.value
+public func getApplicationElement(for processId: pid_t) -> Element? {
+    let appElement = Element(AXUIElementCreateApplication(processId))
+    let bundleIdMessagePart: String
+    if let runningApp = NSRunningApplication(processIdentifier: processId), let bId = runningApp.bundleIdentifier {
+        bundleIdMessagePart = " (\(bId))"
     } else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "PathNav/FindDesc: Unknown attribute type '\\(hintComponent.attribute)' in JSON hint. Cannot build criteria."))
-        return nil
+        bundleIdMessagePart = ""
     }
-
-    let maxDepthToSearch = hintComponent.depth ?? JSONPathHintComponent.defaultDepthForSegment // Use component depth or default step depth
-
-    // Use a breadth-first or depth-first search up to maxDepthToSearch
-    // For simplicity, using a recursive depth-limited search helper.
-    // This helper will check the current element first, then its children, respecting depth.
-    return await searchRecursiveForCriteria(
-        currentElement: element,
-        criteria: criteria,
-        matchType: hintComponent.matchType,
-        currentDepth: 0,
-        maxDepth: maxDepthToSearch,
-        pathComponentForLog: pathComponentForLog
-    )
+    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PathNav/AppEl: Obtained application element for PID \(processId)\(bundleIdMessagePart): [\(appElement.briefDescription(option: ValueFormatOption.smart))]"))
+    return appElement
 }
 
-// Recursive helper for findDescendantMatchingCriteria
+// MARK: - Element from Path (High-Level)
+
 @MainActor
-private func searchRecursiveForCriteria(
-    currentElement: Element,
-    criteria: [String: String],
-    matchType: JSONPathHintComponent.MatchType?,
-    currentDepth: Int,
+public func getElement(
+    appIdentifier: String,
+    pathHint: [Any],
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
+) -> Element? {
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Attempting to get element for app '\(appIdentifier)' with path hint (count: \(pathHint.count))."))
+
+    let startElement: Element?
+    if let pid = pid_t(appIdentifier) {
+        startElement = getApplicationElement(for: pid)
+    } else {
+        startElement = getApplicationElement(for: appIdentifier)
+    }
+
+    guard let rootElement = startElement else {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/GetEl: Could not get root application element for '\(appIdentifier)'."))
+        return nil
+    }
+    
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Root element for '\(appIdentifier)' is [\(rootElement.briefDescription(option: ValueFormatOption.smart))]. Processing path hint."))
+
+    if let stringPathHint = pathHint as? [String] {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Interpreting path hint as [String]. Count: \(stringPathHint.count). Hint: \(stringPathHint.joined(separator: " -> "))"))
+        return navigateToElement(from: rootElement, pathHint: stringPathHint, maxDepth: maxDepth)
+    } else if let jsonPathHint = pathHint as? [JSONPathHintComponent] {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Interpreting path hint as [JSONPathHintComponent]. Count: \(jsonPathHint.count). Hint: \(jsonPathHint.map { $0.descriptionForLog() }.joined(separator: " -> "))"))
+        let initialLogSegment = rootElement.role() == AXRoleNames.kAXApplicationRole ? "Application" : rootElement.briefDescription(option: ValueFormatOption.smart)
+        return navigateToElementByJSONPathHint(from: rootElement, jsonPathHint: jsonPathHint, overallMaxDepth: maxDepth, initialPathSegmentForLog: initialLogSegment)
+    } else {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "PathNav/GetEl: Path hint type is not [String] or [JSONPathHintComponent]. Hint: \(pathHint). Cannot navigate."))
+        return nil
+    }
+}
+
+@MainActor
+func findDescendantAtPath(
+    currentRoot: Element,
+    pathComponents: [PathStep],
     maxDepth: Int,
-    pathComponentForLog: String
-) async -> Element? {
-    let currentElementDesc = currentElement.briefDescription(option: .smart)
-    let matchTypeRawValue = matchType?.rawValue ?? "exact_fallback"
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: Visiting [\\(currentElementDesc)] at depth \\(currentDepth) (max: \\(maxDepth)) for criteria [\\(criteria)] (match: \\(matchTypeRawValue))"))
+    debugSearch: Bool
+) -> Element? {
+    var currentElement = currentRoot
+    logger.debug("PathNav/findDescendantAtPath: Starting path navigation. Initial root: \\(currentElement.briefDescription(option: .smart)). Path components: \\(pathComponents.count)")
 
-    // Check if current element matches
-    // elementMatchesAllCriteria is now synchronous
-    if await elementMatchesAllCriteria(currentElement, criteria: criteria, forPathComponent: pathComponentForLog) {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: [\\(currentElementDesc)] MATCHED criteria at depth \\(currentDepth). PathComponent: \\(pathComponentForLog)"))
-        return currentElement
-    }
+    for (_, component) in pathComponents.enumerated() {
+        // Log messages will use pathComponents.count if needed, index isn't critical for current logging
+        logger.debug("PathNav/findDescendantAtPath: Processing component. Current: \\(currentElement.briefDescription(option: .smart))")
+        
+        let searchVisitor = SearchVisitor(
+            criteria: component.criteria,
+            matchType: component.matchType ?? .exact,
+            matchAllCriteria: component.matchAllCriteria ?? true,
+            stopAtFirstMatch: true,
+            maxDepth: component.maxDepthForStep ?? 1
+        )
 
-    // If maxDepth reached or no children, stop descent
-    if currentDepth >= maxDepth {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: Max depth \\(maxDepth) reached for [\\(currentElementDesc)]. PathComponent: \\(pathComponentForLog). No deeper search."))
-        return nil
-    }
-
-    // Element.children() is now synchronous
-    guard let children = currentElement.children(), !children.isEmpty else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: [\\(currentElementDesc)] has no children or children array is empty. PathComponent: \\(pathComponentForLog). No deeper search."))
-        return nil
-    }
-
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: [\\(currentElementDesc)] has \\(children.count) children. Iterating..."))
-
-    for child in children {
-        // searchRecursiveForCriteria is now synchronous
-        if let matchedElement = await searchRecursiveForCriteria(
-            currentElement: child,
-            criteria: criteria,
-            matchType: matchType,
-            currentDepth: currentDepth + 1,
-            maxDepth: maxDepth,
-            pathComponentForLog: pathComponentForLog
-        ) {
-            return matchedElement // Found in a descendant
-        }
-    }
-
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/SearchRec: No match found in [\\(currentElementDesc)] or its descendants up to depth \\(maxDepth) for criteria. PathComponent: \\(pathComponentForLog)."))
-    return nil // Not found in this branch
-}
-
-// Determines the starting element for a search based on path hints.
-@MainActor
-func processJSONPathHintAndDetermineStartElement(
-    for appBundleID: String?,
-    windowTitleHint: String?,
-    pathHint: [JSONPathHintComponent]?
-) async -> Element? {
-    let logMessage = "PathNav/ProcJSONHint: app=\(appBundleID ?? "nil"), window=\(windowTitleHint ?? "nil"), hintCount=\(pathHint?.count ?? 0)"
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: logMessage))
-
-    var startSearchElement: Element? = nil
-
-    if let bundleID = appBundleID, !bundleID.isEmpty {
-        // Element.application(bundleIdentifier:) is now synchronous if we recreate it or use a sync alternative
-        // For now, assuming a synchronous way to get the app element:
-        guard let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/ProcJSONHint: No running application found for bundle ID '\\(bundleID)'."))
+        // Children of the current element are where we search for the next path component
+        logger.debug("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] Current element for child search: \\(currentElement.briefDescription(option: .smart))")
+        
+        guard let childrenToSearch = currentElement.children(strict: false), !childrenToSearch.isEmpty else {
+            logger.warning("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] No children found (or list was empty) for \\(currentElement.briefDescription(option: .smart)). Path navigation cannot proceed further down this branch.")
             return nil
         }
-        let appElement = Element(AXUIElementCreateApplication(runningApp.processIdentifier))
-        // Basic check if appElement is valid (e.g., by trying to get its role)
-        if appElement.role() == nil { // role() is sync
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/ProcJSONHint: Failed to create a valid application Element for PID \\(runningApp.processIdentifier) from bundleID '\\(bundleID)'. Role check failed."))
-            return nil
-        }
-        startSearchElement = appElement
-        let appDesc = startSearchElement?.briefDescription(option: .smart) ?? "nil"
-        let appDescMessage = "PathNav/ProcJSONHint: Set start element to application [\\(bundleID)] - [\\(appDesc)]"
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: appDescMessage))
+        logger.debug("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] Found \\(childrenToSearch.count) children to search.")
 
-        if let titleHint = windowTitleHint, !titleHint.isEmpty {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/ProcJSONHint: Window title hint '\\(titleHint)' provided. Searching for window in [\\(bundleID)]."))
-            // Search for the window within the application element
-            // Element.windows() and Element.title() are now synchronous
-            if let windows = startSearchElement?.windows() {
-                var foundWindow: Element? = nil
-                for window in windows {
-                    if let windowTitle = window.title(), windowTitle.contains(titleHint) {
-                        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/ProcJSONHint: Found matching window by title '\\(windowTitle)' (hint: '\\(titleHint)'))"))
-                        foundWindow = window
-                        break
-                    }
-                }
-                if let window = foundWindow {
-                    startSearchElement = window
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/ProcJSONHint: Updated start element to specific window [\\(window.briefDescription(option: .smart))]"))
-                } else {
-                    GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/ProcJSONHint: Window with title containing '\\(titleHint)' not found in application [\\(bundleID)]. "))
-                    return nil // Window hint provided but not found
-                }
-            } else {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/ProcJSONHint: Application [\\(bundleID)] has no windows or failed to retrieve them."))
-                return nil // App has no windows
+        var foundMatchForThisComponent: Element? = nil
+        for child in childrenToSearch {
+            searchVisitor.reset()
+            traverseAndSearch(element: child, visitor: searchVisitor, currentDepth: 0, maxDepth: component.maxDepthForStep ?? 1)
+            if let foundUnwrapped = searchVisitor.foundElement {
+                logger.info("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] MATCHED component criteria \\(component.descriptionForLog()) on child: \\(foundUnwrapped.briefDescription(option: ValueFormatOption.smart))")
+                foundMatchForThisComponent = foundUnwrapped
+                break
             }
         }
-    } else {
-        // No application specified, use system-wide element
-        startSearchElement = Element.systemWide() // systemWide() is sync
-        let systemWideDesc = startSearchElement?.briefDescription(option: .smart) ?? "nil"
-        let systemWideMessage = "PathNav/ProcJSONHint: No app bundle ID. Defaulting start element to system-wide [\\(systemWideDesc)]"
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: systemWideMessage))
-    }
 
-    guard let nonNilStartElement = startSearchElement else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "PathNav/ProcJSONHint: Could not determine a valid start search element."))
-        return nil
+        if let nextElement = foundMatchForThisComponent {
+            currentElement = nextElement
+            logger.debug("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] Advancing to next element: \\(currentElement.briefDescription(option: .smart))")
+        } else {
+            logger.warning("PathNav/findDescendantAtPath: [Component \\(pathComponentIndex + 1)] FAILED to find match for component criteria: \\(component.descriptionForLog()) within children of \\(currentElement.briefDescription(option: .smart))")
+            return nil
+        }
     }
-
-    // If there's a path hint, navigate from the determined start element
-    if let hintComponents = pathHint, !hintComponents.isEmpty {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/ProcJSONHint: Path hint provided (\\(hintComponents.count) components). Navigating from [\\(nonNilStartElement.briefDescription(option: .smart))]"))
-        // navigateToElementByJSONPathHint is now synchronous
-        return await navigateToElementByJSONPathHint(from: nonNilStartElement, pathHintComponents: hintComponents)
-    } else {
-        // No path hint, so the start element (app or window or systemWide) is the target
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/ProcJSONHint: No path hint. Returning determined start element: [\\(nonNilStartElement.briefDescription(option: .smart))]"))
-        return nonNilStartElement
-    }
+    logger.info("PathNav/findDescendantAtPath: Successfully navigated full path. Final element: \\(currentElement.briefDescription(option: .smart))")
+    return currentElement
 }

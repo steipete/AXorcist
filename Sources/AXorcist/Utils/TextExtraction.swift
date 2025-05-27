@@ -4,51 +4,66 @@ import ApplicationServices
 import Foundation
 
 @MainActor
-func extractTextFromElement(_ element: Element, maxDepth: Int = 2, currentDepth: Int = 0) async -> String? {
-    // Basic attributes first
-    var components: [String] = []
-
-    if let title: String = element.attribute(Attribute<String>.title) { components.append(title) }
-    if let value: String = element.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { components.append(value) }
-    if let description: String = element.attribute(Attribute<String>.description) { components.append(description) }
-    if let placeholder: String = element.attribute(Attribute<String>.placeholderValue) { components.append(placeholder) }
-    if let help: String = element.attribute(Attribute<String>.help) { components.append(help) }
-
-    // If we have some text, or we've reached max depth, return
-    if !components.isEmpty || currentDepth >= maxDepth {
-        let joinedText = components.filter { !$0.isEmpty }.joined(separator: " ")
-        if !joinedText.isEmpty {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction: Found text '\(joinedText)' at depth \(currentDepth) for element \(element.briefDescription(option: .smart))"))
-        }
-        return joinedText.isEmpty ? nil : joinedText
+public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, currentDepth: Int = 0) -> String? {
+    if currentDepth > maxDepth {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElement: Max depth reached for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+        return nil
     }
 
-    // Recursively check children if no text found yet and depth allows
-    if let children = element.children() {
+    // Attempt to get text from common attributes
+    if let title = element.title(), !title.isEmpty { return title }
+    if let value = element.value() as? String, !value.isEmpty { return value }
+    if let description = element.descriptionText(), !description.isEmpty { return description }
+    if let help = element.help(), !help.isEmpty { return help }
+
+    // If no direct text, try children
+    var childrenText: [String] = []
+    if let children = element.children() { // children() is now synchronous
         for child in children {
-            if let childText = await extractTextFromElement(child, maxDepth: maxDepth, currentDepth: currentDepth + 1) {
-                components.append(childText)
+            if let childText = extractTextFromElement(child, maxDepth: maxDepth, currentDepth: currentDepth + 1) { // Removed await
+                childrenText.append(childText)
             }
         }
     }
 
-    let finalText = components.filter { !$0.isEmpty }.joined(separator: " ")
-    if !finalText.isEmpty {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction: Aggregated text '\(finalText)' at depth \(currentDepth) for element \(element.briefDescription(option: .smart))"))
+    if !childrenText.isEmpty {
+        return childrenText.joined(separator: " ")
     }
-    return finalText.isEmpty ? nil : finalText
+
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElement: No text found for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+    return nil
+}
+
+@MainActor
+public func extractTextFromElementNonRecursive(_ element: Element) -> String? {
+    // Try attributes that often hold primary text
+    if let title = element.title(), !title.isEmpty { return title }
+    if let value = element.value() as? String, !value.isEmpty { return value }
+    if let description = element.descriptionText(), !description.isEmpty { return description }
+
+    // Fallback to a broader set if primary ones fail
+    // if let placeholder = element.placeholderValue(), !placeholder.isEmpty { return placeholder }
+    if let help = element.help(), !help.isEmpty { return help }
+
+    // Consider role description as a last resort if it's textual and meaningful
+    // This might be too generic in many cases, so it's lower priority.
+    // let roleDesc = element.roleDescription()
+    // if let roleDesc = roleDesc, !roleDesc.isEmpty { return roleDesc }
+    
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElementNonRecursive: No direct text found for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+    return nil
 }
 
 // More focused text extraction, typically used by handlers.
 @MainActor
-func getElementTextualContent(element: Element, includeChildren: Bool = false, maxDepth: Int = 1, currentDepth: Int = 0) async -> String? {
+func getElementTextualContent(element: Element, includeChildren: Bool = false, maxDepth: Int = 1, currentDepth: Int = 0) -> String? {
     var textPieces: [String] = []
 
     // Prioritize attributes common for text content
     if let title: String = element.attribute(Attribute<String>.title) { textPieces.append(title) }
     if let value: String = element.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { textPieces.append(value) }
     if let description: String = element.attribute(Attribute<String>.description) { textPieces.append(description) }
-    if let placeholder: String = element.attribute(Attribute<String>.placeholderValue) { textPieces.append(placeholder) }
+    // if let placeholder: String = element.attribute(Attribute<String>.placeholderValue) { textPieces.append(placeholder) }
     // Less common but potentially useful
     // if let help: String = element.attribute(Attribute.help) { textPieces.append(help) }
     // if let selectedText: String = element.attribute(Attribute.selectedText) { textPieces.append(selectedText) }
@@ -59,7 +74,8 @@ func getElementTextualContent(element: Element, includeChildren: Bool = false, m
         if let children = element.children() {
             var childTexts: [String] = []
             for child in children {
-                if let childTextContent = await getElementTextualContent(element: child, includeChildren: true, maxDepth: maxDepth, currentDepth: currentDepth + 1) {
+                // Recursive call is now synchronous
+                if let childTextContent = getElementTextualContent(element: child, includeChildren: true, maxDepth: maxDepth, currentDepth: currentDepth + 1) {
                     childTexts.append(childTextContent)
                 }
             }
@@ -80,10 +96,10 @@ func getElementTextualContent(element: Element, includeChildren: Bool = false, m
     }
     
     if !joinedDirectText.isEmpty {
-         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: Extracted '\(joinedDirectText)' for element \(element.briefDescription(option: .smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
+         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: Extracted '\(joinedDirectText)' for element \(element.briefDescription(option: ValueFormatOption.smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
         return joinedDirectText
     }
     
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: No direct text found for \(element.briefDescription(option: .smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: No direct text found for \(element.briefDescription(option: ValueFormatOption.smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
     return nil
 }

@@ -8,6 +8,13 @@ import Foundation
 // MARK: - Version and Configuration
 let axorcVersion = "0.1.2a-config_fix"
 
+// MARK: - Shared Error Detail
+
+// Moved ErrorDetail to be a top-level struct
+struct ErrorDetail: Codable {
+    let message: String
+}
+
 // MARK: - Response Models
 // These should align with structs in AXorcistIntegrationTests.swift
 
@@ -32,9 +39,6 @@ struct SimpleSuccessResponse: Codable {
 struct ErrorResponse: Codable {
     let commandId: String
     var success: Bool = false // Default to false for errors
-    struct ErrorDetail: Codable {
-        let message: String
-    }
     let error: ErrorDetail
     let debugLogs: [String]?
 
@@ -72,7 +76,7 @@ struct QueryResponse: Codable {
     let success: Bool
     let command: String // Name of the command, e.g., "getFocusedElement"
     let data: AXElementForEncoding? // Contains the AX element's data, adapted for encoding
-    let error: ErrorResponse.ErrorDetail?
+    let error: ErrorDetail?
     let debugLogs: [String]?
 
     enum CodingKeys: String, CodingKey {
@@ -96,7 +100,7 @@ struct QueryResponse: Codable {
             self.data = nil
         }
         if let errorMsg = handlerResponse.error {
-            self.error = ErrorResponse.ErrorDetail(message: errorMsg)
+            self.error = ErrorDetail(message: errorMsg)
         } else {
             self.error = nil
         }
@@ -116,7 +120,7 @@ struct QueryResponse: Codable {
         self.command = command ?? "unknown"
         self.data = axElement != nil ? AXElementForEncoding(from: axElement!) : nil
         if let errorMessage = error {
-            self.error = ErrorResponse.ErrorDetail(message: errorMessage)
+            self.error = ErrorDetail(message: errorMessage)
         } else {
             self.error = nil
         }
@@ -137,6 +141,45 @@ struct BatchResponse: Codable {
         case debugLogs
     }
 }
+
+// For batch operations that may have mixed results
+struct BatchQueryResponse: Codable {
+    let commandId: String
+    let status: String
+    var message: String?
+    var data: [AnyCodable?]?
+    var errors: [String]?
+    var debugLogs: [String]?
+    
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case status
+        case message
+        case data
+        case errors
+        case debugLogs
+    }
+}
+
+// Generic query response for commands (renamed to avoid conflict)
+struct GenericQueryResponse: Codable {
+    let commandId: String
+    let commandType: String
+    let status: String
+    let data: AnyCodable?
+    let message: String?
+    var debugLogs: [String]?
+    
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case commandType
+        case status
+        case data
+        case message
+        case debugLogs
+    }
+}
+
 
 // Helper for DecodingError display
 extension DecodingError {

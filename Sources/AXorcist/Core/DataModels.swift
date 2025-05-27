@@ -1,9 +1,69 @@
 // Models.swift - Contains core data models and type aliases
 
 import Foundation
+import ApplicationServices // Added for AXUIElementGetTypeID
 
 // Type alias for element attributes dictionary
 public typealias ElementAttributes = [String: AnyCodable]
+
+// Wrapper for attribute values to make them Codable and handle Any
+public struct AXValueWrapper: Codable, Sendable {
+    public var anyValue: AnyCodable? // This can be nil if the attribute itself had no value or was absent
+
+    @MainActor // Added @MainActor to allow calling element.briefDescription
+    public init(value: Any?) {
+        let typeOfOriginalValue = String(describing: type(of: value))
+        axDebugLog("AXVW.init: OrigType='\(typeOfOriginalValue)', Val=\(String(describing: value).prefix(100))")
+
+        if let unwrappedValue = value {
+            let typeOfUnwrappedValue = String(describing: type(of: unwrappedValue))
+            axDebugLog("AXVW.init: UnwrappedType='\(typeOfUnwrappedValue)'")
+
+            if let array = unwrappedValue as? [Any?] {
+                axDebugLog("AXVW.init: Detected Array. Count: \(array.count)")
+                // Sanitize each item and wrap the resulting array of sanitized items in AnyCodable
+                self.anyValue = AnyCodable(array.map { AXValueWrapper.recursivelySanitize($0) })
+            } else if let dict = unwrappedValue as? [String: Any?] {
+                axDebugLog("AXVW.init: Detected Dictionary. Count: \(dict.count)")
+                self.anyValue = AnyCodable(dict.mapValues { AXValueWrapper.recursivelySanitize($0) })
+            } else {
+                // Handle single, non-collection items
+                self.anyValue = AnyCodable(AXValueWrapper.recursivelySanitize(unwrappedValue))
+            }
+        } else { // value was nil (absence of value)
+            axDebugLog("AXVW.init: Original value was nil.")
+            self.anyValue = nil // The AXValueWrapper's own anyValue property is nil
+        }
+    }
+
+    // Static helper to sanitize individual items, called recursively by init for collections
+    @MainActor
+    private static func recursivelySanitize(_ item: Any?) -> Any { // Returns Any (basic types or () for nil)
+        guard let anItem = item else { return () } // Convert nil to AnyCodable's nil marker
+        let cfItem = anItem as CFTypeRef
+        if CFGetTypeID(cfItem) == CFNullGetTypeID() { return () } // NSNull to AnyCodable's nil
+        if CFGetTypeID(cfItem) == AXUIElementGetTypeID() { return "<AXUIElement_RS>" }
+        if let element = anItem as? Element { return "<Element_RS: \(element.briefDescription(option: .raw))>" }
+
+        // If it's a collection, recurse. This handles nested collections.
+        // Note: This recursive call inside a static func might lead to issues if not careful with types.
+        // However, we are returning basic types or placeholders from the checks above.
+        if let array = anItem as? [Any?] {
+            return array.map { recursivelySanitize($0) }
+        }
+        if let dict = anItem as? [String: Any?] {
+            return dict.mapValues { recursivelySanitize($0) }
+        }
+        
+        // For basic, already encodable types, return as is.
+        // This assumes String, Int, Double, Bool are passed through.
+        return anItem 
+    }
+
+    // If AnyCodable has trouble with certain AX types (like AXUIElementRef),
+    // custom Encodable/Decodable logic might be needed here or in AnyCodable itself.
+    // For instance, AXUIElementRef might be encoded as a placeholder string or an empty dict.
+}
 
 public struct AXElement: Codable, HandlerDataRepresentable {
     public var attributes: ElementAttributes?

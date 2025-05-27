@@ -20,6 +20,9 @@ public class GlobalAXLogger {
     // Callers must ensure main-thread execution for all logger interactions.
 
     public var isJSONLoggingEnabled: Bool = false // Direct access, assuming main-thread safety
+    // Instance properties for logging control, moved from extension
+    public var isLoggingEnabled: Bool = false
+    public var detailLevel: AXLogDetailLevel = .normal
 
     private init() {
         if let envVar = ProcessInfo.processInfo.environment["AXORC_JSON_LOG_ENABLED"], envVar.lowercased() == "true" {
@@ -31,6 +34,13 @@ public class GlobalAXLogger {
     // MARK: - Logging Core
     // Assumes this method is always called on the main thread.
     public func log(_ entry: AXLogEntry) {
+        guard self.isLoggingEnabled else { return }
+        // Use fully qualified enum cases
+        if entry.level == .debug && self.detailLevel != AXLogDetailLevel.verbose {
+            if self.detailLevel == AXLogDetailLevel.minimal { return }
+            if self.detailLevel == AXLogDetailLevel.normal && entry.level == .debug { return } 
+        }
+
         let condensedMessage: String = {
             if entry.message.count > maxMessageLength {
                 let prefix = entry.message.prefix(maxMessageLength)
@@ -128,27 +138,27 @@ public class GlobalAXLogger {
 // MARK: - Global Logging Functions (Convenience Wrappers)
 // These are synchronous and assume GlobalAXLogger.shared.log is safe to call directly (i.e., from main thread).
 
-public func axDebugLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axDebugLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
     let entry = AXLogEntry(level: .debug, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axInfoLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axInfoLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
     let entry = AXLogEntry(level: .info, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axWarningLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axWarningLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
     let entry = AXLogEntry(level: .warning, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axErrorLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axErrorLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
     let entry = AXLogEntry(level: .error, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axFatalLog(_ message: String, details: [String: String]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axFatalLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
     let entry = AXLogEntry(level: .critical, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }

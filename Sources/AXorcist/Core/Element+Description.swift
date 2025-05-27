@@ -78,7 +78,7 @@ extension Element {
     private func handleEmptyDescription() -> String {
         axDebugLog(
             "briefDescription: No descriptive attributes found, falling back to underlyingElement description.",
-            details: ["element": String(describing: self.underlyingElement)]
+            details: ["element": AnyCodable(String(describing: self.underlyingElement))]
         )
         return String(describing: self.underlyingElement)
     }

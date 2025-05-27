@@ -1,15 +1,19 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
-import ArgumentParser
-import AXorcist // For AXorcist instance
 import Foundation
 import CoreFoundation
+@preconcurrency import ArgumentParser
+import AXorcist // For AXorcist instance
+
+// axorcVersion is now defined in AXORCModels.swift
+// let axorcVersion = "0.1.0-dev" 
 
 @main
-struct AXORCCommand: AsyncParsableCommand {
+struct AXORCCommand: @preconcurrency ParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
-        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(axorcVersion)"
+        // Use axorcVersion from AXORCModels.swift or a shared constant place
+        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \\(axorcVersion)" 
     )
 
     @Flag(name: .long, help: "Enable debug logging for the command execution.")
@@ -30,12 +34,13 @@ struct AXORCCommand: AsyncParsableCommand {
     var directPayload: String?
 
     // Helper function to process and execute a CommandEnvelope
-    private func processAndExecuteCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) async {
+    @MainActor
+    private func processAndExecuteCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) {
         if debugCLI {
             axDebugLog("Successfully parsed command: \(command.command) (ID: \(command.commandId))")
         }
 
-        let resultJsonString = await CommandExecutor.execute(
+        let resultJsonString = CommandExecutor.execute(
             command: command,
             axorcist: axorcist,
             debugCLI: debugCLI
@@ -47,9 +52,9 @@ struct AXORCCommand: AsyncParsableCommand {
             var observerSetupSucceeded = false
             if let resultData = resultJsonString.data(using: .utf8) {
                 do {
-                    if let json = try JSONSerialization.jsonObject(with: resultData, options: []) as? [String: Any],
-                       let success = json["success"] as? Bool,
-                       let status = json["status"] as? String {
+                    if let jsonOutput = try JSONSerialization.jsonObject(with: resultData, options: []) as? [String: Any],
+                       let success = jsonOutput["success"] as? Bool,
+                       let status = jsonOutput["status"] as? String {
                         axInfoLog("AXORCMain: Parsed initial response for observe: success=\(success), status=\(status)")
                         if success && status == "observer_started" {
                             observerSetupSucceeded = true
@@ -68,34 +73,43 @@ struct AXORCCommand: AsyncParsableCommand {
             }
 
             if observerSetupSucceeded {
-                axInfoLog("AXORCMain: Observer setup successful. Process will remain alive.")
+                axInfoLog("AXORCMain: Observer setup successful. Process will remain alive by running current RunLoop.")
                 #if DEBUG
-                axInfoLog("AXORCMain: DEBUG mode - launching dedicated run-loop thread for observer.")
-                Thread.detachNewThread { CFRunLoopRun() }
-                axInfoLog("AXORCMain: DEBUG mode - main task entering infinite sleep loop.")
-                while true {
-                    do { try await Task.sleep(nanoseconds: 3_600_000_000_000) }
-                    catch { axInfoLog("AXORCMain: Main task sleep interrupted."); break }
-                }
+                axInfoLog("AXORCMain: DEBUG mode - entering RunLoop.current.run() for observer.")
+                RunLoop.current.run()
+                axInfoLog("AXORCMain: DEBUG mode - RunLoop.current.run() finished.")
                 #else
-                fputs("{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases and will not run indefinitely in this release build. Exiting.\"}\n", stderr)
+                fputs("{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases. In release, it sets up the observer but will not keep the process alive indefinitely by itself. Exiting normally after setup.\"}\n", stderr)
                 fflush(stderr)
-                Foundation.exit(EXIT_FAILURE)
                 #endif
             } else {
                 axErrorLog("AXORCMain: Observe command setup reported failure or result was not a success status. Exiting.")
             }
         } else {
-            axClearLogs() // Clear logs for non-observe commands after execution
+            axClearLogs()
         }
     }
 
-    mutating func run() async throws {
-        // Configure GlobalAXLogger based on debug flag
-        await GlobalAXLogger.shared.setLoggingEnabled(debug)
-        await GlobalAXLogger.shared.setDetailLevel(debug ? .verbose : .minimal)
+    @MainActor
+    mutating func run() throws {
+        fputs("AXORCMain.run: VERY FIRST LINE EXECUTED.\n", stderr)
+        fflush(stderr)
 
-        // Parse input using InputHandler
+        GlobalAXLogger.shared.isLoggingEnabled = debug
+        GlobalAXLogger.shared.detailLevel = debug ? .verbose : .minimal
+
+        // Confirm settings
+        fputs("AXORCMain.run: CLI --debug flag is: \(debug). Logger enabled: \(GlobalAXLogger.shared.isLoggingEnabled).\n", stderr)
+        fflush(stderr)
+
+        // <<< TEST LOGGING START >>>
+        axErrorLog("AXORCMain.run: TEST ERROR LOG -- SHOULD ALWAYS APPEAR IN DEBUG OUTPUT IF LOGS ARE PRINTED")
+        axDebugLog("AXORCMain.run: TEST DEBUG LOG -- SHOULD APPEAR IF CLI --debug IS ON")
+        if debug {
+            fputs("AXORCMain.run: STDERR - CLI --debug IS ON. TEST LOGGING.\n", stderr)
+        }
+        // <<< TEST LOGGING END >>>
+
         let inputResult = InputHandler.parseInput(
             stdin: stdin,
             file: file,
@@ -103,9 +117,10 @@ struct AXORCCommand: AsyncParsableCommand {
             directPayload: directPayload
         )
 
-        // Handle input errors
+        let axorcistInstance = AXorcist.shared // Use the shared instance
+
         if let error = inputResult.error {
-            let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
+            let collectedLogs = debug ? GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
             let errorResponse = ErrorResponse(commandId: "input_error", error: error, debugLogs: collectedLogs)
             if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonString = String(data: jsonData, encoding: .utf8) {
                 print(jsonString)
@@ -116,7 +131,7 @@ struct AXORCCommand: AsyncParsableCommand {
         }
 
         guard let jsonStringFromInput = inputResult.jsonString else {
-            let collectedLogs = debug ? await GlobalAXLogger.shared.getLogsAsStrings(format: .text, includeTimestamps: true, includeLevels: true, includeDetails: true) : nil
+            let collectedLogs = debug ? GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
             let errorResponse = ErrorResponse(commandId: "no_input", error: "No valid JSON input received", debugLogs: collectedLogs)
             if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonStr = String(data: jsonData, encoding: .utf8) {
                 print(jsonStr)
@@ -128,37 +143,90 @@ struct AXORCCommand: AsyncParsableCommand {
         axDebugLog("AXORCMain Test: Received jsonStringFromInput: [\(jsonStringFromInput)] (length: \(jsonStringFromInput.count))")
 
         if let data = jsonStringFromInput.data(using: .utf8) {
-            let axorcist = AXorcist()
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             do {
-                // Attempt 1: Decode as [CommandEnvelope]
                 let commands = try decoder.decode([CommandEnvelope].self, from: data)
                 if let command = commands.first {
                     axDebugLog("AXORCMain Test: Decode attempt 1: Successfully decoded [CommandEnvelope] and got first command.")
-                    await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
+                    processAndExecuteCommand(command: command, axorcist: axorcistInstance, debugCLI: debug)
                 } else {
                     axDebugLog("AXORCMain Test: Decode attempt 1: Decoded [CommandEnvelope] but array was empty.")
-                    // Create a generic error to throw if this path is problematic
                     let anError = NSError(domain: "AXORCErrorDomain", code: 1001, userInfo: [NSLocalizedDescriptionKey: "Decoded empty command array from [CommandEnvelope] attempt."])
                     throw anError
                 }
             } catch let arrayDecodeError {
                 axDebugLog("AXORCMain Test: Decode attempt 1 (as [CommandEnvelope]) FAILED. Error: \(arrayDecodeError). Will try as single CommandEnvelope.")
-                // Attempt 2: Decode as single CommandEnvelope
                 do {
-                    let command = try decoder.decode(CommandEnvelope.self, from: data) // data is still from jsonStringFromInput
+                    let command = try decoder.decode(CommandEnvelope.self, from: data)
                     axDebugLog("AXORCMain Test: Decode attempt 2: Successfully decoded as SINGLE CommandEnvelope.")
-                    await processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
+                    processAndExecuteCommand(command: command, axorcist: axorcistInstance, debugCLI: debug)
                 } catch let singleDecodeError {
                      axDebugLog("AXORCMain Test: Decode attempt 2 (as single CommandEnvelope) ALSO FAILED. Error: \(singleDecodeError). Original array decode error was: \(arrayDecodeError)")
-                    throw singleDecodeError // Throw the error from the single decode attempt as it's the most direct if input was not an array
+                    let errorResponse = ErrorResponse(commandId: "decode_error", error: "Failed to decode JSON input: \(singleDecodeError.localizedDescription)", debugLogs: debug ? axGetLogsAsStrings() : nil)
+                    if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonErrorString = String(data: jsonData, encoding: .utf8) {
+                        print(jsonErrorString)
+                    } else {
+                         print("{\"error\": \"Failed to encode decode error response: \(singleDecodeError.localizedDescription)\"}")
+                    }
+                    return
                 }
             }
         } else {
             axDebugLog("AXORCMain Test: Failed to convert jsonStringFromInput to data.")
-            let anError = NSError(domain: "AXORCErrorDomain", code: 1002, userInfo: [NSLocalizedDescriptionKey: "Failed to convert jsonStringFromInput to data."])
-            throw anError
+            let errorResponse = ErrorResponse(commandId: "data_conversion_error", error: "Failed to convert JSON string to data", debugLogs: debug ? axGetLogsAsStrings() : nil)
+            if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonErrorString = String(data: jsonData, encoding: .utf8) {
+                print(jsonErrorString)
+            } else {
+                print("{\"error\": \"Failed to encode data conversion error response\"}")
+            }
+            return
+        }
+        
+        // After processing all commands or if an error occurs
+        if debug && commandShouldPrintLogsAtEnd() {
+            let logMessages = axGetLogsAsStrings(format: .text)
+            if !logMessages.isEmpty {
+                fputs("\n--- Debug Logs (axorc run end) ---\n", stderr)
+                for logMessage in logMessages {
+                    fputs(logMessage + "\n", stderr)
+                }
+                fputs("--- End Debug Logs ---\n", stderr)
+                fflush(stderr)
+            }
         }
     }
+    
+    @MainActor
+    private func commandShouldPrintLogsAtEnd() -> Bool {
+        // This is a simplified check. A more robust way would be to check
+        // the actual command type if it's available here.
+        // For now, if stdin is true or json is provided, assume it might be an observe command.
+        // This is imperfect.
+        // Remove try? if InputHandler.parseInput is not throwing
+        if let jsonString = InputHandler.parseInput(stdin: stdin, file: file, json: json, directPayload: directPayload).jsonString,
+           let inputData = jsonString.data(using: .utf8) { // Corrected optional chaining and conditional binding
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let commands = try? decoder.decode([CommandEnvelope].self, from: inputData),
+               commands.first?.command == .observe {
+                return false
+            }
+            if let command = try? decoder.decode(CommandEnvelope.self, from: inputData),
+               command.command == .observe {
+                return false
+            }
+        }
+        return true
+    }
 }
+
+// ErrorResponse struct is now defined in AXORCModels.swift
+// struct ErrorResponse: Codable {
+// var commandId: String
+// var status: String = "error"
+// var error: String
+// var debugLogs: [String]?
+// }
+
+// Removed placeholder GlobalAXLogger extension as it was moved/integrated previously

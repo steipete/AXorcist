@@ -48,6 +48,21 @@ extension HandlerResponse {
     }
 }
 
+// MARK: - AXResponse Integration
+
+extension HandlerResponse {
+    /// Creates a HandlerResponse from an AXResponse
+    /// - Parameter axResponse: The AXResponse to convert
+    public init(from axResponse: AXResponse) {
+        switch axResponse {
+        case .success(let payload, _):
+            self.init(data: payload, error: nil)
+        case .error(let message, _, _):
+            self.init(data: nil, error: message)
+        }
+    }
+}
+
 // MARK: - Error Structure for Detailed Errors (Example)
 
 /// An example structure for providing more detailed error information if needed.

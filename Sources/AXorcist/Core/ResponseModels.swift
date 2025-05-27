@@ -2,8 +2,109 @@
 
 import Foundation
 
+// MARK: - AXErrorCode
+
+// Error codes for AXorcist operations
+public enum AXErrorCode: String, Codable, Sendable {
+    case elementNotFound = "element_not_found"
+    case actionFailed = "action_failed"
+    case attributeNotFound = "attribute_not_found"
+    case invalidCommand = "invalid_command"
+    case unknownCommand = "unknown_command"
+    case internalError = "internal_error"
+    case permissionDenied = "permission_denied"
+    case invalidParameter = "invalid_parameter"
+    case timeout = "timeout"
+    case observationFailed = "observation_failed"
+    case applicationNotFound = "application_not_found"
+    case batchOperationFailed = "batch_operation_failed"
+    case actionNotSupported = "action_not_supported"
+}
+
+// MARK: - AXResponse
+
+// Main response enum for AXorcist operations
+public enum AXResponse: Sendable {
+    case success(payload: AnyCodable?, logs: [String]?)
+    case error(message: String, code: AXErrorCode, logs: [String]?)
+    
+    // Computed property for status
+    public var status: String {
+        switch self {
+        case .success: return "success"
+        case .error: return "error"
+        }
+    }
+    
+    // Computed property for payload
+    public var payload: AnyCodable? {
+        switch self {
+        case .success(let payload, _): return payload
+        case .error: return nil
+        }
+    }
+    
+    // Computed property for error
+    public var error: (message: String, code: AXErrorCode)? {
+        switch self {
+        case .success: return nil
+        case .error(let message, let code, _): return (message, code)
+        }
+    }
+    
+    // Computed property for logs
+    public var logs: [String]? {
+        switch self {
+        case .success(_, let logs): return logs
+        case .error(_, _, let logs): return logs
+        }
+    }
+    
+    // Static factory methods
+    public static func successResponse(payload: AnyCodable?, logs: [String]? = nil) -> AXResponse {
+        return .success(payload: payload, logs: logs)
+    }
+    
+    public static func errorResponse(message: String, code: AXErrorCode, logs: [String]? = nil) -> AXResponse {
+        return .error(message: message, code: code, logs: logs)
+    }
+}
+
 // New protocol for generic data in HandlerResponse
 public protocol HandlerDataRepresentable: Codable {}
+
+// Definition for AXElementData based on usage in AXorcist+QueryHandlers.swift
+public struct AXElementData: Codable, HandlerDataRepresentable {
+    public var briefDescription: String?
+    public var role: String?
+    public var attributes: [String: AXValueWrapper]? // Assuming AXValueWrapper is Codable
+    public var allPossibleAttributes: [String]?
+    public var textualContent: String?
+    public var childrenBriefDescriptions: [String]?
+    public var fullAXDescription: String?
+    // Add path here as it's often part of element data
+    public var path: [String]? 
+
+    public init(
+        briefDescription: String? = nil,
+        role: String? = nil,
+        attributes: [String: AXValueWrapper]? = nil,
+        allPossibleAttributes: [String]? = nil,
+        textualContent: String? = nil,
+        childrenBriefDescriptions: [String]? = nil,
+        fullAXDescription: String? = nil,
+        path: [String]? = nil
+    ) {
+        self.briefDescription = briefDescription
+        self.role = role
+        self.attributes = attributes
+        self.allPossibleAttributes = allPossibleAttributes
+        self.textualContent = textualContent
+        self.childrenBriefDescriptions = childrenBriefDescriptions
+        self.fullAXDescription = fullAXDescription
+        self.path = path
+    }
+}
 
 // Make existing relevant models conform
 // AXElement is defined in DataModels.swift, so we'll make it conform there later.
@@ -258,6 +359,59 @@ public struct BatchResponse: Codable {
         self.results = results
         self.error = error
         self.debugLogs = debugLogs
+    }
+}
+
+// MARK: - Additional Payload Structs
+
+// NoFocusPayload for when no focused element is found
+public struct NoFocusPayload: Codable, HandlerDataRepresentable {
+    public let message: String
+    
+    public init(message: String) {
+        self.message = message
+    }
+}
+
+// TextPayload for text extraction
+public struct TextPayload: Codable, HandlerDataRepresentable {
+    public let text: String
+    
+    public init(text: String) {
+        self.text = text
+    }
+}
+
+// BatchResponsePayload for batch operations
+public struct BatchResponsePayload: Codable, HandlerDataRepresentable {
+    public let results: [AnyCodable?]?
+    public let errors: [String]?
+    
+    public init(results: [AnyCodable?]?, errors: [String]?) {
+        self.results = results
+        self.errors = errors
+    }
+}
+
+// MARK: - AXElementDescription
+
+// Structure for element tree descriptions
+public struct AXElementDescription: Codable, Sendable {
+    public let briefDescription: String?
+    public let role: String?
+    public let attributes: [String: AXValueWrapper]?
+    public let children: [AXElementDescription]?
+    
+    public init(
+        briefDescription: String?,
+        role: String?,
+        attributes: [String: AXValueWrapper]?,
+        children: [AXElementDescription]? = nil
+    ) {
+        self.briefDescription = briefDescription
+        self.role = role
+        self.attributes = attributes
+        self.children = children
     }
 }
 

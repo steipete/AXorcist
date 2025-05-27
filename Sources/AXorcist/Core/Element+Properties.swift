@@ -58,7 +58,7 @@ extension Element {
         } else {
             // Use the global axDebugLog helper function for simplicity and correctness
             axDebugLog("Failed to get PID for element: \(error.rawValue)", 
-                       details: ["element": String(describing: self.underlyingElement)])
+                       details: ["element": AnyCodable(String(describing: self.underlyingElement))])
         }
         return nil
     }

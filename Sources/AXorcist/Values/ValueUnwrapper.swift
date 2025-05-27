@@ -52,6 +52,9 @@ struct ValueUnwrapper {
         let axVal = value as! AXValue
         let axValueType = axVal.valueType
 
+        // Log the AXValueType
+        axDebugLog("ValueUnwrapper.unwrapAXValue: Encountered AXValue with type: \(axValueType) (rawValue: \(axValueType.rawValue))")
+
         // Handle special boolean type
         if axValueType.rawValue == 4 { // kAXValueBooleanType (private)
             var boolResult: DarwinBoolean = false
@@ -61,7 +64,9 @@ struct ValueUnwrapper {
         }
 
         // Use new AXValue extensions for cleaner unwrapping
-        return axVal.value()
+        let unwrappedExtensionValue = axVal.value()
+        axDebugLog("ValueUnwrapper.unwrapAXValue: axVal.value() returned: \(String(describing: unwrappedExtensionValue)) for type: \(axValueType)")
+        return unwrappedExtensionValue
     }
 
     @MainActor

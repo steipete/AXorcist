@@ -286,7 +286,7 @@ public enum AXRoleNames {
 }
 
 // MARK: - Accessibility Notification Names (Moved from AXNotificationConstants.swift)
-public enum AXNotification: String {
+public enum AXNotification: String, Sendable {
     // System-Wide Notifications
     case mainWindowChanged = "AXMainWindowChanged" // kAXMainWindowChangedNotification
     case focusedWindowChanged = "AXFocusedWindowChanged" // kAXFocusedWindowChangedNotification
@@ -340,6 +340,21 @@ public enum AXNotification: String {
 // MARK: - Miscellaneous Accessibility Constants
 public enum AXMiscConstants {
     public static let axBinaryVersion = "0.8.0" // AXorcist version for this constants file
+
+    // Default attributes to fetch when none are specified
+    public static let defaultAttributesToFetch: [String] = [
+        AXAttributeNames.kAXRoleAttribute,
+        AXAttributeNames.kAXSubroleAttribute,
+        AXAttributeNames.kAXTitleAttribute,
+        AXAttributeNames.kAXValueAttribute,
+        AXAttributeNames.kAXIdentifierAttribute,
+        AXAttributeNames.kAXDescriptionAttribute,
+        AXAttributeNames.kAXEnabledAttribute,
+        AXAttributeNames.kAXFocusedAttribute,
+        AXAttributeNames.kAXPositionAttribute,
+        AXAttributeNames.kAXSizeAttribute,
+        AXAttributeNames.kAXChildrenAttribute // To get an idea of hierarchy
+    ]
 
     // Default values for collection and search
     public static let defaultMaxDepthCollectAll = 5

@@ -381,4 +381,30 @@ extension Element {
         }
         return Element.application(for: pid) // application(for:) is sync
     }
+
+    @MainActor
+    public static func elementAtPoint(_ point: CGPoint, pid: pid_t) -> Element? {
+        let appAXUIElement = AXUIElement.application(pid: pid)
+        guard let elementAXUIElement = AXUIElement.elementAtPosition(in: appAXUIElement, x: Float(point.x), y: Float(point.y)) else {
+            return nil
+        }
+        return Element(elementAXUIElement)
+    }
+    
+    // MARK: - Path Generation
+    
+    @MainActor
+    public func path() -> Path? {
+        let pathArray = self.generatePathArray()
+        return Path(components: pathArray)
+    }
+}
+
+// Path structure to represent element path
+public struct Path {
+    public let components: [String]
+    
+    public init(components: [String]) {
+        self.components = components
+    }
 }

@@ -8,6 +8,19 @@ public enum AXLogLevel: String, Codable, Sendable, CaseIterable {
     case critical // For errors that might lead to a crash or critical malfunction
 }
 
+// Added AXLogDetailLevel
+public enum AXLogDetailLevel: String, Codable, Sendable, CaseIterable {
+    case minimal   // Only critical/error messages
+    case normal    // Info, warning, error, critical
+    case verbose   // Debug, info, warning, error, critical (all messages)
+}
+
+// Added AXLogOutputFormat
+public enum AXLogOutputFormat: String, Codable, Sendable, CaseIterable {
+    case text
+    case json
+}
+
 public struct AXLogEntry: Codable, Sendable, Identifiable {
     public let id: UUID
     public let timestamp: Date
@@ -16,7 +29,7 @@ public struct AXLogEntry: Codable, Sendable, Identifiable {
     public let file: String?
     public let function: String?
     public let line: Int?
-    public let details: [String: String]? // Optional dictionary for structured details
+    public let details: [String: AnyCodable]? // Changed to AnyCodable
 
     public init(
         id: UUID = UUID(),
@@ -26,7 +39,7 @@ public struct AXLogEntry: Codable, Sendable, Identifiable {
         file: String? = #file,
         function: String? = #function,
         line: Int? = #line,
-        details: [String: String]? = nil
+        details: [String: AnyCodable]? = nil // Changed to AnyCodable
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -71,7 +84,19 @@ extension AXLogEntry {
         logParts.append("- \(message)")
 
         if let details = details, !details.isEmpty {
-            logParts.append("Details: \(details.map { key, value in "\(key): \(value)" }.joined(separator: ", "))")
+            // Simplified details formatting for AnyCodable
+            let detailString = details.map { key, value in
+                let valueStr: String
+                if let v = value.value as? String {
+                    valueStr = v
+                } else if let v = value.value as? CustomStringConvertible {
+                    valueStr = v.description
+                } else {
+                    valueStr = String(describing: value.value)
+                }
+                return "\(key): \(valueStr)"
+            }.joined(separator: ", ")
+            logParts.append("Details: [\(detailString)]")
         }
 
         return logParts.joined(separator: " ")
