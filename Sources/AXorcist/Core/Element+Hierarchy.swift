@@ -86,6 +86,7 @@ extension Element {
             AXAttributeNames.kAXApplicationNavigationAttribute, AXAttributeNames.kAXApplicationElementsAttribute,
             AXAttributeNames.kAXBodyAreaAttribute, AXAttributeNames.kAXSplitGroupContentsAttribute,
             AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
+            AXAttributeNames.kAXContentsAttribute, "AXChildrenInNavigationOrder",
             AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
             AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute
         ]
@@ -137,7 +138,10 @@ extension Element {
 }
 
 // MARK: - Child Collection Helper
-private let maxChildrenPerElement = 500
+/// Upper bound for how many children we will collect from a single element before we stop.  Some web
+/// containers expose thousands of flattened descendants; 50 000 is high enough to reach any realistic
+/// UI while still protecting against infinite recursion / runaway memory.
+private let maxChildrenPerElement = 50_000
 
 private struct ChildCollector {
     private var collectedChildren: [Element] = []
