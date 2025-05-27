@@ -27,6 +27,12 @@ public func findTargetElement(
     // Use criteriaDebugString in the log message
     logger.info("FTE: App='\(appIdentifier)' D=\(maxDepthForSearch) C=\(criteriaDebugString.isEmpty ? "none" : criteriaDebugString) PH=\(locator.rootElementPathHint?.count ?? 0)")
 
+    // Reset per-search globals.
+    traversalNodeCounter = 0
+    // Start the global traversal timeout early, so it also covers any path navigation steps.
+    traversalDeadline = Date().addingTimeInterval(axorcTraversalTimeout)
+    defer { traversalDeadline = nil }
+
     guard let appElement = getApplicationElement(for: appIdentifier) else {
         logger.error("FTE: No app element for \(appIdentifier)")
         return (nil, "Application not found or not accessible: \(appIdentifier)")
@@ -41,7 +47,8 @@ public func findTargetElement(
 
         // Convert [JSONPathHintComponent] to [PathStep]
         let pathSteps: [PathStep] = jsonPathComponents.map { component in
-            let criterion = Criterion(attribute: component.attribute, value: component.value, matchType: component.matchType)
+            let attributeName = component.axAttributeName ?? component.attribute // Map aliases like ROLE/DOM to real AX attribute
+            let criterion = Criterion(attribute: attributeName, value: component.value, matchType: component.matchType)
             return PathStep(criteria: [criterion], matchType: component.matchType, matchAllCriteria: true, maxDepthForStep: component.depth)
         }
 
@@ -89,18 +96,18 @@ public func findTargetElement(
         criteria: locator.criteria,
         matchType: finalSearchMatchType,
         matchAllCriteria: finalSearchMatchAll,
-        stopAtFirstMatch: true, // For the final search, we typically want the first match.
+        stopAtFirstMatch: axorcStopAtFirstMatch,
         maxDepth: maxDepthForSearch
     )
 
     traverseAndSearch(element: currentSearchElement, visitor: searchVisitor, currentDepth: 0, maxDepth: maxDepthForSearch)
 
     if let foundMatch = searchVisitor.foundElement { // Changed from foundElements.first
-        logger.info("FindTargetEl: Found final descendant matching criteria: \(foundMatch.briefDescription(option: .smart))")
+        logger.info("FindTargetEl: Found final descendant matching criteria: \(foundMatch.briefDescription(option: .smart)). Nodes visited = \(traversalNodeCounter)")
         return (foundMatch, nil)
     } else {
         let criteriaDesc = locator.criteria.map { "\($0.attribute):\($0.value)" }.joined(separator: ", ")
-        let finalSearchError = "FTE: Not found C=[\(criteriaDesc)] from \(searchStartingPointDescription)"
+        let finalSearchError = "FTE: Not found C=[\(criteriaDesc)] from \(searchStartingPointDescription). Max depth visited = \(searchVisitor.deepestDepthReached) of \(maxDepthForSearch). Nodes visited = \(traversalNodeCounter)"
         logger.warning("\(finalSearchError)")
         return (nil, finalSearchError)
     }
@@ -153,6 +160,7 @@ public func traverseAndSearch(
         return
     }
 
+    traversalNodeCounter += 1
     let visitResult = visitor.visit(element: element, depth: currentDepth)
 
     switch visitResult {
@@ -167,11 +175,27 @@ public func traverseAndSearch(
         // Continue to process children
     }
 
-    if let children = element.children() {
+    // Maintain a static visited set per traversal to avoid cycles.
+    // We store the CFHash of AXUIElement to uniquely identify.
+    struct VisitedSet { static var set = Set<UInt>() }
+
+    if let children = element.children(strict: false), !children.isEmpty,
+       (axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false)) {
+        // Abort if we are past the deadline
+        if let deadline = traversalDeadline, Date() > deadline {
+            logger.warning("Traverse: global search timeout (\(axorcTraversalTimeout)s) reached. Aborting traversal.")
+            return
+        }
+
         for child in children {
+            let hashVal: UInt = CFHash(child.underlyingElement)
+            if !VisitedSet.set.insert(hashVal).inserted {
+                continue // already visited; skip to avoid cycles
+            }
             traverseAndSearch(element: child, visitor: visitor, currentDepth: currentDepth + 1, maxDepth: maxDepth)
-            // If the visitor is a SearchVisitor that stops at first match, check if it found something.
-            if let searchVisitor = visitor as? SearchVisitor, searchVisitor.stopAtFirstMatchInternal, searchVisitor.foundElement != nil {
+            if let searchVisitor = visitor as? SearchVisitor,
+               searchVisitor.stopAtFirstMatchInternal,
+               searchVisitor.foundElement != nil {
                 logger.debug("Traverse: SearchVisitor found match and stopAtFirstMatch is true. Stopping traversal early.")
                 return // Stop traversal early
             }
@@ -191,6 +215,7 @@ public class SearchVisitor: ElementVisitor {
     private var currentMaxDepthReachedByVisitor: Int = 0
     private let matchType: JSONPathHintComponent.MatchType // Added
     private let matchAllCriteriaBool: Bool // Added (renamed to avoid conflict with func name)
+    public var deepestDepthReached: Int { currentMaxDepthReachedByVisitor }
 
     init(
         criteria: [Criterion],
@@ -302,3 +327,39 @@ public class CollectAllVisitor: ElementVisitor {
 // Ensure `elementMatchesAllCriteria` from SearchCriteriaUtils is accessible and synchronous.
 // Ensure `Criterion` struct and `Locator` struct are defined and accessible.
 // AXMiscConstants should be available. Example: public enum AXMiscConstants { public static let defaultMaxDepthSearch: Int = 10 }
+
+// Container roles that can have meaningful descendants. Non-container roles are treated as leaves.
+private let containerRoles: Set<String> = [
+    AXRoleNames.kAXApplicationRole,
+    AXRoleNames.kAXWindowRole,
+    AXRoleNames.kAXGroupRole,
+    AXRoleNames.kAXScrollAreaRole,
+    AXRoleNames.kAXSplitGroupRole,
+    AXRoleNames.kAXLayoutAreaRole,
+    AXRoleNames.kAXLayoutItemRole,
+    AXRoleNames.kAXWebAreaRole,
+    AXRoleNames.kAXListRole,
+    AXRoleNames.kAXOutlineRole,
+    AXRoleNames.kAXUnknownRole,
+    "AXGeneric","AXSection","AXArticle","AXSplitter","AXScrollBar","AXPane"
+]
+
+// MARK: - Search Timeout Handling
+
+/// Global deadline used by `traverseAndSearch` to abort extremely long walks.
+/// It is _only_ set for the duration of a single public search call and then cleared again.
+private var traversalDeadline: Date?
+
+/// Counts how many nodes have been visited during the current `findTargetElement` invocation.
+private var traversalNodeCounter: Int = 0
+
+/// Default timeout (seconds) for a full tree traversal. Override at runtime by setting `axorcTraversalTimeout`.
+public var axorcTraversalTimeout: TimeInterval = 30
+
+/// When true, traversal will ignore `containerRoles` pruning and descend into *every* child of every element.
+/// Enable via CLI flag `--scan-all`.
+public var axorcScanAll: Bool = false
+
+/// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
+/// CLI flag `--no-stop-first` sets this to `false`.
+public var axorcStopAtFirstMatch: Bool = true

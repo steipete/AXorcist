@@ -6,7 +6,15 @@ import AXorcist
 import Foundation
 
 // MARK: - Version and Configuration
-let axorcVersion = "0.1.2a-config_fix"
+let axorcVersion = "0.1.3"
+
+/// Returns a human-readable build stamp (yyMMddHHmm) evaluated at runtime.
+/// Good enough for confirming we're on the binary we just built.
+var axorcBuildStamp: String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyMMddHHmm"
+    return formatter.string(from: Date())
+}
 
 // MARK: - Shared Error Detail
 

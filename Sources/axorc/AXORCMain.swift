@@ -1,6 +1,6 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
-@preconcurrency import ArgumentParser
+import ArgumentParser
 import AXorcist // For AXorcist instance
 import CoreFoundation
 import Foundation
@@ -9,15 +9,19 @@ import Foundation
 // let axorcVersion = "0.1.0-dev"
 
 @main
-struct AXORCCommand: @preconcurrency ParsableCommand {
+struct AXORCCommand: ParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
         // Use axorcVersion from AXORCModels.swift or a shared constant place
         abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \\(axorcVersion)"
     )
 
-    @Flag(name: .long, help: "Enable debug logging for the command execution.")
+    // `--debug` now enables *normal* diagnostic output. Use the new `--verbose` flag for the extremely chatty logs.
+    @Flag(name: .long, help: "Enable debug logging (normal detail level). Use --verbose for maximum detail.")
     var debug: Bool = false
+
+    @Flag(name: .long, help: "Enable *verbose* debug logging – every internal step. Produces large output.")
+    var verbose: Bool = false
 
     @Flag(name: .long, help: "Read JSON payload from STDIN.")
     var stdin: Bool = false
@@ -27,6 +31,15 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
 
     @Option(name: .long, help: "Read JSON payload directly from this string argument, expecting a JSON string.")
     var json: String?
+
+    @Option(name: .long, help: "Traversal timeout in seconds (overrides default 30).")
+    var timeout: Int?
+
+    @Flag(name: .long, help: "Traverse every node (ignore container role pruning). May be extremely slow.")
+    var scanAll: Bool = false
+
+    @Flag(name: .customLong("no-stop-first"), help: "Do not stop at first match; collect deeper matches as well.")
+    var noStopFirst: Bool = false
 
     @Argument(
         help: "Read JSON payload directly from this string argument. If other input flags (--stdin, --file, --json) are used, this argument is ignored."
@@ -97,12 +110,29 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
         fputs("AXORCMain.run: VERY FIRST LINE EXECUTED.\n", stderr)
         fflush(stderr)
 
-        GlobalAXLogger.shared.isLoggingEnabled = debug
-        GlobalAXLogger.shared.detailLevel = debug ? .verbose : .minimal
+        // Configure global logger according to flags.
+        if verbose {
+            GlobalAXLogger.shared.isLoggingEnabled = true
+            GlobalAXLogger.shared.detailLevel = .verbose
+        } else if debug {
+            GlobalAXLogger.shared.isLoggingEnabled = true
+            GlobalAXLogger.shared.detailLevel = .normal
+        } else {
+            GlobalAXLogger.shared.isLoggingEnabled = false
+            GlobalAXLogger.shared.detailLevel = .minimal
+        }
 
-        // Confirm settings
-        fputs("AXORCMain.run: CLI --debug flag is: \(debug). Logger enabled: \(GlobalAXLogger.shared.isLoggingEnabled).\n", stderr)
-        fflush(stderr)
+        // Set global brute-force / stop-first flags
+        axorcScanAll = scanAll
+        axorcStopAtFirstMatch = !noStopFirst
+
+        // Honour timeout override
+        if let timeout = timeout {
+            axorcTraversalTimeout = TimeInterval(timeout)
+        }
+
+        // For clarity in stderr output
+        fputs("AXORCMain.run: AXorc version \(axorcVersion) build \(axorcBuildStamp). Detail level: \(GlobalAXLogger.shared.detailLevel).\n", stderr)
 
         // <<< TEST LOGGING START >>>
         axErrorLog("AXORCMain.run: TEST ERROR LOG -- SHOULD ALWAYS APPEAR IN DEBUG OUTPUT IF LOGS ARE PRINTED")

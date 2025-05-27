@@ -36,6 +36,9 @@ public enum AXAttributeNames {
     public static let kAXDescriptionAttribute = "AXDescription" // Often a more detailed description than title
     public static let kAXHelpAttribute = "AXHelp" // Tooltip or help text
     public static let kAXIdentifierAttribute = "AXIdentifier" // Developer-assigned unique ID
+    // DOM-specific attributes are declared in the Web-specific section below to avoid duplication
+    public static let kAXDOMClassListAttribute = "AXDOMClassList" // [String] or String
+    public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // String (DOM id)
 
     // State Attributes
     public static let kAXEnabledAttribute = "AXEnabled" // Bool
@@ -127,8 +130,6 @@ public enum AXAttributeNames {
     // Web-specific (often found in WebArea roles)
     public static let kAXURLAttribute = "AXURL" // URL or String
     public static let kAXDocumentAttribute = "AXDocument" // String (URL or path of document)
-    public static let kAXDOMClassListAttribute = "AXDOMClassList" // [String] or String
-    // public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // String
     // public static let kAXARIADOMResourceAttribute = "AXARIADOMResource"
     // public static let kAXARIADOMFunctionAttribute = "AXARIADOM-función" // Keep original as it might be specific
     // public static let kAXARIADOMChildrenAttribute = "AXARIADOMChildren"
@@ -185,7 +186,7 @@ public enum AXAttributeNames {
     public static let kAXPathHintAttribute = "AXPathHint" // Custom attribute for path hints, if used
 
     // Web content related
-    public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // Used in web views for DOM element IDs.
+    // public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // Used in web views for DOM element IDs.
 
     // macOS 13 additions (example)
     // public static let kAXCustomActionsAttribute = "AXCustomActions" // This is a guess, verify actual name
@@ -348,6 +349,8 @@ public enum AXMiscConstants {
         AXAttributeNames.kAXTitleAttribute,
         AXAttributeNames.kAXValueAttribute,
         AXAttributeNames.kAXIdentifierAttribute,
+        AXAttributeNames.kAXDOMClassListAttribute,
+        AXAttributeNames.kAXDOMIdentifierAttribute,
         AXAttributeNames.kAXDescriptionAttribute,
         AXAttributeNames.kAXEnabledAttribute,
         AXAttributeNames.kAXFocusedAttribute,

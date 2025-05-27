@@ -193,7 +193,7 @@ private func matchAttributeByKey(
         return matchIdentifierAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
     case "pid":
         return matchPidCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
-    case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist":
+    case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist", "dom":
         return matchDomClassListAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
     case AXMiscConstants.isIgnoredAttributeKey.lowercased(), "isignored", "ignored":
         return matchIsIgnoredCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
@@ -270,12 +270,42 @@ private func matchDomClassListAttribute(element: Element, expectedValue: String,
         level: .debug,
         message: "SC/MSC/DOMClassList: ActualRaw='\(String(describing: actualRaw))'"
     ))
-    return matchDomClassListCriterion(
+    // First try DOM class list.
+    if matchDomClassListCriterion(
+        element: element,
+        expectedValue: expectedValue,
+        matchType: matchType,
+        elementDescriptionForLog: elementDescriptionForLog
+    ) {
+        return true
+    }
+
+    // Fallback 1: AXDOMIdentifier
+    let domIdMatch = matchSingleCriterion(
+        element: element,
+        key: AXAttributeNames.kAXDOMIdentifierAttribute,
+        expectedValue: expectedValue,
+        matchType: matchType,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+
+    if domIdMatch {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/DOMClass: Fallback DOMIdentifier MATCH for token '\(expectedValue)'."))
+        return true
+    }
+
+    // Fallback 2: legacy AXIdentifier
+    let identifierMatch = matchIdentifierAttribute(
         element: element,
         expectedValue: expectedValue,
         matchType: matchType,
         elementDescriptionForLog: elementDescriptionForLog
     )
+
+    if identifierMatch {
+        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/DOMClass: Fallback AXIdentifier MATCH for token '\(expectedValue)'."))
+    }
+    return identifierMatch
 }
 
 @MainActor

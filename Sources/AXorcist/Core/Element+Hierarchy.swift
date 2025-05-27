@@ -17,10 +17,18 @@ extension Element {
         collectDirectChildren(collector: &childCollector)
         // print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
 
-        if !strict { // Only collect alternatives if not strict
+        // collectAlternativeChildren may be expensive, so respect `strict` flag there.
+        if !strict {
             collectAlternativeChildren(collector: &childCollector)
-            collectApplicationWindows(collector: &childCollector)
         }
+
+        // Always collect `AXWindows` when this element is an application. Some Electron apps only expose
+        // the *front-most* window via `kAXChildrenAttribute`, while all other windows are available via
+        // `kAXWindowsAttribute`.  Not including the latter caused our searches to remain inside the first
+        // window (depth ≈ 37) and never reach hidden/background chat panes.  Fetching `AXWindows` every
+        // time is cheap (<10 elements) and guarantees the walker can explore every window even during a
+        // brute-force scan.
+        collectApplicationWindows(collector: &childCollector)
 
         // print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
         let result = childCollector.finalizeResults()
