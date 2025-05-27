@@ -8,10 +8,14 @@ public struct Criterion: Codable, Sendable {
     public let value: String
     public let matchType: JSONPathHintComponent.MatchType?
 
-    // To handle decoding from either "match_type" or "matchType"
+    // With `JSONDecoder.keyDecodingStrategy = .convertFromSnakeCase`,
+    // we can simply rely on automatic snake-case → camel-case conversion.
+    // Using a custom raw value here would *break* that feature because the
+    // strategy is applied **after** the raw value is resolved, resulting in
+    // the decoder searching for a non-existent key ("matchType").
+    // Therefore we keep the raw key identical to the Swift property name.
     enum CodingKeys: String, CodingKey {
-        case attribute, value
-        case matchType = "match_type" // Map JSON's snake_case to Swift's camelCase
+        case attribute, value, matchType
     }
 
     public init(attribute: String, value: String, matchType: JSONPathHintComponent.MatchType? = nil) {
