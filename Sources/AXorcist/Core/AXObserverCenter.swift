@@ -8,31 +8,6 @@
 import ApplicationServices
 import Foundation
 
-/// Callback type for observer notifications
-// public typealias AXObserverHandler = @MainActor (pid_t, AXNotification, AXObserver, AXUIElement, CFDictionary?) -> Void // Old handler
-
-/// New callback type for subscriptions. The AXObserver and AXUIElement might be less relevant to the direct subscriber
-/// if the Center abstracts them, or they can be added back if deemed necessary.
-public typealias AXNotificationSubscriptionHandler = @MainActor (/*element: Element,*/ pid_t, AXNotification, _ rawElement: AXUIElement, _ nsUserInfo: [String: Any]?) -> Void
-
-/// Key for tracking registered notifications. Can allow nil PID for global observers for a specific notification type.
-public struct AXNotificationSubscriptionKey: Hashable {
-    let pid: pid_t? // Optional to allow for global observers for a specific notification
-    let notification: AXNotification
-}
-
-/// Key and PID pair for tracking registered notifications
-public struct AXObserverKeyAndPID: Hashable {
-    let pid: pid_t
-    let key: AXNotification
-}
-
-/// Observer and PID pair for tracking active observers
-public struct AXObserverObjAndPID {
-    var observer: AXObserver
-    var pid: pid_t
-}
-
 /// Centralized manager for AXObserver instances
 @MainActor
 public class AXObserverCenter {
@@ -47,11 +22,6 @@ public class AXObserverCenter {
     private var subscriptions: [AXNotificationSubscriptionKey: [UUID: AXNotificationSubscriptionHandler]] = [:]
     private var subscriptionTokens: [UUID: AXNotificationSubscriptionKey] = [:]
     private let subscriptionsLock = NSLock() // Added subscriptionsLock
-
-    /// Public token for unsubscribing
-    public struct SubscriptionToken: Hashable {
-        let id: UUID
-    }
 
     /// Handler to be called when notifications are received - To be replaced by subscriptions model
     // public var handler: AXObserverHandler?
@@ -148,6 +118,62 @@ public class AXObserverCenter {
         }
     }
 
+    // MARK: - Public Methods
+
+    /// Remove all observers and all subscriptions.
+    @MainActor
+    public func removeAllObservers() {
+        axInfoLog("Removing all observers and subscriptions globally.")
+        subscriptionsLock.lock()
+        defer { subscriptionsLock.unlock() }
+
+        // Unsubscribe all known tokens
+        for tokenID in subscriptionTokens.keys {
+            if let key = subscriptionTokens[tokenID] { // Safely unwrap
+                if var handlersForKey = subscriptions[key] {
+                    handlersForKey.removeValue(forKey: tokenID)
+                    if handlersForKey.isEmpty {
+                        subscriptions.removeValue(forKey: key)
+                        // Potential cleanup of underlying observer if no subscriptions remain for this specific key
+                        cleanupUnderlyingObserverNotification(forPid: key.pid, notification: key.notification)
+                    } else {
+                        subscriptions[key] = handlersForKey
+                    }
+                }
+            }
+        }
+        subscriptionTokens.removeAll()
+
+        // After all unsubscriptions, observers and subscriptions should be empty.
+        if !self.observers.isEmpty || !self.subscriptions.isEmpty || !self.subscriptionTokens.isEmpty { // Added self.
+            axWarningLog("removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), tokens: \(self.subscriptionTokens.count)") // Added self.
+            // Force clear for safety, though unsubscribe should handle it.
+            self.observers.removeAll() // Added self.
+            self.subscriptions.removeAll() // Added self.
+            self.subscriptionTokens.removeAll() // Added self.
+        }
+        axInfoLog("All observers and subscriptions have been cleared.")
+    }
+
+    /// Remove all observers for a specific process
+    public func removeAllObservers(for pid: pid_t) {
+        axInfoLog("Removing all observers and subscriptions for PID \(pid)")
+        let tokensForPid = subscriptionTokens.filter { $0.value.pid == pid }.map { $0.key }
+        for tokenId in tokensForPid {
+            try? unsubscribe(token: SubscriptionToken(id: tokenId))
+        }
+        // Also handle global observers that might have been tied to this app if pid was 0 initially
+        // but that logic is complex and might be better handled by specific unsubscription.
+        // The current loop handles subscriptions explicitly tied to this PID.
+    }
+
+    /// Check if a notification key is registered for a process
+    public func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool { // pid is now optional
+        // return observerKeys.contains { $0.pid == pid && $0.key == notification } // Old way
+        let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
+        return subscriptions[key]?.isEmpty == false
+    }
+
     // MARK: - Internal AXObserver Management (previously addObserver / removeObserver)
 
     /// Ensures an AXObserver is created for the PID and the notification is added to it.
@@ -236,60 +262,6 @@ public class AXObserverCenter {
         }
     }
 
-    /// Remove all observers and all subscriptions.
-    @MainActor
-    public func removeAllObservers() {
-        axInfoLog("Removing all observers and subscriptions globally.")
-        subscriptionsLock.lock()
-        defer { subscriptionsLock.unlock() }
-
-        // Unsubscribe all known tokens
-        for tokenID in subscriptionTokens.keys {
-            if let key = subscriptionTokens[tokenID] { // Safely unwrap
-                if var handlersForKey = subscriptions[key] {
-                    handlersForKey.removeValue(forKey: tokenID)
-                    if handlersForKey.isEmpty {
-                        subscriptions.removeValue(forKey: key)
-                        // Potential cleanup of underlying observer if no subscriptions remain for this specific key
-                        cleanupUnderlyingObserverNotification(forPid: key.pid, notification: key.notification)
-                    } else {
-                        subscriptions[key] = handlersForKey
-                    }
-                }
-            }
-        }
-        subscriptionTokens.removeAll()
-
-        // After all unsubscriptions, observers and subscriptions should be empty.
-        if !self.observers.isEmpty || !self.subscriptions.isEmpty || !self.subscriptionTokens.isEmpty { // Added self.
-            axWarningLog("removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), tokens: \(self.subscriptionTokens.count)") // Added self.
-            // Force clear for safety, though unsubscribe should handle it.
-            self.observers.removeAll() // Added self.
-            self.subscriptions.removeAll() // Added self.
-            self.subscriptionTokens.removeAll() // Added self.
-        }
-        axInfoLog("All observers and subscriptions have been cleared.")
-    }
-
-    /// Remove all observers for a specific process
-    public func removeAllObservers(for pid: pid_t) {
-        axInfoLog("Removing all observers and subscriptions for PID \(pid)")
-        let tokensForPid = subscriptionTokens.filter { $0.value.pid == pid }.map { $0.key }
-        for tokenId in tokensForPid {
-            try? unsubscribe(token: SubscriptionToken(id: tokenId))
-        }
-        // Also handle global observers that might have been tied to this app if pid was 0 initially
-        // but that logic is complex and might be better handled by specific unsubscription.
-        // The current loop handles subscriptions explicitly tied to this PID.
-    }
-
-    /// Check if a notification key is registered for a process
-    public func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool { // pid is now optional
-        // return observerKeys.contains { $0.pid == pid && $0.key == notification } // Old way
-        let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        return subscriptions[key]?.isEmpty == false
-    }
-
     // MARK: - Private Methods
 
     private func getObserver(for pid: pid_t) -> AXObserver? {
@@ -325,7 +297,7 @@ public class AXObserverCenter {
                 if let cfDict = cfUserInfo as? [CFString: CFTypeRef] {
                     var tempDict = [String: Any]()
                     for (key, value) in cfDict {
-                        tempDict[key as String] = center.convertCFValueToSwift(value)
+                        tempDict[key as String] = convertCFValueToSwift(value)
                     }
                     nsUserInfo = tempDict
                 } else {
@@ -374,192 +346,9 @@ public class AXObserverCenter {
         }
     }
 
-    // private func removeKey(pid: pid_t, key: AXNotification) { // Old method
-    //    observerKeys.removeAll { $0.pid == pid && $0.key == key }
-    // }
-
     private func removePidObserverInstance(pid: pid_t) {
         observers.removeAll { $0.pid == pid }
         axDebugLog("Removed AXObserver instance for effective PID \(pid).")
-    }
-
-    // MARK: - Helper for userInfo conversion
-    private func convertCFValueToSwift(_ cfValue: CFTypeRef?) -> Any? {
-        guard let cfValue = cfValue else { return nil }
-        let typeID = CFGetTypeID(cfValue)
-
-        switch typeID {
-        case CFStringGetTypeID():
-            return cfValue as? String
-        case CFNumberGetTypeID():
-            return cfValue as? NSNumber // Could be Int, Double, Bool (via NSNumber bridging)
-        case CFBooleanGetTypeID():
-            // Ensure correct conversion for CFBoolean
-            if CFEqual(cfValue, kCFBooleanTrue) {
-                return true
-            } else if CFEqual(cfValue, kCFBooleanFalse) {
-                return false
-            }
-            // Fallback for other CFBoolean representations if any, or if direct Bool bridging works
-            if let boolVal = cfValue as? Bool {
-                return boolVal
-            }
-            axWarningLog("Could not convert CFBoolean to Bool: \(String(describing: cfValue))")
-            return nil // Or handle as error
-        case CFArrayGetTypeID():
-            // Swift arrays bridge to CFArray, and CFArray can be cast to NSArray / [AnyObject]
-            if let cfArray = cfValue as? [CFTypeRef] { // or cfValue as? NSArray
-                return cfArray.compactMap { convertCFValueToSwift($0) }
-            }
-            axWarningLog("Failed to convert CFArray from userInfo.")
-            return cfValue // Return raw CFArray if conversion fails for some reason
-        case CFDictionaryGetTypeID():
-            if let cfDict = cfValue as? [CFString: CFTypeRef] { // or cfValue as? NSDictionary
-                var swiftDict = [String: Any]()
-                for (key, value) in cfDict {
-                    swiftDict[key as String] = convertCFValueToSwift(value)
-                }
-                return swiftDict
-            }
-            axWarningLog("Failed to convert nested CFDictionary from userInfo.")
-            return cfValue // Return raw CFDictionary if conversion fails
-        case AXUIElementGetTypeID():
-            return cfValue as! AXUIElement // Should be safe to force unwrap if type matches
-        // Add other common CF types if necessary, e.g., CFURL, CFDate
-        default:
-            axDebugLog("Unhandled CFTypeRef in convertCFValueToSwift: typeID \(typeID). Value: \(cfValue)")
-            return cfValue // Return raw CFTypeRef if unhandled, caller might know what to do
-        }
-    }
-
-    // Actual callback function that receives notifications
-    private func axObserverCallbackWithInfo(
-        _ observer: AXObserver!,
-        _ axElement: AXUIElement!, // Renamed to axElement
-        _ notification: CFString!,
-        _ userInfo: CFDictionary?, // This is CFDictionary?, which is correct
-        _ refcon: UnsafeMutableRawPointer!
-    ) {
-        let center = Unmanaged<AXObserverCenter>.fromOpaque(refcon).takeUnretainedValue()
-        guard let axNotification = AXNotification(rawValue: notification as String) else {
-            axWarningLog("Received unknown notification: \(notification as String)")
-            return
-        }
-
-        var pid: pid_t = 0
-        let pidError = AXUIElementGetPid(axElement, &pid)
-        if pidError != .success {
-            if let observerInstance = center.observers.first(where: { $0.observer == observer }), observerInstance.pid != 0 {
-                pid = observerInstance.pid
-                axDebugLog("AXUIElementGetPid failed for observed element. Using PID from observer instance: \(pid). Notification: \(axNotification.rawValue)")
-            } else {
-                axWarningLog("AXUIElementGetPid failed for observed element and could not determine PID. Notification: \(axNotification.rawValue). Error: \(pidError.rawValue)")
-            }
-        }
-
-        // Convert CFDictionary to [String: Any]?
-        var nsUserInfo: [String: Any]?
-        if let cfUserInfo = userInfo {
-            nsUserInfo = center.convertCFValueToSwift(cfUserInfo) as? [String: Any]
-        }
-
-        // Dispatch to relevant handlers
-        // Check for PID-specific subscriptions
-        let specificKey = AXNotificationSubscriptionKey(pid: pid, notification: axNotification)
-        if let handlers = center.subscriptions[specificKey] {
-            axDebugLog("Dispatching to \(handlers.count) PID-specific handlers for PID \(pid), notification \(axNotification.rawValue)")
-            for handler in handlers.values {
-                handler(pid, axNotification, axElement, nsUserInfo) // Pass raw axElement, handler expects AXUIElement
-            }
-        }
-
-        // Check for global subscriptions (pid == nil in key)
-        let globalKey = AXNotificationSubscriptionKey(pid: nil, notification: axNotification)
-        if let globalHandlers = center.subscriptions[globalKey] {
-            axDebugLog("Dispatching to \(globalHandlers.count) global handlers for notification \(axNotification.rawValue)")
-            for handler in globalHandlers.values {
-                handler(pid, axNotification, axElement, nsUserInfo) // Pass raw axElement, handler expects AXUIElement
-            }
-        }
-
-        if center.subscriptions[specificKey] == nil && center.subscriptions[globalKey] == nil {
-            axWarningLog("No handlers found for notification \(axNotification.rawValue).")
-        }
-    }
-
-    // Global notification callback function
-    private func axObserverCallback(
-        _ observer: AXObserver,
-        _ element: AXUIElement,
-        _ notificationName: CFString,
-        _ context: UnsafeMutableRawPointer?
-    ) {
-        // This is the older, simpler callback without userInfo.
-        // We will primarily use axObserverCallbackWithInfo if possible.
-        // However, some observers might still use this one if not configured for info.
-
-        guard let context = context else {
-            axWarningLog("AXObserver callback invoked with nil context.")
-            return
-        }
-        let observerCenter = Unmanaged<AXObserverCenter>.fromOpaque(context).takeUnretainedValue()
-        let notification = AXNotification(rawValue: notificationName as String) ?? .created // Fallback if unknown
-        // Get PID from stored observer data instead of AXObserverGetPID (which doesn't exist in Swift)
-        var appPid: pid_t = 0
-        if let observerData = observerCenter.observers.first(where: { $0.observer == observer }) {
-            appPid = observerData.pid
-        } else {
-            // Try to get PID from the element if we couldn't find the observer
-            AXUIElementGetPid(element, &appPid)
-        }
-
-        Task {
-            observerCenter.processNotification(pid: appPid, notification: notification, rawElement: element, nsUserInfo: nil)
-        }
-    }
-
-    // Global notification callback function WITH USERINFO
-    // This is the one we expect to be called by AXObserverAddNotification when userInfo is passed.
-    private func axObserverCallbackWithInfo(
-        _ observer: AXObserver, // The AXObserver instance that triggered the callback.
-        _ element: AXUIElement, // The AXUIElement that the notification is about.
-        _ notificationName: CFString, // The name of the notification (e.g., kAXFocusedUIElementChangedNotification).
-        _ userInfo: CFDictionary?, // An optional dictionary containing additional information about the notification.
-        _ context: UnsafeMutableRawPointer? // User-defined data passed when the observer was registered (self for AXObserverCenter).
-    ) {
-        guard let context = context else {
-            axWarningLog("AXObserver callback (with info) invoked with nil context.")
-            return
-        }
-        let observerCenter = Unmanaged<AXObserverCenter>.fromOpaque(context).takeUnretainedValue()
-        let notification = AXNotification(rawValue: notificationName as String)
-
-        guard let axNotification = notification else {
-            axWarningLog("Received unknown notification: \(notificationName as String)")
-            return
-        }
-
-        // Get the PID associated with the observer from our stored data
-        // (AXObserverGetPID doesn't exist in Swift)
-        var eventPid: pid_t = 0
-        if let observerData = observerCenter.observers.first(where: { $0.observer == observer }) {
-            eventPid = observerData.pid
-        }
-
-        // Try to get the PID of the element that the notification is about, which is more relevant.
-        var elementPid: pid_t = 0
-        if AXUIElementGetPid(element, &elementPid) == .success {
-            eventPid = elementPid // Prefer the element's PID if available
-        }
-
-        let swiftUserInfo = observerCenter.convertCFValueToSwift(userInfo) as? [String: Any]
-
-        // Debug logging of the raw callback information
-        // axDebugLog("AXObserverCallbackWithInfo: PID=\(eventPid), Notification=\(axNotification.rawValue), Element=\(Element(element).briefDescription()), UserInfo=\(String(describing: swiftUserInfo))")
-
-        Task {
-            observerCenter.processNotification(pid: eventPid, notification: axNotification, rawElement: element, nsUserInfo: swiftUserInfo)
-        }
     }
 
     // MARK: - Main Notification Processing (Called by global callbacks)

@@ -36,9 +36,13 @@ let package = Package(
             path: "Sources/axorc", // Explicit path
             sources: [
                 "AXORCMain.swift",
-                "Core/CommandExecutor.swift",
                 "Core/InputHandler.swift",
-                "Models/AXORCModels.swift"
+                "Models/AXORCModels.swift",
+                "CommandExecutor.swift",
+                "CommandExecutionFunctions.swift",
+                "CommandHandlers.swift",
+                "CommandResponseHelpers.swift",
+                "CommandTypeExtensions.swift"
             ]
         ),
         .testTarget(

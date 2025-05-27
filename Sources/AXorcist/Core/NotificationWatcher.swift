@@ -8,7 +8,7 @@ public class NotificationWatcher {
     private let target: ObservationTarget
     private let notification: AXNotification
     private let handler: AXNotificationSubscriptionHandler
-    private var subscriptionToken: AXObserverCenter.SubscriptionToken?
+    private var subscriptionToken: SubscriptionToken?
     private var isObserving: Bool = false
 
     private enum ObservationTarget {
