@@ -5,14 +5,58 @@ import ApplicationServices // Re-add for AXUIElement type
 import CoreGraphics // For CGRect, CGPoint, CGSize, CFRange
 import Foundation
 
-// A struct to provide a type-safe way to refer to accessibility attributes.
-// The generic type T represents the expected Swift type of the attribute's value.
-// Note: For attributes returning AXValue (like CGPoint, CGRect), T might be the AXValue itself
-// or the final unwrapped Swift type. For now, let's aim for the final Swift type where possible.
+/// A type-safe wrapper for accessibility attribute keys.
+///
+/// Attribute provides compile-time type safety for accessibility attributes by
+/// associating each attribute key with its expected value type. This prevents
+/// runtime errors and provides better IDE support through type inference.
+///
+/// ## Topics
+///
+/// ### General Element Attributes
+/// - ``role``
+/// - ``subrole``
+/// - ``title``
+/// - ``description``
+/// - ``identifier``
+///
+/// ### Value Attributes
+/// - ``value``
+/// - ``stringValue``
+/// - ``attributedStringValue``
+///
+/// ### State Attributes
+/// - ``enabled``
+/// - ``focused``
+/// - ``selected``
+///
+/// ### Creating Custom Attributes
+/// - ``init(_:)``
+/// - ``rawValue``
+///
+/// ## Usage
+///
+/// ```swift
+/// // Type-safe attribute access
+/// let titleAttr = Attribute<String>.title
+/// let roleAttr = Attribute<String>.role
+///
+/// // Custom attribute
+/// let customAttr = Attribute<String>("AXCustomAttribute")
+/// ```
 public struct Attribute<T> {
+    /// The raw accessibility attribute key string.
+    ///
+    /// This contains the actual Core Foundation constant string used
+    /// by the accessibility APIs (e.g., "AXRole", "AXTitle").
     public let rawValue: String
 
-    // Public initializer to allow creation from other modules.
+    /// Creates a new attribute with the specified raw key.
+    ///
+    /// Use this initializer to create attributes for custom or less common
+    /// accessibility properties not covered by the static properties.
+    ///
+    /// - Parameter rawValue: The accessibility attribute key string
     public init(_ rawValue: String) {
         self.rawValue = rawValue
     }

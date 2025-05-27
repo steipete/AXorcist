@@ -426,10 +426,7 @@ private func matchDomClassListCriterion(
                     "Element: \(elementDescriptionForLog) Expected: \(expectedValue)."
             ))
             matchFound = classListArray.contains { item in
-                if let _ = item.range(of: expectedValue, options: .regularExpression) {
-                    return true
-                }
-                return false
+                item.range(of: expectedValue, options: .regularExpression) != nil
             }
         }
         GlobalAXLogger.shared.log(AXLogEntry(
@@ -461,10 +458,7 @@ private func matchDomClassListCriterion(
                     "Element: \(elementDescriptionForLog) Expected: \(expectedValue)."
             ))
             matchFound = classes.contains { item in
-                if let _ = item.range(of: expectedValue, options: .regularExpression) {
-                    return true
-                }
-                return false
+                item.range(of: expectedValue, options: .regularExpression) != nil
             }
         }
         GlobalAXLogger.shared.log(AXLogEntry(

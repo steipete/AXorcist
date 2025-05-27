@@ -48,7 +48,7 @@ public enum AXResponse: Sendable {
     public var error: (message: String, code: AXErrorCode)? {
         switch self {
         case .success: return nil
-        case .error(let message, let code, _): return (message, code)
+        case let .error(message, code, _): return (message, code)
         }
     }
 

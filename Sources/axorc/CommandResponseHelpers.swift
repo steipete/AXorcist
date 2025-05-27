@@ -79,7 +79,7 @@ extension EncodingError.Context: CodingPathProvider {}
 extension EncodingError {
     var detailedDescription: String {
         switch self {
-        case .invalidValue(let value, let context):
+        case let .invalidValue(value, context):
             return "InvalidValue: '\(value)' attempting to encode at path '\(context.codingPathString)'. Debug: \(context.debugDescription)"
         @unknown default:
             return "Unknown encoding error. Localized: \(self.localizedDescription)"

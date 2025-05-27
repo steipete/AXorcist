@@ -67,19 +67,19 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .invalidElement: return "The specified UI element is invalid (possibly stale)."
 
         // Observer Errors
-        case .observerSetupFailed(let details): return "AXObserver setup failed: \(details)."
-        case .tokenNotFound(let tokenId): return "Subscription token ID \(tokenId) not found."
+        case let .observerSetupFailed(details): return "AXObserver setup failed: \(details)."
+        case let .tokenNotFound(tokenId): return "Subscription token ID \(tokenId) not found."
 
         // Attribute Errors
-        case .attributeUnsupported(let attr, let elDesc):
+        case let .attributeUnsupported(attr, elDesc):
             let base = "Attribute '\(attr)' is not supported"
             if let desc = elDesc { return "\(base) on element '\(desc)'." }
             return "\(base)."
-        case .attributeNotReadable(let attr, let elDesc):
+        case let .attributeNotReadable(attr, elDesc):
             let base = "Attribute '\(attr)' is not readable"
             if let desc = elDesc { return "\(base) on element '\(desc)'." }
             return "\(base)."
-        case .attributeNotSettable(let attr, let elDesc):
+        case let .attributeNotSettable(attr, elDesc):
             let base = "Attribute '\(attr)' is not settable"
             if let desc = elDesc { return "\(base) on element '\(desc)'." }
             return "\(base)."
@@ -87,17 +87,17 @@ public enum AccessibilityError: Error, CustomStringConvertible {
             var msg = "Type mismatch: Expected '\(expected)', got '\(actual)'"
             if let attr = attribute { msg += " for attribute '\(attr)'" }
             return msg + "."
-        case .valueParsingFailed(let details, let attribute):
+        case let .valueParsingFailed(details, attribute):
             var msg = "Value parsing failed: \(details)"
             if let attr = attribute { msg += " for attribute '\(attr)'" }
             return msg + "."
-        case .valueNotAXValue(let attr, let elDesc):
+        case let .valueNotAXValue(attr, elDesc):
             let base = "Value for attribute '\(attr)' is not an AXValue type as expected"
             if let desc = elDesc { return "\(base) on element '\(desc)'." }
             return "\(base)."
 
         // Action Errors
-        case .actionUnsupported(let action, let elDesc):
+        case let .actionUnsupported(action, elDesc):
             let base = "Action '\(action)' is not supported"
             if let desc = elDesc { return "\(base) on element '\(desc)'." }
             return "\(base)."
@@ -108,12 +108,12 @@ public enum AccessibilityError: Error, CustomStringConvertible {
             return parts.joined(separator: " ")
 
         // Generic & System
-        case .unknownAXError(let error): return "An unexpected Accessibility Framework error occurred: \(error)."
-        case .jsonEncodingFailed(let err):
+        case let .unknownAXError(error): return "An unexpected Accessibility Framework error occurred: \(error)."
+        case let .jsonEncodingFailed(err):
             let base = "Failed to encode the response to JSON."
             if let error = err { return "\(base) Error: \(error.localizedDescription)" }
             return base
-        case .jsonDecodingFailed(let err):
+        case let .jsonDecodingFailed(err):
             let base = "Failed to decode the JSON command input."
             if let error = err { return "\(base) Error: \(error.localizedDescription)" }
             return base

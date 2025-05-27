@@ -65,13 +65,60 @@ extension HandlerResponse {
 
 // MARK: - Error Structure for Detailed Errors (Example)
 
-/// An example structure for providing more detailed error information if needed.
-/// This can be encoded into the `data` field if `error` alone is insufficient.
+/// A structure for providing detailed error information when simple error messages are insufficient.
+///
+/// DetailedError provides structured error information that can be encoded into the
+/// `data` field of a response when the simple `error` string is not enough to
+/// convey all necessary error details.
+///
+/// ## Topics
+///
+/// ### Error Properties
+/// - ``code``
+/// - ``message``
+/// - ``underlyingError``
+///
+/// ### Creating Errors
+/// - ``init(code:message:underlyingError:)``
+///
+/// ## Usage
+///
+/// ```swift
+/// let detailedError = DetailedError(
+///     code: 1001,
+///     message: "Element not found",
+///     underlyingError: "AXUIElementCopyAttributeValue failed"
+/// )
+/// 
+/// let response = HandlerResponse(
+///     data: AnyCodable(detailedError),
+///     error: "Element lookup failed"
+/// )
+/// ```
 public struct DetailedError: Codable, Sendable {
+    /// Numeric error code for categorizing the error type.
+    ///
+    /// Use consistent error codes across your application to enable
+    /// programmatic error handling.
     public let code: Int
+    
+    /// Human-readable error message describing what went wrong.
+    ///
+    /// This should be clear and actionable for developers debugging issues.
     public let message: String
+    
+    /// Additional details about underlying system errors.
+    ///
+    /// When the error is caused by a lower-level system call or API,
+    /// this field can contain the original error message for debugging.
     public let underlyingError: String?
 
+    /// Creates a detailed error with the specified information.
+    ///
+    /// - Parameters:
+    ///   - code: Numeric error code for categorization
+    ///   - message: Human-readable error description
+    ///   - underlyingError: Optional underlying system error details
     public init(code: Int, message: String, underlyingError: String? = nil) {
         self.code = code
         self.message = message

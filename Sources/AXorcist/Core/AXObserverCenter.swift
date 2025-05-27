@@ -23,9 +23,6 @@ public class AXObserverCenter {
     private var subscriptionTokens: [UUID: AXNotificationSubscriptionKey] = [:]
     private let subscriptionsLock = NSLock() // Added subscriptionsLock
 
-    /// Handler to be called when notifications are received - To be replaced by subscriptions model
-    // public var handler: AXObserverHandler?
-
     /// All active observers
     public var activeObservers: [AXObserverObjAndPID] {
         return observers

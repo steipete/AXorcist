@@ -1,6 +1,130 @@
-# AXorcist - Advanced macOS Accessibility API Wrapper
+# AXorcist Framework 🎯
 
-AXorcist is a powerful Swift library and command-line tool for interacting with macOS Accessibility APIs. It provides programmatic control over UI elements in any application, making it ideal for automation, testing, and assistive technology development.
+A powerful Swift framework for macOS accessibility automation that provides a modern, type-safe interface to the macOS Accessibility APIs.
+
+## Overview
+
+AXorcist enables developers to create sophisticated automation tools, testing frameworks, and accessibility utilities by providing:
+
+- **Type-safe API**: Compile-time safety for accessibility attributes and operations
+- **Modern Swift Patterns**: Async/await, structured concurrency, and error handling
+- **Comprehensive Command System**: Query, action, observation, and batch operations
+- **Element Management**: Efficient UI element discovery and interaction
+- **Permission Handling**: Streamlined accessibility permission workflows
+
+---
+
+*This document provides a comprehensive overview of all AXorcist classes and their usage patterns. For interactive API documentation, run `../view-docs.sh` to open the DocC archives.*
+
+## Core Classes Reference
+
+### AXorcist (Main Class)
+
+The central orchestrator for all accessibility operations.
+
+```swift
+@MainActor
+public class AXorcist {
+    static let shared = AXorcist()
+    public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse
+}
+```
+
+**Key Features:**
+- Singleton pattern for consistent state management
+- Command-based architecture for all operations
+- MainActor isolation for thread safety
+- Comprehensive error handling
+
+**Usage Example:**
+```swift
+import AXorcist
+
+let axorcist = AXorcist.shared
+let command = AXCommandEnvelope(
+    commandID: "find-button",
+    command: .query(QueryCommand(appName: "Safari", searchCriteria: [.role(.button)]))
+)
+let response = axorcist.runCommand(command)
+```
+
+### Element
+
+Swift wrapper around `AXUIElement` providing modern API patterns.
+
+```swift
+public struct Element: Equatable, Hashable {
+    public let underlyingElement: AXUIElement
+    public var attributes: [String: AnyCodable]?
+    public var prefetchedChildren: [Element]?
+    public var actions: [String]?
+}
+```
+
+**Key Features:**
+- Type-safe property access with computed properties
+- Automatic value conversion between CF and Swift types
+- Hierarchy navigation with caching support
+- Action execution with error handling
+- Batch attribute fetching for performance
+
+**Common Operations:**
+```swift
+// Create element wrapper
+let element = Element(axUIElement)
+
+// Access properties safely
+let title = element.title
+let role = element.role
+let isEnabled = element.isEnabled
+
+// Perform actions
+try element.performAction(.press)
+try element.setValue("Hello World")
+
+// Navigate hierarchy
+let children = element.children()
+let parent = element.parent()
+```
+
+### AXPermissionHelpers
+
+Modern async/await API for accessibility permissions.
+
+```swift
+public struct AXPermissionHelpers {
+    static func hasAccessibilityPermissions() -> Bool
+    static func requestPermissions() async -> Bool
+    static func permissionChanges(interval: TimeInterval = 1.0) -> AsyncStream<Bool>
+    static func isSandboxed() -> Bool
+}
+```
+
+**Key Features:**
+- Async/await permission handling
+- Real-time permission monitoring with AsyncStream
+- Sandbox detection for permission strategy
+- Non-blocking permission requests
+
+**Usage Patterns:**
+```swift
+// Check current status
+let hasPermissions = AXPermissionHelpers.hasAccessibilityPermissions()
+
+// Request permissions asynchronously
+let granted = await AXPermissionHelpers.requestPermissions()
+
+// Monitor permission changes
+for await hasPermissions in AXPermissionHelpers.permissionChanges() {
+    if hasPermissions {
+        print("Permissions granted!")
+        // Enable accessibility features
+    } else {
+        print("Permissions revoked!")
+        // Disable accessibility features
+    }
+}
+```
 
 ## Table of Contents
 

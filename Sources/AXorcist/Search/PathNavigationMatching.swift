@@ -70,15 +70,14 @@ internal func findMatchingChild(
             "[\(parentElement.briefDescription(option: ValueFormatOption.smart))] for component [\(pathComponentForLog)]."
     ))
 
-    for (childIndex, child) in children.enumerated() {
-        if elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .info,
-                message: "PN/FMC: Found matching child at index \(childIndex) for component [\(pathComponentForLog)]: " +
-                    "[\(child.briefDescription(option: ValueFormatOption.smart))]."
-            ))
-            return child
-        }
+    for (childIndex, child) in children.enumerated()
+        where elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "PN/FMC: Found matching child at index \(childIndex) for component [\(pathComponentForLog)]: " +
+                "[\(child.briefDescription(option: ValueFormatOption.smart))]."
+        ))
+        return child
     }
 
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PN/FMC: No matching child found for component [\(pathComponentForLog)] among \(children.count) children."))

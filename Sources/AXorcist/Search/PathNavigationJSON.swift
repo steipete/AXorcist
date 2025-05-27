@@ -151,21 +151,20 @@ private func findMatchingChildJSON(
         return nil
     }
 
-    for (childIndex, child) in children.enumerated() {
-        if elementMatchesAllCriteriaJSON(
+    for (childIndex, child) in children.enumerated()
+        where elementMatchesAllCriteriaJSON(
             child,
             criteria: criteriaToMatch,
             matchType: matchType,
             forPathComponent: pathComponentForLog
         ) {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .info,
-                message: "PathNav/FMCJ: Found matching child at index \(childIndex) " +
-                    "for JSON component [\(pathComponentForLog)]: " +
-                    "[\(child.briefDescription(option: ValueFormatOption.smart))]."
-            ))
-            return child
-        }
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "PathNav/FMCJ: Found matching child at index \(childIndex) " +
+                "for JSON component [\(pathComponentForLog)]: " +
+                "[\(child.briefDescription(option: ValueFormatOption.smart))]."
+        ))
+        return child
     }
 
     return nil

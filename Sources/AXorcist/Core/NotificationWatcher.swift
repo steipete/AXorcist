@@ -77,12 +77,12 @@ public class NotificationWatcher {
         var targetDescription: String
 
         switch target {
-        case .element(let el):
-            targetDescription = el.briefDescription()
-            elementForSubscription = el
-            let pidForSubscription = el.pid()
+        case .element(let element):
+            targetDescription = element.briefDescription()
+            elementForSubscription = element
+            let pidForSubscription = element.pid()
             if pidForSubscription == nil {
-                let elBrief = el.briefDescription()
+                let elBrief = element.briefDescription()
                 let logMessage = "Cannot start watcher: Element has no PID. Element: \(elBrief)"
                 axErrorLog(logMessage)
                 throw AccessibilityError.invalidElement

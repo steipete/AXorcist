@@ -1,7 +1,7 @@
 // Element+Factory.swift - Factory methods for creating Element instances
 
-import ApplicationServices
 import AppKit
+import ApplicationServices
 
 // MARK: - Static Factory Methods for System-Wide and Application Elements
 extension Element {

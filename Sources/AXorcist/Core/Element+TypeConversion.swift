@@ -58,24 +58,28 @@ extension Element {
 
     private func convertToString(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> String? {
         if cfTypeID == CFStringGetTypeID() {
-            return (cfValue as! CFString) as String
+            let cfString = cfValue as! CFString
+            return cfString as String
         } else if cfTypeID == CFAttributedStringGetTypeID() {
-            return (cfValue as! NSAttributedString).string
+            let attrString = cfValue as! NSAttributedString
+            return attrString.string
         }
         return nil
     }
 
     private func convertToBool(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> Bool? {
         if cfTypeID == CFBooleanGetTypeID() {
-            return CFBooleanGetValue((cfValue as! CFBoolean))
+            let cfBool = cfValue as! CFBoolean
+            return CFBooleanGetValue(cfBool)
         }
         return nil
     }
 
     private func convertToInt(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> Int? {
         if cfTypeID == CFNumberGetTypeID() {
+            let cfNumber = cfValue as! CFNumber
             var intValue: Int = 0
-            if CFNumberGetValue((cfValue as! CFNumber), .sInt64Type, &intValue) {
+            if CFNumberGetValue(cfNumber, .sInt64Type, &intValue) {
                 return intValue
             }
         }
@@ -84,7 +88,8 @@ extension Element {
 
     private func convertToAXUIElement(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> AXUIElement? {
         if cfTypeID == AXUIElementGetTypeID() {
-            return (cfValue as! AXUIElement)
+            let element = cfValue as! AXUIElement
+            return element
         }
         return nil
     }

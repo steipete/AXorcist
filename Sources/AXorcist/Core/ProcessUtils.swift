@@ -221,7 +221,7 @@ private func pidForResolvedBundleID(_ bundleId: String, fromPath path: String) -
         line: #line
     )
 
-    logRunningApplicationsFromPath(appsByResolvedBundleID)
+    logRunningApplications(appsByResolvedBundleID, context: "from path")
 
     if let app = appsByResolvedBundleID.first(where: { !$0.isTerminated }) {
         axDebugLog(
@@ -283,26 +283,14 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
     }
 }
 
-private func logRunningApplications(_ apps: [NSRunningApplication]) {
-    for (index, app) in apps.enumerated() {
+private func logRunningApplications(_ apps: [NSRunningApplication], context: String = "") {
+    let contextPrefix = context.isEmpty ? "" : " \(context)"
+    for (index, application) in apps.enumerated() {
         axDebugLog(
-            "ProcessUtils: App [\(index)] - Name: '\(app.localizedName ?? "nil")', " +
-                "PID: \(app.processIdentifier), " +
-                "BundleID: '\(app.bundleIdentifier ?? "nil")', " +
-                "Terminated: \(app.isTerminated)",
-            file: #file, function: #function, line: #line
-        )
-    }
-}
-
-private func logRunningApplicationsFromPath(_ apps: [NSRunningApplication]) {
-    for (index, app) in apps.enumerated() {
-        axDebugLog(
-            "ProcessUtils: App [\(index)] from path - " +
-                "Name: '\(app.localizedName ?? "nil")', " +
-                "PID: \(app.processIdentifier), " +
-                "BundleID: '\(app.bundleIdentifier ?? "nil")', " +
-                "Terminated: \(app.isTerminated)",
+            "ProcessUtils: App [\(index)]\(contextPrefix) - Name: '\(application.localizedName ?? "nil")', " +
+                "PID: \(application.processIdentifier), " +
+                "BundleID: '\(application.bundleIdentifier ?? "nil")', " +
+                "Terminated: \(application.isTerminated)",
             file: #file, function: #function, line: #line
         )
     }

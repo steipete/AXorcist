@@ -119,24 +119,24 @@ struct CommandExecutor {
 
     @MainActor
     private static func handleGetElementAtPointCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
-        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
+        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert GetElementAtPoint to AXCommand")
                 return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetElementAtPoint")
             }
-            let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
             return HandlerResponse(from: axResponse)
         }
     }
 
     @MainActor
     private static func handleSetFocusedValueCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
-        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
+        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert SetFocusedValue to AXCommand")
                 return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for SetFocusedValue")
             }
-            let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
             return HandlerResponse(from: axResponse)
         }
     }

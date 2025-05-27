@@ -25,9 +25,6 @@ extension AXError {
             return .genericError("Unexpected success in error context")
         case .apiDisabled:
             return .apiDisabled
-        // case .notAllowedBySecurityPolicy, .notAllowed:
-        //     return .notAuthorized(context)
-        // TODO: Check available error codes in current SDK
         case .invalidUIElement:
             return .invalidElement
         case .attributeUnsupported:

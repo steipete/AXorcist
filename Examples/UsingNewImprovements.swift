@@ -131,9 +131,9 @@ func exampleErrorHandling() {
     }
 }
 
-// MARK: - Example 5: Using AXPermissions
+// MARK: - Example 5: Using AXPermissions with Async/Await
 
-func examplePermissions() {
+func examplePermissions() async {
     // Check permissions without prompting
     if AXPermissionHelpers.hasAccessibilityPermissions() {
         print("Accessibility permissions granted")
@@ -141,22 +141,20 @@ func examplePermissions() {
         print("Accessibility permissions not granted")
     }
 
-    // Request permissions with prompt if needed
-    AXPermissionHelpers.requestPermissions { granted in
-        if granted {
-            print("User granted permissions")
-        } else {
-            print("User denied permissions")
+    // Request permissions with prompt if needed (async)
+    let granted = await AXPermissionHelpers.requestPermissions()
+    if granted {
+        print("User granted permissions")
+    } else {
+        print("User denied permissions")
+    }
+
+    // Monitor permission changes with AsyncStream
+    Task {
+        for await hasPermissions in AXPermissionHelpers.permissionChanges() {
+            print("Permission status changed: \(hasPermissions)")
         }
     }
-
-    // Monitor permission changes
-    let stopMonitoring = AXPermissionHelpers.monitorPermissionChanges { hasPermissions in
-        print("Permission status changed: \(hasPermissions)")
-    }
-
-    // Later, stop monitoring
-    // stopMonitoring()
 }
 
 // MARK: - Example 6: Using Window Info Helper
@@ -248,7 +246,7 @@ func exampleRunningApplications() {
 // MARK: - Main Example Runner
 
 @MainActor
-func runAllExamples() {
+func runAllExamples() async {
     print("=== Static Factory Methods ===")
     exampleStaticFactoryMethods()
 
@@ -262,7 +260,7 @@ func runAllExamples() {
     exampleErrorHandling()
 
     print("\n=== Permissions ===")
-    examplePermissions()
+    await examplePermissions()
 
     print("\n=== Window Info ===")
     exampleWindowInfo()

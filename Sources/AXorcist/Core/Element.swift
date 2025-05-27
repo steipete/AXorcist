@@ -4,16 +4,73 @@ import AppKit // Added to provide NSRunningApplication and NSWorkspace
 import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
 
-// Element struct is NOT @MainActor. Isolation is applied to members that need it.
+/// A Swift-idiomatic wrapper around macOS AXUIElement for accessibility automation.
+///
+/// Element provides a modern Swift interface for interacting with UI elements through
+/// the macOS accessibility APIs. It can represent any UI element from applications,
+/// windows, buttons, text fields, and more.
+///
+/// ## Topics
+///
+/// ### Creating Elements
+/// - ``init(_:)``
+/// - ``init(_:attributes:children:actions:)``
+///
+/// ### Element Properties
+/// - ``underlyingElement``
+/// - ``attributes``
+/// - ``prefetchedChildren``
+/// - ``actions``
+///
+/// ### Element Operations
+/// - ``getAttribute(_:)``
+/// - ``setAttribute(_:value:)``
+/// - ``performAction(_:)``
+///
+/// ## Usage
+///
+/// ```swift
+/// // Wrap an AXUIElement
+/// let element = Element(axElement)
+///
+/// // Get element properties
+/// let role = element.role
+/// let title = element.title
+///
+/// // Perform actions
+/// try element.performAction(kAXPressAction)
+/// ```
 public struct Element: Equatable, Hashable {
+    /// The underlying AXUIElement that this Element wraps.
+    ///
+    /// This provides direct access to the Core Foundation accessibility element
+    /// for operations that require the raw AXUIElement.
     public let underlyingElement: AXUIElement
 
-    // Stored properties for pre-fetched data, especially for AXpector
-    public var attributes: [String: AnyCodable]? // Populated by deep queries
-    public var prefetchedChildren: [Element]? // Populated by deep queries. Renamed from 'children'.
-    public var actions: [String]? // Populated by deep queries
+    /// Pre-fetched accessibility attributes for this element.
+    ///
+    /// When populated (typically by deep queries), this contains all the
+    /// accessibility attributes for the element, avoiding repeated API calls.
+    public var attributes: [String: AnyCodable]?
+    
+    /// Pre-fetched child elements.
+    ///
+    /// When populated by deep queries, this contains all direct child elements,
+    /// allowing for efficient tree traversal without additional API calls.
+    public var prefetchedChildren: [Element]?
+    
+    /// Pre-fetched available actions for this element.
+    ///
+    /// When populated, this contains all actions that can be performed on
+    /// this element (e.g., "AXPress", "AXShowMenu").
+    public var actions: [String]?
 
-    // Initializer for basic wrapping
+    /// Creates an Element wrapper around an AXUIElement.
+    ///
+    /// This initializer creates a basic wrapper that will fetch attributes,
+    /// children, and actions on demand.
+    ///
+    /// - Parameter element: The AXUIElement to wrap
     public init(_ element: AXUIElement) {
         self.underlyingElement = element
         self.attributes = nil // Not fetched by default with this initializer
@@ -21,7 +78,16 @@ public struct Element: Equatable, Hashable {
         self.actions = nil // Not fetched by default
     }
 
-    // Initializer for use by AXorcist when creating fully populated elements (e.g., from a tree fetch)
+    /// Creates a fully populated Element with pre-fetched data.
+    ///
+    /// This initializer is typically used by AXorcist when creating elements
+    /// from tree fetches or deep queries where all data is retrieved at once.
+    ///
+    /// - Parameters:
+    ///   - element: The AXUIElement to wrap
+    ///   - attributes: Pre-fetched accessibility attributes
+    ///   - children: Pre-fetched child elements
+    ///   - actions: Pre-fetched available actions
     public init(_ element: AXUIElement, attributes: [String: AnyCodable]?, children: [Element]?, actions: [String]?) {
         self.underlyingElement = element
         self.attributes = attributes
@@ -106,15 +172,15 @@ public struct Element: Equatable, Hashable {
 
         if let cfArray = value, CFGetTypeID(cfArray) == CFArrayGetTypeID() {
             if let axElements = cfArray as? [AXUIElement] {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully fetched and cast \\(axElements.count) AXUIElements for '\\(attribute.rawValue)'."))
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully fetched and cast \(axElements.count) AXUIElements for '\(attribute.rawValue)'."))
                 return axElements as? T
             } else {
-                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "CFArray for '\\(attribute.rawValue)' failed to cast to [AXUIElement]."))
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement]."))
             }
-        } else if value != nil {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\\(attribute.rawValue)' was not a CFArray. TypeID: \\(String(describing: CFGetTypeID(value!)))"))
+        } else if let unwrappedValue = value {
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(String(describing: CFGetTypeID(unwrappedValue)))"))
         } else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\\(attribute.rawValue)' was nil despite .success."))
+            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Value for '\(attribute.rawValue)' was nil despite .success."))
         }
         return nil
     }
@@ -162,10 +228,7 @@ public struct Element: Equatable, Hashable {
         var settable: DarwinBoolean = false
         let error = AXUIElementIsAttributeSettable(underlyingElement, attributeName as CFString, &settable)
         if error != .success {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .warning,
-                message: "Error checking if attribute \(attributeName) is settable: \(error.stringValue)"
-            ))
+            axWarningLog("Error checking if attribute \(attributeName) is settable: \(error.stringValue)")
             return false
         }
         return settable.boolValue
@@ -182,8 +245,8 @@ public struct Element: Equatable, Hashable {
             cfParameter = num
         } else if let str = parameter as? String {
             cfParameter = str as CFString
-        } else if let el = parameter as? Element {
-            cfParameter = el.underlyingElement
+        } else if let element = parameter as? Element {
+            cfParameter = element.underlyingElement
         } else {
             // Fallback for other types or if bridging is complex; might need more specific handling
             // For now, attempt to bridge directly, or log error if not possible
@@ -274,15 +337,14 @@ public struct Element: Equatable, Hashable {
             let msg = "Successfully set attribute '\\(attributeName)' to '\\(value)' on "
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: msg + "\\(self.briefDescription(option: .short))"
+                message: msg + "\(self.briefDescription(option: .smart))"
             ))
             return true
         } else {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .error,
-                message: "Failed to set attribute '\\(attributeName)' to '\\(value)' on " +
-                    "\\(self.briefDescription(option: .short)): \\(error.stringValue)"
-            ))
+            axErrorLog(
+                "Failed to set attribute '\(attributeName)' to '\(value)' on " +
+                    "\(self.briefDescription(option: .smart)): \(error.stringValue)"
+            )
             return false
         }
     }

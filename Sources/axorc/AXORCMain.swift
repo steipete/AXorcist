@@ -209,7 +209,6 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
         // the actual command type if it's available here.
         // For now, if stdin is true or json is provided, assume it might be an observe command.
         // This is imperfect.
-        // Remove try? if InputHandler.parseInput is not throwing
         if let jsonString = InputHandler.parseInput(stdin: stdin, file: file, json: json, directPayload: directPayload).jsonString,
            let inputData = jsonString.data(using: .utf8) { // Corrected optional chaining and conditional binding
             let decoder = JSONDecoder()
@@ -234,5 +233,3 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
 // var error: String
 // var debugLogs: [String]?
 // }
-
-// Removed placeholder GlobalAXLogger extension as it was moved/integrated previously

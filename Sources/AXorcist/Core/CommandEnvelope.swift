@@ -3,28 +3,142 @@
 import CoreGraphics // For CGPoint
 import Foundation
 
-// Main command envelope - REPLACED with definition from axorc.swift for consistency
+/// The main command envelope structure for AXorcist operations.
+///
+/// CommandEnvelope wraps all the information needed to execute an accessibility
+/// command, including the command type, target application, parameters, and options.
+/// It serves as the primary interface for all AXorcist operations.
+///
+/// ## Topics
+///
+/// ### Core Properties
+/// - ``commandId``
+/// - ``command``
+/// - ``application``
+///
+/// ### Command Parameters
+/// - ``attributes``
+/// - ``locator``
+/// - ``maxElements``
+/// - ``maxDepth``
+///
+/// ### Action Parameters
+/// - ``actionName``
+/// - ``actionValue``
+/// - ``point``
+/// - ``pid``
+///
+/// ### Batch Operations
+/// - ``subCommands``
+///
+/// ### Observation
+/// - ``notifications``
+/// - ``includeElementDetails``
+/// - ``watchChildren``
+///
+/// ## Usage
+///
+/// ```swift
+/// let command = CommandEnvelope(
+///     commandId: "find-button",
+///     command: .query,
+///     application: "MyApp",
+///     locator: Locator(role: "button", title: "OK")
+/// )
+/// let response = axorcist.runCommand(command)
+/// ```
 public struct CommandEnvelope: Codable {
+    /// Unique identifier for this command execution.
+    ///
+    /// This ID is used for tracking and correlating commands with their responses,
+    /// especially useful in batch operations or asynchronous processing.
     public let commandId: String
-    public let command: CommandType // Uses CommandType from this file
+    
+    /// The type of command to execute.
+    ///
+    /// Determines what operation will be performed (query, action, observation, etc.).
+    public let command: CommandType
+    
+    /// Target application name or bundle identifier.
+    ///
+    /// Specifies which application the command should operate on. Can be an
+    /// application name like "Safari" or a bundle identifier like "com.apple.Safari".
     public let application: String?
+    
+    /// Specific attributes to retrieve or filter by.
+    ///
+    /// When provided, limits the operation to only the specified accessibility attributes.
     public let attributes: [String]?
-    public let payload: [String: String]? // For ping compatibility
+    
+    /// Key-value payload for compatibility with ping operations.
+    public let payload: [String: String]?
+    
+    /// Whether to enable debug logging for this command.
     public let debugLogging: Bool
-    public let locator: Locator? // Locator from this file
-    public let pathHint: [String]? // This is likely legacy, Locator.rootElementPathHint is preferred
+    
+    /// Element locator specifying how to find the target element.
+    ///
+    /// Provides search criteria for identifying specific UI elements within the application.
+    public let locator: Locator?
+    
+    /// Legacy path hint for element location (deprecated).
+    ///
+    /// > Important: Use ``locator`` instead of this property for new code.
+    public let pathHint: [String]?
+    
+    /// Maximum number of elements to return in search results.
     public let maxElements: Int?
+    
+    /// Maximum depth for hierarchical searches.
+    ///
+    /// Controls how deep into the UI element tree the search should traverse.
     public let maxDepth: Int?
-    public let outputFormat: OutputFormat? // OutputFormat from this file
-    public let actionName: String? // For performAction
-    public let actionValue: AnyCodable? // For performAction (AnyCodable from this file)
-    public let subCommands: [CommandEnvelope]? // For batch command
-    public let point: CGPoint? // Added for getElementAtPoint
-    public let pid: Int? // Added for getElementAtPoint (optional specific PID)
+    
+    /// Output format for the command response.
+    public let outputFormat: OutputFormat?
+    
+    /// Name of the action to perform for action commands.
+    ///
+    /// Examples: "AXPress", "AXShowMenu", "AXScrollToVisible"
+    public let actionName: String?
+    
+    /// Value parameter for action commands.
+    ///
+    /// Some actions require additional parameters (e.g., scroll amount, text to enter).
+    public let actionValue: AnyCodable?
+    
+    /// Sub-commands for batch operations.
+    ///
+    /// When present, this command represents a batch operation containing
+    /// multiple individual commands to execute in sequence.
+    public let subCommands: [CommandEnvelope]?
+    
+    /// Screen coordinates for point-based operations.
+    ///
+    /// Used with commands that need to interact with elements at specific screen locations.
+    public let point: CGPoint?
+    
+    /// Process ID for targeting specific application instances.
+    ///
+    /// When multiple instances of an application are running, this specifies
+    /// which instance to target.
+    public let pid: Int?
 
-    // Parameters for 'observe' command
+    // MARK: - Observation Parameters
+    
+    /// Notification types to observe for observation commands.
+    ///
+    /// List of accessibility notification names to monitor (e.g., "AXValueChanged").
     public let notifications: [String]?
+    
+    /// Element details to include in observation notifications.
+    ///
+    /// Specifies which element attributes should be included when notifications are triggered.
     public let includeElementDetails: [String]?
+    
+    /// Whether to monitor child elements for notifications.
+    ///
+    /// When true, notifications from child elements will also be captured.
     public let watchChildren: Bool?
 
     // New field for collectAll filtering
