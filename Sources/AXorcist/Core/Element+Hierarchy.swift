@@ -30,6 +30,17 @@ extension Element {
         // brute-force scan.
         collectApplicationWindows(collector: &childCollector)
 
+        // Also collect AXFocusedUIElement. This exposes the single element (often a remote renderer proxy)
+        // that currently has keyboard/accessibility focus – crucial for Electron/Chromium where the deep
+        // subtree is not reachable through normal children. By adding it here the global traversal can
+        // discover the focused textarea without requiring special path hinting.
+        if self.role() == AXRoleNames.kAXApplicationRole {
+            if let focusedUI: AXUIElement = attribute(Attribute(AXAttributeNames.kAXFocusedUIElementAttribute)) {
+                axDebugLog("Added AXFocusedUIElement to children list for application root.")
+                childCollector.addChildren(from: [focusedUI])
+            }
+        }
+
         // print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
         let result = childCollector.finalizeResults()
         axDebugLog("Final children count: \(result?.count ?? 0)")
