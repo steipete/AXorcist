@@ -10,12 +10,12 @@ public class GlobalAXLogger {
 
     private var logEntries: [AXLogEntry] = []
     // For duplicate suppression
-    private var lastCondensedMessage: String? = nil
+    private var lastCondensedMessage: String?
     private var duplicateCount: Int = 0
     private let duplicateSummaryThreshold: Int = 5
     // Maximum characters to keep in a log message before truncating (for readability)
     private let maxMessageLength: Int = 300
-    
+
     // No DispatchQueue needed if all calls are on the main thread.
     // Callers must ensure main-thread execution for all logger interactions.
 
@@ -38,7 +38,7 @@ public class GlobalAXLogger {
         // Use fully qualified enum cases
         if entry.level == .debug && self.detailLevel != AXLogDetailLevel.verbose {
             if self.detailLevel == AXLogDetailLevel.minimal { return }
-            if self.detailLevel == AXLogDetailLevel.normal && entry.level == .debug { return } 
+            if self.detailLevel == AXLogDetailLevel.normal && entry.level == .debug { return }
         }
 
         let condensedMessage: String = {
@@ -115,10 +115,10 @@ public class GlobalAXLogger {
         // let clearEntry = AXLogEntry(level: .info, message: "GlobalAXLogger log entries cleared.")
         // self.log(clearEntry)
     }
-    
+
     public func getLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
         let currentEntries = self.getEntries()
-        
+
         switch format {
         case .json:
             return currentEntries.compactMap { entry in

@@ -124,37 +124,37 @@ func testGetAttributesForTextEditApplication() async throws {
     validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .getAttributes)
     #expect(queryResponse.data?.attributes != nil, "AXElement attributes should not be nil.")
 
-        let attributes = queryResponse.data?.attributes
-        #expect(
-            attributes?["AXRole"]?.value as? String == "AXApplication",
-            "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
-        )
-        #expect(
-            attributes?["AXTitle"]?.value as? String == "TextEdit",
-            "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
-        )
+    let attributes = queryResponse.data?.attributes
+    #expect(
+        attributes?["AXRole"]?.value as? String == "AXApplication",
+        "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
+    )
+    #expect(
+        attributes?["AXTitle"]?.value as? String == "TextEdit",
+        "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
+    )
 
-        if let windowsAttr = attributes?["AXWindows"] {
-            #expect(windowsAttr.value is [Any], "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
-            if let windowsArray = windowsAttr.value as? [AnyCodable] {
-                #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
-            } else if let windowsArray = windowsAttr.value as? [Any] {
-                #expect(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
-            }
-        } else {
-            #expect(attributes?["AXWindows"] != nil, "AXWindows attribute should be present.")
+    if let windowsAttr = attributes?["AXWindows"] {
+        #expect(windowsAttr.value is [Any], "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
+        if let windowsArray = windowsAttr.value as? [AnyCodable] {
+            #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
+        } else if let windowsArray = windowsAttr.value as? [Any] {
+            #expect(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
         }
-
-        #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-        #expect(
-            queryResponse.debugLogs?
-                .contains {
-                    $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed") } ==
-                true,
-            "Debug logs should indicate getAttributes execution."
-        )
-
+    } else {
+        #expect(attributes?["AXWindows"] != nil, "AXWindows attribute should be present.")
     }
+
+    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
+    #expect(
+        queryResponse.debugLogs?
+            .contains {
+                $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed") } ==
+            true,
+        "Debug logs should indicate getAttributes execution."
+    )
+
+}
 
 @Test("Query for TextEdit Text Area")
 @MainActor
@@ -203,21 +203,21 @@ func testQueryForTextEditTextArea() async throws {
     validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .query)
     #expect(queryResponse.data?.attributes != nil, "AXElement attributes should not be nil.")
 
-        let attributes = queryResponse.data?.attributes
-        #expect(
-            attributes?["AXRole"]?.value as? String == textAreaRole,
-            "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
-        )
+    let attributes = queryResponse.data?.attributes
+    #expect(
+        attributes?["AXRole"]?.value as? String == textAreaRole,
+        "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
+    )
 
-        #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
-        #expect(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
+    #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
+    #expect(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
 
-        #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-        #expect(
-            queryResponse.debugLogs?
-                .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
-            "Debug logs should indicate query execution."
-        )
+    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
+    #expect(
+        queryResponse.debugLogs?
+            .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
+        "Debug logs should indicate query execution."
+    )
 
 }
 
@@ -265,33 +265,33 @@ func testDescribeTextEditTextArea() async throws {
     let queryResponse = try decodeQueryResponse(from: outputString, commandName: "describeElement")
     validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .describeElement)
 
-        guard let attributes = queryResponse.data?.attributes else {
-            throw TestError.generic("Attributes dictionary is nil in describeElement response.")
-        }
+    guard let attributes = queryResponse.data?.attributes else {
+        throw TestError.generic("Attributes dictionary is nil in describeElement response.")
+    }
 
-        #expect(
-            attributes["AXRole"]?.value as? String == textAreaRole,
-            "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
-        )
+    #expect(
+        attributes["AXRole"]?.value as? String == textAreaRole,
+        "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
+    )
 
-        #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
-        #expect(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
-        #expect(attributes["AXPosition"]?.value != nil, "AXPosition should exist.")
-        #expect(attributes["AXSize"]?.value != nil, "AXSize should exist.")
-        #expect(
-            attributes.count > 10,
-            "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)"
-        )
+    #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
+    #expect(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
+    #expect(attributes["AXPosition"]?.value != nil, "AXPosition should exist.")
+    #expect(attributes["AXSize"]?.value != nil, "AXSize should exist.")
+    #expect(
+        attributes.count > 10,
+        "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)"
+    )
 
-        #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-        #expect(
-            queryResponse.debugLogs?
-                .contains {
-                    $0.contains("Handling describeElement command") || $0.contains("handleDescribeElement completed")
-                } ==
-                true,
-            "Debug logs should indicate describeElement execution."
-        )
+    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
+    #expect(
+        queryResponse.debugLogs?
+            .contains {
+                $0.contains("Handling describeElement command") || $0.contains("handleDescribeElement completed")
+            } ==
+            true,
+        "Debug logs should indicate describeElement execution."
+    )
 
 }
 
@@ -337,7 +337,7 @@ private func decodeQueryResponse(from outputString: String, commandName: String)
     } catch {
         throw TestError.generic(
             "Failed to decode QueryResponse for \(commandName): \(error.localizedDescription). " +
-            "Original JSON: \(outputString)"
+                "Original JSON: \(outputString)"
         )
     }
 }

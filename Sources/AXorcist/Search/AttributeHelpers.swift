@@ -16,9 +16,9 @@ public func getElementAttributes(
     var result: [String: AnyCodable] = [:]
 
     let requestingStr = attrNames.isEmpty ? "all" : attrNames.joined(separator: ", ")
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementAttributes called for element: \(element.briefDescription(option: .raw)), " +
-        "requesting: \(requestingStr)"
+            "requesting: \(requestingStr)"
     ))
 
     let attributesToProcess = attrNames.isEmpty ? (element.attributeNames() ?? []) : attrNames
@@ -60,9 +60,9 @@ public func getElementAttributes(
         result[AXMiscConstants.computedPathAttributeKey] = AnyCodable(path)
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: 
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementAttributes finished for element: \(element.briefDescription(option: .raw)). " +
-        "Returning \(result.count) attributes."
+            "Returning \(result.count) attributes."
     ))
     return (result, [])
 }

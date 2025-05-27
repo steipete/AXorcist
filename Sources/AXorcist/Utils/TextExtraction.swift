@@ -6,7 +6,11 @@ import Foundation
 @MainActor
 public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, currentDepth: Int = 0) -> String? {
     if currentDepth > maxDepth {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElement: Max depth reached for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "extractTextFromElement: Max depth reached for element: " +
+                "\(element.briefDescription(option: ValueFormatOption.smart))"
+        ))
         return nil
     }
 
@@ -20,7 +24,8 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
     var childrenText: [String] = []
     if let children = element.children() { // children() is now synchronous
         for child in children {
-            if let childText = extractTextFromElement(child, maxDepth: maxDepth, currentDepth: currentDepth + 1) { // Removed await
+            // Removed await
+            if let childText = extractTextFromElement(child, maxDepth: maxDepth, currentDepth: currentDepth + 1) {
                 childrenText.append(childText)
             }
         }
@@ -30,7 +35,11 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
         return childrenText.joined(separator: " ")
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElement: No text found for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "extractTextFromElement: No text found for element: " +
+            "\(element.briefDescription(option: ValueFormatOption.smart))"
+    ))
     return nil
 }
 
@@ -49,33 +58,51 @@ public func extractTextFromElementNonRecursive(_ element: Element) -> String? {
     // This might be too generic in many cases, so it's lower priority.
     // let roleDesc = element.roleDescription()
     // if let roleDesc = roleDesc, !roleDesc.isEmpty { return roleDesc }
-    
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractTextFromElementNonRecursive: No direct text found for element: \(element.briefDescription(option: ValueFormatOption.smart))"))
+
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "extractTextFromElementNonRecursive: No direct text found for element: " +
+            "\(element.briefDescription(option: ValueFormatOption.smart))"
+    ))
     return nil
 }
 
 // More focused text extraction, typically used by handlers.
 @MainActor
-func getElementTextualContent(element: Element, includeChildren: Bool = false, maxDepth: Int = 1, currentDepth: Int = 0) -> String? {
+func getElementTextualContent(
+    element: Element,
+    includeChildren: Bool = false,
+    maxDepth: Int = 1,
+    currentDepth: Int = 0
+) -> String? {
     var textPieces: [String] = []
 
     // Prioritize attributes common for text content
     if let title: String = element.attribute(Attribute<String>.title) { textPieces.append(title) }
-    if let value: String = element.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) { textPieces.append(value) }
+    if let value: String = element.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) {
+        textPieces.append(value)
+    }
     if let description: String = element.attribute(Attribute<String>.description) { textPieces.append(description) }
-    // if let placeholder: String = element.attribute(Attribute<String>.placeholderValue) { textPieces.append(placeholder) }
+    // if let placeholder: String = element.attribute(Attribute<String>.placeholderValue) {
+    //     textPieces.append(placeholder)
+    // }
     // Less common but potentially useful
     // if let help: String = element.attribute(Attribute.help) { textPieces.append(help) }
     // if let selectedText: String = element.attribute(Attribute.selectedText) { textPieces.append(selectedText) }
 
     let joinedDirectText = textPieces.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if includeChildren && currentDepth < maxDepth { 
+    if includeChildren && currentDepth < maxDepth {
         if let children = element.children() {
             var childTexts: [String] = []
             for child in children {
                 // Recursive call is now synchronous
-                if let childTextContent = getElementTextualContent(element: child, includeChildren: true, maxDepth: maxDepth, currentDepth: currentDepth + 1) {
+                if let childTextContent = getElementTextualContent(
+                    element: child,
+                    includeChildren: true,
+                    maxDepth: maxDepth,
+                    currentDepth: currentDepth + 1
+                ) {
                     childTexts.append(childTextContent)
                 }
             }
@@ -94,12 +121,22 @@ func getElementTextualContent(element: Element, includeChildren: Bool = false, m
             }
         }
     }
-    
+
     if !joinedDirectText.isEmpty {
-         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: Extracted '\(joinedDirectText)' for element \(element.briefDescription(option: ValueFormatOption.smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "TextExtraction/Content: Extracted '\(joinedDirectText)' for element " +
+                "\(element.briefDescription(option: ValueFormatOption.smart)) " +
+                "(children included: \(includeChildren), depth: \(currentDepth))"
+        ))
         return joinedDirectText
     }
-    
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "TextExtraction/Content: No direct text found for \(element.briefDescription(option: ValueFormatOption.smart)) (children included: \(includeChildren), depth: \(currentDepth))"))
+
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "TextExtraction/Content: No direct text found for " +
+            "\(element.briefDescription(option: ValueFormatOption.smart)) " +
+            "(children included: \(includeChildren), depth: \(currentDepth))"
+    ))
     return nil
 }

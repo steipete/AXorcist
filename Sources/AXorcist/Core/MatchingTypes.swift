@@ -15,7 +15,7 @@ public struct Criterion: Codable, Sendable {
         case match_type // for decoding json
         case matchType // for swift code
     }
-    
+
     public init(attribute: String, value: String, matchType: JSONPathHintComponent.MatchType? = nil) {
         self.attribute = attribute
         self.value = value
@@ -65,8 +65,8 @@ public struct PathStep: Codable, Sendable {
     }
 
     // Default initializer
-    public init(criteria: [Criterion], 
-                matchType: JSONPathHintComponent.MatchType? = .exact, 
+    public init(criteria: [Criterion],
+                matchType: JSONPathHintComponent.MatchType? = .exact,
                 matchAllCriteria: Bool? = true,
                 maxDepthForStep: Int? = nil) { // Added maxDepthForStep
         self.criteria = criteria
@@ -74,20 +74,20 @@ public struct PathStep: Codable, Sendable {
         self.matchAllCriteria = matchAllCriteria
         self.maxDepthForStep = maxDepthForStep // Initialize
     }
-    
+
     /// Returns a string representation suitable for logging
     public func descriptionForLog() -> String {
         let critDesc = criteria.map { criterion -> String in
             "\(criterion.attribute):\(criterion.value)(\((criterion.matchType ?? .exact).rawValue))"
         }.joined(separator: ", ")
-        
+
         let depthStringPart: String
         if let depth = maxDepthForStep {
             depthStringPart = ", Depth: \(depth)"
         } else {
             depthStringPart = ""
         }
-        
+
         let matchTypeStringPart = (matchType ?? .exact).rawValue
         let matchAllStringPart = "\(matchAllCriteria ?? true)"
 
@@ -96,7 +96,7 @@ public struct PathStep: Codable, Sendable {
 }
 
 // Locator for finding elements
-public struct Locator: Codable, Sendable { 
+public struct Locator: Codable, Sendable {
     public var matchAll: Bool? // For the top-level criteria, if path_from_root is not used or fails early.
     public var criteria: [Criterion]
     public var rootElementPathHint: [JSONPathHintComponent]? // Changed from [PathStep]?

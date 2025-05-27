@@ -81,11 +81,11 @@ extension CommandType {
                 axErrorLog("toAXCommand: Some subCommands in batch failed to convert. Original: \(batchSubCommands.count), Converted: \(axSubCommands.count)")
             }
             return .batch(AXBatchCommand(commands: axSubCommands))
-            
+
         case .setFocusedValue:
-            guard let value = commandEnvelope.actionValue?.value as? String else { 
-                 axErrorLog("toAXCommand: SetFocusedValue missing string value in actionValue or wrong type.")
-                return nil 
+            guard let value = commandEnvelope.actionValue?.value as? String else {
+                axErrorLog("toAXCommand: SetFocusedValue missing string value in actionValue or wrong type.")
+                return nil
             }
             return .setFocusedValue(SetFocusedValueCommand(
                 appIdentifier: commandEnvelope.application,
@@ -93,7 +93,7 @@ extension CommandType {
                 value: value,
                 maxDepthForSearch: commandEnvelope.maxDepth ?? 10
             ))
-            
+
         case .getElementAtPoint:
             guard let point = commandEnvelope.point else {
                 axErrorLog("toAXCommand: GetElementAtPoint missing point.")
@@ -106,14 +106,14 @@ extension CommandType {
                 attributesToReturn: commandEnvelope.attributes,
                 includeChildrenBrief: commandEnvelope.includeChildrenBrief
             ))
-            
+
         case .getFocusedElement:
             return .getFocusedElement(GetFocusedElementCommand(
                 appIdentifier: commandEnvelope.application,
                 attributesToReturn: commandEnvelope.attributes,
                 includeChildrenBrief: commandEnvelope.includeChildrenBrief
             ))
-            
+
         case .observe:
             guard let notificationsList = commandEnvelope.notifications, !notificationsList.isEmpty else {
                 axErrorLog("toAXCommand: Observe missing notifications list.")
@@ -134,25 +134,25 @@ extension CommandType {
                 includeElementDetails: commandEnvelope.includeElementDetails,
                 maxDepthForSearch: commandEnvelope.maxDepth ?? 10
             ))
-            
+
         case .ping:
             return nil
-            
+
         case .stopObservation:
             return nil
-            
+
         case .isProcessTrusted:
             return nil
-            
+
         case .isAXFeatureEnabled:
             return nil
-            
+
         case .setNotificationHandler:
             return nil
-            
+
         case .removeNotificationHandler:
             return nil
-            
+
         case .getElementDescription:
             return nil
         }

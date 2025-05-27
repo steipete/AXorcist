@@ -13,7 +13,7 @@ private let logger = Logger(label: "AXorcist.PathNavigationUtilities")
 @MainActor
 public func getApplicationElement(for bundleIdentifier: String) -> Element? {
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/AppEl: Attempting to get application element for bundle identifier '\(bundleIdentifier)'."))
-    
+
     guard let runningApp = NSWorkspace.shared.runningApplications.first(where: {
         $0.bundleIdentifier == bundleIdentifier
     }) else {
@@ -60,7 +60,7 @@ public func getElement(
         GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "PathNav/GetEl: Could not get root application element for '\(appIdentifier)'."))
         return nil
     }
-    
+
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/GetEl: Root element for '\(appIdentifier)' is [\(rootElement.briefDescription(option: ValueFormatOption.smart))]. Processing path hint."))
 
     if let stringPathHint = pathHint as? [String] {
@@ -90,7 +90,7 @@ func findDescendantAtPath(
 
     for (pathComponentIndex, component) in pathComponents.enumerated() {
         logger.debug("PathNav/findDescendantAtPath: Processing component. Current: \(currentElement.briefDescription(option: .smart))")
-        
+
         let searchVisitor = SearchVisitor(
             criteria: component.criteria,
             matchType: component.matchType ?? .exact,
@@ -101,14 +101,14 @@ func findDescendantAtPath(
 
         // Children of the current element are where we search for the next path component
         logger.debug("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Current element for child search: \(currentElement.briefDescription(option: .smart))")
-        
+
         guard let childrenToSearch = currentElement.children(strict: false), !childrenToSearch.isEmpty else {
             logger.warning("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] No children found (or list was empty) for \(currentElement.briefDescription(option: .smart)). Path navigation cannot proceed further down this branch.")
             return nil
         }
         logger.debug("PathNav/findDescendantAtPath: [Component \(pathComponentIndex + 1)] Found \(childrenToSearch.count) children to search.")
 
-        var foundMatchForThisComponent: Element? = nil
+        var foundMatchForThisComponent: Element?
         for child in childrenToSearch {
             searchVisitor.reset()
             traverseAndSearch(element: child, visitor: searchVisitor, currentDepth: 0, maxDepth: component.maxDepthForStep ?? 1)

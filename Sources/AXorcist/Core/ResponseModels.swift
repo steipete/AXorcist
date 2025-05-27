@@ -27,7 +27,7 @@ public enum AXErrorCode: String, Codable, Sendable {
 public enum AXResponse: Sendable {
     case success(payload: AnyCodable?, logs: [String]?)
     case error(message: String, code: AXErrorCode, logs: [String]?)
-    
+
     // Computed property for status
     public var status: String {
         switch self {
@@ -35,7 +35,7 @@ public enum AXResponse: Sendable {
         case .error: return "error"
         }
     }
-    
+
     // Computed property for payload
     public var payload: AnyCodable? {
         switch self {
@@ -43,7 +43,7 @@ public enum AXResponse: Sendable {
         case .error: return nil
         }
     }
-    
+
     // Computed property for error
     public var error: (message: String, code: AXErrorCode)? {
         switch self {
@@ -51,7 +51,7 @@ public enum AXResponse: Sendable {
         case .error(let message, let code, _): return (message, code)
         }
     }
-    
+
     // Computed property for logs
     public var logs: [String]? {
         switch self {
@@ -59,12 +59,12 @@ public enum AXResponse: Sendable {
         case .error(_, _, let logs): return logs
         }
     }
-    
+
     // Static factory methods
     public static func successResponse(payload: AnyCodable?, logs: [String]? = nil) -> AXResponse {
         return .success(payload: payload, logs: logs)
     }
-    
+
     public static func errorResponse(message: String, code: AXErrorCode, logs: [String]? = nil) -> AXResponse {
         return .error(message: message, code: code, logs: logs)
     }
@@ -83,7 +83,7 @@ public struct AXElementData: Codable, HandlerDataRepresentable {
     public var childrenBriefDescriptions: [String]?
     public var fullAXDescription: String?
     // Add path here as it's often part of element data
-    public var path: [String]? 
+    public var path: [String]?
 
     public init(
         briefDescription: String? = nil,
@@ -367,7 +367,7 @@ public struct BatchResponse: Codable {
 // NoFocusPayload for when no focused element is found
 public struct NoFocusPayload: Codable, HandlerDataRepresentable {
     public let message: String
-    
+
     public init(message: String) {
         self.message = message
     }
@@ -376,7 +376,7 @@ public struct NoFocusPayload: Codable, HandlerDataRepresentable {
 // TextPayload for text extraction
 public struct TextPayload: Codable, HandlerDataRepresentable {
     public let text: String
-    
+
     public init(text: String) {
         self.text = text
     }
@@ -386,7 +386,7 @@ public struct TextPayload: Codable, HandlerDataRepresentable {
 public struct BatchResponsePayload: Codable, HandlerDataRepresentable {
     public let results: [AnyCodable?]?
     public let errors: [String]?
-    
+
     public init(results: [AnyCodable?]?, errors: [String]?) {
         self.results = results
         self.errors = errors
@@ -401,7 +401,7 @@ public struct AXElementDescription: Codable, Sendable {
     public let role: String?
     public let attributes: [String: AXValueWrapper]?
     public let children: [AXElementDescription]?
-    
+
     public init(
         briefDescription: String?,
         role: String?,
@@ -421,30 +421,30 @@ public struct CollectAllOutput: Codable {
     public let success: Bool
     public let command: String // e.g., "collectAll"
     public let collectedElements: [AXElementData]? // MODIFIED: Made optional
-    public let appIdentifier: String?             // MODIFIED: Renamed from appBundleId
+    public let appIdentifier: String? // MODIFIED: Renamed from appBundleId
     public var debugLogs: [String]?
-    public let message: String?                   // MODIFIED: Renamed from errorMessage
+    public let message: String? // MODIFIED: Renamed from errorMessage
 
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
         case success
         case command
         case collectedElements = "collected_elements"
-        case appIdentifier = "app_identifier"       // MODIFIED: CodingKey updated
+        case appIdentifier = "app_identifier" // MODIFIED: CodingKey updated
         case debugLogs = "debug_logs"
-        case message = "message"                    // MODIFIED: CodingKey updated
+        case message = "message" // MODIFIED: CodingKey updated
     }
 
     // Add a new initializer or ensure the existing one matches these fields.
-    // Assuming the default memberwise initializer will now work with these changes, 
+    // Assuming the default memberwise initializer will now work with these changes,
     // or one will be synthesized. If a custom one exists, it will need updating.
     // For safety, let's add one that matches the typical usage pattern.
-    public init(commandId: String, 
-                success: Bool, 
-                command: String, 
-                collectedElements: [AXElementData]?, 
-                appIdentifier: String?, 
-                debugLogs: [String]?, 
+    public init(commandId: String,
+                success: Bool,
+                command: String,
+                collectedElements: [AXElementData]?,
+                appIdentifier: String?,
+                debugLogs: [String]?,
                 message: String?) {
         self.commandId = commandId
         self.success = success

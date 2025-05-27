@@ -57,7 +57,7 @@ extension Element {
             return pid_t(pidNum.intValue)
         } else {
             // Use the global axDebugLog helper function for simplicity and correctness
-            axDebugLog("Failed to get PID for element: \(error.rawValue)", 
+            axDebugLog("Failed to get PID for element: \(error.rawValue)",
                        details: ["element": AnyCodable(String(describing: self.underlyingElement))])
         }
         return nil
@@ -182,11 +182,11 @@ extension Element {
     }
 
     // MARK: - AX Property Dumping
-    
+
     @MainActor
     public func dump() -> String {
         var output = "Dumping AX properties for Element: \(self.briefDescription())\n"
-        
+
         output += _dumpRecursive(element: self.underlyingElement, currentIndent: "  ")
         return output
     }
@@ -219,7 +219,7 @@ extension Element {
                                 // Only recurse on known children attributes for brevity
                                 if name == kAXChildrenAttribute as String || name == kAXVisibleChildrenAttribute as String || name == kAXSelectedChildrenAttribute as String {
                                     for _ in childrenElements {
-                                        //output += _dumpRecursive(element: childAXUIElement, currentIndent: attributeIndent + "  ")
+                                        // output += _dumpRecursive(element: childAXUIElement, currentIndent: attributeIndent + "  ")
                                     }
                                 }
                             } else if let stringValue = value as? String, stringValue.isEmpty {
@@ -303,29 +303,29 @@ extension Element {
 @MainActor
 public func example_dumpFocusedElementToString() {
     #if DEBUG
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message:"Attempting to dump focused element AX properties to string:"))
-    var outputString = "Focused Element Details:\n"
-    if AXIsProcessTrustedWithOptions(nil) { //nil means check current process
-        var focusedCF: CFTypeRef?
-        let systemWideElement = AXUIElementCreateSystemWide()
-        
-        if AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedCF) == .success {
-            if let focusedAXUIEl = focusedCF as! AXUIElement? { // Safely cast to AXUIElement
-                let focusedElement = Element(focusedAXUIEl) // Create an Element instance
-                outputString += "Successfully obtained focused element. Dumping details:\n"
-                outputString += focusedElement.dump() // Call the updated dump method, added await
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "Attempting to dump focused element AX properties to string:"))
+        var outputString = "Focused Element Details:\n"
+        if AXIsProcessTrustedWithOptions(nil) { // nil means check current process
+            var focusedCF: CFTypeRef?
+            let systemWideElement = AXUIElementCreateSystemWide()
+
+            if AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedCF) == .success {
+                if let focusedAXUIEl = focusedCF as! AXUIElement? { // Safely cast to AXUIElement
+                    let focusedElement = Element(focusedAXUIEl) // Create an Element instance
+                    outputString += "Successfully obtained focused element. Dumping details:\n"
+                    outputString += focusedElement.dump() // Call the updated dump method, added await
+                } else {
+                    outputString += "Focused element is nil (no element has focus, or could not be cast).\n"
+                }
             } else {
-                outputString += "Focused element is nil (no element has focus, or could not be cast).\n"
+                outputString += "Failed to get the focused UI element from system wide element.\n"
             }
         } else {
-            outputString += "Failed to get the focused UI element from system wide element.\n"
+            outputString += "AXPermissions: Process is not trusted. Please enable Accessibility for this application.\n"
         }
-    } else {
-        outputString += "AXPermissions: Process is not trusted. Please enable Accessibility for this application.\n"
-    }
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: outputString))
+        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: outputString))
     #else
-    // print("example_dumpFocusedElementToString is only available in DEBUG builds.")
+        // print("example_dumpFocusedElementToString is only available in DEBUG builds.")
     #endif
 }
 

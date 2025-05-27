@@ -11,14 +11,14 @@ internal func executeQuery(command: CommandEnvelope, axorcist: AXorcist) -> Hand
         axErrorLog("Failed to convert Query to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Query")
     }
-    
+
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axQueryCommand))
     return HandlerResponse(from: axResponse)
 }
 
 @MainActor
 internal func executeGetFocusedElement(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
-     guard let axGetFocusedCmd = command.command.toAXCommand(commandEnvelope: command) else {
+    guard let axGetFocusedCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert GetFocusedElement to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetFocusedElement")
     }

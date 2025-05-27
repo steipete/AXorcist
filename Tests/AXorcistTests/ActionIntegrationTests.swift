@@ -172,7 +172,7 @@ private func extractAndVerifyText(
         response.debugLogs?
             .contains { log in
                 log.contains("Handling extractText command") ||
-                log.contains("handleExtractText completed")
+                    log.contains("handleExtractText completed")
             } == true,
         "Debug logs should indicate extractText execution."
     )

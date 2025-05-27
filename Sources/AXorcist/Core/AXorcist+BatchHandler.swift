@@ -10,10 +10,10 @@ extension AXorcist {
 
         for (index, subCommandEnvelope) in command.commands.enumerated() {
             GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"))
-            
+
             let response = processSingleBatchCommand(subCommandEnvelope.command)
             results.append(response)
-            
+
             if response.status != "success" {
                 overallSuccess = false
                 let errorDetail = response.error?.message ?? "Unknown error in sub-command \(subCommandEnvelope.commandID)"
@@ -60,4 +60,4 @@ extension AXorcist {
             return .errorResponse(message: "Nested batch commands are not supported within a single batch operation.", code: .invalidCommand)
         }
     }
-} 
+}

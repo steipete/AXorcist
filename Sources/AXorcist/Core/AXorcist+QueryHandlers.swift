@@ -1,6 +1,6 @@
-import Foundation
-import ApplicationServices
 import AppKit // For NSRunningApplication
+import ApplicationServices
+import Foundation
 
 // Note: Assumes Element, Attribute, AXValueWrapper, etc. are defined and accessible.
 // Assumes GlobalAXLogger is available.
@@ -13,7 +13,7 @@ extension AXorcist {
 
         let appIdentifier = command.appIdentifier ?? "focused"
         let resolvedMaxDepth = externalMaxDepth ?? 10
-        
+
         // DEBUG LOG FOR MAX DEPTH
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleQuery: externalMaxDepth = \(String(describing: externalMaxDepth)), resolved maxDepth = \(resolvedMaxDepth)"))
 
@@ -29,11 +29,11 @@ extension AXorcist {
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleQuery: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"))
-        
+
         // Fetch attributes specified in command.attributesToReturn, or default if nil/empty
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
         let elementData = buildQueryResponse(element: element, attributesToFetch: attributesToFetch, includeChildrenBrief: command.includeChildrenBrief ?? false)
-        
+
         return .successResponse(payload: AnyCodable(elementData))
     }
 
@@ -62,13 +62,13 @@ extension AXorcist {
                 attributesDict[attrName] = AXValueWrapper(value: nil) // Explicitly store nil for missing attributes
             }
         }
-        
+
         let briefDesc = element.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleGetAttrs: Attributes for '\(briefDesc)': \(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"))
-        
+
         // Log fetched attributes for debugging purposes
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/GetAttributes: Fetched attributes for \(briefDesc): \(attributesDict.mapValues { String(describing: $0.anyValue?.value) })"))
-        
+
         // Construct a simple payload containing just the attributes dictionary.
         // For a more structured response like AXElementData, we'd use buildQueryResponse or similar.
         struct AttributesPayload: Codable {
@@ -106,7 +106,7 @@ extension AXorcist {
 
     internal func buildQueryResponse(element: Element, attributesToFetch: [String], includeChildrenBrief: Bool) -> AXElementData {
         let fetchedAttributes = fetchInstanceElementAttributes(element: element, attributeNames: attributesToFetch)
-        
+
         // Get all possible attribute names for this element
         let allAXAttributes = element.attributeNames()
         let textualContent = extractTextFromElement(element, maxDepth: 3) // MaxDepth set to 3 for brief text
@@ -140,9 +140,9 @@ extension AXorcist {
                 children: nil
             )
         }
-        
+
         let attributes = fetchInstanceElementAttributes(element: element, attributeNames: AXMiscConstants.defaultAttributesToFetch)
-        var childrenDescriptions: [AXElementDescription]? = nil
+        var childrenDescriptions: [AXElementDescription]?
 
         if currentDepth < depth {
             if let children = element.children() {
@@ -178,4 +178,4 @@ extension AXorcist {
         }
         return attributesDict
     }
-} 
+}

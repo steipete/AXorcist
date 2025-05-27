@@ -11,13 +11,13 @@ public enum CommandType: String, Codable, Sendable {
     case getFocusedElement
     case performAction
     case batch
-    case observe 
-    case collectAll 
-    case stopObservation 
-    case isProcessTrusted 
+    case observe
+    case collectAll
+    case stopObservation
+    case isProcessTrusted
     case isAXFeatureEnabled
     case setFocusedValue // Added from error
-    case extractText     // Added from error
+    case extractText // Added from error
     case setNotificationHandler // For AXObserver
     case removeNotificationHandler // For AXObserver
     case getElementDescription // Utility command for full description

@@ -58,9 +58,9 @@ public struct AnyCodable: Codable, @unchecked Sendable {
                 // This is the most flexible approach as the Encodable type can use any container type it needs.
                 try codableValue.encode(to: encoder)
             } else if CFGetTypeID(value as CFTypeRef) == CFNullGetTypeID() {
-                 try container.encodeNil()
+                try container.encodeNil()
             } else {
-                 throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: [], debugDescription: "AnyCodable value (\(type(of: value))) cannot be encoded and does not conform to Encodable."))
+                throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: [], debugDescription: "AnyCodable value (\(type(of: value))) cannot be encoded and does not conform to Encodable."))
             }
         }
     }
@@ -77,7 +77,7 @@ struct AnyCodablePośrednik<T: Encodable>: Encodable {
 }
 
 // Helper protocol to check if a type is Optional
-fileprivate protocol OptionalProtocol {
+private protocol OptionalProtocol {
     static func isOptional() -> Bool
 }
 

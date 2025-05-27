@@ -1,19 +1,19 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
-import Foundation
-import CoreFoundation
 @preconcurrency import ArgumentParser
 import AXorcist // For AXorcist instance
+import CoreFoundation
+import Foundation
 
 // axorcVersion is now defined in AXORCModels.swift
-// let axorcVersion = "0.1.0-dev" 
+// let axorcVersion = "0.1.0-dev"
 
 @main
 struct AXORCCommand: @preconcurrency ParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
         // Use axorcVersion from AXORCModels.swift or a shared constant place
-        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \\(axorcVersion)" 
+        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \\(axorcVersion)"
     )
 
     @Flag(name: .long, help: "Enable debug logging for the command execution.")
@@ -75,12 +75,14 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
             if observerSetupSucceeded {
                 axInfoLog("AXORCMain: Observer setup successful. Process will remain alive by running current RunLoop.")
                 #if DEBUG
-                axInfoLog("AXORCMain: DEBUG mode - entering RunLoop.current.run() for observer.")
-                RunLoop.current.run()
-                axInfoLog("AXORCMain: DEBUG mode - RunLoop.current.run() finished.")
+                    axInfoLog("AXORCMain: DEBUG mode - entering RunLoop.current.run() for observer.")
+                    RunLoop.current.run()
+                    axInfoLog("AXORCMain: DEBUG mode - RunLoop.current.run() finished.")
                 #else
-                fputs("{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases. In release, it sets up the observer but will not keep the process alive indefinitely by itself. Exiting normally after setup.\"}\n", stderr)
-                fflush(stderr)
+                    fputs("{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases. " +
+                        "In release, it sets up the observer but will not keep the process alive indefinitely by itself. " +
+                        "Exiting normally after setup.\"}\n", stderr)
+                    fflush(stderr)
                 #endif
             } else {
                 axErrorLog("AXORCMain: Observe command setup reported failure or result was not a success status. Exiting.")
@@ -162,12 +164,16 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
                     axDebugLog("AXORCMain Test: Decode attempt 2: Successfully decoded as SINGLE CommandEnvelope.")
                     processAndExecuteCommand(command: command, axorcist: axorcistInstance, debugCLI: debug)
                 } catch let singleDecodeError {
-                     axDebugLog("AXORCMain Test: Decode attempt 2 (as single CommandEnvelope) ALSO FAILED. Error: \(singleDecodeError). Original array decode error was: \(arrayDecodeError)")
-                    let errorResponse = ErrorResponse(commandId: "decode_error", error: "Failed to decode JSON input: \(singleDecodeError.localizedDescription)", debugLogs: debug ? axGetLogsAsStrings() : nil)
+                    axDebugLog("AXORCMain Test: Decode attempt 2 (as single CommandEnvelope) ALSO FAILED. Error: \(singleDecodeError). Original array decode error was: \(arrayDecodeError)")
+                    let errorResponse = ErrorResponse(
+                        commandId: "decode_error",
+                        error: "Failed to decode JSON input: \(singleDecodeError.localizedDescription)",
+                        debugLogs: debug ? axGetLogsAsStrings() : nil
+                    )
                     if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonErrorString = String(data: jsonData, encoding: .utf8) {
                         print(jsonErrorString)
                     } else {
-                         print("{\"error\": \"Failed to encode decode error response: \(singleDecodeError.localizedDescription)\"}")
+                        print("{\"error\": \"Failed to encode decode error response: \(singleDecodeError.localizedDescription)\"}")
                     }
                     return
                 }
@@ -182,7 +188,7 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
             }
             return
         }
-        
+
         // After processing all commands or if an error occurs
         if debug && commandShouldPrintLogsAtEnd() {
             let logMessages = axGetLogsAsStrings(format: .text)
@@ -196,7 +202,7 @@ struct AXORCCommand: @preconcurrency ParsableCommand {
             }
         }
     }
-    
+
     @MainActor
     private func commandShouldPrintLogsAtEnd() -> Bool {
         // This is a simplified check. A more robust way would be to check

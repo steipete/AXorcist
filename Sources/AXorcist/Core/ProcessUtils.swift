@@ -142,14 +142,16 @@ private func pidByLocalizedName(_ ident: String) -> pid_t? {
 
     for (idx, app) in allApps.enumerated() {
         axDebugLog(
-            "ProcessUtils: pidByLocalizedName - Checking app [\(idx)]: '\(app.localizedName ?? "NIL_NAME")' (Terminated: \(app.isTerminated), BundleID: \(app.bundleIdentifier ?? "NIL_BID")) against target '\(ident)'.",
+            "ProcessUtils: pidByLocalizedName - Checking app [\(idx)]: " +
+                "'\(app.localizedName ?? "NIL_NAME")' (Terminated: \(app.isTerminated), " +
+                "BundleID: \(app.bundleIdentifier ?? "NIL_BID")) against target '\(ident)'.",
             file: #file, function: #function, line: #line
         )
         if !app.isTerminated && app.localizedName?.lowercased() == ident.lowercased() {
             axDebugLog(
                 "ProcessUtils: Found non-terminated app by localized name (in loop): " +
-                "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier), " +
-                "BundleID: '\(app.bundleIdentifier ?? "nil")')",
+                    "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier), " +
+                    "BundleID: '\(app.bundleIdentifier ?? "nil")')",
                 file: #file,
                 function: #function,
                 line: #line

@@ -18,7 +18,7 @@ public enum AXCommand: Sendable {
     case getFocusedElement(GetFocusedElementCommand)
     case observe(ObserveCommand)
     case collectAll(CollectAllCommand)
-    
+
     // Computed property to get command type
     public var type: String {
         switch self {
@@ -41,7 +41,7 @@ public enum AXCommand: Sendable {
 public struct AXCommandEnvelope: Sendable {
     public let commandID: String
     public let command: AXCommand
-    
+
     public init(commandID: String, command: AXCommand) {
         self.commandID = commandID
         self.command = command
@@ -55,7 +55,7 @@ public struct QueryCommand: Sendable {
     public let attributesToReturn: [String]?
     public let maxDepthForSearch: Int
     public let includeChildrenBrief: Bool?
-    
+
     public init(appIdentifier: String?, locator: Locator, attributesToReturn: [String]? = nil, maxDepthForSearch: Int = 10, includeChildrenBrief: Bool? = nil) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -71,7 +71,7 @@ public struct PerformActionCommand: Sendable {
     public let action: String
     public let value: AnyCodable?
     public let maxDepthForSearch: Int
-    
+
     public init(appIdentifier: String?, locator: Locator, action: String, value: AnyCodable? = nil, maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -86,7 +86,7 @@ public struct GetAttributesCommand: Sendable {
     public let locator: Locator
     public let attributes: [String]
     public let maxDepthForSearch: Int
-    
+
     public init(appIdentifier: String?, locator: Locator, attributes: [String], maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -103,7 +103,7 @@ public struct DescribeElementCommand: Sendable {
     public let depth: Int
     public let includeIgnored: Bool
     public let maxSearchDepth: Int
-    
+
     public init(appIdentifier: String?, locator: Locator, formatOption: ValueFormatOption = .smart, maxDepthForSearch: Int = 10, depth: Int = 3, includeIgnored: Bool = false, maxSearchDepth: Int = 10) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -121,7 +121,7 @@ public struct ExtractTextCommand: Sendable {
     public let maxDepthForSearch: Int
     public let includeChildren: Bool?
     public let maxDepth: Int?
-    
+
     public init(appIdentifier: String?, locator: Locator, maxDepthForSearch: Int = 10, includeChildren: Bool? = nil, maxDepth: Int? = nil) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -136,7 +136,7 @@ public struct SetFocusedValueCommand: Sendable {
     public let locator: Locator
     public let value: String
     public let maxDepthForSearch: Int
-    
+
     public init(appIdentifier: String?, locator: Locator, value: String, maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -153,7 +153,7 @@ public struct GetElementAtPointCommand: Sendable {
     public let y: Float
     public let attributesToReturn: [String]?
     public let includeChildrenBrief: Bool?
-    
+
     public init(point: CGPoint, appIdentifier: String? = nil, pid: Int? = nil, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
         self.point = point
         self.appIdentifier = appIdentifier
@@ -163,7 +163,7 @@ public struct GetElementAtPointCommand: Sendable {
         self.attributesToReturn = attributesToReturn
         self.includeChildrenBrief = includeChildrenBrief
     }
-    
+
     public init(appIdentifier: String?, x: Float, y: Float, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
         self.point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         self.appIdentifier = appIdentifier
@@ -179,7 +179,7 @@ public struct GetFocusedElementCommand: Sendable {
     public let appIdentifier: String?
     public let attributesToReturn: [String]?
     public let includeChildrenBrief: Bool?
-    
+
     public init(appIdentifier: String?, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
         self.appIdentifier = appIdentifier
         self.attributesToReturn = attributesToReturn
@@ -196,7 +196,7 @@ public struct ObserveCommand: Sendable {
     public let notificationName: AXNotification
     public let includeElementDetails: [String]?
     public let maxDepthForSearch: Int
-    
+
     public init(appIdentifier: String?, locator: Locator? = nil, notifications: [String], includeDetails: Bool = true, watchChildren: Bool = false, notificationName: AXNotification, includeElementDetails: [String]? = nil, maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
         self.locator = locator
@@ -237,15 +237,15 @@ public struct AXBatchCommand: Sendable {
     public struct SubCommandEnvelope: Sendable {
         public let commandID: String
         public let command: AXCommand
-        
+
         public init(commandID: String, command: AXCommand) {
             self.commandID = commandID
             self.command = command
         }
     }
-    
+
     public let commands: [SubCommandEnvelope]
-    
+
     public init(commands: [SubCommandEnvelope]) {
         self.commands = commands
     }

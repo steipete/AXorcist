@@ -51,7 +51,7 @@ public struct JSONPathHintComponent: Codable, Sendable {
             "VALUE": AXAttributeNames.kAXValueAttribute,
             "HELP": AXAttributeNames.kAXHelpAttribute,
             "DESCRIPTION": AXAttributeNames.kAXDescriptionAttribute,
-            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute,
+            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute
             // Add other common attributes as needed
         ]
         return attributeTypeMap[attribute.uppercased()]
@@ -93,9 +93,9 @@ public struct JSONPathHintComponent: Codable, Sendable {
         try container.encodeIfPresent(depth, forKey: .depth)
         try container.encodeIfPresent(matchType, forKey: .matchType)
     }
-    
+
     /// Returns a string representation suitable for logging
     public func descriptionForLog() -> String {
         return "\(axAttributeName ?? attribute):\(value)"
     }
-} 
+}

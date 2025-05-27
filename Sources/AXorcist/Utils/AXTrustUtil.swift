@@ -1,8 +1,8 @@
 // AXTrustUtil.swift - Utility for checking and prompting for AX API trust.
 
+import AppKit // Added for NSWorkspace
 import ApplicationServices
 import Foundation
-import AppKit // Added for NSWorkspace
 
 @MainActor // Make the whole enum MainActor isolated
 public enum AXTrustUtil {

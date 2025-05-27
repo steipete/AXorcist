@@ -1,8 +1,8 @@
 // Element.swift - Wrapper for AXUIElement for a more Swift-idiomatic interface
 
+import AppKit // Added to provide NSRunningApplication and NSWorkspace
 import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
-import AppKit // Added to provide NSRunningApplication and NSWorkspace
 
 // Element struct is NOT @MainActor. Isolation is applied to members that need it.
 public struct Element: Equatable, Hashable {
@@ -79,7 +79,12 @@ public struct Element: Equatable, Hashable {
         if let val = anyCodableValue.value as? T {
             return val
         } else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Stored attribute '\\(attribute.rawValue)' (type \\(type(of: anyCodableValue.value))) could not be cast to \\(String(describing: T.self))"))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .debug,
+                message: "Stored attribute '\\(attribute.rawValue)' " +
+                    "(type \\(type(of: anyCodableValue.value))) " +
+                    "could not be cast to \\(String(describing: T.self))"
+            ))
             return nil
         }
     }
@@ -213,7 +218,7 @@ public struct Element: Equatable, Hashable {
     public func parameterizedAttribute<T>(_ attribute: Attribute<T>, parameter: Any) -> T? {
         var value: CFTypeRef?
         let error: AXError
-        
+
         // Need to bridge the parameter to CFTypeRef
         let cfParameter: CFTypeRef
         if let num = parameter as? NSNumber {
@@ -221,12 +226,16 @@ public struct Element: Equatable, Hashable {
         } else if let str = parameter as? String {
             cfParameter = str as CFString
         } else if let el = parameter as? Element {
-             cfParameter = el.underlyingElement
+            cfParameter = el.underlyingElement
         } else {
             // Fallback for other types or if bridging is complex; might need more specific handling
             // For now, attempt to bridge directly, or log error if not possible
             if CFGetTypeID(parameter as CFTypeRef) == 0 { // Heuristic: Check if it's already a CFTypeRef or bridgable
-                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Parameterized attribute '\(attribute.rawValue)' called with non-CF bridgable Swift type: \(type(of: parameter)). This might fail."))
+                GlobalAXLogger.shared.log(AXLogEntry(
+                    level: .debug,
+                    message: "Parameterized attribute '\(attribute.rawValue)' called with " +
+                        "non-CF bridgable Swift type: \(type(of: parameter)). This might fail."
+                ))
             }
             cfParameter = parameter as CFTypeRef // This can crash if parameter is not CF-bridgable
         }
@@ -235,7 +244,7 @@ public struct Element: Equatable, Hashable {
 
         if error != .success {
             if error != .noValue {
-                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."))
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."))
             }
             return nil
         }
@@ -265,7 +274,7 @@ public struct Element: Equatable, Hashable {
             return false
         }
     }
-    
+
     @MainActor
     public func showMenu() -> Bool {
         do {
@@ -288,11 +297,16 @@ public struct Element: Equatable, Hashable {
         } else if let numValue = value as? NSNumber { // Handles Int, Double, etc. that bridge to NSNumber
             cfValue = numValue
         } else if let elementValue = value as? Element {
-             cfValue = elementValue.underlyingElement
+            cfValue = elementValue.underlyingElement
         } else {
             // Attempt direct bridging for other types; may fail if not directly bridgable.
             // Consider logging a warning or throwing an error for unhandled types.
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: "Attempting to set attribute '\\(attributeName)' with potentially non-CF-bridgable Swift type: \\(type(of: value)). This might fail or lead to unexpected behavior."))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .warning,
+                message: "Attempting to set attribute '\\(attributeName)' with potentially " +
+                    "non-CF-bridgable Swift type: \\(type(of: value)). " +
+                    "This might fail or lead to unexpected behavior."
+            ))
             cfValue = value as CFTypeRef // This can crash if 'value' is not CF-bridgable
         }
 
@@ -301,7 +315,11 @@ public struct Element: Equatable, Hashable {
             GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Successfully set attribute '\\(attributeName)' to '\\(value)' on \\(self.briefDescription(option: .short))"))
             return true
         } else {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: "Failed to set attribute '\\(attributeName)' to '\\(value)' on \\(self.briefDescription(option: .short)): \\(axErrorToString(error))"))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .error,
+                message: "Failed to set attribute '\\(attributeName)' to '\\(value)' on " +
+                    "\\(self.briefDescription(option: .short)): \\(axErrorToString(error))"
+            ))
             return false
         }
     }
@@ -354,7 +372,7 @@ extension Element {
         }
         return Element.application(for: runningApp.processIdentifier) // application(for:) is synchronous
     }
-    
+
     @MainActor
     public static func focusedApplication() -> Element? {
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
@@ -390,9 +408,9 @@ extension Element {
         }
         return Element(elementAXUIElement)
     }
-    
+
     // MARK: - Path Generation
-    
+
     @MainActor
     public func path() -> Path? {
         let pathArray = self.generatePathArray()
@@ -403,7 +421,7 @@ extension Element {
 // Path structure to represent element path
 public struct Path {
     public let components: [String]
-    
+
     public init(components: [String]) {
         self.components = components
     }

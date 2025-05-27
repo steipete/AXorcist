@@ -1,7 +1,7 @@
 // Models.swift - Contains core data models and type aliases
 
-import Foundation
 import ApplicationServices // Added for AXUIElementGetTypeID
+import Foundation
 
 // Type alias for element attributes dictionary
 public typealias ElementAttributes = [String: AnyCodable]
@@ -54,10 +54,10 @@ public struct AXValueWrapper: Codable, Sendable {
         if let dict = anItem as? [String: Any?] {
             return dict.mapValues { recursivelySanitize($0) }
         }
-        
+
         // For basic, already encodable types, return as is.
         // This assumes String, Int, Double, Bool are passed through.
-        return anItem 
+        return anItem
     }
 
     // If AnyCodable has trouble with certain AX types (like AXUIElementRef),

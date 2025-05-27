@@ -1,5 +1,5 @@
-import Foundation
 import ApplicationServices
+import Foundation
 
 public enum AXPermissions {
 

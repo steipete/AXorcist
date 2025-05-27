@@ -20,16 +20,16 @@ public func findTargetElement(
     locator: Locator,
     maxDepthForSearch: Int
 ) -> (element: Element?, error: String?) {
-    
+
     let pathHintDebugString = locator.rootElementPathHint?.map { $0.descriptionForLog() }.joined(separator: "\n    -> ") ?? "nil"
     let criteriaDebugString = locator.criteria.map { criterion in "[\(criterion.attribute):\(criterion.value), match:\(criterion.matchType?.rawValue ?? "exact")]" }.joined(separator: ", ")
-    
+
     // Use criteriaDebugString in the log message
     var logMessage = """
-FindTargetEl: START
-  App: '\(appIdentifier)'
-  MaxDepth: \(maxDepthForSearch)
-"""
+    FindTargetEl: START
+      App: '\(appIdentifier)'
+      MaxDepth: \(maxDepthForSearch)
+    """
     if !criteriaDebugString.isEmpty {
         logMessage += "\n  Initial Criteria: \(criteriaDebugString)"
     } else {
@@ -49,13 +49,13 @@ FindTargetEl: START
     // 1. Navigate by pathHint if provided
     if let jsonPathComponents = locator.rootElementPathHint, !jsonPathComponents.isEmpty {
         logger.debug("FindTargetEl: Path hint provided with \(jsonPathComponents.count) components. Navigating path first from \(searchStartingPointDescription).")
-        
+
         // Convert [JSONPathHintComponent] to [PathStep]
         let pathSteps: [PathStep] = jsonPathComponents.map { component in
             let criterion = Criterion(attribute: component.attribute, value: component.value, matchType: component.matchType)
             return PathStep(criteria: [criterion], matchType: component.matchType, matchAllCriteria: true, maxDepthForStep: component.depth)
         }
-        
+
         if let navigatedElement = findDescendantAtPath(
             currentRoot: currentSearchElement,
             pathComponents: pathSteps, // Use converted pathSteps
@@ -78,21 +78,21 @@ FindTargetEl: START
     // If locator.criteria is empty, it means the path navigation itself was meant to find the target.
     if locator.criteria.isEmpty {
         if locator.rootElementPathHint?.isEmpty ?? true {
-             let noCriteriaError = "FindTargetEl: No criteria provided in locator and no path hint. Cannot perform search."
+            let noCriteriaError = "FindTargetEl: No criteria provided in locator and no path hint. Cannot perform search."
             logger.error("\(noCriteriaError)")
             return (nil, noCriteriaError)
         }
         logger.info("FindTargetEl: Path hint was used and no further criteria specified. Returning element found at path: \(currentSearchElement.briefDescription(option: .smart))")
         return (currentSearchElement, nil)
     }
-    
+
     logger.debug("FindTargetEl: Applying final criteria from locator (\(locator.criteria.count) criteria) starting from \(searchStartingPointDescription). MatchAll=\(locator.matchAll ?? true), MatchType=\(locator.criteria.first?.matchType?.rawValue ?? "default/exact")")
-    
+
     // Use matchAll and matchType from the main Locator object for these final criteria, if they exist there.
     // Otherwise, SearchVisitor will use its defaults or what's on individual Criterion objects.
     let finalSearchMatchType = locator.criteria.first?.matchType ?? .exact // Simplified: take from first criterion or default
     let finalSearchMatchAll = locator.matchAll ?? true
-    
+
     let searchVisitor = SearchVisitor(
         criteria: locator.criteria,
         matchType: finalSearchMatchType,
@@ -100,9 +100,9 @@ FindTargetEl: START
         stopAtFirstMatch: true, // For the final search, we typically want the first match.
         maxDepth: maxDepthForSearch
     )
-    
+
     traverseAndSearch(element: currentSearchElement, visitor: searchVisitor, currentDepth: 0, maxDepth: maxDepthForSearch)
-    
+
     if let foundMatch = searchVisitor.foundElement { // Changed from foundElements.first
         logger.info("FindTargetEl: Found final descendant matching criteria: \(foundMatch.briefDescription(option: .smart))")
         return (foundMatch, nil)
@@ -125,10 +125,10 @@ public func collectAllElements(
 ) -> [Element] {
     let criteriaDebugString = criteria?.map { "\($0.attribute):\($0.value)(\($0.match_type?.rawValue ?? "exact"))" }.joined(separator: ", ") ?? "all"
     logger.info("CollectAll: From [\(startElement.briefDescription(option: ValueFormatOption.smart))], Criteria: [\(criteriaDebugString)], MaxDepth: \(maxDepth), Ignored: \(includeIgnored)")
-    
+
     let visitor = CollectAllVisitor(criteria: criteria, includeIgnored: includeIgnored)
     traverseAndSearch(element: startElement, visitor: visitor, currentDepth: 0, maxDepth: maxDepth)
-    
+
     logger.info("CollectAll: Found \(visitor.collectedElements.count) elements.")
     return visitor.collectedElements
 }
@@ -173,13 +173,12 @@ public func traverseAndSearch(
     case .continue:
         logger.debug("Traverse: Visitor requested CONTINUE at [\(element.briefDescription(option: ValueFormatOption.smart))] depth \(currentDepth). Processing children.")
         // Continue to process children
-        break 
     }
 
     if let children = element.children() {
         for child in children {
             traverseAndSearch(element: child, visitor: visitor, currentDepth: currentDepth + 1, maxDepth: maxDepth)
-             // If the visitor is a SearchVisitor that stops at first match, check if it found something.
+            // If the visitor is a SearchVisitor that stops at first match, check if it found something.
             if let searchVisitor = visitor as? SearchVisitor, searchVisitor.stopAtFirstMatchInternal, searchVisitor.foundElement != nil {
                 logger.debug("Traverse: SearchVisitor found match and stopAtFirstMatch is true. Stopping traversal early.")
                 return // Stop traversal early
@@ -202,10 +201,10 @@ public class SearchVisitor: ElementVisitor {
     private let matchAllCriteriaBool: Bool // Added (renamed to avoid conflict with func name)
 
     init(
-        criteria: [Criterion], 
+        criteria: [Criterion],
         matchType: JSONPathHintComponent.MatchType = .exact, // Added with default
         matchAllCriteria: Bool = true, // Added with default
-        stopAtFirstMatch: Bool = false, 
+        stopAtFirstMatch: Bool = false,
         maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
     ) {
         self.criteria = criteria
@@ -225,7 +224,7 @@ public class SearchVisitor: ElementVisitor {
         }
 
         let elementDesc = element.briefDescription(option: ValueFormatOption.smart)
-        logger.debug("SearchVisitor Visiting: [\(elementDesc)] at depth \(depth). Criteria: \(criteria.map { "\($0.attribute):\($0.value)"}.joined(separator: ", "))")
+        logger.debug("SearchVisitor Visiting: [\(elementDesc)] at depth \(depth). Criteria: \(criteria.map { "\($0.attribute):\($0.value)" }.joined(separator: ", "))")
 
         var matches = false
         if matchAllCriteriaBool {

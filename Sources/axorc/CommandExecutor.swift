@@ -33,7 +33,7 @@ struct CommandExecutor {
 
     // Simplified to only adjust detail level based on command specific flag, if CLI debug is on.
     private static func setupDetailLevelForCommand(commandDebugLogging: Bool, cliDebug: Bool) -> AXLogDetailLevel? {
-        var previousDetailLevel: AXLogDetailLevel? = nil
+        var previousDetailLevel: AXLogDetailLevel?
         if cliDebug { // Only adjust if CLI debugging is already enabled
             if commandDebugLogging && GlobalAXLogger.shared.detailLevel != .verbose {
                 previousDetailLevel = GlobalAXLogger.shared.detailLevel
@@ -73,9 +73,9 @@ struct CommandExecutor {
         case .collectAll:
             axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
             guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
-                 axErrorLog("Failed to convert CollectAll to AXCommand")
-                 let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
-                 return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+                axErrorLog("Failed to convert CollectAll to AXCommand")
+                let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
+                return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
             }
             let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
             let handlerResponse: HandlerResponse

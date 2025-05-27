@@ -113,7 +113,7 @@ internal func determineAttributesToFetch(
                 // For multi-default, or if the above block doesn't execute,
                 // it might rely on a predefined default set or do nothing further here,
                 // letting subsequent logic handle AXorcist.defaultAttributesToFetch if attributesToFetch remains empty.
-                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+                GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                     "determineAttributesToFetch: No specific attributes requested. Using defaults or context-specific set."
                 ))
             }

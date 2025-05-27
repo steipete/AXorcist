@@ -1,15 +1,21 @@
-import Foundation
 import ApplicationServices // For CGPoint
+import Foundation
 
 @MainActor
 extension AXorcist {
     public func handleGetElementAtPoint(command: GetElementAtPointCommand) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleGetElementAtPoint: App '\(command.appIdentifier ?? "focused")', Point: ([\(command.point.x), \(command.point.y)]), PID: \(command.pid ?? 0)"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "AXorcist/HandleGetElementAtPoint: App '\(command.appIdentifier ?? "focused")', " +
+                "Point: ([\(command.point.x), \(command.point.y)]), PID: \(command.pid ?? 0)"
+        ))
 
         // Get the application element first to ensure the coordinate system context.
         // While elementAtPoint is system-wide, it's good practice to ensure app context if specified.
         guard let appElement = getApplicationElement(for: command.appIdentifier ?? "focused") else {
-            let errorMessage = "AXorcist/HandleGetElementAtPoint: Could not get application element for '\(command.appIdentifier ?? "focused")'. This is needed for context, even if elementAtPoint is system-wide."
+            let errorMessage = "AXorcist/HandleGetElementAtPoint: Could not get application element for " +
+                "'\(command.appIdentifier ?? "focused")'. " +
+                "This is needed for context, even if elementAtPoint is system-wide."
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .elementNotFound) // Or perhaps a different error code if app context is just preferred
         }
@@ -36,18 +42,18 @@ extension AXorcist {
         // Build a response with the element information
         let briefDescription = elementAtPoint.briefDescription(option: ValueFormatOption.smart)
         let role = elementAtPoint.role()
-        
+
         let elementData = AXElementData(
             briefDescription: briefDescription,
             role: role,
-            attributes: [:],  // Could fetch attributes if needed
+            attributes: [:], // Could fetch attributes if needed
             allPossibleAttributes: elementAtPoint.attributeNames(),
             textualContent: nil,
             childrenBriefDescriptions: nil,
             fullAXDescription: elementAtPoint.briefDescription(option: ValueFormatOption.stringified),
             path: elementAtPoint.path()?.components
         )
-        
+
         return .successResponse(payload: AnyCodable(elementData))
     }
-} 
+}

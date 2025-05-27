@@ -31,7 +31,7 @@ extension Element {
             return help
         }
         // self.attribute() will become sync, so this call becomes sync
-        if let placeholder = self.attribute(Attribute<String>(AXAttributeNames.kAXPlaceholderValueAttribute)), !placeholder.isEmpty { 
+        if let placeholder = self.attribute(Attribute<String>(AXAttributeNames.kAXPlaceholderValueAttribute)), !placeholder.isEmpty {
             GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "ComputedName: Using AXPlaceholderValue '\(placeholder)' for \(self.briefDescription(option: .raw))")) // Removed await
             return placeholder
         }
@@ -47,4 +47,4 @@ extension Element {
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "ComputedName: No suitable attribute found for \(self.briefDescription(option: .raw)). Returning nil.")) // Removed await
         return nil // No suitable name found
     }
-} 
+}

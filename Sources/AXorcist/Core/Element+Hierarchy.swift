@@ -18,8 +18,8 @@ extension Element {
         // print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
 
         if !strict { // Only collect alternatives if not strict
-        collectAlternativeChildren(collector: &childCollector)
-        collectApplicationWindows(collector: &childCollector)
+            collectAlternativeChildren(collector: &childCollector)
+            collectApplicationWindows(collector: &childCollector)
         }
 
         // print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
@@ -47,19 +47,19 @@ extension Element {
                 if let directChildrenUI = childrenCFArray as? [AXUIElement] {
                     axDebugLog(
                         "[\(selfDescForLog)]: Successfully fetched and cast " +
-                        "\(directChildrenUI.count) direct children."
+                            "\(directChildrenUI.count) direct children."
                     )
                     collector.addChildren(from: directChildrenUI)
                 } else {
                     axDebugLog(
                         "[\(selfDescForLog)]: kAXChildrenAttribute was a CFArray but failed to cast " +
-                        "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))"
+                            "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))"
                     )
                 }
             } else if let nonArrayValue = value {
                 axDebugLog(
                     "[\(selfDescForLog)]: kAXChildrenAttribute was not a CFArray. " +
-                    "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))"
+                        "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))"
                 )
             } else {
                 axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute was nil despite .success error code.")
@@ -83,7 +83,7 @@ extension Element {
         ]
         axDebugLog(
             "Using pruned attribute list (\(alternativeAttributes.count) items) " +
-            "to avoid heavy payloads for alternative children."
+                "to avoid heavy payloads for alternative children."
         )
 
         for attrName in alternativeAttributes {
@@ -144,7 +144,7 @@ private struct ChildCollector {
                 if !limitReached {
                     axWarningLog(
                         "ChildCollector: Reached maximum children limit (\(maxChildrenPerElement)). " +
-                        "No more children will be added for this element."
+                            "No more children will be added for this element."
                     )
                     limitReached = true
                 }

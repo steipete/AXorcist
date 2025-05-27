@@ -1,6 +1,6 @@
-import Foundation
-import CoreGraphics // For CGRect, CGPoint, CGSize
 import ApplicationServices // For AXUIElement, AXNotification (if used directly)
+import CoreGraphics // For CGRect, CGPoint, CGSize
+import Foundation
 
 // Consider if AXNotification needs to be accessible here, or if its rawValue is sufficient.
 // If AXorcist/Models/DataModels.swift defines AXNotification, that might be a better import.
@@ -54,7 +54,7 @@ internal func makeJSONCompatible(_ value: Any) -> Any {
         return value // Already a JSON primitive
     case let dict as [String: Any]:
         var newDict = [String: Any]()
-        for (k,v) in dict { newDict[k] = makeJSONCompatible(v) }
+        for (k, v) in dict { newDict[k] = makeJSONCompatible(v) }
         return newDict // Recurse for dictionary values
     case let arr as [Any]:
         return arr.map { makeJSONCompatible($0) } // Recurse for array elements
@@ -65,4 +65,4 @@ internal func makeJSONCompatible(_ value: Any) -> Any {
         // due to an invalid top-level or nested type.
         return String(describing: value)
     }
-} 
+}

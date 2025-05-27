@@ -36,7 +36,7 @@ internal func finalizeAndEncodeResponse(
     commandDebugLogging: Bool
 ) -> String {
     let responseStatus = handlerResponse.error == nil ? "success" : "error"
-    
+
     var finalResponseObject = FinalResponse(
         commandId: commandId,
         commandType: commandType,
@@ -44,19 +44,19 @@ internal func finalizeAndEncodeResponse(
         data: handlerResponse.data,
         error: handlerResponse.error
     )
-    
+
     if debugCLI || commandDebugLogging {
         let logsForResponse = axGetLogsAsStrings()
         finalResponseObject.debugLogs = logsForResponse
     }
-    
+
     return encodeToJson(finalResponseObject) ?? "{\"error\": \"JSON encoding failed\", \"commandId\": \"\(commandId)\"}"
 }
 
 internal func encodeToJson<T: Encodable>(_ object: T) -> String? {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
-    
+
     do {
         let data = try encoder.encode(object)
         return String(data: data, encoding: .utf8)

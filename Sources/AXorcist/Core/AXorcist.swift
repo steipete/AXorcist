@@ -1,6 +1,6 @@
-import Foundation
-import ApplicationServices
 import AppKit // For NSRunningApplication
+import ApplicationServices
+import Foundation
 
 // Main class for AXorcist operations
 @MainActor
@@ -13,7 +13,7 @@ public class AXorcist {
     // Central command processing function
     public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse { // Removed async
         logger.log(AXLogEntry(level: .info, message: "AXorcist/RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)")) // Removed await
-        
+
         let response: AXResponse
         switch commandEnvelope.command {
         case .query(let queryCommand):
@@ -27,7 +27,7 @@ public class AXorcist {
         case .extractText(let extractTextCommand):
             response = handleExtractText(command: extractTextCommand) // Removed await
         case .batch(let batchCommandEnvelope):
-             // The batch command itself is an envelope, pass it directly to handleBatchCommands.
+            // The batch command itself is an envelope, pass it directly to handleBatchCommands.
             response = handleBatchCommands(command: batchCommandEnvelope) // Removed await
         case .setFocusedValue(let setFocusedValueCommand):
             response = handleSetFocusedValue(command: setFocusedValueCommand) // Removed await
@@ -39,33 +39,33 @@ public class AXorcist {
             response = handleObserve(command: observeCommand) // Removed await
         case .collectAll(let collectAllCommand):
             response = handleCollectAll(command: collectAllCommand)
-        // Add other command types here
-        // default: 
-        //     let errormsg = "AXorcist/RunCommand: Unknown command type: \(commandEnvelope.command.type)"
-        //     logger.log(AXLogEntry(level: .error, message: errormsg))
-        //     response = .errorResponse(message: errormsg, code: .unknownCommand)
+            // Add other command types here
+            // default:
+            //     let errormsg = "AXorcist/RunCommand: Unknown command type: \(commandEnvelope.command.type)"
+            //     logger.log(AXLogEntry(level: .error, message: errormsg))
+            //     response = .errorResponse(message: errormsg, code: .unknownCommand)
         }
-        
+
         logger.log(AXLogEntry(level: .info, message: "AXorcist/RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)")) // Removed await
         return response
     }
-    
+
     // MARK: - CollectAll Handler (New)
     internal func handleCollectAll(command: CollectAllCommand) -> AXResponse {
         // Placeholder implementation - replace with actual logic
         logger.log(AXLogEntry(level: .info, message: "AXorcist/HandleCollectAll: Command received for app '\(command.appIdentifier ?? "nil")'. Not yet fully implemented."))
         // TODO: Implement actual collect all logic using command.appIdentifier, command.attributesToReturn, command.maxDepth, command.filterCriteria, command.valueFormatOption
-        return .errorResponse(message: "CollectAll command not yet fully implemented.", code: .unknownCommand) 
+        return .errorResponse(message: "CollectAll command not yet fully implemented.", code: .unknownCommand)
     }
-    
+
     // MARK: - Logger Methods
-    
+
     public func getLogs() -> [String] {
         return GlobalAXLogger.shared.getLogsAsStrings()
     }
-    
+
     public func clearLogs() {
         GlobalAXLogger.shared.clearEntries()
         logger.log(AXLogEntry(level: .info, message: "AXorcist log history cleared."))
     }
-} 
+}

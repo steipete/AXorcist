@@ -13,32 +13,32 @@ func testGetAllApplications() async throws {
         locator: Locator(criteria: ["AXRole": "AXApplication"]),
         outputFormat: .verbose
     )
-    
+
     let encoder = JSONEncoder()
     encoder.outputFormatting = .prettyPrinted
     let jsonData = try encoder.encode(command)
     guard let jsonString = String(data: jsonData, encoding: .utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
-    
+
     let result = try runAXORCCommand(arguments: [jsonString])
-    
+
     #expect(result.exitCode == 0, "Command should succeed")
     #expect(result.output != nil, "Should have output")
-    
+
     guard let output = result.output,
           let responseData = output.data(using: .utf8) else {
         throw TestError.generic("No output")
     }
-    
+
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
-    
+
     #expect(response.success == true)
     #expect(response.data?["elements"] != nil, "Should have elements")
-    
+
     if let elements = response.data?["elements"] as? [[String: Any]] {
         #expect(!elements.isEmpty, "Should have at least one application")
-        
+
         // Check for Finder
         let appTitles = elements.compactMap { element -> String? in
             guard let attrs = element["attributes"] as? [String: Any] else { return nil }
@@ -53,16 +53,16 @@ func testGetAllApplications() async throws {
 func testGetWindowsOfApplication() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
-    
+
     let (pid, _) = try await setupTextEditAndGetInfo()
-    defer { 
+    defer {
         if let app = NSRunningApplication.runningApplications(withProcessIdentifier: pid).first {
             app.terminate()
         }
     }
-    
+
     try await Task.sleep(for: .seconds(1))
-    
+
     // Query for windows
     let command = CommandEnvelope(
         commandId: "test-get-windows",
@@ -72,29 +72,29 @@ func testGetWindowsOfApplication() async throws {
         locator: Locator(criteria: ["AXRole": "AXWindow"]),
         outputFormat: .verbose
     )
-    
+
     let encoder = JSONEncoder()
     let jsonData = try encoder.encode(command)
     guard let jsonString = String(data: jsonData, encoding: .utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
-    
+
     let result = try runAXORCCommand(arguments: [jsonString])
-    
+
     #expect(result.exitCode == 0)
-    
+
     guard let output = result.output,
           let responseData = output.data(using: .utf8) else {
         throw TestError.generic("No output")
     }
-    
+
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
-    
+
     #expect(response.success == true)
-    
+
     if let elements = response.data?["elements"] as? [[String: Any]] {
         #expect(!elements.isEmpty, "Should have at least one window")
-        
+
         for window in elements {
             if let attrs = window["attributes"] as? [String: Any] {
                 #expect(attrs["AXRole"] as? String == "AXWindow")
@@ -113,25 +113,25 @@ func testQueryNonExistentApp() async throws {
         debugLogging: true,
         locator: Locator(criteria: ["AXRole": "AXApplication"])
     )
-    
+
     let encoder = JSONEncoder()
     let jsonData = try encoder.encode(command)
     guard let jsonString = String(data: jsonData, encoding: .utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
-    
+
     let result = try runAXORCCommand(arguments: [jsonString])
-    
+
     // Command should succeed but return no elements
     #expect(result.exitCode == 0)
-    
+
     guard let output = result.output,
           let responseData = output.data(using: .utf8) else {
         throw TestError.generic("No output")
     }
-    
+
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
-    
+
     if response.success {
         if let elements = response.data?["elements"] as? [[String: Any]] {
             #expect(elements.isEmpty, "Should not find non-existent app")

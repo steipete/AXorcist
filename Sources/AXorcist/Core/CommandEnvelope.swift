@@ -29,7 +29,7 @@ public struct CommandEnvelope: Codable {
 
     // New field for collectAll filtering
     public let filterCriteria: [String: String]?
-    
+
     // Additional fields for various commands
     public let includeChildrenBrief: Bool?
     public let includeChildrenInText: Bool?

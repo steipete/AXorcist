@@ -10,9 +10,9 @@ public enum AXLogLevel: String, Codable, Sendable, CaseIterable {
 
 // Added AXLogDetailLevel
 public enum AXLogDetailLevel: String, Codable, Sendable, CaseIterable {
-    case minimal   // Only critical/error messages
-    case normal    // Info, warning, error, critical
-    case verbose   // Debug, info, warning, error, critical (all messages)
+    case minimal // Only critical/error messages
+    case normal // Info, warning, error, critical
+    case verbose // Debug, info, warning, error, critical (all messages)
 }
 
 // Added AXLogOutputFormat

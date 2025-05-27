@@ -1,5 +1,5 @@
 // CommandModels.swift - This file has been split into multiple files for better organization
-// 
+//
 // The types previously in this file have been moved to:
 // - ValueFormatOption.swift
 // - MatchingTypes.swift (Criterion, PathStep, Locator)

@@ -1,10 +1,15 @@
-import Foundation
 import ApplicationServices
+import Foundation
 
 @MainActor
 extension AXorcist {
     public func handleObserve(command: ObserveCommand) -> AXResponse {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXorcist/HandleObserve: App \(command.appIdentifier ?? "focused"), Notifications: \(command.notificationName.rawValue), Details: \(command.includeElementDetails?.joined(separator: ", ") ?? "none")"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "AXorcist/HandleObserve: App \(command.appIdentifier ?? "focused"), " +
+                "Notifications: \(command.notificationName.rawValue), " +
+                "Details: \(command.includeElementDetails?.joined(separator: ", ") ?? "none")"
+        ))
 
         let appIdentifier = command.appIdentifier ?? "focused"
         // Use Criterion for pid matching
@@ -24,11 +29,15 @@ extension AXorcist {
         }
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleObserve: Element to observe: \(elementToObserve.briefDescription(option: ValueFormatOption.smart))"))
 
-        let callback: AXObserverManager.AXNotificationCallback = { observer, axUIElement, notification, userInfo in
+        let callback: AXObserverManager.AXNotificationCallback = { _, axUIElement, notification, userInfo in
             let element = Element(axUIElement)
             let userInfoDesc = userInfo != nil ? String(describing: userInfo!) : "nil"
-            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "AXObserver CALLBACK: Element: \(element.briefDescription(option: ValueFormatOption.smart)), Notification: \(notification as String), UserInfo: \(userInfoDesc)"))
-            
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .info,
+                message: "AXObserver CALLBACK: Element: \(element.briefDescription(option: ValueFormatOption.smart)), " +
+                    "Notification: \(notification as String), UserInfo: \(userInfoDesc)"
+            ))
+
             // Here, you would typically send this event data back to the client that initiated the observation.
             // This might involve a registered callback URL, a WebSocket, or another IPC mechanism.
             // For now, we just log it.
@@ -40,13 +49,19 @@ extension AXorcist {
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: successMessage))
             return .successResponse(payload: AnyCodable(["message": successMessage]))
         } catch let obError as AXObserverManager.ObserverError {
-            let errorMessage = "AXorcist/HandleObserve: Failed to add observer. Error: \(obError.localizedDescription) (Code: \(obError)). Pid for element: \(elementToObserve.pid()?.description ?? "N/A") Notification: \(command.notificationName)"
+            let errorMessage = "AXorcist/HandleObserve: Failed to add observer. " +
+                "Error: \(obError.localizedDescription) (Code: \(obError)). " +
+                "Pid for element: \(elementToObserve.pid()?.description ?? "N/A") " +
+                "Notification: \(command.notificationName)"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .observationFailed)
         } catch {
-            let errorMessage = "AXorcist/HandleObserve: Failed to add observer with unknown error: \(error.localizedDescription) for element \(elementToObserve.briefDescription(option: ValueFormatOption.smart)) Notification: \(command.notificationName)"
+            let errorMessage = "AXorcist/HandleObserve: Failed to add observer with unknown error: " +
+                "\(error.localizedDescription) for element " +
+                "\(elementToObserve.briefDescription(option: ValueFormatOption.smart)) " +
+                "Notification: \(command.notificationName)"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .observationFailed)
         }
     }
-} 
+}

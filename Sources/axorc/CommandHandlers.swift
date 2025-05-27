@@ -18,7 +18,7 @@ internal func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXo
             commandDebugLogging: command.debugLogging
         )
     }
-    
+
     return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executePerformAction)
 }
 
@@ -28,11 +28,11 @@ internal func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, d
         let errorResponse = BatchQueryResponse(commandId: command.commandId, status: "error", message: "Failed to create AXCommand for Batch")
         return encodeToJson(errorResponse) ?? "{\"error\": \"Encoding batch response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
-    
+
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: batchCmd))
-    
+
     var finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "pending")
-    var logsForResponse: [String]? = nil
+    var logsForResponse: [String]?
 
     if axResponse.status == "success" {
         if let batchPayload = axResponse.payload?.value as? BatchResponsePayload {
@@ -43,12 +43,12 @@ internal func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, d
     } else {
         let errorMessage = axResponse.error?.message ?? "Batch operation failed with unknown error."
         if let batchPayload = axResponse.payload?.value as? BatchResponsePayload {
-             finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, data: batchPayload.results, errors: batchPayload.errors, debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, data: batchPayload.results, errors: batchPayload.errors, debugLogs: nil)
         } else {
-             finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, debugLogs: nil)
         }
     }
-    
+
     if debugCLI || command.debugLogging {
         logsForResponse = axGetLogsAsStrings()
         finalResponseObject.debugLogs = logsForResponse
@@ -87,10 +87,10 @@ internal func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist,
         let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Observe")
         return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
     }
-    
+
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axObserveCommand))
     let handlerResponse = HandlerResponse(from: axResponse)
-    
+
     return finalizeAndEncodeResponse(
         commandId: command.commandId,
         commandType: command.command.rawValue,
