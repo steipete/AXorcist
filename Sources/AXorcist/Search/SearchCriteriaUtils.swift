@@ -75,7 +75,7 @@ public func elementMatchesAllCriteria(
     matchType: JSONPathHintComponent.MatchType = .exact
 ) -> Bool {
     for criterion in criteria {
-        let effectiveMatchType = criterion.match_type ?? matchType
+        let effectiveMatchType = criterion.matchType ?? matchType
         if !matchSingleCriterion(
             element: element,
             key: criterion.attribute,
@@ -107,7 +107,7 @@ public func elementMatchesAnyCriterion(
     }
     for criterion in criteria {
         // Use criterion's own match_type if present, else the overall one.
-        let effectiveMatchType = criterion.match_type ?? matchType
+        let effectiveMatchType = criterion.matchType ?? matchType
         if matchSingleCriterion(
             element: element,
             key: criterion.attribute,
@@ -160,117 +160,15 @@ internal func matchSingleCriterion(
         message: "SearchCrit/MSC: Matching key '\(key)' (expected: '\(expectedValue)', " +
             "type: \(matchType.rawValue)) on \(elementDescriptionForLog)"
     ))
-    let comparisonResult: Bool
 
-    switch key.lowercased() {
-    case AXAttributeNames.kAXRoleAttribute.lowercased(), "role":
-        let actual = element.role()
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Role: Actual='\(actual ?? "nil")'"))
-        if actual == AXRoleNames.kAXTextAreaRole {
-            let domClassList = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .info,
-                message: "SearchCrit/MSC/Role: ELEMENT IS AXTextArea. " +
-                    "Its AXDOMClassList is: \(String(describing: domClassList))"
-            ))
-        }
-        comparisonResult = compareStrings(
-            actual, expectedValue, matchType,
-            caseSensitive: false,
-            attributeName: AXAttributeNames.kAXRoleAttribute,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case AXAttributeNames.kAXSubroleAttribute.lowercased(), "subrole":
-        let actual = element.subrole()
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Subrole: Actual='\(actual ?? "nil")'"))
-        comparisonResult = compareStrings(
-            actual, expectedValue, matchType,
-            caseSensitive: false,
-            attributeName: AXAttributeNames.kAXSubroleAttribute,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case AXAttributeNames.kAXIdentifierAttribute.lowercased(), "identifier", "id":
-        let actual = element.identifier()
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/ID: Actual='\(actual ?? "nil")'"))
-        comparisonResult = compareStrings(
-            actual, expectedValue, matchType,
-            caseSensitive: true,
-            attributeName: AXAttributeNames.kAXIdentifierAttribute,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case "pid":
-        comparisonResult = matchPidCriterion(
-            element: element,
-            expectedValue: expectedValue,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist":
-        let actualRaw = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
-        GlobalAXLogger.shared.log(AXLogEntry(
-            level: .debug,
-            message: "SearchCrit/MSC/DOMClassList: ActualRaw='\(String(describing: actualRaw))'"
-        ))
-        comparisonResult = matchDomClassListCriterion(
-            element: element,
-            expectedValue: expectedValue,
-            matchType: matchType,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case AXMiscConstants.isIgnoredAttributeKey.lowercased(), "isignored", "ignored":
-        comparisonResult = matchIsIgnoredCriterion(
-            element: element,
-            expectedValue: expectedValue,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case AXMiscConstants.computedNameAttributeKey.lowercased(), "computedname", "name":
-        comparisonResult = matchComputedNameAttributes(
-            element: element,
-            expectedValue: expectedValue,
-            matchType: matchType,
-            attributeName: AXMiscConstants.computedNameAttributeKey,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    case "computednamewithvalue", "namewithvalue":
-        comparisonResult = matchComputedNameAttributes(
-            element: element,
-            expectedValue: expectedValue,
-            matchType: matchType,
-            attributeName: "computedNameWithValue",
-            elementDescriptionForLog: elementDescriptionForLog,
-            includeValueInComputedName: true
-        )
-    default:
-        guard let actualValueAny: Any = element.attribute(Attribute(key)) else {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .debug,
-                message: "SearchCrit/MSC/Default: Attribute '\(key)' not found or nil on " +
-                    "\(elementDescriptionForLog). No match."
-            ))
-            return false
-        }
-        let actualValueString: String
-        if let str = actualValueAny as? String {
-            actualValueString = str
-        } else {
-            actualValueString = "\(actualValueAny)"
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .debug,
-                message: "SearchCrit/MSC/Default: Attribute '\(key)' on \(elementDescriptionForLog) " +
-                    "was not String (type: \(type(of: actualValueAny))), " +
-                    "using string description: '\(actualValueString)' for comparison."
-            ))
-        }
-        GlobalAXLogger.shared.log(AXLogEntry(
-            level: .debug,
-            message: "SearchCrit/MSC/Default: Attribute '\(key)', Actual='\(actualValueString)'"
-        ))
-        comparisonResult = compareStrings(
-            actualValueString, expectedValue, matchType,
-            caseSensitive: true,
-            attributeName: key,
-            elementDescriptionForLog: elementDescriptionForLog
-        )
-    }
+    let comparisonResult = matchAttributeByKey(
+        element: element,
+        key: key,
+        expectedValue: expectedValue,
+        matchType: matchType,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "SearchCrit/MSC: Key '\(key)', Expected='\(expectedValue)', MatchType='\(matchType.rawValue)', " +
@@ -279,43 +177,179 @@ internal func matchSingleCriterion(
     return comparisonResult
 }
 
+@MainActor
+private func matchAttributeByKey(
+    element: Element,
+    key: String,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
+    switch key.lowercased() {
+    case AXAttributeNames.kAXRoleAttribute.lowercased(), "role":
+        return matchRoleAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXSubroleAttribute.lowercased(), "subrole":
+        return matchSubroleAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXIdentifierAttribute.lowercased(), "identifier", "id":
+        return matchIdentifierAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    case "pid":
+        return matchPidCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+    case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist":
+        return matchDomClassListAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    case AXMiscConstants.isIgnoredAttributeKey.lowercased(), "isignored", "ignored":
+        return matchIsIgnoredCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+    case AXMiscConstants.computedNameAttributeKey.lowercased(), "computedname", "name":
+        return matchComputedNameAttributes(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            attributeName: AXMiscConstants.computedNameAttributeKey,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
+    case "computednamewithvalue", "namewithvalue":
+        return matchComputedNameAttributes(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            attributeName: "computedNameWithValue",
+            elementDescriptionForLog: elementDescriptionForLog,
+            includeValueInComputedName: true
+        )
+    default:
+        return matchGenericAttribute(element: element, key: key, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+    }
+}
+
+@MainActor
+private func matchRoleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+    let actual = element.role()
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Role: Actual='\(actual ?? "nil")'"))
+    if actual == AXRoleNames.kAXTextAreaRole {
+        let domClassList = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "SearchCrit/MSC/Role: ELEMENT IS AXTextArea. " +
+                "Its AXDOMClassList is: \(String(describing: domClassList))"
+        ))
+    }
+    return compareStrings(
+        actual, expectedValue, matchType,
+        caseSensitive: false,
+        attributeName: AXAttributeNames.kAXRoleAttribute,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+}
+
+@MainActor
+private func matchSubroleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+    let actual = element.subrole()
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/Subrole: Actual='\(actual ?? "nil")'"))
+    return compareStrings(
+        actual, expectedValue, matchType,
+        caseSensitive: false,
+        attributeName: AXAttributeNames.kAXSubroleAttribute,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+}
+
+@MainActor
+private func matchIdentifierAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+    let actual = element.identifier()
+    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SearchCrit/MSC/ID: Actual='\(actual ?? "nil")'"))
+    return compareStrings(
+        actual, expectedValue, matchType,
+        caseSensitive: true,
+        attributeName: AXAttributeNames.kAXIdentifierAttribute,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+}
+
+@MainActor
+private func matchDomClassListAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+    let actualRaw = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "SearchCrit/MSC/DOMClassList: ActualRaw='\(String(describing: actualRaw))'"
+    ))
+    return matchDomClassListCriterion(
+        element: element,
+        expectedValue: expectedValue,
+        matchType: matchType,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+}
+
+@MainActor
+private func matchGenericAttribute(element: Element, key: String, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+    guard let actualValueAny: Any = element.attribute(Attribute(key)) else {
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "SearchCrit/MSC/Default: Attribute '\(key)' not found or nil on " +
+                "\(elementDescriptionForLog). No match."
+        ))
+        return false
+    }
+    let actualValueString: String
+    if let str = actualValueAny as? String {
+        actualValueString = str
+    } else {
+        actualValueString = "\(actualValueAny)"
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "SearchCrit/MSC/Default: Attribute '\(key)' on \(elementDescriptionForLog) " +
+                "was not String (type: \(type(of: actualValueAny))), " +
+                "using string description: '\(actualValueString)' for comparison."
+        ))
+    }
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "SearchCrit/MSC/Default: Attribute '\(key)', Actual='\(actualValueString)'"
+    ))
+    return compareStrings(
+        actualValueString, expectedValue, matchType,
+        caseSensitive: true,
+        attributeName: key,
+        elementDescriptionForLog: elementDescriptionForLog
+    )
+}
+
 // MARK: - Specific Criterion Matchers
 
 @MainActor
 private func matchPidCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
     let expectedPid = expectedValue
     if element.role() == AXRoleNames.kAXApplicationRole {
-        guard let actualPid_t = element.pid() else {
+        guard let actualPidT = element.pid() else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) failed to provide PID. No match."
             ))
             return false
         }
-        if String(actualPid_t) == expectedPid {
+        if String(actualPidT) == expectedPid {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPid_t) " +
+                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
                     "MATCHES expected \(expectedPid)."
             ))
             return true
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPid_t) " +
+                message: "SearchCrit/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
                     "MISMATCHES expected \(expectedPid)."
             ))
             return false
         }
     }
-    guard let actualPid_t = element.pid() else {
+    guard let actualPidT = element.pid() else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SearchCrit/PID: \(elementDescriptionForLog) failed to provide PID. No match."
         ))
         return false
     }
-    let actualPidString = String(actualPid_t)
+    let actualPidString = String(actualPidT)
     if actualPidString == expectedPid {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,

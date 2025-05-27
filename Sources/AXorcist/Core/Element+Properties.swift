@@ -253,23 +253,23 @@ extension Element {
             if let params = paramCF as? [String], !params.isEmpty {
                 appendLine("Parameterized Attributes:")
                 let paramSubIndent = currentIndent + "  "
-                for p in params.sorted() {
+                for param in params.sorted() {
                     var paramValue: CFTypeRef?
-                    let paramErr = AXUIElementCopyParameterizedAttributeValue(element, p as CFString, NSNumber(value: 0), &paramValue)
+                    let paramErr = AXUIElementCopyParameterizedAttributeValue(element, param as CFString, NSNumber(value: 0), &paramValue)
                     if paramErr == .success {
                         let valueStr = String(describing: paramValue ?? "nil" as Any)
-                        output += paramSubIndent + "\(p)(param: 0): \(valueStr)\n"
+                        output += paramSubIndent + "\(param)(param: 0): \(valueStr)\n"
                     } else {
-                        let paramErrNull = AXUIElementCopyParameterizedAttributeValue(element, p as CFString, kCFNull, &paramValue)
+                        let paramErrNull = AXUIElementCopyParameterizedAttributeValue(element, param as CFString, kCFNull, &paramValue)
                         if paramErrNull == .success {
                             let valueStrNull = String(describing: paramValue ?? "nil" as Any)
-                            output += paramSubIndent + "\(p)(param: kCFNull): \(valueStrNull)\n"
+                            output += paramSubIndent + "\(param)(param: kCFNull): \(valueStrNull)\n"
                         } else {
                             let axError1 = AXError(rawValue: paramErr.rawValue)
                             let errorDetail1 = String(describing: axError1 ?? "Error" as Any)
                             let axError2 = AXError(rawValue: paramErrNull.rawValue)
                             let errorDetail2 = String(describing: axError2 ?? "Error" as Any)
-                            output += paramSubIndent + "\(p)(…): (Error fetching with common params: \(errorDetail1) (\(paramErr.rawValue)) / \(errorDetail2) (\(paramErrNull.rawValue)))\n"
+                            output += paramSubIndent + "\(param)(…): (Error fetching with common params: \(errorDetail1) (\(paramErr.rawValue)) / \(errorDetail2) (\(paramErrNull.rawValue)))\n"
                         }
                     }
                 }

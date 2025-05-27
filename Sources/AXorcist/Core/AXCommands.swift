@@ -104,7 +104,15 @@ public struct DescribeElementCommand: Sendable {
     public let includeIgnored: Bool
     public let maxSearchDepth: Int
 
-    public init(appIdentifier: String?, locator: Locator, formatOption: ValueFormatOption = .smart, maxDepthForSearch: Int = 10, depth: Int = 3, includeIgnored: Bool = false, maxSearchDepth: Int = 10) {
+    public init(
+        appIdentifier: String?,
+        locator: Locator,
+        formatOption: ValueFormatOption = .smart,
+        maxDepthForSearch: Int = 10,
+        depth: Int = 3,
+        includeIgnored: Bool = false,
+        maxSearchDepth: Int = 10
+    ) {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.formatOption = formatOption
@@ -149,8 +157,8 @@ public struct GetElementAtPointCommand: Sendable {
     public let point: CGPoint
     public let appIdentifier: String?
     public let pid: Int?
-    public let x: Float
-    public let y: Float
+    public let xCoordinate: Float
+    public let yCoordinate: Float
     public let attributesToReturn: [String]?
     public let includeChildrenBrief: Bool?
 
@@ -158,18 +166,18 @@ public struct GetElementAtPointCommand: Sendable {
         self.point = point
         self.appIdentifier = appIdentifier
         self.pid = pid
-        self.x = Float(point.x)
-        self.y = Float(point.y)
+        self.xCoordinate = Float(point.x)
+        self.yCoordinate = Float(point.y)
         self.attributesToReturn = attributesToReturn
         self.includeChildrenBrief = includeChildrenBrief
     }
 
     public init(appIdentifier: String?, x: Float, y: Float, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
         self.point = CGPoint(x: CGFloat(x), y: CGFloat(y))
+        self.xCoordinate = x
+        self.yCoordinate = y
         self.appIdentifier = appIdentifier
         self.pid = nil
-        self.x = x
-        self.y = y
         self.attributesToReturn = attributesToReturn
         self.includeChildrenBrief = includeChildrenBrief
     }

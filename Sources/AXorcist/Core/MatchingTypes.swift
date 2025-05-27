@@ -6,20 +6,17 @@ import Foundation
 public struct Criterion: Codable, Sendable {
     public let attribute: String
     public let value: String
-    public let match_type: JSONPathHintComponent.MatchType? // Retained for flexibility if needed directly in Criterion
-    public let matchType: JSONPathHintComponent.MatchType? // Preferred name, aliased in custom init/codingkeys if needed
+    public let matchType: JSONPathHintComponent.MatchType?
 
     // To handle decoding from either "match_type" or "matchType"
     enum CodingKeys: String, CodingKey {
         case attribute, value
-        case match_type // for decoding json
-        case matchType // for swift code
+        case matchType = "match_type" // Map JSON's snake_case to Swift's camelCase
     }
 
     public init(attribute: String, value: String, matchType: JSONPathHintComponent.MatchType? = nil) {
         self.attribute = attribute
         self.value = value
-        self.match_type = matchType // Set both to ensure consistency during encoding if old key is used
         self.matchType = matchType
     }
 
@@ -27,24 +24,13 @@ public struct Criterion: Codable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         attribute = try container.decode(String.self, forKey: .attribute)
         value = try container.decode(String.self, forKey: .value)
-        // Try decoding 'matchType' first, then fall back to 'match_type'
-        if let mt = try container.decodeIfPresent(JSONPathHintComponent.MatchType.self, forKey: .matchType) {
-            matchType = mt
-            match_type = mt
-        } else if let mtOld = try container.decodeIfPresent(JSONPathHintComponent.MatchType.self, forKey: .match_type) {
-            matchType = mtOld
-            match_type = mtOld
-        } else {
-            matchType = nil
-            match_type = nil
-        }
+        matchType = try container.decodeIfPresent(JSONPathHintComponent.MatchType.self, forKey: .matchType)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(attribute, forKey: .attribute)
         try container.encode(value, forKey: .value)
-        // Encode using the preferred 'matchType' key
         try container.encodeIfPresent(matchType, forKey: .matchType)
     }
 }

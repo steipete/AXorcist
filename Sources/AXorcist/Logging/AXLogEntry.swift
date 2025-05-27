@@ -87,10 +87,10 @@ extension AXLogEntry {
             // Simplified details formatting for AnyCodable
             let detailString = details.map { key, value in
                 let valueStr: String
-                if let v = value.value as? String {
-                    valueStr = v
-                } else if let v = value.value as? CustomStringConvertible {
-                    valueStr = v.description
+                if let val = value.value as? String {
+                    valueStr = val
+                } else if let val = value.value as? CustomStringConvertible {
+                    valueStr = val.description
                 } else {
                     valueStr = String(describing: value.value)
                 }

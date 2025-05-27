@@ -123,7 +123,7 @@ public func collectAllElements(
     maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
     includeIgnored: Bool = false
 ) -> [Element] {
-    let criteriaDebugString = criteria?.map { "\($0.attribute):\($0.value)(\($0.match_type?.rawValue ?? "exact"))" }.joined(separator: ", ") ?? "all"
+    let criteriaDebugString = criteria?.map { "\($0.attribute):\($0.value)(\($0.matchType?.rawValue ?? "exact"))" }.joined(separator: ", ") ?? "all"
     logger.info("CollectAll: From [\(startElement.briefDescription(option: ValueFormatOption.smart))], Criteria: [\(criteriaDebugString)], MaxDepth: \(maxDepth), Ignored: \(includeIgnored)")
 
     let visitor = CollectAllVisitor(criteria: criteria, includeIgnored: includeIgnored)
@@ -212,7 +212,7 @@ public class SearchVisitor: ElementVisitor {
         self.matchAllCriteriaBool = matchAllCriteria // Store
         self.stopAtFirstMatchInternal = stopAtFirstMatch
         self.maxDepth = maxDepth
-        logger.debug("SearchVisitor Init: Criteria: \(criteria.map { "\($0.attribute):\($0.value)(\($0.match_type?.rawValue ?? "exact"))" }.joined(separator: ", ")), StopAtFirst: \(stopAtFirstMatchInternal), MaxDepth: \(maxDepth), MatchType: \(matchType), MatchAll: \(matchAllCriteria)")
+        logger.debug("SearchVisitor Init: Criteria: \(criteria.map { "\($0.attribute):\($0.value)(\($0.matchType?.rawValue ?? "exact"))" }.joined(separator: ", ")), StopAtFirst: \(stopAtFirstMatchInternal), MaxDepth: \(maxDepth), MatchType: \(matchType), MatchAll: \(matchAllCriteria)")
     }
 
     @MainActor
@@ -273,7 +273,7 @@ public class CollectAllVisitor: ElementVisitor {
     init(criteria: [Criterion]? = nil, includeIgnored: Bool = false) {
         self.criteria = criteria
         self.includeIgnored = includeIgnored
-        let criteriaDebug = criteria?.map { "\($0.attribute):\($0.value)(\($0.match_type?.rawValue ?? "exact"))" }.joined(separator: ", ") ?? "all"
+        let criteriaDebug = criteria?.map { "\($0.attribute):\($0.value)(\($0.matchType?.rawValue ?? "exact"))" }.joined(separator: ", ") ?? "all"
         logger.debug("CollectAllVisitor Init: Criteria: [\(criteriaDebug)], IncludeIgnored: \(includeIgnored)")
     }
 

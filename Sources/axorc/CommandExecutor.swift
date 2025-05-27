@@ -54,105 +54,113 @@ struct CommandExecutor {
         switch command.command {
         case .performAction:
             return handlePerformActionCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
-
         case .getFocusedElement:
             return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetFocusedElement)
-
         case .getAttributes:
             return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetAttributes)
-
         case .query:
             return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeQuery)
-
         case .describeElement:
             return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeDescribeElement)
-
         case .extractText:
             return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeExtractText)
-
         case .collectAll:
-            axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
-            guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
-                axErrorLog("Failed to convert CollectAll to AXCommand")
-                let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
-                return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
-            }
-            let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
-            let handlerResponse: HandlerResponse
-            if axResponse.status == "success" {
-                handlerResponse = HandlerResponse(data: axResponse.payload, error: nil)
-            } else {
-                handlerResponse = HandlerResponse(data: nil, error: axResponse.error?.message ?? "CollectAll failed")
-            }
-            return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: handlerResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
-
+            return handleCollectAllCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .getElementAtPoint:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
-                guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
-                    axErrorLog("Failed to convert GetElementAtPoint to AXCommand")
-                    return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetElementAtPoint")
-                }
-                let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
-                return HandlerResponse(from: axResponse)
-            }
-
+            return handleGetElementAtPointCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .setFocusedValue:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
-                guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
-                    axErrorLog("Failed to convert SetFocusedValue to AXCommand")
-                    return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for SetFocusedValue")
-                }
-                let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
-                return HandlerResponse(from: axResponse)
-            }
-
+            return handleSetFocusedValueCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .ping:
             return handlePingCommand(command: command, debugCLI: debugCLI)
-
         case .batch:
             return handleBatchCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
-
         case .observe:
             return handleObserveCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
-
         case .stopObservation:
-            // Stop all observations through AXObserverCenter
-            AXObserverCenter.shared.removeAllObservers()
-            let stopResponse = FinalResponse(
-                commandId: command.commandId,
-                commandType: command.command.rawValue,
-                status: "success",
-                data: AnyCodable("All observations stopped"),
-                error: nil,
-                debugLogs: debugCLI || command.debugLogging ? axGetLogsAsStrings() : nil
-            )
-            return encodeToJson(stopResponse) ?? "{\"error\": \"Encoding stopObservation response failed\", \"commandId\": \"\(command.commandId)\"}"
-
+            return handleStopObservationCommand(command: command, debugCLI: debugCLI)
         case .isProcessTrusted:
-            let trustedResponse = ProcessTrustedResponse(
-                commandId: command.commandId,
-                status: "success",
-                trusted: AXIsProcessTrusted()
-            )
-            return encodeToJson(trustedResponse) ?? "{\"error\": \"Encoding isProcessTrusted response failed\", \"commandId\": \"\(command.commandId)\"}"
-
+            return handleIsProcessTrustedCommand(command: command)
         case .isAXFeatureEnabled:
-            let axEnabled = AXIsProcessTrustedWithOptions(nil)
-            let featureEnabledResponse = AXFeatureEnabledResponse(
-                commandId: command.commandId,
-                status: "success",
-                enabled: axEnabled
-            )
-            return encodeToJson(featureEnabledResponse) ?? "{\"error\": \"Encoding isAXFeatureEnabled response failed\", \"commandId\": \"\(command.commandId)\"}"
-
-        case .setNotificationHandler:
-            return handleNotImplementedCommand(command: command, message: "setNotificationHandler is not implemented in axorc", debugCLI: debugCLI)
-
-        case .removeNotificationHandler:
-            return handleNotImplementedCommand(command: command, message: "removeNotificationHandler is not implemented in axorc", debugCLI: debugCLI)
-
-        case .getElementDescription:
-            return handleNotImplementedCommand(command: command, message: "getElementDescription is not implemented in axorc", debugCLI: debugCLI)
+            return handleIsAXFeatureEnabledCommand(command: command)
+        case .setNotificationHandler, .removeNotificationHandler, .getElementDescription:
+            return handleNotImplementedCommand(command: command, message: "\(command.command.rawValue) is not implemented in axorc", debugCLI: debugCLI)
         }
+    }
+
+    @MainActor
+    private static func handleCollectAllCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+        axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
+        guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
+            axErrorLog("Failed to convert CollectAll to AXCommand")
+            let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
+            return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: errorResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+        }
+        let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
+        let handlerResponse: HandlerResponse
+        if axResponse.status == "success" {
+            handlerResponse = HandlerResponse(data: axResponse.payload, error: nil)
+        } else {
+            handlerResponse = HandlerResponse(data: nil, error: axResponse.error?.message ?? "CollectAll failed")
+        }
+        return finalizeAndEncodeResponse(commandId: command.commandId, commandType: command.command.rawValue, handlerResponse: handlerResponse, debugCLI: debugCLI, commandDebugLogging: command.debugLogging)
+    }
+
+    @MainActor
+    private static func handleGetElementAtPointCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
+            guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
+                axErrorLog("Failed to convert GetElementAtPoint to AXCommand")
+                return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetElementAtPoint")
+            }
+            let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            return HandlerResponse(from: axResponse)
+        }
+    }
+
+    @MainActor
+    private static func handleSetFocusedValueCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, ax in
+            guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
+                axErrorLog("Failed to convert SetFocusedValue to AXCommand")
+                return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for SetFocusedValue")
+            }
+            let axResponse = ax.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            return HandlerResponse(from: axResponse)
+        }
+    }
+
+    @MainActor
+    private static func handleStopObservationCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
+        AXObserverCenter.shared.removeAllObservers()
+        let stopResponse = FinalResponse(
+            commandId: command.commandId,
+            commandType: command.command.rawValue,
+            status: "success",
+            data: AnyCodable("All observations stopped"),
+            error: nil,
+            debugLogs: debugCLI || command.debugLogging ? axGetLogsAsStrings() : nil
+        )
+        return encodeToJson(stopResponse) ?? "{\"error\": \"Encoding stopObservation response failed\", \"commandId\": \"\(command.commandId)\"}"
+    }
+
+    @MainActor
+    private static func handleIsProcessTrustedCommand(command: CommandEnvelope) -> String {
+        let trustedResponse = ProcessTrustedResponse(
+            commandId: command.commandId,
+            status: "success",
+            trusted: AXIsProcessTrusted()
+        )
+        return encodeToJson(trustedResponse) ?? "{\"error\": \"Encoding isProcessTrusted response failed\", \"commandId\": \"\(command.commandId)\"}"
+    }
+
+    @MainActor
+    private static func handleIsAXFeatureEnabledCommand(command: CommandEnvelope) -> String {
+        let axEnabled = AXIsProcessTrustedWithOptions(nil)
+        let featureEnabledResponse = AXFeatureEnabledResponse(
+            commandId: command.commandId,
+            status: "success",
+            enabled: axEnabled
+        )
+        return encodeToJson(featureEnabledResponse) ?? "{\"error\": \"Encoding isAXFeatureEnabled response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
 }

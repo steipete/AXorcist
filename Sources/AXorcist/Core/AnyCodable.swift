@@ -60,7 +60,13 @@ public struct AnyCodable: Codable, @unchecked Sendable {
             } else if CFGetTypeID(value as CFTypeRef) == CFNullGetTypeID() {
                 try container.encodeNil()
             } else {
-                throw EncodingError.invalidValue(value, EncodingError.Context(codingPath: [], debugDescription: "AnyCodable value (\(type(of: value))) cannot be encoded and does not conform to Encodable."))
+                throw EncodingError.invalidValue(
+                    value,
+                    EncodingError.Context(
+                        codingPath: [],
+                        debugDescription: "AnyCodable value (\(type(of: value))) cannot be encoded and does not conform to Encodable."
+                    )
+                )
             }
         }
     }

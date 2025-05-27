@@ -7,14 +7,14 @@ import Foundation
 @MainActor // Make the whole enum MainActor isolated
 public enum AXTrustUtil {
     // Capture the C global safely within the MainActor context.
-    private static let axTrustedCheckOptionPrompt_internal: CFString = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
+    private static let axTrustedCheckOptionPromptInternal: CFString = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
 
     /// Checks if the current process is trusted for accessibility access.
     /// - Parameter promptIfNeeded: If true, the system will prompt the user if not trusted.
     /// - Returns: True if the process is trusted, false otherwise.
     public static func checkAccessibilityPermissions(promptIfNeeded: Bool = true) -> Bool {
         // Use the captured CFStringRef.
-        let options = [axTrustedCheckOptionPrompt_internal: (promptIfNeeded ? kCFBooleanTrue : kCFBooleanFalse)] as CFDictionary
+        let options = [axTrustedCheckOptionPromptInternal: (promptIfNeeded ? kCFBooleanTrue : kCFBooleanFalse)] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 

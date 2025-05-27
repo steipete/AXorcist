@@ -9,7 +9,11 @@ extension AXorcist {
         var errorMessages: [String] = []
 
         for (index, subCommandEnvelope) in command.commands.enumerated() {
-            GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "AXorcist/HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .debug,
+                message: "AXorcist/HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): " +
+                    "ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"
+            ))
 
             let response = processSingleBatchCommand(subCommandEnvelope.command)
             results.append(response)

@@ -88,15 +88,15 @@ public struct WindowInfoHelper {
         // Try to find matching window by bounds
         for window in windows {
             if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
-               let x = bounds["X"],
-               let y = bounds["Y"],
+               let xCoord = bounds["X"],
+               let yCoord = bounds["Y"],
                let width = bounds["Width"],
                let height = bounds["Height"] {
 
                 // Check if bounds match (with small tolerance for floating point comparison)
                 let tolerance: CGFloat = 1.0
-                if abs(x - position.x) < tolerance &&
-                    abs(y - position.y) < tolerance &&
+                if abs(xCoord - position.x) < tolerance &&
+                    abs(yCoord - position.y) < tolerance &&
                     abs(width - size.width) < tolerance &&
                     abs(height - size.height) < tolerance {
 
@@ -117,14 +117,14 @@ public struct WindowInfoHelper {
         }
 
         guard let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
-              let x = bounds["X"],
-              let y = bounds["Y"],
+              let xCoord = bounds["X"],
+              let yCoord = bounds["Y"],
               let width = bounds["Width"],
               let height = bounds["Height"] else {
             return nil
         }
 
-        return CGRect(x: x, y: y, width: width, height: height)
+        return CGRect(x: xCoord, y: yCoord, width: width, height: height)
     }
 
     /// Get the owning application's PID for a window
