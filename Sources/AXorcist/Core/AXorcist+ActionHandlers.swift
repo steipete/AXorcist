@@ -123,7 +123,7 @@ extension AXorcist {
                         "Attempting press."
                 ))
                 do {
-                    try element.performAction(AXActionNames.kAXPressAction)
+                    try element.performAction(.press)
                     GlobalAXLogger.shared.log(AXLogEntry(
                         level: .debug,
                         message: "HandleSetFocusedValue: Successfully pressed " +

@@ -38,7 +38,7 @@ import Foundation
 /// let title = element.title
 ///
 /// // Perform actions
-/// try element.performAction(kAXPressAction)
+/// try element.performAction(.press)
 /// ```
 public struct Element: Equatable, Hashable {
     /// The underlying AXUIElement that this Element wraps.
@@ -279,7 +279,7 @@ public struct Element: Equatable, Hashable {
     @MainActor
     public func press() -> Bool {
         do {
-            _ = try performAction(AXActionNames.kAXPressAction)
+            _ = try performAction(.press)
             return true
         } catch {
             return false
@@ -289,7 +289,7 @@ public struct Element: Equatable, Hashable {
     @MainActor
     public func pick() -> Bool {
         do {
-            _ = try performAction(AXActionNames.kAXPickAction)
+            _ = try performAction(.pick)
             return true
         } catch {
             return false
@@ -299,7 +299,7 @@ public struct Element: Equatable, Hashable {
     @MainActor
     public func showMenu() -> Bool {
         do {
-            _ = try performAction(AXActionNames.kAXShowMenuAction)
+            _ = try performAction(.showMenu)
             return true
         } catch {
             return false

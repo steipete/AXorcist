@@ -23,6 +23,36 @@ public enum AXActionNames {
     public static let kAXSetValueAction = "AXSetValue"
 }
 
+// MARK: - Modern Action Enum
+
+/// Modern enum-based API for accessibility actions with cleaner syntax
+public enum AXAction {
+    case press
+    case increment
+    case decrement
+    case confirm
+    case cancel
+    case showMenu
+    case pick
+    case raise
+    case setValue
+    
+    /// The raw string value for the action
+    public var rawValue: String {
+        switch self {
+        case .press: return AXActionNames.kAXPressAction
+        case .increment: return AXActionNames.kAXIncrementAction
+        case .decrement: return AXActionNames.kAXDecrementAction
+        case .confirm: return AXActionNames.kAXConfirmAction
+        case .cancel: return AXActionNames.kAXCancelAction
+        case .showMenu: return AXActionNames.kAXShowMenuAction
+        case .pick: return AXActionNames.kAXPickAction
+        case .raise: return AXActionNames.kAXRaiseAction
+        case .setValue: return AXActionNames.kAXSetValueAction
+        }
+    }
+}
+
 // MARK: - Accessibility Attribute Names
 public enum AXAttributeNames {
     // Core Element Attributes

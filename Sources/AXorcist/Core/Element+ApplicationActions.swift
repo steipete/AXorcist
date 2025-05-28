@@ -30,7 +30,7 @@ extension Element {
             // Use the throwing performAction and handle potential errors, or make it non-throwing if that's the design.
             // For now, assuming it should succeed or log internally, returning bool.
             do {
-                try self.performAction(AXActionNames.kAXRaiseAction) // Fallback to raise action
+                try self.performAction(.raise) // Fallback to raise action
                 return true // If performAction succeeded
             } catch {
                 axErrorLog("Fallback action .raise failed for element \(self.briefDescription()): \(error.localizedDescription)")
@@ -42,7 +42,7 @@ extension Element {
             axWarningLog("Setting kAXFrontmostAttribute failed for \(self.briefDescription()). Falling back to .raise action.")
             // Similar handling for the fallback action
             do {
-                try self.performAction(AXActionNames.kAXRaiseAction)
+                try self.performAction(.raise)
                 return true
             } catch {
                 axErrorLog("Fallback action .raise failed after setBooleanAttribute failed for \(self.briefDescription()): \(error.localizedDescription)")

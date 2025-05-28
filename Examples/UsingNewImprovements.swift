@@ -112,7 +112,38 @@ func exampleObserverCenter() {
     // AXObserverCenter.shared.removeAllObservers(for: pid)
 }
 
-// MARK: - Example 4: Using Enhanced Error Handling
+// MARK: - Example 4: Using Modern AXAction Enum
+
+@MainActor
+func exampleModernActions() {
+    guard let app = frontmostApplicationElement() else { return }
+    
+    do {
+        // Old way (still supported):
+        // try app.performAction("AXPress")
+        // try app.performAction(AXActionNames.kAXRaiseAction)
+        
+        // New way with cleaner enum syntax:
+        try app.performAction(.press)
+        print("✅ Pressed element successfully")
+        
+        try app.performAction(.raise)
+        print("✅ Raised element successfully")
+        
+        // All available actions:
+        let availableActions: [AXAction] = [
+            .press, .increment, .decrement, .confirm, .cancel,
+            .showMenu, .pick, .raise, .setValue
+        ]
+        
+        print("Available actions: \(availableActions.map(\.rawValue).joined(separator: ", "))")
+        
+    } catch {
+        print("❌ Action failed: \(error)")
+    }
+}
+
+// MARK: - Example 5: Using Enhanced Error Handling
 
 @MainActor
 func exampleErrorHandling() {
@@ -120,7 +151,7 @@ func exampleErrorHandling() {
 
     do {
         // Perform action with automatic error throwing
-        try app.performAction("AXPress")
+        try app.performAction(.press)
         print("Action performed successfully")
     } catch let axError as AXError {
         // Convert to more descriptive error
@@ -131,7 +162,7 @@ func exampleErrorHandling() {
     }
 }
 
-// MARK: - Example 5: Using AXPermissions with Async/Await
+// MARK: - Example 6: Using AXPermissions with Async/Await
 
 func examplePermissions() async {
     // Check permissions without prompting
@@ -157,7 +188,7 @@ func examplePermissions() async {
     }
 }
 
-// MARK: - Example 6: Using Window Info Helper
+// MARK: - Example 7: Using Window Info Helper
 
 @MainActor
 func exampleWindowInfo() {
@@ -178,7 +209,7 @@ func exampleWindowInfo() {
     }
 }
 
-// MARK: - Example 7: Using AXValue Extensions
+// MARK: - Example 8: Using AXValue Extensions
 
 @MainActor
 func exampleAXValueExtensions() {
@@ -204,7 +235,7 @@ func exampleAXValueExtensions() {
     }
 }
 
-// MARK: - Example 8: Batch Operations with Better Error Handling
+// MARK: - Example 9: Batch Operations with Better Error Handling
 
 @MainActor
 func exampleBatchOperations() {
@@ -225,7 +256,7 @@ func exampleBatchOperations() {
     }
 }
 
-// MARK: - Example 9: Using Running Application Helper
+// MARK: - Example 10: Using Running Application Helper
 
 func exampleRunningApplications() {
     // Get all running applications
@@ -255,6 +286,9 @@ func runAllExamples() async {
 
     print("\n=== Observer Center ===")
     exampleObserverCenter()
+
+    print("\n=== Modern Actions ===")
+    exampleModernActions()
 
     print("\n=== Error Handling ===")
     exampleErrorHandling()

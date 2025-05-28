@@ -50,4 +50,12 @@ extension Element {
         axInfoLog("Successfully performed action '\(actionName)' on element: \(descForLog)")
         return self
     }
+
+    /// Modern enum-based performAction method with cleaner syntax
+    /// Example: try element.performAction(.raise)
+    @MainActor
+    @discardableResult
+    public func performAction(_ action: AXAction) throws -> Element {
+        return try performAction(action.rawValue)
+    }
 }
