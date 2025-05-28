@@ -14,7 +14,7 @@ public typealias AXNotificationSubscriptionHandler = @MainActor (/*element: Elem
 public struct AXNotificationSubscriptionKey: Hashable {
     /// Process ID to monitor, or nil for global monitoring.
     let pid: pid_t?
-    
+
     /// The accessibility notification type to observe.
     let notification: AXNotification
 }
@@ -26,7 +26,7 @@ public struct AXNotificationSubscriptionKey: Hashable {
 public struct AXObserverKeyAndPID: Hashable {
     /// Process ID being observed.
     let pid: pid_t
-    
+
     /// Notification type being monitored.
     let key: AXNotification
 }
@@ -38,7 +38,7 @@ public struct AXObserverKeyAndPID: Hashable {
 public struct AXObserverObjAndPID {
     /// The active accessibility observer.
     var observer: AXObserver
-    
+
     /// Process ID that this observer is monitoring.
     var pid: pid_t
 }

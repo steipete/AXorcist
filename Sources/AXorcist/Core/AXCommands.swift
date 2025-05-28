@@ -49,34 +49,34 @@ import Foundation
 public enum AXCommand: Sendable {
     /// Searches for UI elements matching specified criteria.
     case query(QueryCommand)
-    
+
     /// Performs an accessibility action on a target element.
     case performAction(PerformActionCommand)
-    
+
     /// Retrieves specific accessibility attributes from an element.
     case getAttributes(GetAttributesCommand)
-    
+
     /// Provides detailed information about an element's structure and properties.
     case describeElement(DescribeElementCommand)
-    
+
     /// Extracts text content from an element and its descendants.
     case extractText(ExtractTextCommand)
-    
+
     /// Executes multiple commands in a single batch operation.
     case batch(AXBatchCommand)
-    
+
     /// Sets the value of the currently focused element.
     case setFocusedValue(SetFocusedValueCommand)
-    
+
     /// Finds the UI element at specific screen coordinates.
     case getElementAtPoint(GetElementAtPointCommand)
-    
+
     /// Retrieves the currently focused accessibility element.
     case getFocusedElement(GetFocusedElementCommand)
-    
+
     /// Observes accessibility notifications from specified elements.
     case observe(ObserveCommand)
-    
+
     /// Collects all elements from an application with optional filtering.
     case collectAll(CollectAllCommand)
 
@@ -132,7 +132,7 @@ public struct AXCommandEnvelope: Sendable {
     /// Used for tracking, logging, and correlating commands with their responses.
     /// Should be unique across command executions for proper traceability.
     public let commandID: String
-    
+
     /// The accessibility command to execute.
     ///
     /// Contains the specific operation and its parameters that will be
@@ -386,7 +386,7 @@ public struct AXBatchCommand: Sendable {
     public struct SubCommandEnvelope: Sendable {
         /// Unique identifier for this sub-command within the batch.
         public let commandID: String
-        
+
         /// The accessibility command to execute.
         public let command: AXCommand
 

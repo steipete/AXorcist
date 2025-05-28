@@ -10,7 +10,7 @@ public extension Element {
     func isWindowMinimized() -> Bool? {
         return isMinimized()
     }
-    
+
     /// Checks if the window is hidden (different from minimized - this is when the app is hidden with Cmd+H)
     /// - Returns: true if hidden, false if not, nil if cannot be determined
     func isWindowHidden() -> Bool? {
@@ -22,17 +22,17 @@ public extension Element {
             }
             current = element.parent()
         }
-        
+
         // Alternative: If we have the PID, we can create the application element directly
         if let windowPid = self.pid() {
             if let app = Element.application(for: windowPid) {
                 return app.attribute(Attribute<Bool>("AXHidden"))
             }
         }
-        
+
         return nil
     }
-    
+
     /// Minimizes the window
     /// - Returns: AXError indicating success or failure
     func minimizeWindow() -> AXError {
@@ -41,7 +41,7 @@ public extension Element {
         if error == .success {
             return .success
         }
-        
+
         // Fallback: Try to press the minimize button
         if let minimizeBtn = minimizeButton() {
             do {
@@ -51,18 +51,18 @@ public extension Element {
                 return .actionUnsupported
             }
         }
-        
+
         return error
     }
-    
+
     /// Unminimizes the window
     /// - Returns: AXError indicating success or failure
     func unminimizeWindow() -> AXError {
         return setMinimized(false)
     }
-    
+
     /// Closes the window
-    /// - Returns: AXError indicating success or failure  
+    /// - Returns: AXError indicating success or failure
     func closeWindow() -> AXError {
         // Try to press the close button
         if let closeBtn = closeButton() {
@@ -73,7 +73,7 @@ public extension Element {
                 return .actionUnsupported
             }
         }
-        
+
         // Fallback: Try the close action if available
         if let supportedActions = supportedActions(), supportedActions.contains("AXClose") {
             do {
@@ -83,10 +83,10 @@ public extension Element {
                 return .actionUnsupported
             }
         }
-        
+
         return .actionUnsupported
     }
-    
+
     /// Brings the window to front
     /// - Returns: AXError indicating success or failure
     func raiseWindow() -> AXError {
@@ -110,49 +110,49 @@ public extension Element {
         if isMinimized() == true {
             return nil
         }
-        
+
         // Get window frame
         guard let windowFrame = frame() else {
             return nil
         }
-        
+
         // Handle case where window might be hidden
         if isWindowHidden() == true {
             // Hidden windows maintain their position, so we can still determine the screen
             return screenContainingRect(windowFrame)
         }
-        
+
         return screenContainingRect(windowFrame)
     }
-    
+
     /// Gets the screen number (1-based) that contains this window
     /// - Returns: The screen number, or nil if the window is minimized or cannot be determined
     func windowScreenNumber() -> Int? {
         guard let screen = windowScreen() else {
             return nil
         }
-        
+
         let screens = NSScreen.screens
         for (index, s) in screens.enumerated() {
             if s == screen {
-                return index + 1  // 1-based numbering
+                return index + 1 // 1-based numbering
             }
         }
-        
+
         return nil
     }
-    
+
     /// Determines which screen contains the largest portion of the given rect
     /// - Parameter rect: The rect to check
     /// - Returns: The screen containing the largest portion of the rect, or nil if no intersection
     private func screenContainingRect(_ rect: CGRect) -> NSScreen? {
         var bestScreen: NSScreen?
         var bestArea: CGFloat = 0
-        
+
         for screen in NSScreen.screens {
             let screenFrame = screen.frame
             let intersection = screenFrame.intersection(rect)
-            
+
             if !intersection.isNull {
                 let area = intersection.width * intersection.height
                 if area > bestArea {
@@ -161,7 +161,7 @@ public extension Element {
                 }
             }
         }
-        
+
         // If no intersection found, check by window center point
         if bestScreen == nil {
             let centerPoint = CGPoint(x: rect.midX, y: rect.midY)
@@ -171,10 +171,10 @@ public extension Element {
                 }
             }
         }
-        
+
         return bestScreen
     }
-    
+
     /// Gets detailed screen information for the window
     /// - Returns: A dictionary containing screen information, or nil if cannot be determined
     func windowScreenInfo() -> [String: Any]? {
@@ -182,7 +182,7 @@ public extension Element {
             // Check if minimized or hidden
             let isMin = isMinimized() ?? false
             let isHid = isWindowHidden() ?? false
-            
+
             return [
                 "screenNumber": NSNull(),
                 "isMinimized": isMin,
@@ -190,11 +190,11 @@ public extension Element {
                 "hasScreen": false
             ]
         }
-        
+
         let screenNumber = windowScreenNumber() ?? 0
         let screenFrame = screen.frame
         let visibleFrame = screen.visibleFrame
-        
+
         return [
             "screenNumber": screenNumber,
             "screenFrame": NSStringFromRect(screenFrame),
@@ -219,20 +219,20 @@ public extension Element {
         if let minimized = isMinimized(), minimized {
             return false
         }
-        
+
         // Check if hidden
         if let hidden = isWindowHidden(), hidden {
             return false
         }
-        
+
         // Check if it has a valid frame on a screen
         if let _ = windowScreen() {
             return true
         }
-        
+
         return nil
     }
-    
+
     /// Shows a hidden window (unhides the application if needed)
     /// - Returns: AXError indicating success or failure
     func showWindow() -> AXError {
@@ -243,11 +243,11 @@ public extension Element {
                 return error
             }
         }
-        
+
         // Then unhide the app if needed
         // Get the application element by walking up the parent hierarchy or using PID
         var appElement: Element? = nil
-        
+
         // Try parent hierarchy first
         var current: Element? = self
         while let element = current {
@@ -257,19 +257,19 @@ public extension Element {
             }
             current = element.parent()
         }
-        
+
         // If not found, try using PID
         if appElement == nil, let windowPid = self.pid() {
             appElement = Element.application(for: windowPid)
         }
-        
+
         if let app = appElement, app.attribute(Attribute<Bool>("AXHidden")) == true {
             let error = AXUIElementSetAttributeValue(app.underlyingElement, "AXHidden" as CFString, false as CFBoolean)
             if error != AXError.success {
                 return error
             }
         }
-        
+
         // Finally raise the window
         return raiseWindow()
     }

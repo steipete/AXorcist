@@ -52,13 +52,13 @@ public struct Element: Equatable, Hashable {
     /// When populated (typically by deep queries), this contains all the
     /// accessibility attributes for the element, avoiding repeated API calls.
     public var attributes: [String: AnyCodable]?
-    
+
     /// Pre-fetched child elements.
     ///
     /// When populated by deep queries, this contains all direct child elements,
     /// allowing for efficient tree traversal without additional API calls.
     public var prefetchedChildren: [Element]?
-    
+
     /// Pre-fetched available actions for this element.
     ///
     /// When populated, this contains all actions that can be performed on

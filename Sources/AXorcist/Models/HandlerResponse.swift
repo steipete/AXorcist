@@ -89,7 +89,7 @@ extension HandlerResponse {
 ///     message: "Element not found",
 ///     underlyingError: "AXUIElementCopyAttributeValue failed"
 /// )
-/// 
+///
 /// let response = HandlerResponse(
 ///     data: AnyCodable(detailedError),
 ///     error: "Element lookup failed"
@@ -101,12 +101,12 @@ public struct DetailedError: Codable, Sendable {
     /// Use consistent error codes across your application to enable
     /// programmatic error handling.
     public let code: Int
-    
+
     /// Human-readable error message describing what went wrong.
     ///
     /// This should be clear and actionable for developers debugging issues.
     public let message: String
-    
+
     /// Additional details about underlying system errors.
     ///
     /// When the error is caused by a lower-level system call or API,

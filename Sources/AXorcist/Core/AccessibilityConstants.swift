@@ -36,7 +36,7 @@ public enum AXAction {
     case pick
     case raise
     case setValue
-    
+
     /// The raw string value for the action
     public var rawValue: String {
         switch self {

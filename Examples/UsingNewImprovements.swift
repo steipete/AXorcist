@@ -117,27 +117,27 @@ func exampleObserverCenter() {
 @MainActor
 func exampleModernActions() {
     guard let app = frontmostApplicationElement() else { return }
-    
+
     do {
         // Old way (still supported):
         // try app.performAction("AXPress")
         // try app.performAction(AXActionNames.kAXRaiseAction)
-        
+
         // New way with cleaner enum syntax:
         try app.performAction(.press)
         print("✅ Pressed element successfully")
-        
+
         try app.performAction(.raise)
         print("✅ Raised element successfully")
-        
+
         // All available actions:
         let availableActions: [AXAction] = [
             .press, .increment, .decrement, .confirm, .cancel,
             .showMenu, .pick, .raise, .setValue
         ]
-        
+
         print("Available actions: \(availableActions.map(\.rawValue).joined(separator: ", "))")
-        
+
     } catch {
         print("❌ Action failed: \(error)")
     }
