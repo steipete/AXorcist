@@ -1,58 +1,73 @@
 import ApplicationServices
 import Foundation
+
 // GlobalAXLogger should be available
 
 // MARK: - Element Common Attribute Getters & Status Properties
 
-extension Element {
+public extension Element {
     // Common Attribute Getters - now simplified
-    @MainActor public func role() -> String? {
-        return attribute(Attribute<String>.role)
+    @MainActor func role() -> String? {
+        attribute(Attribute<String>.role)
     }
-    @MainActor public func subrole() -> String? {
-        return attribute(Attribute<String>.subrole)
+
+    @MainActor func subrole() -> String? {
+        attribute(Attribute<String>.subrole)
     }
-    @MainActor public func title() -> String? {
-        return attribute(Attribute<String>.title)
+
+    @MainActor func title() -> String? {
+        attribute(Attribute<String>.title)
     }
+
     // Renamed from 'description' to 'descriptionText'
-    @MainActor public func descriptionText() -> String? {
-        return attribute(Attribute<String>.description)
+    @MainActor func descriptionText() -> String? {
+        attribute(Attribute<String>.description)
     }
-    @MainActor public func isEnabled() -> Bool? {
-        return attribute(Attribute<Bool>.enabled)
+
+    @MainActor func isEnabled() -> Bool? {
+        attribute(Attribute<Bool>.enabled)
     }
-    @MainActor public func value() -> Any? {
-        return attribute(Attribute<Any>(AXAttributeNames.kAXValueAttribute))
+
+    @MainActor func value() -> Any? {
+        attribute(Attribute<Any>(AXAttributeNames.kAXValueAttribute))
     }
-    @MainActor public func roleDescription() -> String? {
-        return attribute(Attribute<String>.roleDescription)
+
+    @MainActor func roleDescription() -> String? {
+        attribute(Attribute<String>.roleDescription)
     }
-    @MainActor public func help() -> String? {
-        return attribute(Attribute<String>.help)
+
+    @MainActor func help() -> String? {
+        attribute(Attribute<String>.help)
     }
-    @MainActor public func identifier() -> String? {
-        return attribute(Attribute<String>.identifier)
+
+    @MainActor func identifier() -> String? {
+        attribute(Attribute<String>.identifier)
     }
 
     // Status Properties - simplified
-    @MainActor public func isFocused() -> Bool? {
-        return attribute(Attribute<Bool>.focused)
-    }
-    @MainActor public func isHidden() -> Bool? {
-        return attribute(Attribute<Bool>.hidden)
-    }
-    @MainActor public func isElementBusy() -> Bool? {
-        return attribute(Attribute<Bool>.busy)
+    @MainActor func isFocused() -> Bool? {
+        attribute(Attribute<Bool>.focused)
     }
 
-    @MainActor public func isIgnored() -> Bool {
-        return attribute(Attribute<Bool>.hidden) == true
+    @MainActor func isHidden() -> Bool? {
+        attribute(Attribute<Bool>.hidden)
     }
 
-    @MainActor public func pid() -> pid_t? {
+    @MainActor func isElementBusy() -> Bool? {
+        attribute(Attribute<Bool>.busy)
+    }
+
+    @MainActor func isIgnored() -> Bool {
+        attribute(Attribute<Bool>.hidden) == true
+    }
+
+    @MainActor func pid() -> pid_t? {
         var pidRef: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(self.underlyingElement, AXAttributeNames.kAXPIDAttribute as CFString, &pidRef)
+        let error = AXUIElementCopyAttributeValue(
+            self.underlyingElement,
+            AXAttributeNames.kAXPIDAttribute as CFString,
+            &pidRef
+        )
         if error == .success, let pidNum = pidRef as? NSNumber {
             return pid_t(pidNum.intValue)
         } else {
@@ -64,29 +79,29 @@ extension Element {
     }
 
     // Hierarchy and Relationship Getters - simplified
-    @MainActor public func parent() -> Element? {
+    @MainActor func parent() -> Element? {
         guard let parentElementUI: AXUIElement = attribute(.parent) else { return nil }
         return Element(parentElementUI)
     }
 
-    @MainActor public func windows() -> [Element]? {
+    @MainActor func windows() -> [Element]? {
         guard let windowElementsUI: [AXUIElement] = attribute(.windows) else { return nil }
         return windowElementsUI.map { Element($0) }
     }
 
-    @MainActor public func mainWindow() -> Element? {
+    @MainActor func mainWindow() -> Element? {
         guard let windowElementUI = attribute(.mainWindow) else { return nil }
         return Element(windowElementUI)
     }
 
-    @MainActor public func focusedWindow() -> Element? {
+    @MainActor func focusedWindow() -> Element? {
         guard let windowElementUI = attribute(.focusedWindow) else { return nil }
         return Element(windowElementUI)
     }
 
     // Attempts to get the focused UI element within this element (e.g., a focused text field in a window).
     @MainActor
-    public func focusedUIElement() -> Element? {
+    func focusedUIElement() -> Element? {
         // Use the specific type for the attribute, non-optional generic
         guard let elementUI: AXUIElement = attribute(Attribute<AXUIElement>.focusedUIElement) else { return nil }
         return Element(elementUI)
@@ -94,75 +109,75 @@ extension Element {
 
     // Action-related - simplified
     @MainActor
-    public func supportedActions() -> [String]? {
-        return attribute(Attribute<[String]>.actionNames)
+    func supportedActions() -> [String]? {
+        attribute(Attribute<[String]>.actionNames)
     }
 
     // domIdentifier - simplified to a single method, was previously a computed property and a method.
-    @MainActor public func domIdentifier() -> String? {
-        return attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute))
+    @MainActor func domIdentifier() -> String? {
+        attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute))
     }
 
-    @MainActor public func defaultButton() -> Element? {
+    @MainActor func defaultButton() -> Element? {
         guard let buttonAXUIElement = attribute(.defaultButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor public func cancelButton() -> Element? {
+    @MainActor func cancelButton() -> Element? {
         guard let buttonAXUIElement = attribute(.cancelButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
     // Specific UI Buttons in a Window
-    @MainActor public func closeButton() -> Element? {
+    @MainActor func closeButton() -> Element? {
         guard let buttonAXUIElement = attribute(.closeButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor public func zoomButton() -> Element? {
+    @MainActor func zoomButton() -> Element? {
         guard let buttonAXUIElement = attribute(.zoomButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor public func minimizeButton() -> Element? {
+    @MainActor func minimizeButton() -> Element? {
         guard let buttonAXUIElement = attribute(.minimizeButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor public func toolbarButton() -> Element? {
+    @MainActor func toolbarButton() -> Element? {
         guard let buttonAXUIElement = attribute(.toolbarButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor public func fullScreenButton() -> Element? {
+    @MainActor func fullScreenButton() -> Element? {
         guard let buttonAXUIElement = attribute(.fullScreenButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
     // Proxy (e.g. for web content)
-    @MainActor public func proxy() -> Element? {
+    @MainActor func proxy() -> Element? {
         guard let proxyAXUIElement = attribute(.proxy) else { return nil }
         return Element(proxyAXUIElement)
     }
 
     // Grow Area (e.g. for resizing window)
-    @MainActor public func growArea() -> Element? {
+    @MainActor func growArea() -> Element? {
         guard let growAreaAXUIElement = attribute(.growArea) else { return nil }
         return Element(growAreaAXUIElement)
     }
 
-    @MainActor public func header() -> Element? {
+    @MainActor func header() -> Element? {
         guard let headerAXUIElement = attribute(.header) else { return nil }
         return Element(headerAXUIElement)
     }
 
     // Scroll Area properties
-    @MainActor public func horizontalScrollBar() -> Element? {
+    @MainActor func horizontalScrollBar() -> Element? {
         guard let scrollBarAXUIElement = attribute(.horizontalScrollBar) else { return nil }
         return Element(scrollBarAXUIElement)
     }
 
-    @MainActor public func verticalScrollBar() -> Element? {
+    @MainActor func verticalScrollBar() -> Element? {
         guard let scrollBarAXUIElement = attribute(.verticalScrollBar) else { return nil }
         return Element(scrollBarAXUIElement)
     }
@@ -171,20 +186,24 @@ extension Element {
     // ... existing code ...
 
     // MARK: - Attribute Names
-    @MainActor public func attributeNames() -> [String]? {
+
+    @MainActor func attributeNames() -> [String]? {
         var attrNames: CFArray?
         let error = AXUIElementCopyAttributeNames(self.underlyingElement, &attrNames)
         if error == .success, let names = attrNames as? [String] {
             return names
         }
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Failed to get attribute names for element: \(error.rawValue)"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "Failed to get attribute names for element: \(error.rawValue)"
+        ))
         return nil
     }
 
     // MARK: - AX Property Dumping
 
     @MainActor
-    public func dump() -> String {
+    func dump() -> String {
         var output = "Dumping AX properties for Element: \(self.briefDescription())\n"
 
         output += _dumpRecursive(element: self.underlyingElement, currentIndent: "  ")
@@ -217,9 +236,13 @@ extension Element {
                             if let childrenElements = value as? [AXUIElement] {
                                 output += attributeIndent + "\(name): [\(childrenElements.count) children]\n"
                                 // Only recurse on known children attributes for brevity
-                                if name == kAXChildrenAttribute as String || name == kAXVisibleChildrenAttribute as String || name == kAXSelectedChildrenAttribute as String {
+                                if name == kAXChildrenAttribute as String || name ==
+                                    kAXVisibleChildrenAttribute as String || name ==
+                                    kAXSelectedChildrenAttribute as String
+                                {
                                     for _ in childrenElements {
-                                        // output += _dumpRecursive(element: childAXUIElement, currentIndent: attributeIndent + "  ")
+                                        // output += _dumpRecursive(element: childAXUIElement, currentIndent:
+                                        // attributeIndent + "  ")
                                     }
                                 }
                             } else if let stringValue = value as? String, stringValue.isEmpty {
@@ -233,7 +256,8 @@ extension Element {
                         } else {
                             let axError = AXError(rawValue: err.rawValue)
                             let errorDetail = String(describing: axError ?? "Unknown AXError" as Any)
-                            output += attributeIndent + "\(name): (Error fetching value: \(errorDetail) - Code \(err.rawValue))\n"
+                            output += attributeIndent +
+                                "\(name): (Error fetching value: \(errorDetail) - Code \(err.rawValue))\n"
                         }
                     }
                 }
@@ -243,7 +267,9 @@ extension Element {
         } else {
             let axError = AXError(rawValue: copyAttrNamesResult.rawValue)
             let errorDetail = String(describing: axError ?? "Unknown AXError" as Any)
-            appendLine("Attributes: (Error copying attribute names: \(errorDetail) - Code \(copyAttrNamesResult.rawValue))")
+            appendLine(
+                "Attributes: (Error copying attribute names: \(errorDetail) - Code \(copyAttrNamesResult.rawValue))"
+            )
         }
 
         // 2. parameterized attributes
@@ -255,12 +281,22 @@ extension Element {
                 let paramSubIndent = currentIndent + "  "
                 for param in params.sorted() {
                     var paramValue: CFTypeRef?
-                    let paramErr = AXUIElementCopyParameterizedAttributeValue(element, param as CFString, NSNumber(value: 0), &paramValue)
+                    let paramErr = AXUIElementCopyParameterizedAttributeValue(
+                        element,
+                        param as CFString,
+                        NSNumber(value: 0),
+                        &paramValue
+                    )
                     if paramErr == .success {
                         let valueStr = String(describing: paramValue ?? "nil" as Any)
                         output += paramSubIndent + "\(param)(param: 0): \(valueStr)\n"
                     } else {
-                        let paramErrNull = AXUIElementCopyParameterizedAttributeValue(element, param as CFString, kCFNull, &paramValue)
+                        let paramErrNull = AXUIElementCopyParameterizedAttributeValue(
+                            element,
+                            param as CFString,
+                            kCFNull,
+                            &paramValue
+                        )
                         if paramErrNull == .success {
                             let valueStrNull = String(describing: paramValue ?? "nil" as Any)
                             output += paramSubIndent + "\(param)(param: kCFNull): \(valueStrNull)\n"
@@ -269,7 +305,8 @@ extension Element {
                             let errorDetail1 = String(describing: axError1 ?? "Error" as Any)
                             let axError2 = AXError(rawValue: paramErrNull.rawValue)
                             let errorDetail2 = String(describing: axError2 ?? "Error" as Any)
-                            output += paramSubIndent + "\(param)(…): (Error fetching with common params: \(errorDetail1) (\(paramErr.rawValue)) / \(errorDetail2) (\(paramErrNull.rawValue)))\n"
+                            output += paramSubIndent +
+                                "\(param)(…): (Error fetching with common params: \(errorDetail1) (\(paramErr.rawValue)) / \(errorDetail2) (\(paramErrNull.rawValue)))\n"
                         }
                     }
                 }
@@ -279,7 +316,9 @@ extension Element {
         } else {
             let axError = AXError(rawValue: copyParamAttrNamesResult.rawValue)
             let errorDetail = String(describing: axError ?? "Unknown AXError" as Any)
-            appendLine("Parameterized Attributes: (Error copying names: \(errorDetail) - Code \(copyParamAttrNamesResult.rawValue))")
+            appendLine(
+                "Parameterized Attributes: (Error copying names: \(errorDetail) - Code \(copyParamAttrNamesResult.rawValue))"
+            )
         }
 
         // 3. actions
@@ -303,13 +342,18 @@ extension Element {
 @MainActor
 public func example_dumpFocusedElementToString() {
     #if DEBUG
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "Attempting to dump focused element AX properties to string:"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "Attempting to dump focused element AX properties to string:"
+        ))
         var outputString = "Focused Element Details:\n"
         if AXIsProcessTrustedWithOptions(nil) { // nil means check current process
             var focusedCF: CFTypeRef?
             let systemWideElement = AXUIElementCreateSystemWide()
 
-            if AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedCF) == .success {
+            if AXUIElementCopyAttributeValue(systemWideElement, kAXFocusedUIElementAttribute as CFString, &focusedCF) ==
+                .success
+            {
                 if let focusedAXUIEl = focusedCF as! AXUIElement? { // Safely cast to AXUIElement
                     let focusedElement = Element(focusedAXUIEl) // Create an Element instance
                     outputString += "Successfully obtained focused element. Dumping details:\n"

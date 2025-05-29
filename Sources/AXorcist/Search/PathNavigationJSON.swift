@@ -10,7 +10,7 @@ private let logger = Logger(label: "AXorcist.PathNavigationJSON")
 // MARK: - JSON PathHint Navigation
 
 @MainActor
-internal func navigateToElementByJSONPathHint(
+func navigateToElementByJSONPathHint(
     from startElement: Element,
     jsonPathHint: [JSONPathHintComponent],
     overallMaxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
@@ -137,7 +137,7 @@ private func processJSONPathComponent(
 @MainActor
 private func convertJSONPathComponentToCriteria(_ component: JSONPathHintComponent) -> [String: String] {
     // Use the component's simpleCriteria property which handles the attribute mapping
-    return component.simpleCriteria ?? [:]
+    component.simpleCriteria ?? [:]
 }
 
 @MainActor
@@ -157,7 +157,8 @@ private func findMatchingChildJSON(
             criteria: criteriaToMatch,
             matchType: matchType,
             forPathComponent: pathComponentForLog
-        ) {
+        )
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "PathNav/FMCJ: Found matching child at index \(childIndex) " +
@@ -175,7 +176,7 @@ private func elementMatchesAllCriteriaJSON(
     _ element: Element,
     criteria: [String: String],
     matchType: JSONPathHintComponent.MatchType,
-    forPathComponent pathComponentForLog: String
+    forPathComponent _: String
 ) -> Bool {
     if criteria.isEmpty {
         return true
@@ -246,6 +247,9 @@ private func findMatchRecursively(
         }
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PathNav/FMR: No match found in recursive search for component '\(pathComponentForLog)'"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "PathNav/FMR: No match found in recursive search for component '\(pathComponentForLog)'"
+    ))
     return nil
 }

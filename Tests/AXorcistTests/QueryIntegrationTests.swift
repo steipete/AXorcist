@@ -5,7 +5,7 @@ import Testing
 // MARK: - Query Command Tests
 
 @Test("Launch TextEdit, Get Focused Element via STDIN")
-func testLaunchAndQueryTextEdit() async throws {
+func launchAndQueryTextEdit() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -17,7 +17,7 @@ func testLaunchAndQueryTextEdit() async throws {
         ApplicationServices.kAXRoleAttribute as String,
         ApplicationServices.kAXRoleDescriptionAttribute as String,
         ApplicationServices.kAXValueAttribute as String,
-        "AXPlaceholderValue"
+        "AXPlaceholderValue",
     ]
 
     let commandEnvelope = createCommandEnvelope(
@@ -82,7 +82,7 @@ func testLaunchAndQueryTextEdit() async throws {
 
 @Test("Get Attributes for TextEdit Application")
 @MainActor
-func testGetAttributesForTextEditApplication() async throws {
+func getAttributesForTextEditApplication() async throws {
     let commandId = "getattributes-textedit-app-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let requestedAttributes = ["AXRole", "AXTitle", "AXWindows", "AXFocusedWindow", "AXMainWindow", "AXIdentifier"]
@@ -149,16 +149,16 @@ func testGetAttributesForTextEditApplication() async throws {
     #expect(
         queryResponse.debugLogs?
             .contains {
-                $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed") } ==
+                $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed")
+            } ==
             true,
         "Debug logs should indicate getAttributes execution."
     )
-
 }
 
 @Test("Query for TextEdit Text Area")
 @MainActor
-func testQueryForTextEditTextArea() async throws {
+func queryForTextEditTextArea() async throws {
     let commandId = "query-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let textAreaRole = ApplicationServices.kAXTextAreaRole as String
@@ -218,12 +218,11 @@ func testQueryForTextEditTextArea() async throws {
             .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
         "Debug logs should indicate query execution."
     )
-
 }
 
 @Test("Describe TextEdit Text Area")
 @MainActor
-func testDescribeTextEditTextArea() async throws {
+func describeTextEditTextArea() async throws {
     let commandId = "describe-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let textAreaRole = ApplicationServices.kAXTextAreaRole as String
@@ -292,7 +291,6 @@ func testDescribeTextEditTextArea() async throws {
             true,
         "Debug logs should indicate describeElement execution."
     )
-
 }
 
 // MARK: - Helper Functions
@@ -305,7 +303,7 @@ private func createCommandEnvelope(
     locator: Locator? = nil,
     debugLogging: Bool = true
 ) -> CommandEnvelope {
-    return CommandEnvelope(
+    CommandEnvelope(
         commandId: commandId,
         command: command,
         application: application,

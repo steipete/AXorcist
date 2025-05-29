@@ -3,7 +3,12 @@
 import Foundation
 
 @MainActor
-internal func matchRoleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+func matchRoleAttribute(
+    element: Element,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
     let actual = element.role()
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/Role: Actual='\(actual ?? "nil")'"))
     if actual == AXRoleNames.kAXTextAreaRole {
@@ -23,7 +28,12 @@ internal func matchRoleAttribute(element: Element, expectedValue: String, matchT
 }
 
 @MainActor
-internal func matchSubroleAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+func matchSubroleAttribute(
+    element: Element,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
     let actual = element.subrole()
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/Subrole: Actual='\(actual ?? "nil")'"))
     return compareStrings(
@@ -35,7 +45,12 @@ internal func matchSubroleAttribute(element: Element, expectedValue: String, mat
 }
 
 @MainActor
-internal func matchIdentifierAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+func matchIdentifierAttribute(
+    element: Element,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
     let actual = element.identifier()
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/MSC/ID: Actual='\(actual ?? "nil")'"))
     return compareStrings(
@@ -47,7 +62,12 @@ internal func matchIdentifierAttribute(element: Element, expectedValue: String, 
 }
 
 @MainActor
-internal func matchDomClassListAttribute(element: Element, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+func matchDomClassListAttribute(
+    element: Element,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
     let actualRaw = element.attribute(Attribute<Any>(AXAttributeNames.kAXDOMClassListAttribute))
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
@@ -73,7 +93,10 @@ internal func matchDomClassListAttribute(element: Element, expectedValue: String
     )
 
     if domIdMatch {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/DOMClass: Fallback DOMIdentifier MATCH for token '\(expectedValue)'."))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "SC/DOMClass: Fallback DOMIdentifier MATCH for token '\(expectedValue)'."
+        ))
         return true
     }
 
@@ -86,13 +109,16 @@ internal func matchDomClassListAttribute(element: Element, expectedValue: String
     )
 
     if identifierMatch {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "SC/DOMClass: Fallback AXIdentifier MATCH for token '\(expectedValue)'."))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "SC/DOMClass: Fallback AXIdentifier MATCH for token '\(expectedValue)'."
+        ))
     }
     return identifierMatch
 }
 
 @MainActor
-internal func matchComputedNameAttributes(
+func matchComputedNameAttributes(
     element: Element,
     expectedValue: String,
     matchType: JSONPathHintComponent.MatchType,

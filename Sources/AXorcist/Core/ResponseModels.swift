@@ -14,7 +14,7 @@ public enum AXErrorCode: String, Codable, Sendable {
     case internalError = "internal_error"
     case permissionDenied = "permission_denied"
     case invalidParameter = "invalid_parameter"
-    case timeout = "timeout"
+    case timeout
     case observationFailed = "observation_failed"
     case applicationNotFound = "application_not_found"
     case batchOperationFailed = "batch_operation_failed"
@@ -28,45 +28,47 @@ public enum AXResponse: Sendable {
     case success(payload: AnyCodable?, logs: [String]?)
     case error(message: String, code: AXErrorCode, logs: [String]?)
 
+    // MARK: Public
+
     // Computed property for status
     public var status: String {
         switch self {
-        case .success: return "success"
-        case .error: return "error"
+        case .success: "success"
+        case .error: "error"
         }
     }
 
     // Computed property for payload
     public var payload: AnyCodable? {
         switch self {
-        case .success(let payload, _): return payload
-        case .error: return nil
+        case let .success(payload, _): payload
+        case .error: nil
         }
     }
 
     // Computed property for error
     public var error: (message: String, code: AXErrorCode)? {
         switch self {
-        case .success: return nil
-        case let .error(message, code, _): return (message, code)
+        case .success: nil
+        case let .error(message, code, _): (message, code)
         }
     }
 
     // Computed property for logs
     public var logs: [String]? {
         switch self {
-        case .success(_, let logs): return logs
-        case .error(_, _, let logs): return logs
+        case let .success(_, logs): logs
+        case let .error(_, _, logs): logs
         }
     }
 
     // Static factory methods
     public static func successResponse(payload: AnyCodable?, logs: [String]? = nil) -> AXResponse {
-        return .success(payload: payload, logs: logs)
+        .success(payload: payload, logs: logs)
     }
 
     public static func errorResponse(message: String, code: AXErrorCode, logs: [String]? = nil) -> AXResponse {
-        return .error(message: message, code: code, logs: logs)
+        .error(message: message, code: code, logs: logs)
     }
 }
 
@@ -75,15 +77,7 @@ public protocol HandlerDataRepresentable: Codable {}
 
 // Definition for AXElementData based on usage in AXorcist+QueryHandlers.swift
 public struct AXElementData: Codable, HandlerDataRepresentable {
-    public var briefDescription: String?
-    public var role: String?
-    public var attributes: [String: AXValueWrapper]? // Assuming AXValueWrapper is Codable
-    public var allPossibleAttributes: [String]?
-    public var textualContent: String?
-    public var childrenBriefDescriptions: [String]?
-    public var fullAXDescription: String?
-    // Add path here as it's often part of element data
-    public var path: [String]?
+    // MARK: Lifecycle
 
     public init(
         briefDescription: String? = nil,
@@ -104,6 +98,18 @@ public struct AXElementData: Codable, HandlerDataRepresentable {
         self.fullAXDescription = fullAXDescription
         self.path = path
     }
+
+    // MARK: Public
+
+    public var briefDescription: String?
+    public var role: String?
+    public var attributes: [String: AXValueWrapper]? // Assuming AXValueWrapper is Codable
+    public var allPossibleAttributes: [String]?
+    public var textualContent: String?
+    public var childrenBriefDescriptions: [String]?
+    public var fullAXDescription: String?
+    // Add path here as it's often part of element data
+    public var path: [String]?
 }
 
 // Make existing relevant models conform
@@ -112,23 +118,7 @@ public struct AXElementData: Codable, HandlerDataRepresentable {
 
 // Response for query command (single element)
 public struct QueryResponse: Codable {
-    public var commandId: String
-    public var success: Bool
-    public var command: String
-    public var data: AXElement?
-    public var attributes: ElementAttributes?
-    public var error: String?
-    public var debugLogs: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case commandId
-        case success
-        case command
-        case data
-        case attributes
-        case error
-        case debugLogs
-    }
+    // MARK: Lifecycle
 
     public init(
         commandId: String,
@@ -161,7 +151,8 @@ public struct QueryResponse: Codable {
         self.command = command
         // Extract AXElement from AnyCodable if present
         if let anyCodableData = handlerResponse.data,
-           let axElement = anyCodableData.value as? AXElement {
+           let axElement = anyCodableData.value as? AXElement
+        {
             self.data = axElement
             self.attributes = axElement.attributes
         } else {
@@ -171,11 +162,33 @@ public struct QueryResponse: Codable {
         self.error = handlerResponse.error
         self.debugLogs = debugLogs
     }
+
+    // MARK: Public
+
+    public var commandId: String
+    public var success: Bool
+    public var command: String
+    public var data: AXElement?
+    public var attributes: ElementAttributes?
+    public var error: String?
+    public var debugLogs: [String]?
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case command
+        case data
+        case attributes
+        case error
+        case debugLogs
+    }
 }
 
 // Extension to add JSON encoding functionality to QueryResponse
-extension QueryResponse {
-    public func jsonString() throws -> String {
+public extension QueryResponse {
+    func jsonString() throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let data = try encoder.encode(self)
@@ -185,19 +198,7 @@ extension QueryResponse {
 
 // Response for collect_all command (multiple elements)
 public struct MultiQueryResponse: Codable {
-    public var commandId: String
-    public var elements: [ElementAttributes]?
-    public var count: Int?
-    public var error: String?
-    public var debugLogs: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case commandId
-        case elements
-        case count
-        case error
-        case debugLogs
-    }
+    // MARK: Lifecycle
 
     public init(
         commandId: String,
@@ -212,21 +213,29 @@ public struct MultiQueryResponse: Codable {
         self.error = error
         self.debugLogs = debugLogs
     }
+
+    // MARK: Public
+
+    public var commandId: String
+    public var elements: [ElementAttributes]?
+    public var count: Int?
+    public var error: String?
+    public var debugLogs: [String]?
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case elements
+        case count
+        case error
+        case debugLogs
+    }
 }
 
 // Response for perform_action command
 public struct PerformResponse: Codable, HandlerDataRepresentable {
-    public var commandId: String
-    public var success: Bool
-    public var error: String?
-    public var debugLogs: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case commandId
-        case success
-        case error
-        case debugLogs
-    }
+    // MARK: Lifecycle
 
     public init(commandId: String, success: Bool, error: String? = nil, debugLogs: [String]? = nil) {
         self.commandId = commandId
@@ -234,19 +243,42 @@ public struct PerformResponse: Codable, HandlerDataRepresentable {
         self.error = error
         self.debugLogs = debugLogs
     }
+
+    // MARK: Public
+
+    public var commandId: String
+    public var success: Bool
+    public var error: String?
+    public var debugLogs: [String]?
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case error
+        case debugLogs
+    }
 }
 
 // New response for extract_text command
 public struct TextExtractionResponse: Codable, HandlerDataRepresentable {
+    // MARK: Lifecycle
+
+    public init(textContent: String?) {
+        self.textContent = textContent
+    }
+
+    // MARK: Public
+
     public var textContent: String?
+
+    // MARK: Internal
+
     // commandId, error, debugLogs can be part of the HandlerResponse envelope
 
     enum CodingKeys: String, CodingKey {
         case textContent
-    }
-
-    public init(textContent: String?) {
-        self.textContent = textContent
     }
 }
 
@@ -270,17 +302,7 @@ public struct TextExtractionResponse: Codable, HandlerDataRepresentable {
 
 // Generic error response
 public struct ErrorResponse: Codable {
-    public var commandId: String
-    public var success: Bool
-    public var error: ErrorDetail
-    public var debugLogs: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case commandId
-        case success
-        case error
-        case debugLogs
-    }
+    // MARK: Lifecycle
 
     public init(commandId: String, error: String, debugLogs: [String]? = nil) {
         self.commandId = commandId
@@ -288,24 +310,64 @@ public struct ErrorResponse: Codable {
         self.error = ErrorDetail(message: error)
         self.debugLogs = debugLogs
     }
+
+    // MARK: Public
+
+    public var commandId: String
+    public var success: Bool
+    public var error: ErrorDetail
+    public var debugLogs: [String]?
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case error
+        case debugLogs
+    }
 }
 
 public struct ErrorDetail: Codable {
-    public var message: String
+    // MARK: Lifecycle
 
     public init(message: String) {
         self.message = message
     }
+
+    // MARK: Public
+
+    public var message: String
 }
 
 // Simple success response, e.g. for ping
 public struct SimpleSuccessResponse: Codable, Equatable {
+    // MARK: Lifecycle
+
+    public init(commandId: String,
+                status: String,
+                message: String,
+                details: String? = nil,
+                debugLogs: [String]? = nil)
+    {
+        self.commandId = commandId
+        self.success = true
+        self.status = status
+        self.message = message
+        self.details = details
+        self.debugLogs = debugLogs
+    }
+
+    // MARK: Public
+
     public var commandId: String
     public var success: Bool
     public var status: String
     public var message: String
     public var details: String?
     public var debugLogs: [String]?
+
+    // MARK: Internal
 
     enum CodingKeys: String, CodingKey {
         case commandId
@@ -315,37 +377,12 @@ public struct SimpleSuccessResponse: Codable, Equatable {
         case details
         case debugLogs
     }
-
-    public init(commandId: String,
-                status: String,
-                message: String,
-                details: String? = nil,
-                debugLogs: [String]? = nil) {
-        self.commandId = commandId
-        self.success = true
-        self.status = status
-        self.message = message
-        self.details = details
-        self.debugLogs = debugLogs
-    }
 }
 
 // HandlerResponse is now defined in Models/HandlerResponse.swift
 
 public struct BatchResponse: Codable {
-    public var commandId: String
-    public var success: Bool
-    public var results: [HandlerResponse] // Array of HandlerResponses for each sub-command
-    public var error: String? // For an overall batch error, if any
-    public var debugLogs: [String]?
-
-    enum CodingKeys: String, CodingKey {
-        case commandId
-        case success
-        case results
-        case error
-        case debugLogs
-    }
+    // MARK: Lifecycle
 
     public init(
         commandId: String,
@@ -360,47 +397,74 @@ public struct BatchResponse: Codable {
         self.error = error
         self.debugLogs = debugLogs
     }
+
+    // MARK: Public
+
+    public var commandId: String
+    public var success: Bool
+    public var results: [HandlerResponse] // Array of HandlerResponses for each sub-command
+    public var error: String? // For an overall batch error, if any
+    public var debugLogs: [String]?
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId
+        case success
+        case results
+        case error
+        case debugLogs
+    }
 }
 
 // MARK: - Additional Payload Structs
 
 // NoFocusPayload for when no focused element is found
 public struct NoFocusPayload: Codable, HandlerDataRepresentable {
-    public let message: String
+    // MARK: Lifecycle
 
     public init(message: String) {
         self.message = message
     }
+
+    // MARK: Public
+
+    public let message: String
 }
 
 // TextPayload for text extraction
 public struct TextPayload: Codable, HandlerDataRepresentable {
-    public let text: String
+    // MARK: Lifecycle
 
     public init(text: String) {
         self.text = text
     }
+
+    // MARK: Public
+
+    public let text: String
 }
 
 // BatchResponsePayload for batch operations
 public struct BatchResponsePayload: Codable, HandlerDataRepresentable {
-    public let results: [AnyCodable?]?
-    public let errors: [String]?
+    // MARK: Lifecycle
 
     public init(results: [AnyCodable?]?, errors: [String]?) {
         self.results = results
         self.errors = errors
     }
+
+    // MARK: Public
+
+    public let results: [AnyCodable?]?
+    public let errors: [String]?
 }
 
 // MARK: - AXElementDescription
 
 // Structure for element tree descriptions
 public struct AXElementDescription: Codable, Sendable {
-    public let briefDescription: String?
-    public let role: String?
-    public let attributes: [String: AXValueWrapper]?
-    public let children: [AXElementDescription]?
+    // MARK: Lifecycle
 
     public init(
         briefDescription: String?,
@@ -413,27 +477,18 @@ public struct AXElementDescription: Codable, Sendable {
         self.attributes = attributes
         self.children = children
     }
+
+    // MARK: Public
+
+    public let briefDescription: String?
+    public let role: String?
+    public let attributes: [String: AXValueWrapper]?
+    public let children: [AXElementDescription]?
 }
 
 // Structure for custom JSON output of handleCollectAll
 public struct CollectAllOutput: Codable {
-    public let commandId: String
-    public let success: Bool
-    public let command: String // e.g., "collectAll"
-    public let collectedElements: [AXElementData]? // MODIFIED: Made optional
-    public let appIdentifier: String? // MODIFIED: Renamed from appBundleId
-    public var debugLogs: [String]?
-    public let message: String? // MODIFIED: Renamed from errorMessage
-
-    enum CodingKeys: String, CodingKey {
-        case commandId = "command_id"
-        case success
-        case command
-        case collectedElements = "collected_elements"
-        case appIdentifier = "app_identifier" // MODIFIED: CodingKey updated
-        case debugLogs = "debug_logs"
-        case message = "message" // MODIFIED: CodingKey updated
-    }
+    // MARK: Lifecycle
 
     // Add a new initializer or ensure the existing one matches these fields.
     // Assuming the default memberwise initializer will now work with these changes,
@@ -445,7 +500,8 @@ public struct CollectAllOutput: Codable {
                 collectedElements: [AXElementData]?,
                 appIdentifier: String?,
                 debugLogs: [String]?,
-                message: String?) {
+                message: String?)
+    {
         self.commandId = commandId
         self.success = success
         self.command = command
@@ -453,5 +509,27 @@ public struct CollectAllOutput: Codable {
         self.appIdentifier = appIdentifier
         self.debugLogs = debugLogs
         self.message = message
+    }
+
+    // MARK: Public
+
+    public let commandId: String
+    public let success: Bool
+    public let command: String // e.g., "collectAll"
+    public let collectedElements: [AXElementData]? // MODIFIED: Made optional
+    public let appIdentifier: String? // MODIFIED: Renamed from appBundleId
+    public var debugLogs: [String]?
+    public let message: String? // MODIFIED: Renamed from errorMessage
+
+    // MARK: Internal
+
+    enum CodingKeys: String, CodingKey {
+        case commandId = "command_id"
+        case success
+        case command
+        case collectedElements = "collected_elements"
+        case appIdentifier = "app_identifier" // MODIFIED: CodingKey updated
+        case debugLogs = "debug_logs"
+        case message // MODIFIED: CodingKey updated
     }
 }

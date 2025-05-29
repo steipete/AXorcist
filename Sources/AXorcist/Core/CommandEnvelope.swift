@@ -48,6 +48,86 @@ import Foundation
 /// let response = axorcist.runCommand(command)
 /// ```
 public struct CommandEnvelope: Codable {
+    // MARK: Lifecycle
+
+    public init(commandId: String,
+                command: CommandType,
+                application: String? = nil,
+                attributes: [String]? = nil,
+                payload: [String: String]? = nil,
+                debugLogging: Bool = false,
+                locator: Locator? = nil,
+                pathHint: [String]? = nil,
+                maxElements: Int? = nil,
+                maxDepth: Int? = nil,
+                outputFormat: OutputFormat? = nil,
+                actionName: String? = nil,
+                actionValue: AnyCodable? = nil,
+                subCommands: [CommandEnvelope]? = nil,
+                point: CGPoint? = nil,
+                pid: Int? = nil,
+                notifications: [String]? = nil,
+                includeElementDetails: [String]? = nil,
+                watchChildren: Bool? = nil,
+                filterCriteria: [String: String]? = nil,
+                includeChildrenBrief: Bool? = nil,
+                includeChildrenInText: Bool? = nil,
+                includeIgnoredElements: Bool? = nil)
+    {
+        self.commandId = commandId
+        self.command = command
+        self.application = application
+        self.attributes = attributes
+        self.payload = payload
+        self.debugLogging = debugLogging
+        self.locator = locator
+        self.pathHint = pathHint
+        self.maxElements = maxElements
+        self.maxDepth = maxDepth
+        self.outputFormat = outputFormat
+        self.actionName = actionName
+        self.actionValue = actionValue
+        self.subCommands = subCommands
+        self.point = point
+        self.pid = pid
+        self.notifications = notifications
+        self.includeElementDetails = includeElementDetails
+        self.watchChildren = watchChildren
+        self.filterCriteria = filterCriteria
+        self.includeChildrenBrief = includeChildrenBrief
+        self.includeChildrenInText = includeChildrenInText
+        self.includeIgnoredElements = includeIgnoredElements
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        commandId = try container.decode(String.self, forKey: .commandId)
+        command = try container.decode(CommandType.self, forKey: .command)
+        application = try container.decodeIfPresent(String.self, forKey: .application)
+        attributes = try container.decodeIfPresent([String].self, forKey: .attributes)
+        payload = try container.decodeIfPresent([String: String].self, forKey: .payload)
+        debugLogging = try container.decodeIfPresent(Bool.self, forKey: .debugLogging) ?? false
+        locator = try container.decodeIfPresent(Locator.self, forKey: .locator)
+        pathHint = try container.decodeIfPresent([String].self, forKey: .pathHint)
+        maxElements = try container.decodeIfPresent(Int.self, forKey: .maxElements)
+        maxDepth = try container.decodeIfPresent(Int.self, forKey: .maxDepth)
+        outputFormat = try container.decodeIfPresent(OutputFormat.self, forKey: .outputFormat)
+        actionName = try container.decodeIfPresent(String.self, forKey: .actionName)
+        actionValue = try container.decodeIfPresent(AnyCodable.self, forKey: .actionValue)
+        subCommands = try container.decodeIfPresent([CommandEnvelope].self, forKey: .subCommands)
+        point = try container.decodeIfPresent(CGPoint.self, forKey: .point)
+        pid = try container.decodeIfPresent(Int.self, forKey: .pid)
+        notifications = try container.decodeIfPresent([String].self, forKey: .notifications)
+        includeElementDetails = try container.decodeIfPresent([String].self, forKey: .includeElementDetails)
+        watchChildren = try container.decodeIfPresent(Bool.self, forKey: .watchChildren)
+        filterCriteria = try container.decodeIfPresent([String: String].self, forKey: .filterCriteria)
+        includeChildrenBrief = try container.decodeIfPresent(Bool.self, forKey: .includeChildrenBrief)
+        includeChildrenInText = try container.decodeIfPresent(Bool.self, forKey: .includeChildrenInText)
+        includeIgnoredElements = try container.decodeIfPresent(Bool.self, forKey: .includeIgnoredElements)
+    }
+
+    // MARK: Public
+
     /// Unique identifier for this command execution.
     ///
     /// This ID is used for tracking and correlating commands with their responses,
@@ -149,6 +229,8 @@ public struct CommandEnvelope: Codable {
     public let includeChildrenInText: Bool?
     public let includeIgnoredElements: Bool?
 
+    // MARK: Internal
+
     enum CodingKeys: String, CodingKey {
         case commandId
         case command
@@ -176,81 +258,5 @@ public struct CommandEnvelope: Codable {
         case includeChildrenBrief
         case includeChildrenInText
         case includeIgnoredElements
-    }
-
-    public init(commandId: String,
-                command: CommandType,
-                application: String? = nil,
-                attributes: [String]? = nil,
-                payload: [String: String]? = nil,
-                debugLogging: Bool = false,
-                locator: Locator? = nil,
-                pathHint: [String]? = nil,
-                maxElements: Int? = nil,
-                maxDepth: Int? = nil,
-                outputFormat: OutputFormat? = nil,
-                actionName: String? = nil,
-                actionValue: AnyCodable? = nil,
-                subCommands: [CommandEnvelope]? = nil,
-                point: CGPoint? = nil,
-                pid: Int? = nil,
-                notifications: [String]? = nil,
-                includeElementDetails: [String]? = nil,
-                watchChildren: Bool? = nil,
-                filterCriteria: [String: String]? = nil,
-                includeChildrenBrief: Bool? = nil,
-                includeChildrenInText: Bool? = nil,
-                includeIgnoredElements: Bool? = nil
-    ) {
-        self.commandId = commandId
-        self.command = command
-        self.application = application
-        self.attributes = attributes
-        self.payload = payload
-        self.debugLogging = debugLogging
-        self.locator = locator
-        self.pathHint = pathHint
-        self.maxElements = maxElements
-        self.maxDepth = maxDepth
-        self.outputFormat = outputFormat
-        self.actionName = actionName
-        self.actionValue = actionValue
-        self.subCommands = subCommands
-        self.point = point
-        self.pid = pid
-        self.notifications = notifications
-        self.includeElementDetails = includeElementDetails
-        self.watchChildren = watchChildren
-        self.filterCriteria = filterCriteria
-        self.includeChildrenBrief = includeChildrenBrief
-        self.includeChildrenInText = includeChildrenInText
-        self.includeIgnoredElements = includeIgnoredElements
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        commandId = try container.decode(String.self, forKey: .commandId)
-        command = try container.decode(CommandType.self, forKey: .command)
-        application = try container.decodeIfPresent(String.self, forKey: .application)
-        attributes = try container.decodeIfPresent([String].self, forKey: .attributes)
-        payload = try container.decodeIfPresent([String:String].self, forKey: .payload)
-        debugLogging = try container.decodeIfPresent(Bool.self, forKey: .debugLogging) ?? false
-        locator = try container.decodeIfPresent(Locator.self, forKey: .locator)
-        pathHint = try container.decodeIfPresent([String].self, forKey: .pathHint)
-        maxElements = try container.decodeIfPresent(Int.self, forKey: .maxElements)
-        maxDepth = try container.decodeIfPresent(Int.self, forKey: .maxDepth)
-        outputFormat = try container.decodeIfPresent(OutputFormat.self, forKey: .outputFormat)
-        actionName = try container.decodeIfPresent(String.self, forKey: .actionName)
-        actionValue = try container.decodeIfPresent(AnyCodable.self, forKey: .actionValue)
-        subCommands = try container.decodeIfPresent([CommandEnvelope].self, forKey: .subCommands)
-        point = try container.decodeIfPresent(CGPoint.self, forKey: .point)
-        pid = try container.decodeIfPresent(Int.self, forKey: .pid)
-        notifications = try container.decodeIfPresent([String].self, forKey: .notifications)
-        includeElementDetails = try container.decodeIfPresent([String].self, forKey: .includeElementDetails)
-        watchChildren = try container.decodeIfPresent(Bool.self, forKey: .watchChildren)
-        filterCriteria = try container.decodeIfPresent([String:String].self, forKey: .filterCriteria)
-        includeChildrenBrief = try container.decodeIfPresent(Bool.self, forKey: .includeChildrenBrief)
-        includeChildrenInText = try container.decodeIfPresent(Bool.self, forKey: .includeChildrenInText)
-        includeIgnoredElements = try container.decodeIfPresent(Bool.self, forKey: .includeIgnoredElements)
     }
 }

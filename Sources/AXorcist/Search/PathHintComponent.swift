@@ -3,16 +3,12 @@
 import Foundation
 
 // MARK: - PathHintComponent Definition
+
 // This PathHintComponent is simpler and used for basic string path hints if ever needed again.
 // For new functionality, JSONPathHintComponent is preferred.
 @MainActor
 public struct PathHintComponent {
-    public let criteria: [String: String]
-    public let originalSegment: String
-
-    // Corrected: PathUtils.attributeKeyMappings might be the intended property
-    // Ensure this is the correct static property in PathUtils
-    private static let attributeAliases: [String: String] = PathUtils.attributeKeyMappings
+    // MARK: Lifecycle
 
     public init?(pathSegment: String) {
         self.originalSegment = pathSegment
@@ -53,12 +49,25 @@ public struct PathHintComponent {
         self.originalSegment = originalSegment.isEmpty && !criteria.isEmpty ? "criteria_only_init" : originalSegment
     }
 
+    // MARK: Public
+
+    public let criteria: [String: String]
+    public let originalSegment: String
+
+    // MARK: Internal
+
     // PathHintComponent uses exact matching by default when calling elementMatchesCriteria
     func matches(element: Element) -> Bool {
-        return elementMatchesCriteria(
+        elementMatchesCriteria(
             element,
             criteria: self.criteria,
             matchType: JSONPathHintComponent.MatchType.exact
         )
     }
+
+    // MARK: Private
+
+    // Corrected: PathUtils.attributeKeyMappings might be the intended property
+    // Ensure this is the correct static property in PathUtils
+    private static let attributeAliases: [String: String] = PathUtils.attributeKeyMappings
 }

@@ -6,7 +6,7 @@ import Foundation
 // MARK: - Command Execution Functions (now call AXorcist.runCommand)
 
 @MainActor
-internal func executeQuery(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executeQuery(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axQueryCommand = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert Query to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Query")
@@ -17,7 +17,7 @@ internal func executeQuery(command: CommandEnvelope, axorcist: AXorcist) -> Hand
 }
 
 @MainActor
-internal func executeGetFocusedElement(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executeGetFocusedElement(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axGetFocusedCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert GetFocusedElement to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetFocusedElement")
@@ -27,7 +27,7 @@ internal func executeGetFocusedElement(command: CommandEnvelope, axorcist: AXorc
 }
 
 @MainActor
-internal func executeGetAttributes(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executeGetAttributes(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axGetAttrsCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert GetAttributes to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetAttributes")
@@ -37,7 +37,7 @@ internal func executeGetAttributes(command: CommandEnvelope, axorcist: AXorcist)
 }
 
 @MainActor
-internal func executeDescribeElement(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executeDescribeElement(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axDescribeCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert DescribeElement to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for DescribeElement")
@@ -47,7 +47,7 @@ internal func executeDescribeElement(command: CommandEnvelope, axorcist: AXorcis
 }
 
 @MainActor
-internal func executeExtractText(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executeExtractText(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axExtractCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert ExtractText to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for ExtractText")
@@ -57,7 +57,7 @@ internal func executeExtractText(command: CommandEnvelope, axorcist: AXorcist) -
 }
 
 @MainActor
-internal func executePerformAction(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
+func executePerformAction(command: CommandEnvelope, axorcist: AXorcist) -> HandlerResponse {
     guard let axPerformCmd = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert PerformAction to AXCommand")
         return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for PerformAction")

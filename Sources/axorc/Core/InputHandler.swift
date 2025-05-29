@@ -3,7 +3,8 @@
 import AXorcist // For ax...Log helpers
 import Foundation
 
-struct InputHandler {
+enum InputHandler {
+    // MARK: Internal
 
     struct ParseResult {
         let jsonString: String?
@@ -17,7 +18,6 @@ struct InputHandler {
         json: String?,
         directPayload: String?
     ) -> ParseResult {
-
         axDebugLog("InputHandler: Parsing input...")
 
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0) + (json != nil ? 1 : 0)
@@ -46,6 +46,8 @@ struct InputHandler {
         }
     }
 
+    // MARK: Private
+
     // MARK: - Helper Functions
 
     private static func handleMultipleInputFlags() -> ParseResult {
@@ -59,7 +61,8 @@ struct InputHandler {
         let stdinData = stdInputHandle.readDataToEndOfFile()
 
         if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !str.isEmpty {
+           !str.isEmpty
+        {
             axDebugLog("Successfully read \(str.count) characters from STDIN.")
             return ParseResult(jsonString: str, sourceDescription: "STDIN", error: nil)
         } else {
@@ -76,7 +79,9 @@ struct InputHandler {
 
         do {
             let rawFileContent = try String(contentsOfFile: filePath, encoding: .utf8) // Read raw
-            axDebugLog("HFI_DEBUG: Raw file content for [\(filePath)]: '\(rawFileContent)' (length: \(rawFileContent.count))")
+            axDebugLog(
+                "HFI_DEBUG: Raw file content for [\(filePath)]: '\(rawFileContent)' (length: \(rawFileContent.count))"
+            )
 
             let str = rawFileContent.trimmingCharacters(in: .whitespacesAndNewlines)
             axDebugLog("HFI_DEBUG: Trimmed file content: '\(str)' (length: \(str.count))")
@@ -105,7 +110,8 @@ struct InputHandler {
     }
 
     private static func handleNoInput() -> ParseResult {
-        let error = "No input provided. Use --stdin, --file <path>, --json <json_string>, or provide JSON as a direct argument."
+        let error =
+            "No input provided. Use --stdin, --file <path>, --json <json_string>, or provide JSON as a direct argument."
         axErrorLog("No input method specified and no direct payload provided.")
         return ParseResult(jsonString: nil, sourceDescription: "No input", error: error)
     }

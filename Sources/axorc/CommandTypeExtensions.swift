@@ -9,30 +9,30 @@ extension CommandType {
     func toAXCommand(commandEnvelope: CommandEnvelope) -> AXCommand? {
         switch self {
         case .query:
-            return createQueryCommand(commandEnvelope)
+            createQueryCommand(commandEnvelope)
         case .performAction:
-            return createPerformActionCommand(commandEnvelope)
+            createPerformActionCommand(commandEnvelope)
         case .getAttributes:
-            return createGetAttributesCommand(commandEnvelope)
+            createGetAttributesCommand(commandEnvelope)
         case .describeElement:
-            return createDescribeElementCommand(commandEnvelope)
+            createDescribeElementCommand(commandEnvelope)
         case .extractText:
-            return createExtractTextCommand(commandEnvelope)
+            createExtractTextCommand(commandEnvelope)
         case .collectAll:
-            return createCollectAllCommand(commandEnvelope)
+            createCollectAllCommand(commandEnvelope)
         case .batch:
-            return createBatchCommand(commandEnvelope)
+            createBatchCommand(commandEnvelope)
         case .setFocusedValue:
-            return createSetFocusedValueCommand(commandEnvelope)
+            createSetFocusedValueCommand(commandEnvelope)
         case .getElementAtPoint:
-            return createGetElementAtPointCommand(commandEnvelope)
+            createGetElementAtPointCommand(commandEnvelope)
         case .getFocusedElement:
-            return createGetFocusedElementCommand(commandEnvelope)
+            createGetFocusedElementCommand(commandEnvelope)
         case .observe:
-            return createObserveCommand(commandEnvelope)
+            createObserveCommand(commandEnvelope)
         case .ping, .stopObservation, .isProcessTrusted, .isAXFeatureEnabled,
              .setNotificationHandler, .removeNotificationHandler, .getElementDescription:
-            return nil
+            nil
         }
     }
 
@@ -67,7 +67,7 @@ extension CommandType {
     }
 
     private func createGetAttributesCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
-        return .getAttributes(GetAttributesCommand(
+        .getAttributes(GetAttributesCommand(
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             attributes: commandEnvelope.attributes ?? [],
@@ -76,7 +76,7 @@ extension CommandType {
     }
 
     private func createDescribeElementCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
-        return .describeElement(DescribeElementCommand(
+        .describeElement(DescribeElementCommand(
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             depth: commandEnvelope.maxDepth ?? 3,
@@ -86,7 +86,7 @@ extension CommandType {
     }
 
     private func createExtractTextCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
-        return .extractText(ExtractTextCommand(
+        .extractText(ExtractTextCommand(
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
@@ -96,7 +96,7 @@ extension CommandType {
     }
 
     private func createCollectAllCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
-        return .collectAll(CollectAllCommand(
+        .collectAll(CollectAllCommand(
             appIdentifier: commandEnvelope.application,
             attributesToReturn: commandEnvelope.attributes,
             maxDepth: commandEnvelope.maxDepth ?? 10,
@@ -112,13 +112,17 @@ extension CommandType {
         }
         let axSubCommands = batchSubCommands.compactMap { subCmdEnv -> AXBatchCommand.SubCommandEnvelope? in
             guard let axSubCmd = subCmdEnv.command.toAXCommand(commandEnvelope: subCmdEnv) else {
-                axErrorLog("toAXCommand: Failed to convert subCommand '\(subCmdEnv.commandId)' of type '\(subCmdEnv.command.rawValue)' to AXCommand.")
+                axErrorLog(
+                    "toAXCommand: Failed to convert subCommand '\(subCmdEnv.commandId)' of type '\(subCmdEnv.command.rawValue)' to AXCommand."
+                )
                 return nil
             }
             return AXBatchCommand.SubCommandEnvelope(commandID: subCmdEnv.commandId, command: axSubCmd)
         }
         if axSubCommands.count != batchSubCommands.count {
-            axErrorLog("toAXCommand: Some subCommands in batch failed to convert. Original: \(batchSubCommands.count), Converted: \(axSubCommands.count)")
+            axErrorLog(
+                "toAXCommand: Some subCommands in batch failed to convert. Original: \(batchSubCommands.count), Converted: \(axSubCommands.count)"
+            )
         }
         return .batch(AXBatchCommand(commands: axSubCommands))
     }
@@ -151,7 +155,7 @@ extension CommandType {
     }
 
     private func createGetFocusedElementCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
-        return .getFocusedElement(GetFocusedElementCommand(
+        .getFocusedElement(GetFocusedElementCommand(
             appIdentifier: commandEnvelope.application,
             attributesToReturn: commandEnvelope.attributes,
             includeChildrenBrief: commandEnvelope.includeChildrenBrief
@@ -164,8 +168,11 @@ extension CommandType {
             return nil
         }
         guard let firstNotificationName = notificationsList.first,
-              let axNotification = AXNotification(rawValue: firstNotificationName) else {
-            axErrorLog("toAXCommand: Invalid or unsupported notification name: \(notificationsList.first ?? "nil") for observe command.")
+              let axNotification = AXNotification(rawValue: firstNotificationName)
+        else {
+            axErrorLog(
+                "toAXCommand: Invalid or unsupported notification name: \(notificationsList.first ?? "nil") for observe command."
+            )
             return nil
         }
         return .observe(ObserveCommand(

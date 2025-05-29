@@ -7,7 +7,7 @@ import Foundation
 // MARK: - Command Handlers
 
 @MainActor
-internal func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
     guard command.actionName != nil else {
         let errorResponse = HandlerResponse(data: nil, error: "performAction requires actionName")
         return finalizeAndEncodeResponse(
@@ -23,10 +23,15 @@ internal func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXo
 }
 
 @MainActor
-internal func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
     guard let batchCmd = command.command.toAXCommand(commandEnvelope: command) else {
-        let errorResponse = BatchQueryResponse(commandId: command.commandId, status: "error", message: "Failed to create AXCommand for Batch")
-        return encodeToJson(errorResponse) ?? "{\"error\": \"Encoding batch response failed\", \"commandId\": \"\(command.commandId)\"}"
+        let errorResponse = BatchQueryResponse(
+            commandId: command.commandId,
+            status: "error",
+            message: "Failed to create AXCommand for Batch"
+        )
+        return encodeToJson(errorResponse) ??
+            "{\"error\": \"Encoding batch response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
 
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: batchCmd))
@@ -36,16 +41,39 @@ internal func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, d
 
     if axResponse.status == "success" {
         if let batchPayload = axResponse.payload?.value as? BatchResponsePayload {
-            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "success", data: batchPayload.results, errors: batchPayload.errors, debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(
+                commandId: command.commandId,
+                status: "success",
+                data: batchPayload.results,
+                errors: batchPayload.errors,
+                debugLogs: nil
+            )
         } else {
-            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: "Batch success but payload was not BatchResponsePayload", debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(
+                commandId: command.commandId,
+                status: "error",
+                message: "Batch success but payload was not BatchResponsePayload",
+                debugLogs: nil
+            )
         }
     } else {
         let errorMessage = axResponse.error?.message ?? "Batch operation failed with unknown error."
         if let batchPayload = axResponse.payload?.value as? BatchResponsePayload {
-            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, data: batchPayload.results, errors: batchPayload.errors, debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(
+                commandId: command.commandId,
+                status: "error",
+                message: errorMessage,
+                data: batchPayload.results,
+                errors: batchPayload.errors,
+                debugLogs: nil
+            )
         } else {
-            finalResponseObject = BatchQueryResponse(commandId: command.commandId, status: "error", message: errorMessage, debugLogs: nil)
+            finalResponseObject = BatchQueryResponse(
+                commandId: command.commandId,
+                status: "error",
+                message: errorMessage,
+                debugLogs: nil
+            )
         }
     }
 
@@ -54,10 +82,11 @@ internal func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, d
         finalResponseObject.debugLogs = logsForResponse
     }
 
-    return encodeToJson(finalResponseObject) ?? "{\"error\": \"Encoding batch response failed\", \"commandId\": \"\(command.commandId)\"}"
+    return encodeToJson(finalResponseObject) ??
+        "{\"error\": \"Encoding batch response failed\", \"commandId\": \"\(command.commandId)\"}"
 }
 
-internal func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
+func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
     axDebugLog("Ping command received. Responding with pong.")
     let pingHandlerResponse = HandlerResponse(data: AnyCodable("pong"), error: nil)
     return finalizeAndEncodeResponse(
@@ -69,7 +98,7 @@ internal func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> Str
     )
 }
 
-internal func handleNotImplementedCommand(command: CommandEnvelope, message: String, debugCLI: Bool) -> String {
+func handleNotImplementedCommand(command: CommandEnvelope, message: String, debugCLI: Bool) -> String {
     let notImplementedResponse = HandlerResponse(data: nil, error: message)
     return finalizeAndEncodeResponse(
         commandId: command.commandId,
@@ -81,7 +110,7 @@ internal func handleNotImplementedCommand(command: CommandEnvelope, message: Str
 }
 
 @MainActor
-internal func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
     guard let axObserveCommand = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert Observe to AXCommand")
         let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Observe")
@@ -107,7 +136,7 @@ internal func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist,
 }
 
 @MainActor
-internal func handleSimpleCommand(
+func handleSimpleCommand(
     command: CommandEnvelope,
     axorcist: AXorcist,
     debugCLI: Bool,

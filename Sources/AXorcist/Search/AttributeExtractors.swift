@@ -7,7 +7,7 @@ import Foundation
 
 // Approach using direct property access within a switch statement
 @MainActor
-internal func extractDirectPropertyValue(
+func extractDirectPropertyValue(
     for attributeName: String,
     from element: Element,
     outputFormat: OutputFormat
@@ -69,7 +69,7 @@ internal func extractDirectPropertyValue(
 }
 
 @MainActor
-internal func determineAttributesToFetch(
+func determineAttributesToFetch(
     requestedAttributes: [String]?,
     forMultiDefault: Bool,
     targetRole: String?,
@@ -81,13 +81,13 @@ internal func determineAttributesToFetch(
             AXAttributeNames.kAXRoleAttribute,
             AXAttributeNames.kAXValueAttribute,
             AXAttributeNames.kAXTitleAttribute,
-            AXAttributeNames.kAXIdentifierAttribute
+            AXAttributeNames.kAXIdentifierAttribute,
         ]
         if let role = targetRole, role == AXRoleNames.kAXStaticTextRole {
             attributesToFetch = [
                 AXAttributeNames.kAXRoleAttribute,
                 AXAttributeNames.kAXValueAttribute,
-                AXAttributeNames.kAXIdentifierAttribute
+                AXAttributeNames.kAXIdentifierAttribute,
             ]
         }
     } else if attributesToFetch.isEmpty {
@@ -110,16 +110,14 @@ internal func determineAttributesToFetch(
                 } else {
                     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                         "determineAttributesToFetch: No specific attributes requested and " +
-                            "failed to fetch all available names."
-                    ))
+                            "failed to fetch all available names."))
                 }
             } else {
                 // For multi-default, or if the above block doesn't execute,
                 // it might rely on a predefined default set or do nothing further here,
                 // letting subsequent logic handle AXorcist.defaultAttributesToFetch if attributesToFetch remains empty.
                 GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
-                    "determineAttributesToFetch: No specific attributes requested. Using defaults or context-specific set."
-                ))
+                    "determineAttributesToFetch: No specific attributes requested. Using defaults or context-specific set."))
             }
         }
     }
@@ -128,7 +126,7 @@ internal func determineAttributesToFetch(
 
 // Function to get specifically computed attributes for an element
 @MainActor
-internal func getComputedAttributes(for element: Element) async -> [String: AttributeData] {
+func getComputedAttributes(for element: Element) async -> [String: AttributeData] {
     var computedAttrs: [String: AttributeData] = [:]
 
     if let name = element.computedName() {
@@ -138,13 +136,11 @@ internal func getComputedAttributes(for element: Element) async -> [String: Attr
         )
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "getComputedAttributes: Computed name for element " +
-                "\(element.briefDescription(option: .raw)) is '\(name)'."
-        ))
+                "\(element.briefDescription(option: .raw)) is '\(name)'."))
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "getComputedAttributes: Element \(element.briefDescription(option: .raw)) " +
-                "has no computed name."
-        ))
+                "has no computed name."))
     }
 
     // Placeholder for other future purely computed attributes if needed

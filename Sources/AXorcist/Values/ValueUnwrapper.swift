@@ -1,10 +1,14 @@
 import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize etc.
 import Foundation
+
 // GlobalAXLogger is expected to be available in this module (AXorcistLib)
 
 // MARK: - ValueUnwrapper Utility
-struct ValueUnwrapper {
+
+enum ValueUnwrapper {
+    // MARK: Internal
+
     @MainActor
     static func unwrap(_ cfValue: CFTypeRef?) -> Any? {
         guard let value = cfValue else { return nil }
@@ -15,6 +19,8 @@ struct ValueUnwrapper {
             typeID: typeID
         )
     }
+
+    // MARK: Private
 
     @MainActor
     private static func unwrapByTypeID(
@@ -53,7 +59,9 @@ struct ValueUnwrapper {
         let axValueType = axVal.valueType
 
         // Log the AXValueType
-        axDebugLog("ValueUnwrapper.unwrapAXValue: Encountered AXValue with type: \(axValueType) (rawValue: \(axValueType.rawValue))")
+        axDebugLog(
+            "ValueUnwrapper.unwrapAXValue: Encountered AXValue with type: \(axValueType) (rawValue: \(axValueType.rawValue))"
+        )
 
         // Handle special boolean type
         if axValueType.rawValue == 4 { // kAXValueBooleanType (private)
@@ -65,7 +73,9 @@ struct ValueUnwrapper {
 
         // Use new AXValue extensions for cleaner unwrapping
         let unwrappedExtensionValue = axVal.value()
-        axDebugLog("ValueUnwrapper.unwrapAXValue: axVal.value() returned: \(String(describing: unwrappedExtensionValue)) for type: \(axValueType)")
+        axDebugLog(
+            "ValueUnwrapper.unwrapAXValue: axVal.value() returned: \(String(describing: unwrappedExtensionValue)) for type: \(axValueType)"
+        )
         return unwrappedExtensionValue
     }
 
@@ -76,7 +86,7 @@ struct ValueUnwrapper {
         let cfArray = value as! CFArray
         var swiftArray: [Any?] = []
 
-        for index in 0..<CFArrayGetCount(cfArray) {
+        for index in 0 ..< CFArrayGetCount(cfArray) {
             guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                 swiftArray.append(nil)
                 continue

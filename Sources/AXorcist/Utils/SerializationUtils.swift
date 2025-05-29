@@ -6,7 +6,7 @@ import Foundation
 // If AXorcist/Models/DataModels.swift defines AXNotification, that might be a better import.
 
 // Recursively sanitize value into JSON-encodable form
-internal func sanitizeValue(_ val: Any) -> Any {
+func sanitizeValue(_ val: Any) -> Any {
     switch val {
     case let notif as AXNotification: // Assuming AXNotification is accessible
         return notif.rawValue
@@ -24,7 +24,9 @@ internal func sanitizeValue(_ val: Any) -> Any {
         return ["width": size.width, "height": size.height]
     case let dict as [String: Any]:
         var newDict: [String: Any] = [:]
-        for (key, value) in dict { newDict[key] = sanitizeValue(value) }
+        for (key, value) in dict {
+            newDict[key] = sanitizeValue(value)
+        }
         return newDict
     case let arr as [Any]:
         return arr.map { sanitizeValue($0) }
@@ -44,7 +46,7 @@ internal func sanitizeValue(_ val: Any) -> Any {
 
 // Ensure all nested values are JSON-serialisable (NSString/NSNumber/NSNull/Array/Dict)
 // This function is crucial for preparing the payload for JSONSerialization.
-internal func makeJSONCompatible(_ value: Any) -> Any {
+func makeJSONCompatible(_ value: Any) -> Any {
     switch value {
     case let str as String:
         return str // Already a JSON primitive
@@ -54,7 +56,9 @@ internal func makeJSONCompatible(_ value: Any) -> Any {
         return value // Already a JSON primitive
     case let dict as [String: Any]:
         var newDict = [String: Any]()
-        for (key, value) in dict { newDict[key] = makeJSONCompatible(value) }
+        for (key, value) in dict {
+            newDict[key] = makeJSONCompatible(value)
+        }
         return newDict // Recurse for dictionary values
     case let arr as [Any]:
         return arr.map { makeJSONCompatible($0) } // Recurse for array elements

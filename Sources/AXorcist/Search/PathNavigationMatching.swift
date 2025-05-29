@@ -7,13 +7,16 @@ import Foundation
 
 // New helper to check if an element matches all given criteria
 @MainActor
-internal func elementMatchesAllCriteria(
+func elementMatchesAllCriteria(
     _ element: Element,
     criteria: [String: String],
     forPathComponent pathComponentForLog: String // For logging
 ) -> Bool {
     let elementDescriptionForLog = element.briefDescription(option: ValueFormatOption.smart)
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PN/EMAC_START: Checking element [\(elementDescriptionForLog)] for component [\(pathComponentForLog)]. Criteria: \(criteria)"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .info,
+        message: "PN/EMAC_START: Checking element [\(elementDescriptionForLog)] for component [\(pathComponentForLog)]. Criteria: \(criteria)"
+    ))
 
     if criteria.isEmpty {
         GlobalAXLogger.shared.log(AXLogEntry(
@@ -21,12 +24,17 @@ internal func elementMatchesAllCriteria(
             message: "PN/EMAC: Criteria empty for component [\(pathComponentForLog)]. " +
                 "Element [\(elementDescriptionForLog)] considered a match by default."
         ))
-        GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED (empty criteria) for component [\(pathComponentForLog)]."))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .info,
+            message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED (empty criteria) for component [\(pathComponentForLog)]."
+        ))
         return true
     }
 
     for (key, expectedValue) in criteria {
-        let matchTypeForKey: JSONPathHintComponent.MatchType = (key.lowercased() == AXAttributeNames.kAXDOMClassListAttribute.lowercased()) ? .contains : .exact
+        let matchTypeForKey: JSONPathHintComponent
+            .MatchType = (key.lowercased() == AXAttributeNames.kAXDOMClassListAttribute.lowercased()) ? .contains :
+            .exact
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "PN/EMAC_CRITERION: Checking criterion '\(key): \(expectedValue)' " +
@@ -34,8 +42,15 @@ internal func elementMatchesAllCriteria(
                 "for component [\(pathComponentForLog)]."
         ))
 
-        let criterionDidMatch = matchSingleCriterion(element: element, key: key, expectedValue: expectedValue, matchType: matchTypeForKey, elementDescriptionForLog: elementDescriptionForLog)
-        let message = "PN/EMAC_CRITERION_RESULT: Criterion '\(key): \(expectedValue)' on [\(elementDescriptionForLog)] for [\(pathComponentForLog)]: \(criterionDidMatch ? "MATCHED" : "FAILED")"
+        let criterionDidMatch = matchSingleCriterion(
+            element: element,
+            key: key,
+            expectedValue: expectedValue,
+            matchType: matchTypeForKey,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
+        let message =
+            "PN/EMAC_CRITERION_RESULT: Criterion '\(key): \(expectedValue)' on [\(elementDescriptionForLog)] for [\(pathComponentForLog)]: \(criterionDidMatch ? "MATCHED" : "FAILED")"
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: message))
 
         if !criterionDidMatch {
@@ -44,18 +59,27 @@ internal func elementMatchesAllCriteria(
                 message: "PN/EMAC: Element [\(elementDescriptionForLog)] FAILED to match criterion '\(key): \(expectedValue)' " +
                     "for component [\(pathComponentForLog)]."
             ))
-            GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] FAILED for component [\(pathComponentForLog)]."))
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .info,
+                message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] FAILED for component [\(pathComponentForLog)]."
+            ))
             return false
         }
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PN/EMAC: Element [\(elementDescriptionForLog)] successfully MATCHED ALL criteria for component [\(pathComponentForLog)]."))
-    GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED ALL criteria for component [\(pathComponentForLog)]."))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "PN/EMAC: Element [\(elementDescriptionForLog)] successfully MATCHED ALL criteria for component [\(pathComponentForLog)]."
+    ))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .info,
+        message: "PN/EMAC_END: Element [\(elementDescriptionForLog)] MATCHED ALL criteria for component [\(pathComponentForLog)]."
+    ))
     return true
 }
 
 @MainActor
-internal func findMatchingChild(
+func findMatchingChild(
     parentElement: Element,
     criteriaToMatch: [String: String],
     pathComponentForLog: String
@@ -71,7 +95,8 @@ internal func findMatchingChild(
     ))
 
     for (childIndex, child) in children.enumerated()
-        where elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
+        where elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog)
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "PN/FMC: Found matching child at index \(childIndex) for component [\(pathComponentForLog)]: " +
@@ -80,12 +105,15 @@ internal func findMatchingChild(
         return child
     }
 
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "PN/FMC: No matching child found for component [\(pathComponentForLog)] among \(children.count) children."))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "PN/FMC: No matching child found for component [\(pathComponentForLog)] among \(children.count) children."
+    ))
     return nil
 }
 
 @MainActor
-internal func logNoMatchFound(
+func logNoMatchFound(
     currentElement: Element,
     pathComponentString: String,
     criteriaToMatch: [String: String],

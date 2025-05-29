@@ -4,12 +4,7 @@ import Foundation
 
 /// Represents the standardized response from AXorcist handlers.
 public struct HandlerResponse: Codable, Sendable {
-    /// The primary data payload of the response. This can be any `Codable` type,
-    /// allowing for flexible data structures depending on the handler.
-    public var data: AnyCodable? // Using AnyCodable to wrap potentially diverse data types
-
-    /// An optional error message. If present, indicates that the handler encountered an issue.
-    public var error: String?
+    // MARK: Lifecycle
 
     /// Initializes a new `HandlerResponse`.
     /// - Parameters:
@@ -19,45 +14,54 @@ public struct HandlerResponse: Codable, Sendable {
         self.data = data
         self.error = error
     }
+
+    // MARK: Public
+
+    /// The primary data payload of the response. This can be any `Codable` type,
+    /// allowing for flexible data structures depending on the handler.
+    public var data: AnyCodable? // Using AnyCodable to wrap potentially diverse data types
+
+    /// An optional error message. If present, indicates that the handler encountered an issue.
+    public var error: String?
 }
 
 // MARK: - Convenience Initializers & Properties
 
-extension HandlerResponse {
+public extension HandlerResponse {
     /// A Boolean value indicating whether the response represents a successful operation.
     /// A response is considered successful if `error` is `nil`.
-    public var succeeded: Bool {
-        return error == nil
+    var succeeded: Bool {
+        error == nil
     }
 
     /// A Boolean value indicating whether the response represents a failed operation.
     /// A response is considered failed if `error` is not `nil`.
-    public var failed: Bool {
-        return error != nil
+    var failed: Bool {
+        error != nil
     }
 
     /// Convenience initializer for a success response with no specific data.
-    public static func success(data: AnyCodable? = nil) -> HandlerResponse {
-        return HandlerResponse(data: data, error: nil)
+    static func success(data: AnyCodable? = nil) -> HandlerResponse {
+        HandlerResponse(data: data, error: nil)
     }
 
     /// Convenience initializer for a failure response.
     /// - Parameter errorMessage: The error message describing the failure.
-    public static func failure(errorMessage: String) -> HandlerResponse {
-        return HandlerResponse(data: nil, error: errorMessage)
+    static func failure(errorMessage: String) -> HandlerResponse {
+        HandlerResponse(data: nil, error: errorMessage)
     }
 }
 
 // MARK: - AXResponse Integration
 
-extension HandlerResponse {
+public extension HandlerResponse {
     /// Creates a HandlerResponse from an AXResponse
     /// - Parameter axResponse: The AXResponse to convert
-    public init(from axResponse: AXResponse) {
+    init(from axResponse: AXResponse) {
         switch axResponse {
-        case .success(let payload, _):
+        case let .success(payload, _):
             self.init(data: payload, error: nil)
-        case .error(let message, _, _):
+        case let .error(message, _, _):
             self.init(data: nil, error: message)
         }
     }
@@ -96,6 +100,22 @@ extension HandlerResponse {
 /// )
 /// ```
 public struct DetailedError: Codable, Sendable {
+    // MARK: Lifecycle
+
+    /// Creates a detailed error with the specified information.
+    ///
+    /// - Parameters:
+    ///   - code: Numeric error code for categorization
+    ///   - message: Human-readable error description
+    ///   - underlyingError: Optional underlying system error details
+    public init(code: Int, message: String, underlyingError: String? = nil) {
+        self.code = code
+        self.message = message
+        self.underlyingError = underlyingError
+    }
+
+    // MARK: Public
+
     /// Numeric error code for categorizing the error type.
     ///
     /// Use consistent error codes across your application to enable
@@ -112,16 +132,4 @@ public struct DetailedError: Codable, Sendable {
     /// When the error is caused by a lower-level system call or API,
     /// this field can contain the original error message for debugging.
     public let underlyingError: String?
-
-    /// Creates a detailed error with the specified information.
-    ///
-    /// - Parameters:
-    ///   - code: Numeric error code for categorization
-    ///   - message: Human-readable error description
-    ///   - underlyingError: Optional underlying system error details
-    public init(code: Int, message: String, underlyingError: String? = nil) {
-        self.code = code
-        self.message = message
-        self.underlyingError = underlyingError
-    }
 }

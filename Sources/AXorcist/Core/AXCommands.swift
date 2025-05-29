@@ -80,23 +80,25 @@ public enum AXCommand: Sendable {
     /// Collects all elements from an application with optional filtering.
     case collectAll(CollectAllCommand)
 
+    // MARK: Public
+
     /// String identifier for the command type.
     ///
     /// Returns a string representation of the command type, useful for
     /// logging, debugging, and protocol communication.
     public var type: String {
         switch self {
-        case .query: return "query"
-        case .performAction: return "performAction"
-        case .getAttributes: return "getAttributes"
-        case .describeElement: return "describeElement"
-        case .extractText: return "extractText"
-        case .batch: return "batch"
-        case .setFocusedValue: return "setFocusedValue"
-        case .getElementAtPoint: return "getElementAtPoint"
-        case .getFocusedElement: return "getFocusedElement"
-        case .observe: return "observe"
-        case .collectAll: return "collectAll"
+        case .query: "query"
+        case .performAction: "performAction"
+        case .getAttributes: "getAttributes"
+        case .describeElement: "describeElement"
+        case .extractText: "extractText"
+        case .batch: "batch"
+        case .setFocusedValue: "setFocusedValue"
+        case .getElementAtPoint: "getElementAtPoint"
+        case .getFocusedElement: "getFocusedElement"
+        case .observe: "observe"
+        case .collectAll: "collectAll"
         }
     }
 }
@@ -127,6 +129,20 @@ public enum AXCommand: Sendable {
 /// let response = axorcist.runCommand(envelope)
 /// ```
 public struct AXCommandEnvelope: Sendable {
+    // MARK: Lifecycle
+
+    /// Creates a new command envelope.
+    ///
+    /// - Parameters:
+    ///   - commandID: Unique identifier for tracking this command
+    ///   - command: The accessibility command to execute
+    public init(commandID: String, command: AXCommand) {
+        self.commandID = commandID
+        self.command = command
+    }
+
+    // MARK: Public
+
     /// Unique identifier for this command execution.
     ///
     /// Used for tracking, logging, and correlating commands with their responses.
@@ -138,56 +154,63 @@ public struct AXCommandEnvelope: Sendable {
     /// Contains the specific operation and its parameters that will be
     /// performed by the AXorcist framework.
     public let command: AXCommand
-
-    /// Creates a new command envelope.
-    ///
-    /// - Parameters:
-    ///   - commandID: Unique identifier for tracking this command
-    ///   - command: The accessibility command to execute
-    public init(commandID: String, command: AXCommand) {
-        self.commandID = commandID
-        self.command = command
-    }
 }
 
 // Individual command structs
 public struct QueryCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let attributesToReturn: [String]?
-    public let maxDepthForSearch: Int
-    public let includeChildrenBrief: Bool?
+    // MARK: Lifecycle
 
-    public init(appIdentifier: String?, locator: Locator, attributesToReturn: [String]? = nil, maxDepthForSearch: Int = 10, includeChildrenBrief: Bool? = nil) {
+    public init(
+        appIdentifier: String?,
+        locator: Locator,
+        attributesToReturn: [String]? = nil,
+        maxDepthForSearch: Int = 10,
+        includeChildrenBrief: Bool? = nil
+    ) {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.attributesToReturn = attributesToReturn
         self.maxDepthForSearch = maxDepthForSearch
         self.includeChildrenBrief = includeChildrenBrief
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let attributesToReturn: [String]?
+    public let maxDepthForSearch: Int
+    public let includeChildrenBrief: Bool?
 }
 
 public struct PerformActionCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let action: String
-    public let value: AnyCodable?
-    public let maxDepthForSearch: Int
+    // MARK: Lifecycle
 
-    public init(appIdentifier: String?, locator: Locator, action: String, value: AnyCodable? = nil, maxDepthForSearch: Int = 10) {
+    public init(
+        appIdentifier: String?,
+        locator: Locator,
+        action: String,
+        value: AnyCodable? = nil,
+        maxDepthForSearch: Int = 10
+    ) {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.action = action
         self.value = value
         self.maxDepthForSearch = maxDepthForSearch
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let action: String
+    public let value: AnyCodable?
+    public let maxDepthForSearch: Int
 }
 
 public struct GetAttributesCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let attributes: [String]
-    public let maxDepthForSearch: Int
+    // MARK: Lifecycle
 
     public init(appIdentifier: String?, locator: Locator, attributes: [String], maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
@@ -195,16 +218,17 @@ public struct GetAttributesCommand: Sendable {
         self.attributes = attributes
         self.maxDepthForSearch = maxDepthForSearch
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let attributes: [String]
+    public let maxDepthForSearch: Int
 }
 
 public struct DescribeElementCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let formatOption: ValueFormatOption
-    public let maxDepthForSearch: Int
-    public let depth: Int
-    public let includeIgnored: Bool
-    public let maxSearchDepth: Int
+    // MARK: Lifecycle
 
     public init(
         appIdentifier: String?,
@@ -223,29 +247,46 @@ public struct DescribeElementCommand: Sendable {
         self.includeIgnored = includeIgnored
         self.maxSearchDepth = maxSearchDepth
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let formatOption: ValueFormatOption
+    public let maxDepthForSearch: Int
+    public let depth: Int
+    public let includeIgnored: Bool
+    public let maxSearchDepth: Int
 }
 
 public struct ExtractTextCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let maxDepthForSearch: Int
-    public let includeChildren: Bool?
-    public let maxDepth: Int?
+    // MARK: Lifecycle
 
-    public init(appIdentifier: String?, locator: Locator, maxDepthForSearch: Int = 10, includeChildren: Bool? = nil, maxDepth: Int? = nil) {
+    public init(
+        appIdentifier: String?,
+        locator: Locator,
+        maxDepthForSearch: Int = 10,
+        includeChildren: Bool? = nil,
+        maxDepth: Int? = nil
+    ) {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.maxDepthForSearch = maxDepthForSearch
         self.includeChildren = includeChildren
         self.maxDepth = maxDepth
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let maxDepthForSearch: Int
+    public let includeChildren: Bool?
+    public let maxDepth: Int?
 }
 
 public struct SetFocusedValueCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator
-    public let value: String
-    public let maxDepthForSearch: Int
+    // MARK: Lifecycle
 
     public init(appIdentifier: String?, locator: Locator, value: String, maxDepthForSearch: Int = 10) {
         self.appIdentifier = appIdentifier
@@ -253,18 +294,25 @@ public struct SetFocusedValueCommand: Sendable {
         self.value = value
         self.maxDepthForSearch = maxDepthForSearch
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator
+    public let value: String
+    public let maxDepthForSearch: Int
 }
 
 public struct GetElementAtPointCommand: Sendable {
-    public let point: CGPoint
-    public let appIdentifier: String?
-    public let pid: Int?
-    public let xCoordinate: Float
-    public let yCoordinate: Float
-    public let attributesToReturn: [String]?
-    public let includeChildrenBrief: Bool?
+    // MARK: Lifecycle
 
-    public init(point: CGPoint, appIdentifier: String? = nil, pid: Int? = nil, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
+    public init(
+        point: CGPoint,
+        appIdentifier: String? = nil,
+        pid: Int? = nil,
+        attributesToReturn: [String]? = nil,
+        includeChildrenBrief: Bool? = nil
+    ) {
         self.point = point
         self.appIdentifier = appIdentifier
         self.pid = pid
@@ -274,7 +322,13 @@ public struct GetElementAtPointCommand: Sendable {
         self.includeChildrenBrief = includeChildrenBrief
     }
 
-    public init(appIdentifier: String?, x: Float, y: Float, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
+    public init(
+        appIdentifier: String?,
+        x: Float,
+        y: Float,
+        attributesToReturn: [String]? = nil,
+        includeChildrenBrief: Bool? = nil
+    ) {
         self.point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         self.xCoordinate = x
         self.yCoordinate = y
@@ -283,29 +337,36 @@ public struct GetElementAtPointCommand: Sendable {
         self.attributesToReturn = attributesToReturn
         self.includeChildrenBrief = includeChildrenBrief
     }
+
+    // MARK: Public
+
+    public let point: CGPoint
+    public let appIdentifier: String?
+    public let pid: Int?
+    public let xCoordinate: Float
+    public let yCoordinate: Float
+    public let attributesToReturn: [String]?
+    public let includeChildrenBrief: Bool?
 }
 
 public struct GetFocusedElementCommand: Sendable {
-    public let appIdentifier: String?
-    public let attributesToReturn: [String]?
-    public let includeChildrenBrief: Bool?
+    // MARK: Lifecycle
 
     public init(appIdentifier: String?, attributesToReturn: [String]? = nil, includeChildrenBrief: Bool? = nil) {
         self.appIdentifier = appIdentifier
         self.attributesToReturn = attributesToReturn
         self.includeChildrenBrief = includeChildrenBrief
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let attributesToReturn: [String]?
+    public let includeChildrenBrief: Bool?
 }
 
 public struct ObserveCommand: Sendable {
-    public let appIdentifier: String?
-    public let locator: Locator?
-    public let notifications: [String]
-    public let includeDetails: Bool
-    public let watchChildren: Bool
-    public let notificationName: AXNotification
-    public let includeElementDetails: [String]?
-    public let maxDepthForSearch: Int
+    // MARK: Lifecycle
 
     public init(
         appIdentifier: String?,
@@ -326,15 +387,22 @@ public struct ObserveCommand: Sendable {
         self.includeElementDetails = includeElementDetails
         self.maxDepthForSearch = maxDepthForSearch
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let locator: Locator?
+    public let notifications: [String]
+    public let includeDetails: Bool
+    public let watchChildren: Bool
+    public let notificationName: AXNotification
+    public let includeElementDetails: [String]?
+    public let maxDepthForSearch: Int
 }
 
 // Command struct for collectAll
 public struct CollectAllCommand: Sendable {
-    public let appIdentifier: String?
-    public let attributesToReturn: [String]?
-    public let maxDepth: Int
-    public let filterCriteria: [String: String]? // JSON string for criteria, or can be decoded
-    public let valueFormatOption: ValueFormatOption?
+    // MARK: Lifecycle
 
     public init(
         appIdentifier: String? = nil, // Provide default nil
@@ -349,6 +417,14 @@ public struct CollectAllCommand: Sendable {
         self.filterCriteria = filterCriteria
         self.valueFormatOption = valueFormatOption
     }
+
+    // MARK: Public
+
+    public let appIdentifier: String?
+    public let attributesToReturn: [String]?
+    public let maxDepth: Int
+    public let filterCriteria: [String: String]? // JSON string for criteria, or can be decoded
+    public let valueFormatOption: ValueFormatOption?
 }
 
 // Batch command structures
@@ -379,16 +455,23 @@ public struct CollectAllCommand: Sendable {
 /// let envelope = AXCommandEnvelope(commandID: "batch-workflow", command: .batch(batch))
 /// ```
 public struct AXBatchCommand: Sendable {
+    // MARK: Lifecycle
+
+    /// Creates a new batch command.
+    ///
+    /// - Parameter commands: Array of sub-commands to execute in sequence
+    public init(commands: [SubCommandEnvelope]) {
+        self.commands = commands
+    }
+
+    // MARK: Public
+
     /// Container for individual commands within a batch operation.
     ///
     /// SubCommandEnvelope wraps each individual command with its own identifier,
     /// allowing for granular tracking of batch operation progress.
     public struct SubCommandEnvelope: Sendable {
-        /// Unique identifier for this sub-command within the batch.
-        public let commandID: String
-
-        /// The accessibility command to execute.
-        public let command: AXCommand
+        // MARK: Lifecycle
 
         /// Creates a new sub-command envelope.
         ///
@@ -399,6 +482,14 @@ public struct AXBatchCommand: Sendable {
             self.commandID = commandID
             self.command = command
         }
+
+        // MARK: Public
+
+        /// Unique identifier for this sub-command within the batch.
+        public let commandID: String
+
+        /// The accessibility command to execute.
+        public let command: AXCommand
     }
 
     /// Array of commands to execute in sequence.
@@ -407,11 +498,4 @@ public struct AXBatchCommand: Sendable {
     /// If any command fails, the batch operation may continue or stop
     /// depending on the configuration.
     public let commands: [SubCommandEnvelope]
-
-    /// Creates a new batch command.
-    ///
-    /// - Parameter commands: Array of sub-commands to execute in sequence
-    public init(commands: [SubCommandEnvelope]) {
-        self.commands = commands
-    }
 }

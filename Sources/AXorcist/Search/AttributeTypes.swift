@@ -4,6 +4,15 @@ import Foundation
 
 // ElementDetails struct for AXpector
 public struct ElementDetails {
+    // MARK: Lifecycle
+
+    public init() {
+        self.isIgnored = false
+        self.isClickable = false
+    }
+
+    // MARK: Public
+
     public var title: String?
     public var role: String?
     public var roleDescription: String?
@@ -13,11 +22,6 @@ public struct ElementDetails {
     public var actions: [String]?
     public var isClickable: Bool
     public var computedName: String?
-
-    public init() {
-        self.isIgnored = false
-        self.isClickable = false
-    }
 }
 
 // Enum to specify the source of an attribute

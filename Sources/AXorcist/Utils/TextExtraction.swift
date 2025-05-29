@@ -92,7 +92,7 @@ func getElementTextualContent(
 
     let joinedDirectText = textPieces.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
 
-    if includeChildren && currentDepth < maxDepth {
+    if includeChildren, currentDepth < maxDepth {
         if let children = element.children() {
             var childTexts: [String] = []
             for child in children {

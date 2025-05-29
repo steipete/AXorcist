@@ -14,7 +14,7 @@ public func decodeExpectedArray(
     let trimmedString = fromString.trimmingCharacters(in: .whitespacesAndNewlines)
 
     // Try JSON deserialization first for robustness with escaped characters, etc.
-    if trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]") {
+    if trimmedString.hasPrefix("["), trimmedString.hasSuffix("]") {
         if let jsonData = trimmedString.data(using: .utf8) {
             do {
                 // Attempt to decode as [String]
@@ -37,8 +37,7 @@ public func decodeExpectedArray(
                 axDebugLog("JSON decoding failed for string: \(trimmedString). Error: \(error.localizedDescription)",
                            file: #file,
                            function: #function,
-                           line: #line
-                )
+                           line: #line)
             }
         }
     }
@@ -46,18 +45,19 @@ public func decodeExpectedArray(
     // Fallback to comma-separated parsing if JSON fails or string isn't JSON-like
     // Remove brackets first if they exist for comma parsing
     var stringToSplit = trimmedString
-    if stringToSplit.hasPrefix("[") && stringToSplit.hasSuffix("]") {
+    if stringToSplit.hasPrefix("["), stringToSplit.hasSuffix("]") {
         stringToSplit = String(stringToSplit.dropFirst().dropLast())
     }
 
     // If the string (after removing brackets) is empty, it represents an empty array.
-    if stringToSplit.isEmpty && trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]") {
+    if stringToSplit.isEmpty, trimmedString.hasPrefix("["), trimmedString.hasSuffix("]") {
         return []
     }
     // If the original string was just "[]" or "", and after stripping it's empty, it's an empty array.
     // If it was empty to begin with, or just spaces, it's not a valid array string by this func's def.
-    if stringToSplit.isEmpty && !trimmedString
-        .isEmpty && !(trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]")) {
+    if stringToSplit.isEmpty, !trimmedString
+        .isEmpty, !(trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]"))
+    {
         // e.g. input was " " which became "", not a valid array representation
         // or input was "item" which is not an array string
         // However, if original was "[]", stringToSplit is empty, should return []

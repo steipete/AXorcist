@@ -38,7 +38,10 @@ public func elementMatchesAnyCriterion(
 ) -> Bool {
     // If there are no criteria, it's vacuously false that any criterion matches.
     if criteria.isEmpty {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "elementMatchesAnyCriterion: No criteria provided. Returning false."))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "elementMatchesAnyCriterion: No criteria provided. Returning false."
+        ))
         return false
     }
     for criterion in criteria {

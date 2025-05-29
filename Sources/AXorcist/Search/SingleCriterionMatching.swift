@@ -5,7 +5,7 @@ import Foundation
 // MARK: - Single Criterion Matching Logic
 
 @MainActor
-internal func matchSingleCriterion(
+func matchSingleCriterion(
     element: Element,
     key: String,
     expectedValue: String,
@@ -44,19 +44,47 @@ private func matchAttributeByKey(
 ) -> Bool {
     switch key.lowercased() {
     case AXAttributeNames.kAXRoleAttribute.lowercased(), "role":
-        return matchRoleAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+        matchRoleAttribute(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case AXAttributeNames.kAXSubroleAttribute.lowercased(), "subrole":
-        return matchSubroleAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+        matchSubroleAttribute(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case AXAttributeNames.kAXIdentifierAttribute.lowercased(), "identifier", "id":
-        return matchIdentifierAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+        matchIdentifierAttribute(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case "pid":
-        return matchPidCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+        matchPidCriterion(
+            element: element,
+            expectedValue: expectedValue,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case AXAttributeNames.kAXDOMClassListAttribute.lowercased(), "domclasslist", "classlist", "dom":
-        return matchDomClassListAttribute(element: element, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+        matchDomClassListAttribute(
+            element: element,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case AXMiscConstants.isIgnoredAttributeKey.lowercased(), "isignored", "ignored":
-        return matchIsIgnoredCriterion(element: element, expectedValue: expectedValue, elementDescriptionForLog: elementDescriptionForLog)
+        matchIsIgnoredCriterion(
+            element: element,
+            expectedValue: expectedValue,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     case AXMiscConstants.computedNameAttributeKey.lowercased(), "computedname", "name":
-        return matchComputedNameAttributes(
+        matchComputedNameAttributes(
             element: element,
             expectedValue: expectedValue,
             matchType: matchType,
@@ -64,7 +92,7 @@ private func matchAttributeByKey(
             elementDescriptionForLog: elementDescriptionForLog
         )
     case "computednamewithvalue", "namewithvalue":
-        return matchComputedNameAttributes(
+        matchComputedNameAttributes(
             element: element,
             expectedValue: expectedValue,
             matchType: matchType,
@@ -73,12 +101,24 @@ private func matchAttributeByKey(
             includeValueInComputedName: true
         )
     default:
-        return matchGenericAttribute(element: element, key: key, expectedValue: expectedValue, matchType: matchType, elementDescriptionForLog: elementDescriptionForLog)
+        matchGenericAttribute(
+            element: element,
+            key: key,
+            expectedValue: expectedValue,
+            matchType: matchType,
+            elementDescriptionForLog: elementDescriptionForLog
+        )
     }
 }
 
 @MainActor
-private func matchGenericAttribute(element: Element, key: String, expectedValue: String, matchType: JSONPathHintComponent.MatchType, elementDescriptionForLog: String) -> Bool {
+private func matchGenericAttribute(
+    element: Element,
+    key: String,
+    expectedValue: String,
+    matchType: JSONPathHintComponent.MatchType,
+    elementDescriptionForLog: String
+) -> Bool {
     guard let actualValueAny: Any = element.attribute(Attribute(key)) else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,

@@ -6,7 +6,7 @@ import Testing
 
 @Test("Search Elements by Role")
 @MainActor
-func testSearchElementsByRole() async throws {
+func searchElementsByRole() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -40,7 +40,8 @@ func testSearchElementsByRole() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 
@@ -61,7 +62,7 @@ func testSearchElementsByRole() async throws {
 
 @Test("Describe Element with Hierarchy")
 @MainActor
-func testDescribeElementHierarchy() async throws {
+func describeElementHierarchy() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -96,7 +97,8 @@ func testDescribeElementHierarchy() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 
@@ -117,7 +119,8 @@ func testDescribeElementHierarchy() async throws {
             // Look for windows
             let windows = children.filter { child in
                 if let childAttrs = child["attributes"] as? [String: Any],
-                   let role = childAttrs["AXRole"] as? String {
+                   let role = childAttrs["AXRole"] as? String
+                {
                     return role == "AXWindow"
                 }
                 return false
@@ -130,7 +133,7 @@ func testDescribeElementHierarchy() async throws {
 
 @Test("Set and Verify Text Content")
 @MainActor
-func testSetAndVerifyText() async throws {
+func setAndVerifyText() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -182,7 +185,8 @@ func testSetAndVerifyText() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 
@@ -194,7 +198,8 @@ func testSetAndVerifyText() async throws {
         var foundText = false
         for element in elements {
             if let attrs = element["attributes"] as? [String: Any],
-               let value = attrs["AXValue"] as? String {
+               let value = attrs["AXValue"] as? String
+            {
                 if value.contains("Hello from AXorcist tests!") {
                     foundText = true
                     break
@@ -259,7 +264,8 @@ func testExtractText() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 

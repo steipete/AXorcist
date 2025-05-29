@@ -6,6 +6,7 @@ import Foundation
 
 @MainActor
 struct CommandExecutor {
+    // MARK: Internal
 
     @MainActor
     static func execute(
@@ -15,7 +16,10 @@ struct CommandExecutor {
     ) -> String {
         // The main AXORCCommand.run() now sets the global logging based on --debug.
         // CommandExecutor.setupLogging can adjust detail level if command.debugLogging is true.
-        let previousDetailLevel = setupDetailLevelForCommand(commandDebugLogging: command.debugLogging, cliDebug: debugCLI)
+        let previousDetailLevel = setupDetailLevelForCommand(
+            commandDebugLogging: command.debugLogging,
+            cliDebug: debugCLI
+        )
 
         defer {
             // Restore only the detail level if it was changed.
@@ -24,18 +28,22 @@ struct CommandExecutor {
             }
         }
 
-        axDebugLog("Executing command: \(command.command) (ID: \(command.commandId)), cmdDebug: \(command.debugLogging), cliDebug: \(debugCLI)")
+        axDebugLog(
+            "Executing command: \(command.command) (ID: \(command.commandId)), cmdDebug: \(command.debugLogging), cliDebug: \(debugCLI)"
+        )
 
         let responseString = processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
 
         return responseString
     }
 
+    // MARK: Private
+
     // Simplified to only adjust detail level based on command specific flag, if CLI debug is on.
     private static func setupDetailLevelForCommand(commandDebugLogging: Bool, cliDebug: Bool) -> AXLogDetailLevel? {
         var previousDetailLevel: AXLogDetailLevel?
         if cliDebug { // Only adjust if CLI debugging is already enabled
-            if commandDebugLogging && GlobalAXLogger.shared.detailLevel != .verbose {
+            if commandDebugLogging, GlobalAXLogger.shared.detailLevel != .verbose {
                 previousDetailLevel = GlobalAXLogger.shared.detailLevel
                 GlobalAXLogger.shared.detailLevel = .verbose
                 axDebugLog("[CommandExecutor.setupDetailLevel] Upped detail level to verbose for this command.")
@@ -53,46 +61,70 @@ struct CommandExecutor {
     private static func processCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
         switch command.command {
         case .performAction:
-            return handlePerformActionCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handlePerformActionCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .getFocusedElement:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetFocusedElement)
+            handleSimpleCommand(
+                command: command,
+                axorcist: axorcist,
+                debugCLI: debugCLI,
+                executor: executeGetFocusedElement
+            )
         case .getAttributes:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeGetAttributes)
+            handleSimpleCommand(
+                command: command,
+                axorcist: axorcist,
+                debugCLI: debugCLI,
+                executor: executeGetAttributes
+            )
         case .query:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeQuery)
+            handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeQuery)
         case .describeElement:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeDescribeElement)
+            handleSimpleCommand(
+                command: command,
+                axorcist: axorcist,
+                debugCLI: debugCLI,
+                executor: executeDescribeElement
+            )
         case .extractText:
-            return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeExtractText)
+            handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executeExtractText)
         case .collectAll:
-            return handleCollectAllCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handleCollectAllCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .getElementAtPoint:
-            return handleGetElementAtPointCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handleGetElementAtPointCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .setFocusedValue:
-            return handleSetFocusedValueCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handleSetFocusedValueCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .ping:
-            return handlePingCommand(command: command, debugCLI: debugCLI)
+            handlePingCommand(command: command, debugCLI: debugCLI)
         case .batch:
-            return handleBatchCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handleBatchCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .observe:
-            return handleObserveCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+            handleObserveCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         case .stopObservation:
-            return handleStopObservationCommand(command: command, debugCLI: debugCLI)
+            handleStopObservationCommand(command: command, debugCLI: debugCLI)
         case .isProcessTrusted:
-            return handleIsProcessTrustedCommand(command: command)
+            handleIsProcessTrustedCommand(command: command)
         case .isAXFeatureEnabled:
-            return handleIsAXFeatureEnabledCommand(command: command)
+            handleIsAXFeatureEnabledCommand(command: command)
         case .setNotificationHandler, .removeNotificationHandler, .getElementDescription:
-            return handleNotImplementedCommand(command: command, message: "\(command.command.rawValue) is not implemented in axorc", debugCLI: debugCLI)
+            handleNotImplementedCommand(
+                command: command,
+                message: "\(command.command.rawValue) is not implemented in axorc",
+                debugCLI: debugCLI
+            )
         }
     }
 
     @MainActor
-    private static func handleCollectAllCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+    private static func handleCollectAllCommand(command: CommandEnvelope, axorcist: AXorcist,
+                                                debugCLI: Bool) -> String
+    {
         axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
         guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
             axErrorLog("Failed to convert CollectAll to AXCommand")
-            let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for CollectAll")
+            let errorResponse = HandlerResponse(
+                data: nil,
+                error: "Internal error: Failed to create AXCommand for CollectAll"
+            )
             return finalizeAndEncodeResponse(
                 commandId: command.commandId,
                 commandType: command.command.rawValue,
@@ -102,11 +134,10 @@ struct CommandExecutor {
             )
         }
         let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
-        let handlerResponse: HandlerResponse
-        if axResponse.status == "success" {
-            handlerResponse = HandlerResponse(data: axResponse.payload, error: nil)
+        let handlerResponse = if axResponse.status == "success" {
+            HandlerResponse(data: axResponse.payload, error: nil)
         } else {
-            handlerResponse = HandlerResponse(data: nil, error: axResponse.error?.message ?? "CollectAll failed")
+            HandlerResponse(data: nil, error: axResponse.error?.message ?? "CollectAll failed")
         }
         return finalizeAndEncodeResponse(
             commandId: command.commandId,
@@ -118,11 +149,16 @@ struct CommandExecutor {
     }
 
     @MainActor
-    private static func handleGetElementAtPointCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
-        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
+    private static func handleGetElementAtPointCommand(command: CommandEnvelope, axorcist: AXorcist,
+                                                       debugCLI: Bool) -> String
+    {
+        handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert GetElementAtPoint to AXCommand")
-                return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for GetElementAtPoint")
+                return HandlerResponse(
+                    data: nil,
+                    error: "Internal error: Failed to create AXCommand for GetElementAtPoint"
+                )
             }
             let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
             return HandlerResponse(from: axResponse)
@@ -130,11 +166,16 @@ struct CommandExecutor {
     }
 
     @MainActor
-    private static func handleSetFocusedValueCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
-        return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
+    private static func handleSetFocusedValueCommand(command: CommandEnvelope, axorcist: AXorcist,
+                                                     debugCLI: Bool) -> String
+    {
+        handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert SetFocusedValue to AXCommand")
-                return HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for SetFocusedValue")
+                return HandlerResponse(
+                    data: nil,
+                    error: "Internal error: Failed to create AXCommand for SetFocusedValue"
+                )
             }
             let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
             return HandlerResponse(from: axResponse)
@@ -152,7 +193,8 @@ struct CommandExecutor {
             error: nil,
             debugLogs: debugCLI || command.debugLogging ? axGetLogsAsStrings() : nil
         )
-        return encodeToJson(stopResponse) ?? "{\"error\": \"Encoding stopObservation response failed\", \"commandId\": \"\(command.commandId)\"}"
+        return encodeToJson(stopResponse) ??
+            "{\"error\": \"Encoding stopObservation response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
 
     @MainActor
@@ -162,7 +204,8 @@ struct CommandExecutor {
             status: "success",
             trusted: AXIsProcessTrusted()
         )
-        return encodeToJson(trustedResponse) ?? "{\"error\": \"Encoding isProcessTrusted response failed\", \"commandId\": \"\(command.commandId)\"}"
+        return encodeToJson(trustedResponse) ??
+            "{\"error\": \"Encoding isProcessTrusted response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
 
     @MainActor
@@ -173,6 +216,7 @@ struct CommandExecutor {
             status: "success",
             enabled: axEnabled
         )
-        return encodeToJson(featureEnabledResponse) ?? "{\"error\": \"Encoding isAXFeatureEnabled response failed\", \"commandId\": \"\(command.commandId)\"}"
+        return encodeToJson(featureEnabledResponse) ??
+            "{\"error\": \"Encoding isAXFeatureEnabled response failed\", \"commandId\": \"\(command.commandId)\"}"
     }
 }

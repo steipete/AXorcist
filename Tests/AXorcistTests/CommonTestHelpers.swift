@@ -39,7 +39,7 @@ func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement: AXUIEl
         }
 
         var launchedApp: NSRunningApplication?
-        for attempt in 1...10 {
+        for attempt in 1 ... 10 {
             launchedApp = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first
             if launchedApp != nil {
                 print("TextEdit found running after launch, attempt \(attempt).")
@@ -120,7 +120,7 @@ func closeTextEdit() async {
     }
 
     textEdit.terminate()
-    for _ in 0..<5 {
+    for _ in 0 ..< 5 {
         if textEdit.isTerminated { break }
         try? await Task.sleep(for: .milliseconds(500))
     }
@@ -166,7 +166,7 @@ func createTempFile(content: String) throws -> String {
 }
 
 func stripJSONPrefix(from output: String?) -> String? {
-    guard let output = output else { return nil }
+    guard let output else { return nil }
     let prefix = "AXORC_JSON_OUTPUT_PREFIX:::"
     if output.hasPrefix(prefix) {
         return String(output.dropFirst(prefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -225,19 +225,38 @@ enum CommandType: String, Codable {
 }
 
 struct CommandEnvelope: Codable {
-    let commandId: String
-    let command: CommandType
-    let application: String?
-    let attributes: [String]?
-    let debugLogging: Bool?
-    let locator: Locator?
-    let pathHint: [String]?
-    let maxElements: Int?
-    let outputFormat: OutputFormat?
-    let actionName: String?
-    let actionValue: AnyCodable?
-    let payload: [String: AnyCodable]?
-    let subCommands: [CommandEnvelope]?
+    // MARK: Lifecycle
+
+    init(commandId: String,
+         command: CommandType,
+         application: String? = nil,
+         attributes: [String]? = nil,
+         debugLogging: Bool? = nil,
+         locator: Locator? = nil,
+         pathHint: [String]? = nil,
+         maxElements: Int? = nil,
+         outputFormat: OutputFormat? = nil,
+         actionName: String? = nil,
+         actionValue: AnyCodable? = nil,
+         payload: [String: AnyCodable]? = nil,
+         subCommands: [CommandEnvelope]? = nil)
+    {
+        self.commandId = commandId
+        self.command = command
+        self.application = application
+        self.attributes = attributes
+        self.debugLogging = debugLogging
+        self.locator = locator
+        self.pathHint = pathHint
+        self.maxElements = maxElements
+        self.outputFormat = outputFormat
+        self.actionName = actionName
+        self.actionValue = actionValue
+        self.payload = payload
+        self.subCommands = subCommands
+    }
+
+    // MARK: Internal
 
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
@@ -255,42 +274,40 @@ struct CommandEnvelope: Codable {
         case subCommands = "sub_commands"
     }
 
-    init(commandId: String,
-         command: CommandType,
-         application: String? = nil,
-         attributes: [String]? = nil,
-         debugLogging: Bool? = nil,
-         locator: Locator? = nil,
-         pathHint: [String]? = nil,
-         maxElements: Int? = nil,
-         outputFormat: OutputFormat? = nil,
-         actionName: String? = nil,
-         actionValue: AnyCodable? = nil,
-         payload: [String: AnyCodable]? = nil,
-         subCommands: [CommandEnvelope]? = nil) {
-        self.commandId = commandId
-        self.command = command
-        self.application = application
-        self.attributes = attributes
-        self.debugLogging = debugLogging
-        self.locator = locator
-        self.pathHint = pathHint
-        self.maxElements = maxElements
-        self.outputFormat = outputFormat
-        self.actionName = actionName
-        self.actionValue = actionValue
-        self.payload = payload
-        self.subCommands = subCommands
-    }
+    let commandId: String
+    let command: CommandType
+    let application: String?
+    let attributes: [String]?
+    let debugLogging: Bool?
+    let locator: Locator?
+    let pathHint: [String]?
+    let maxElements: Int?
+    let outputFormat: OutputFormat?
+    let actionName: String?
+    let actionValue: AnyCodable?
+    let payload: [String: AnyCodable]?
+    let subCommands: [CommandEnvelope]?
 }
 
 struct SimpleSuccessResponse: Codable {
-    let commandId: String
-    let success: Bool
-    let status: String?
-    let message: String
-    let details: String?
-    let debugLogs: [String]?
+    // MARK: Lifecycle
+
+    init(commandId: String,
+         success: Bool = true,
+         status: String?,
+         message: String,
+         details: String?,
+         debugLogs: [String]?)
+    {
+        self.commandId = commandId
+        self.success = success
+        self.status = status
+        self.message = message
+        self.details = details
+        self.debugLogs = debugLogs
+    }
+
+    // MARK: Internal
 
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
@@ -301,30 +318,29 @@ struct SimpleSuccessResponse: Codable {
         case debugLogs = "debug_logs"
     }
 
-    init(commandId: String,
-         success: Bool = true,
-         status: String?,
-         message: String,
-         details: String?,
-         debugLogs: [String]?) {
-        self.commandId = commandId
-        self.success = success
-        self.status = status
-        self.message = message
-        self.details = details
-        self.debugLogs = debugLogs
-    }
+    let commandId: String
+    let success: Bool
+    let status: String?
+    let message: String
+    let details: String?
+    let debugLogs: [String]?
 }
 
 struct ErrorResponse: Codable {
-    let commandId: String
-    let success: Bool
-    let error: ErrorDetail
+    // MARK: Lifecycle
+
+    init(commandId: String, success: Bool = false, error: ErrorDetail, debugLogs: [String]?) {
+        self.commandId = commandId
+        self.success = success
+        self.error = error
+        self.debugLogs = debugLogs
+    }
+
+    // MARK: Internal
 
     struct ErrorDetail: Codable {
         let message: String
     }
-    let debugLogs: [String]?
 
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
@@ -333,32 +349,28 @@ struct ErrorResponse: Codable {
         case debugLogs = "debug_logs"
     }
 
-    init(commandId: String, success: Bool = false, error: ErrorDetail, debugLogs: [String]?) {
-        self.commandId = commandId
-        self.success = success
-        self.error = error
-        self.debugLogs = debugLogs
-    }
+    let commandId: String
+    let success: Bool
+    let error: ErrorDetail
+
+    let debugLogs: [String]?
 }
 
 struct AXElementData: Codable {
-    let attributes: [String: AnyCodable]?
-    let path: [String]?
+    // MARK: Lifecycle
 
     init(attributes: [String: AnyCodable]? = nil, path: [String]? = nil) {
         self.attributes = attributes
         self.path = path
     }
+
+    // MARK: Internal
+
+    let attributes: [String: AnyCodable]?
+    let path: [String]?
 }
 
 struct QueryResponse: Codable {
-    let commandId: String
-    let success: Bool
-    let command: String
-    let data: AXElementData?
-    let error: ErrorResponse.ErrorDetail?
-    let debugLogs: [String]?
-
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
         case success
@@ -367,20 +379,27 @@ struct QueryResponse: Codable {
         case error
         case debugLogs = "debug_logs"
     }
+
+    let commandId: String
+    let success: Bool
+    let command: String
+    let data: AXElementData?
+    let error: ErrorResponse.ErrorDetail?
+    let debugLogs: [String]?
 }
 
 struct BatchOperationResponse: Codable {
-    let commandId: String
-    let success: Bool
-    let results: [QueryResponse]
-    let debugLogs: [String]?
-
     enum CodingKeys: String, CodingKey {
         case commandId = "command_id"
         case success
         case results
         case debugLogs = "debug_logs"
     }
+
+    let commandId: String
+    let success: Bool
+    let results: [QueryResponse]
+    let debugLogs: [String]?
 }
 
 // MARK: - Error Types
@@ -391,12 +410,14 @@ enum TestError: Error, CustomStringConvertible {
     case appleScriptError(String)
     case generic(String)
 
+    // MARK: Internal
+
     var description: String {
         switch self {
-        case .appNotRunning(let string): return "AppNotRunning: \(string)"
-        case .axError(let string): return "AXError: \(string)"
-        case .appleScriptError(let string): return "AppleScriptError: \(string)"
-        case .generic(let string): return "GenericTestError: \(string)"
+        case let .appNotRunning(string): "AppNotRunning: \(string)"
+        case let .axError(string): "AXError: \(string)"
+        case let .appleScriptError(string): "AppleScriptError: \(string)"
+        case let .generic(string): "GenericTestError: \(string)"
         }
     }
 }
@@ -416,7 +437,7 @@ var productsDirectory: URL {
         let buildPathsToTry = [
             packageRootPath.appendingPathComponent(".build/debug"),
             packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
-            packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
+            packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug"),
         ]
 
         let fileManager = FileManager.default
@@ -424,7 +445,7 @@ var productsDirectory: URL {
             return path
         }
 
-        let searchedPaths = buildPathsToTry.map { $0.path }.joined(separator: ", ")
+        let searchedPaths = buildPathsToTry.map(\.path).joined(separator: ", ")
         fatalError(
             "couldn't find the products directory via Bundle or SPM fallback. " +
                 "Package root guessed as: \(packageRootPath.path). " +

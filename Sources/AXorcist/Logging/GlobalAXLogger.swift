@@ -6,15 +6,21 @@ import os // For OSLog specific configurations if ever needed directly.
 // public struct AXLogEntry: Codable, Identifiable, Sendable { ... }
 
 public class GlobalAXLogger {
-    public static let shared = GlobalAXLogger()
+    // MARK: Lifecycle
 
-    private var logEntries: [AXLogEntry] = []
-    // For duplicate suppression
-    private var lastCondensedMessage: String?
-    private var duplicateCount: Int = 0
-    private let duplicateSummaryThreshold: Int = 5
-    // Maximum characters to keep in a log message before truncating (for readability)
-    private let maxMessageLength: Int = 300
+    private init() {
+        if let envVar = ProcessInfo.processInfo.environment["AXORC_JSON_LOG_ENABLED"], envVar.lowercased() == "true" {
+            isJSONLoggingEnabled = true
+            fputs(
+                "{\\\"axorc_log_stream_type\\\": \\\"json_objects\\\", \\\"status\\\": \\\"AXGlobalLogger initialized with JSON output to stderr.\"}\n",
+                stderr
+            )
+        }
+    }
+
+    // MARK: Public
+
+    public static let shared = GlobalAXLogger()
 
     // No DispatchQueue needed if all calls are on the main thread.
     // Callers must ensure main-thread execution for all logger interactions.
@@ -24,21 +30,15 @@ public class GlobalAXLogger {
     public var isLoggingEnabled: Bool = false
     public var detailLevel: AXLogDetailLevel = .normal
 
-    private init() {
-        if let envVar = ProcessInfo.processInfo.environment["AXORC_JSON_LOG_ENABLED"], envVar.lowercased() == "true" {
-            isJSONLoggingEnabled = true
-            fputs("{\\\"axorc_log_stream_type\\\": \\\"json_objects\\\", \\\"status\\\": \\\"AXGlobalLogger initialized with JSON output to stderr.\"}\n", stderr)
-        }
-    }
-
     // MARK: - Logging Core
+
     // Assumes this method is always called on the main thread.
     public func log(_ entry: AXLogEntry) {
         guard self.isLoggingEnabled else { return }
         // Use fully qualified enum cases
-        if entry.level == .debug && self.detailLevel != AXLogDetailLevel.verbose {
+        if entry.level == .debug, self.detailLevel != AXLogDetailLevel.verbose {
             if self.detailLevel == AXLogDetailLevel.minimal { return }
-            if self.detailLevel == AXLogDetailLevel.normal && entry.level == .debug { return }
+            if self.detailLevel == AXLogDetailLevel.normal, entry.level == .debug { return }
         }
 
         let condensedMessage: String = {
@@ -66,7 +66,7 @@ public class GlobalAXLogger {
                 self.logEntries.append(summaryEntry)
             }
         } else {
-            if self.duplicateCount >= self.duplicateSummaryThreshold && self.lastCondensedMessage != nil {
+            if self.duplicateCount >= self.duplicateSummaryThreshold, self.lastCondensedMessage != nil {
                 let summaryEntry = AXLogEntry(
                     level: .debug,
                     message: "⟳ Previous message repeated \(self.duplicateCount) times in total",
@@ -98,15 +98,19 @@ public class GlobalAXLogger {
                     fputs(jsonString + "\n", stderr)
                 }
             } catch {
-                fputs("{\\\"error\\\": \\\"Failed to serialize AXLogEntry to JSON: \(error.localizedDescription)\\\"}\n", stderr)
+                fputs(
+                    "{\\\"error\\\": \\\"Failed to serialize AXLogEntry to JSON: \(error.localizedDescription)\\\"}\n",
+                    stderr
+                )
             }
         }
     }
 
     // MARK: - Log Retrieval
+
     // Assumes these methods are always called on the main thread.
     public func getEntries() -> [AXLogEntry] {
-        return self.logEntries
+        self.logEntries
     }
 
     public func clearEntries() {
@@ -133,40 +137,109 @@ public class GlobalAXLogger {
             return currentEntries.map { $0.formattedForTextLog() }
         }
     }
+
+    // MARK: Private
+
+    private var logEntries: [AXLogEntry] = []
+    // For duplicate suppression
+    private var lastCondensedMessage: String?
+    private var duplicateCount: Int = 0
+    private let duplicateSummaryThreshold: Int = 5
+    // Maximum characters to keep in a log message before truncating (for readability)
+    private let maxMessageLength: Int = 300
 }
 
 // MARK: - Global Logging Functions (Convenience Wrappers)
+
 // These are synchronous and assume GlobalAXLogger.shared.log is safe to call directly (i.e., from main thread).
 
-public func axDebugLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
-    let entry = AXLogEntry(level: .debug, message: message, file: file, function: function, line: line, details: details)
+public func axDebugLog(
+    _ message: String,
+    details: [String: AnyCodable]? = nil,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let entry = AXLogEntry(
+        level: .debug,
+        message: message,
+        file: file,
+        function: function,
+        line: line,
+        details: details
+    )
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axInfoLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
+public func axInfoLog(
+    _ message: String,
+    details: [String: AnyCodable]? = nil,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
     let entry = AXLogEntry(level: .info, message: message, file: file, function: function, line: line, details: details)
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axWarningLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
-    let entry = AXLogEntry(level: .warning, message: message, file: file, function: function, line: line, details: details)
+public func axWarningLog(
+    _ message: String,
+    details: [String: AnyCodable]? = nil,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let entry = AXLogEntry(
+        level: .warning,
+        message: message,
+        file: file,
+        function: function,
+        line: line,
+        details: details
+    )
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axErrorLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
-    let entry = AXLogEntry(level: .error, message: message, file: file, function: function, line: line, details: details)
+public func axErrorLog(
+    _ message: String,
+    details: [String: AnyCodable]? = nil,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let entry = AXLogEntry(
+        level: .error,
+        message: message,
+        file: file,
+        function: function,
+        line: line,
+        details: details
+    )
     GlobalAXLogger.shared.log(entry)
 }
 
-public func axFatalLog(_ message: String, details: [String: AnyCodable]? = nil, file: String = #file, function: String = #function, line: Int = #line) {
-    let entry = AXLogEntry(level: .critical, message: message, file: file, function: function, line: line, details: details)
+public func axFatalLog(
+    _ message: String,
+    details: [String: AnyCodable]? = nil,
+    file: String = #file,
+    function: String = #function,
+    line: Int = #line
+) {
+    let entry = AXLogEntry(
+        level: .critical,
+        message: message,
+        file: file,
+        function: function,
+        line: line,
+        details: details
+    )
     GlobalAXLogger.shared.log(entry)
 }
 
 // MARK: - Global Log Access Functions
 
 public func axGetLogEntries() -> [AXLogEntry] {
-    return GlobalAXLogger.shared.getEntries()
+    GlobalAXLogger.shared.getEntries()
 }
 
 public func axClearLogs() {
@@ -174,7 +247,7 @@ public func axClearLogs() {
 }
 
 public func axGetLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
-    return GlobalAXLogger.shared.getLogsAsStrings(format: format)
+    GlobalAXLogger.shared.getLogsAsStrings(format: format)
 }
 
 // Assuming AXLogEntry and its formattedForTextBasedOutput() method are defined elsewhere

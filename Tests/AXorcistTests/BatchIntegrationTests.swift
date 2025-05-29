@@ -6,7 +6,7 @@ import Testing
 
 @Test("Batch Command: GetFocusedElement and Query TextEdit")
 @MainActor
-func testBatchCommandGetFocusedElementAndQuery() async throws {
+func batchCommandGetFocusedElementAndQuery() async throws {
     let batchCommandId = "batch-textedit-\(UUID().uuidString)"
     let focusedElementSubCmdId = "batch-sub-getfocused-\(UUID().uuidString)"
     let querySubCmdId = "batch-sub-querytextarea-\(UUID().uuidString)"

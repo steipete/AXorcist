@@ -4,14 +4,15 @@ import AppKit
 import ApplicationServices
 
 // MARK: - Static Factory Methods for System-Wide and Application Elements
-extension Element {
+
+public extension Element {
     @MainActor
-    public static func systemWide() -> Element {
-        return Element(AXUIElementCreateSystemWide())
+    static func systemWide() -> Element {
+        Element(AXUIElementCreateSystemWide())
     }
 
     @MainActor
-    public static func application(for pid: pid_t) -> Element? {
+    static func application(for pid: pid_t) -> Element? {
         let appElementRef = AXUIElementCreateApplication(pid)
         let testElement = Element(appElementRef)
         // A basic check to see if the application element is valid (e.g., by trying to get its role)
@@ -26,12 +27,12 @@ extension Element {
     }
 
     @MainActor
-    public static func application(for runningApp: NSRunningApplication) -> Element? {
-        return application(for: runningApp.processIdentifier)
+    static func application(for runningApp: NSRunningApplication) -> Element? {
+        application(for: runningApp.processIdentifier)
     }
 
     @MainActor
-    public static func focusedApplication() -> Element? {
+    static func focusedApplication() -> Element? {
         guard let focusedApp = NSWorkspace.shared.frontmostApplication else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .warning,
@@ -44,7 +45,7 @@ extension Element {
 
     /// Gets the element at the specified position (system-wide)
     @MainActor
-    public static func elementAtPoint(_ point: CGPoint, pid: pid_t = 0) -> Element? {
+    static func elementAtPoint(_ point: CGPoint, pid: pid_t = 0) -> Element? {
         if pid != 0 {
             // Use specific application if PID is provided
             guard let appElement = application(for: pid) else {
@@ -66,7 +67,7 @@ extension Element {
                 &element
             )
 
-            if error == .success, let element = element {
+            if error == .success, let element {
                 return Element(element)
             }
             return nil

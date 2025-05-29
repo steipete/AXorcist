@@ -51,7 +51,7 @@ public func compareStrings(
     case .containsAny:
         let expectedSubstrings = finalExpected.split(separator: ",")
             .map { String($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-        if expectedSubstrings.isEmpty && finalActual.isEmpty {
+        if expectedSubstrings.isEmpty, finalActual.isEmpty {
             result = true
         } else {
             result = expectedSubstrings.contains { substring in

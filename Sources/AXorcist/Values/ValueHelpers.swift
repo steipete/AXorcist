@@ -16,7 +16,7 @@ public func copyAttributeValue(element: AXUIElement, attribute: String) -> CFTyp
 
     // Use new error extension for cleaner error checking
     if error != .success {
-        if error != .noValue && error != .attributeUnsupported {
+        if error != .noValue, error != .attributeUnsupported {
             axDebugLog("Error copying attribute '\(attribute)': \(error.rawValue)")
         }
         return nil
@@ -39,8 +39,7 @@ public func axValue<T>(
         axDebugLog("axValue: ValueUnwrapper returned nil for attribute '\(attr)'.",
                    file: #file,
                    function: #function,
-                   line: #line
-        )
+                   line: #line)
         return nil
     }
 

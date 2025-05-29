@@ -1,5 +1,6 @@
 import ApplicationServices
 import Foundation
+
 // GlobalAXLogger should be available
 
 // MARK: - Element Hierarchy Logic
@@ -15,7 +16,8 @@ extension Element {
 
         // print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .smart))")
         collectDirectChildren(collector: &childCollector)
-        // print("[PRINT Element.children] After collectDirectChildren, collector has: \(childCollector.collectedChildrenCount()) unique children.")
+        // print("[PRINT Element.children] After collectDirectChildren, collector has:
+        // \(childCollector.collectedChildrenCount()) unique children.")
 
         // collectAlternativeChildren may be expensive, so respect `strict` flag there.
         if !strict {
@@ -41,7 +43,8 @@ extension Element {
             }
         }
 
-        // print("[PRINT Element.children] Before finalizeResults, collector has: \(childCollector.collectedChildrenCount()) unique children.")
+        // print("[PRINT Element.children] Before finalizeResults, collector has:
+        // \(childCollector.collectedChildrenCount()) unique children.")
         let result = childCollector.finalizeResults()
         axDebugLog("Final children count: \(result?.count ?? 0)")
         return result
@@ -99,7 +102,7 @@ extension Element {
             AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
             AXAttributeNames.kAXContentsAttribute, "AXChildrenInNavigationOrder",
             AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
-            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute
+            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute,
         ]
         axDebugLog(
             "Using pruned attribute list (\(alternativeAttributes.count) items) " +
@@ -149,15 +152,21 @@ extension Element {
 }
 
 // MARK: - Child Collection Helper
+
 /// Upper bound for how many children we will collect from a single element before we stop.  Some web
 /// containers expose thousands of flattened descendants; 50 000 is high enough to reach any realistic
 /// UI while still protecting against infinite recursion / runaway memory.
-private let maxChildrenPerElement = 50_000
+private let maxChildrenPerElement = 50000
 
 private struct ChildCollector {
-    private var collectedChildren: [Element] = []
-    private var uniqueChildrenSet = Set<Element>()
-    private var limitReached = false
+    // MARK: Public
+
+    // New public method to get the count of unique children
+    public func collectedChildrenCount() -> Int {
+        uniqueChildrenSet.count
+    }
+
+    // MARK: Internal
 
     mutating func addChildren(from childrenUI: [AXUIElement]) { // Removed dLog param
         if limitReached { return }
@@ -182,11 +191,6 @@ private struct ChildCollector {
         }
     }
 
-    // New public method to get the count of unique children
-    public func collectedChildrenCount() -> Int {
-        return uniqueChildrenSet.count
-    }
-
     func finalizeResults() -> [Element]? { // Removed dLog param
         if collectedChildren.isEmpty {
             axDebugLog("ChildCollector: No children found after all collection methods.")
@@ -196,4 +200,10 @@ private struct ChildCollector {
             return collectedChildren
         }
     }
+
+    // MARK: Private
+
+    private var collectedChildren: [Element] = []
+    private var uniqueChildrenSet = Set<Element>()
+    private var limitReached = false
 }

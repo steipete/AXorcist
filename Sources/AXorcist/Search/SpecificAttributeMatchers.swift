@@ -13,7 +13,7 @@ import Foundation
 // getComputedAttributes (from AttributeHelpers) are available.
 
 @MainActor
-internal func matchStringAttribute(
+func matchStringAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
@@ -34,7 +34,8 @@ internal func matchStringAttribute(
     } else {
         if expectedValueString.lowercased() == "nil" ||
             expectedValueString == AXMiscConstants.kAXNotAvailableString ||
-            expectedValueString.isEmpty {
+            expectedValueString.isEmpty
+        {
             axDebugLog(
                 "attributesMatch [D\(depth)]: Attribute '\(key)' not found, but expected value " +
                     "('\(expectedValueString)') suggests absence is OK. Match for this key.",
@@ -57,7 +58,7 @@ internal func matchStringAttribute(
 }
 
 @MainActor
-internal func matchArrayAttribute(
+func matchArrayAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
@@ -125,7 +126,7 @@ internal func matchArrayAttribute(
 }
 
 @MainActor
-internal func matchBooleanAttribute(
+func matchBooleanAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
@@ -174,20 +175,21 @@ internal func matchBooleanAttribute(
 }
 
 @MainActor
-internal func matchComputedNameAttributes(
+func matchComputedNameAttributes(
     element: Element,
     computedNameEquals: String?,
     computedNameContains: String?,
     depth: Int
 ) async -> Bool {
-    if computedNameEquals == nil && computedNameContains == nil {
+    if computedNameEquals == nil, computedNameContains == nil {
         return true // No computed name criteria to match, so this part passes.
     }
 
     let computedAttrs = await getComputedAttributes(for: element)
     let computedNameKey = AXMiscConstants.computedNameAttributeKey
     if let currentComputedNameAnyCodable = computedAttrs[computedNameKey]?.value as? AnyCodable,
-       let currentComputedName = currentComputedNameAnyCodable.value as? String {
+       let currentComputedName = currentComputedNameAnyCodable.value as? String
+    {
         if let equals = computedNameEquals {
             if currentComputedName != equals {
                 axDebugLog(

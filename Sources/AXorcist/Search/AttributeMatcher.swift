@@ -5,7 +5,7 @@ import Foundation
 // DEBUG_LOGGING_ENABLED is a global public var from Logging.swift
 
 @MainActor
-internal func attributesMatch(
+func attributesMatch(
     element: Element,
     matchDetails: [String: String],
     depth: Int
@@ -21,22 +21,24 @@ internal func attributesMatch(
         line: #line
     )
 
-    if !(await matchComputedNameAttributes(
+    if await !matchComputedNameAttributes(
         element: element,
         computedNameEquals: matchDetails[AXMiscConstants.computedNameAttributeKey + "_equals"],
         computedNameContains: matchDetails[AXMiscConstants.computedNameAttributeKey + "_contains"],
         depth: depth
-    )) {
+    ) {
         return false
     }
 
     for (key, expectedValue) in matchDetails {
         if key == AXMiscConstants.computedNameAttributeKey + "_equals" ||
-            key == AXMiscConstants.computedNameAttributeKey + "_contains" {
+            key == AXMiscConstants.computedNameAttributeKey + "_contains"
+        {
             continue
         }
         if key ==
-            AXAttributeNames.kAXRoleAttribute {
+            AXAttributeNames.kAXRoleAttribute
+        {
             continue // Already handled by ElementSearch's role check or not a primary filter here
         }
 
@@ -45,7 +47,8 @@ internal func attributesMatch(
             key == AXAttributeNames.kAXHiddenAttribute ||
             key == AXAttributeNames.kAXElementBusyAttribute ||
             key == AXMiscConstants.isIgnoredAttributeKey ||
-            key == AXAttributeNames.kAXMainAttribute {
+            key == AXAttributeNames.kAXMainAttribute
+        {
             if !matchBooleanAttribute(
                 element: element,
                 key: key,
@@ -59,7 +62,8 @@ internal func attributesMatch(
 
         if key == AXAttributeNames.kAXActionNamesAttribute ||
             key == AXAttributeNames.kAXAllowedValuesAttribute ||
-            key == AXAttributeNames.kAXChildrenAttribute {
+            key == AXAttributeNames.kAXChildrenAttribute
+        {
             if !matchArrayAttribute(
                 element: element,
                 key: key,

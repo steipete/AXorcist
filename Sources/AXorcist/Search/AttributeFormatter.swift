@@ -5,7 +5,7 @@ import Foundation
 
 // Helper function to format the parent attribute
 @MainActor
-internal func formatParentAttribute(
+func formatParentAttribute(
     _ parent: Element?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
@@ -20,7 +20,7 @@ internal func formatParentAttribute(
 
 // Helper function to format the children attribute
 @MainActor
-internal func formatChildrenAttribute(
+func formatChildrenAttribute(
     _ children: [Element]?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption
@@ -43,7 +43,7 @@ internal func formatChildrenAttribute(
 
 // Helper function to format the focused UI element attribute
 @MainActor
-internal func formatFocusedUIElementAttribute(
+func formatFocusedUIElementAttribute(
     _ focusedElement: Element?,
     outputFormat: OutputFormat,
     valueFormatOption: ValueFormatOption

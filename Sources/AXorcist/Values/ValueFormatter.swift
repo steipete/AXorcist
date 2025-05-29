@@ -62,8 +62,7 @@ private func formatCFTypeByID(
         axDebugLog("formatCFTypeByID: Unhandled CFType: \(typeDescription) for value. Returning description string.",
                    file: #file,
                    function: #function,
-                   line: #line
-        )
+                   line: #line)
         return "<Unhandled CFType: \(typeDescription)>"
     }
 }
@@ -80,7 +79,7 @@ private func formatAXUIElement(
     let title = element.title()
 
     // Adjust logic based on ValueFormatOption cases (.smart, .raw, .stringified)
-    if let title = title, !title.isEmpty {
+    if let title, !title.isEmpty {
         return option == .raw ? // Example: .raw means minimal
             "\\(role):\\\"\\(escapeStringForDisplay(title))\\\"" :
             "<\\(role): \\\"\\(escapeStringForDisplay(title))\\\">" // .smart or .stringified are more verbose
@@ -100,7 +99,7 @@ private func formatCFArray(
     // Adjust logic based on ValueFormatOption cases
     if option != .raw || count <= 5 { // Example: .raw might mean short, others verbose
         var swiftArray: [String] = []
-        for index in 0..<count {
+        for index in 0 ..< count {
             guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                 swiftArray.append("<nil_in_array>")
                 continue

@@ -8,7 +8,7 @@ public extension Element {
     /// Checks if the window is minimized
     /// - Returns: true if minimized, false if not, nil if the attribute is not available
     func isWindowMinimized() -> Bool? {
-        return isMinimized()
+        isMinimized()
     }
 
     /// Checks if the window is hidden (different from minimized - this is when the app is hidden with Cmd+H)
@@ -58,7 +58,7 @@ public extension Element {
     /// Unminimizes the window
     /// - Returns: AXError indicating success or failure
     func unminimizeWindow() -> AXError {
-        return setMinimized(false)
+        setMinimized(false)
     }
 
     /// Closes the window
@@ -187,7 +187,7 @@ public extension Element {
                 "screenNumber": NSNull(),
                 "isMinimized": isMin,
                 "isHidden": isHid,
-                "hasScreen": false
+                "hasScreen": false,
             ]
         }
 
@@ -203,7 +203,7 @@ public extension Element {
             "isMinimized": isMinimized() ?? false,
             "isHidden": isWindowHidden() ?? false,
             "hasScreen": true,
-            "deviceDescription": screen.deviceDescription
+            "deviceDescription": screen.deviceDescription,
         ]
     }
 }

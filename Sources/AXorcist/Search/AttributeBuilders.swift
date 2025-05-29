@@ -7,7 +7,7 @@ import Foundation
 // MARK: - Attribute Collection Builders
 
 @MainActor
-internal func addBasicAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
+func addBasicAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     if let role = element.role() {
         attributes[AXAttributeNames.kAXRoleAttribute] = AnyCodable(role)
     }
@@ -32,7 +32,7 @@ internal func addBasicAttributes(to attributes: inout [String: AnyCodable], elem
 }
 
 @MainActor
-internal func addStateAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
+func addStateAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     attributes[AXAttributeNames.kAXEnabledAttribute] = AnyCodable(element.isEnabled())
     attributes[AXAttributeNames.kAXFocusedAttribute] = AnyCodable(element.isFocused())
     attributes[AXAttributeNames.kAXHiddenAttribute] = AnyCodable(element.isHidden())
@@ -41,7 +41,7 @@ internal func addStateAttributes(to attributes: inout [String: AnyCodable], elem
 }
 
 @MainActor
-internal func addGeometryAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
+func addGeometryAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     if let position = element.attribute(Attribute<CGPoint>(AXAttributeNames.kAXPositionAttribute)) {
         attributes[AXAttributeNames.kAXPositionAttribute] = AnyCodable(NSPointToDictionary(position))
     }
@@ -51,7 +51,11 @@ internal func addGeometryAttributes(to attributes: inout [String: AnyCodable], e
 }
 
 @MainActor
-internal func addHierarchyAttributes(to attributes: inout [String: AnyCodable], element: Element, valueFormatOption: ValueFormatOption) async {
+func addHierarchyAttributes(
+    to attributes: inout [String: AnyCodable],
+    element: Element,
+    valueFormatOption _: ValueFormatOption
+) async {
     if let parent = element.parent() {
         attributes[AXAttributeNames.kAXParentAttribute] = AnyCodable(
             parent.briefDescription(option: .raw)
@@ -65,7 +69,7 @@ internal func addHierarchyAttributes(to attributes: inout [String: AnyCodable], 
 }
 
 @MainActor
-internal func addActionAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
+func addActionAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     var actionsToStore: [String]?
 
     if let currentActions = element.supportedActions(), !currentActions.isEmpty {
@@ -74,7 +78,10 @@ internal func addActionAttributes(to attributes: inout [String: AnyCodable], ele
         Attribute<[String]>(AXAttributeNames.kAXActionsAttribute)
     ), !fallbackActions.isEmpty {
         actionsToStore = fallbackActions
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"))
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"
+        ))
     }
 
     attributes[AXAttributeNames.kAXActionsAttribute] = actionsToStore != nil
@@ -87,23 +94,24 @@ internal func addActionAttributes(to attributes: inout [String: AnyCodable], ele
 }
 
 @MainActor
-internal func addStandardStringAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
+func addStandardStringAttributes(to attributes: inout [String: AnyCodable], element: Element) async {
     let standardAttributes = [
         AXAttributeNames.kAXRoleDescriptionAttribute,
         AXAttributeNames.kAXValueDescriptionAttribute,
-        AXAttributeNames.kAXIdentifierAttribute
+        AXAttributeNames.kAXIdentifierAttribute,
     ]
 
     for attrName in standardAttributes {
         if attributes[attrName] == nil,
-           let attrValue: String = element.attribute(Attribute<String>(attrName)) {
+           let attrValue: String = element.attribute(Attribute<String>(attrName))
+        {
             attributes[attrName] = AnyCodable(attrValue)
         }
     }
 }
 
 @MainActor
-internal func addStoredAttributes(to attributes: inout [String: AnyCodable], element: Element) {
+func addStoredAttributes(to attributes: inout [String: AnyCodable], element: Element) {
     guard let stored = element.attributes else { return }
 
     for (key, val) in stored where attributes[key] == nil {
@@ -112,9 +120,10 @@ internal func addStoredAttributes(to attributes: inout [String: AnyCodable], ele
 }
 
 @MainActor
-internal func addComputedProperties(to attributes: inout [String: AnyCodable], element: Element) async {
+func addComputedProperties(to attributes: inout [String: AnyCodable], element: Element) async {
     if attributes[AXMiscConstants.computedNameAttributeKey] == nil,
-       let name = element.computedName() {
+       let name = element.computedName()
+    {
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(name)
     }
 

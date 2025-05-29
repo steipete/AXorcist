@@ -3,9 +3,11 @@
 import AppKit // For NSRunningApplication access
 import ApplicationServices
 import Foundation
+
 // GlobalAXLogger is assumed available
 
 // MARK: - Functions using undefined types (SearchCriteria, ProcessMatcherProtocol)
+
 // These functions are commented out until the required types are defined
 
 /*

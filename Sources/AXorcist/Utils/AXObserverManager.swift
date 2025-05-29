@@ -4,8 +4,11 @@ import Foundation
 
 @MainActor
 public class AXObserverManager {
-    // Singleton instance
-    public static let shared = AXObserverManager()
+    // MARK: Lifecycle
+
+    private init() {}
+
+    // MARK: Public
 
     // Typealias for notification callback - matches AXObserverCallbackWithInfo but without refcon
     public typealias AXNotificationCallback = (AXObserver, AXUIElement, CFString, CFDictionary?) -> Void
@@ -17,20 +20,15 @@ public class AXObserverManager {
         case other(String)
     }
 
-    // Private storage for observers and callbacks
-    private struct ObserverInfo {
-        let observer: AXObserver
-        let runLoopSource: CFRunLoopSource
-        var callbacks: [CFString: AXNotificationCallback] = [:]
-    }
-
-    private var observers: [ObjectIdentifier: ObserverInfo] = [:]
-    private let observerLock = NSLock()
-
-    private init() {}
+    // Singleton instance
+    public static let shared = AXObserverManager()
 
     // Add observer for an element and notification
-    public func addObserver(for element: Element, notification: AXNotification, callback: @escaping AXNotificationCallback) throws {
+    public func addObserver(
+        for element: Element,
+        notification: AXNotification,
+        callback: @escaping AXNotificationCallback
+    ) throws {
         let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
 
         observerLock.lock()
@@ -43,7 +41,12 @@ public class AXObserverManager {
             observers[elementId] = observerInfo
 
             // Add the notification to the existing observer
-            let error = AXObserverAddNotification(observerInfo.observer, element.underlyingElement, notification.rawValue as CFString, nil)
+            let error = AXObserverAddNotification(
+                observerInfo.observer,
+                element.underlyingElement,
+                notification.rawValue as CFString,
+                nil
+            )
             if error != .success {
                 axErrorLog("Failed to add notification: \(error)")
                 throw ObserverError.addNotificationFailed(error)
@@ -60,7 +63,12 @@ public class AXObserverManager {
             let observerCallback: AXObserverCallbackWithInfo = { observer, element, notification, userInfo, _ in
                 // Since we can't pass refcon through AXObserverCreateWithInfoCallback,
                 // we need to use a different approach to get back to the manager
-                AXObserverManager.shared.handleNotification(observer: observer, element: element, notification: notification, userInfo: userInfo)
+                AXObserverManager.shared.handleNotification(
+                    observer: observer,
+                    element: element,
+                    notification: notification,
+                    userInfo: userInfo
+                )
             }
 
             let error = AXObserverCreateWithInfoCallback(
@@ -69,13 +77,18 @@ public class AXObserverManager {
                 &observer
             )
 
-            guard error == .success, let observer = observer else {
+            guard error == .success, let observer else {
                 axErrorLog("Failed to create observer: \(error)")
                 throw ObserverError.couldNotCreateObserver
             }
 
             // Add the notification
-            let addError = AXObserverAddNotification(observer, element.underlyingElement, notification.rawValue as CFString, nil)
+            let addError = AXObserverAddNotification(
+                observer,
+                element.underlyingElement,
+                notification.rawValue as CFString,
+                nil
+            )
             if addError != .success {
                 axErrorLog("Failed to add notification: \(addError)")
                 throw ObserverError.addNotificationFailed(addError)
@@ -112,7 +125,11 @@ public class AXObserverManager {
         }
 
         // Remove the notification from the observer
-        let error = AXObserverRemoveNotification(observerInfo.observer, element.underlyingElement, notification.rawValue as CFString)
+        let error = AXObserverRemoveNotification(
+            observerInfo.observer,
+            element.underlyingElement,
+            notification.rawValue as CFString
+        )
         if error != .success {
             axErrorLog("Failed to remove notification: \(error)")
             throw ObserverError.other("Failed to remove notification: \(error)")
@@ -139,24 +156,6 @@ public class AXObserverManager {
         }
     }
 
-    // Handle incoming notifications
-    private func handleNotification(observer: AXObserver, element: AXUIElement, notification: CFString, userInfo: CFDictionary?) {
-        let elementId = ObjectIdentifier(element as AnyObject)
-
-        observerLock.lock()
-        let observerInfo = observers[elementId]
-        observerLock.unlock()
-
-        guard let observerInfo = observerInfo,
-              let callback = observerInfo.callbacks[notification] else {
-            axWarningLog("Received notification '\(notification)' but no callback found")
-            return
-        }
-
-        // Call the callback
-        callback(observer, element, notification, userInfo)
-    }
-
     // Remove all observers
     public func removeAllObservers() {
         observerLock.lock()
@@ -172,5 +171,41 @@ public class AXObserverManager {
 
         observers.removeAll()
         axDebugLog("Removed all observers")
+    }
+
+    // MARK: Private
+
+    // Private storage for observers and callbacks
+    private struct ObserverInfo {
+        let observer: AXObserver
+        let runLoopSource: CFRunLoopSource
+        var callbacks: [CFString: AXNotificationCallback] = [:]
+    }
+
+    private var observers: [ObjectIdentifier: ObserverInfo] = [:]
+    private let observerLock = NSLock()
+
+    // Handle incoming notifications
+    private func handleNotification(
+        observer: AXObserver,
+        element: AXUIElement,
+        notification: CFString,
+        userInfo: CFDictionary?
+    ) {
+        let elementId = ObjectIdentifier(element as AnyObject)
+
+        observerLock.lock()
+        let observerInfo = observers[elementId]
+        observerLock.unlock()
+
+        guard let observerInfo,
+              let callback = observerInfo.callbacks[notification]
+        else {
+            axWarningLog("Received notification '\(notification)' but no callback found")
+            return
+        }
+
+        // Call the callback
+        callback(observer, element, notification, userInfo)
     }
 }

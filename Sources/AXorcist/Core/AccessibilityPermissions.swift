@@ -23,7 +23,7 @@ public struct AXPermissionsStatus {
     }
 
     public func canAutomate(bundleID: String) -> Bool? {
-        return automationStatus[bundleID]
+        automationStatus[bundleID]
     }
 }
 
@@ -40,15 +40,13 @@ public func checkAccessibilityPermissions(promptIfNeeded: Bool = true) throws {
         axErrorLog("Accessibility check failed. Details: \(errorDetail)",
                    file: #file,
                    function: #function,
-                   line: #line
-        )
+                   line: #line)
         throw AccessibilityError.notAuthorized(errorDetail)
     } else {
         axDebugLog("Accessibility permissions are granted.",
                    file: #file,
                    function: #function,
-                   line: #line
-        )
+                   line: #line)
     }
 }
 
@@ -59,8 +57,7 @@ public func getPermissionsStatus(
     axDebugLog("Starting full permission status check.",
                file: #file,
                function: #function,
-               line: #line
-    )
+               line: #line)
 
     let isProcessTrusted = AXPermissionHelpers.hasAccessibilityPermissions()
     let isSandboxed = AXPermissionHelpers.isSandboxed()
@@ -74,7 +71,7 @@ public func getPermissionsStatus(
     var automationStatus: [String: Bool] = [:]
     var collectedErrorMessages: [String] = []
 
-    if !bundleIDs.isEmpty && isProcessTrusted {
+    if !bundleIDs.isEmpty, isProcessTrusted {
         let results = checkAutomationPermissions(for: bundleIDs)
         automationStatus = results.automationStatus
         collectedErrorMessages = results.errorMessages
@@ -108,8 +105,7 @@ private func logProcessTrustStatus(_ isProcessTrusted: Bool) {
     axDebugLog("AXIsProcessTrusted() returned: \(isProcessTrusted)",
                file: #file,
                function: #function,
-               line: #line
-    )
+               line: #line)
     if !isProcessTrusted {
         let parentName = getParentProcessName()
         let hint = parentName != nil ? "Hint: Grant accessibility permissions to \(parentName!)." :
@@ -117,8 +113,7 @@ private func logProcessTrustStatus(_ isProcessTrusted: Bool) {
         axWarningLog("Process is not trusted for Accessibility. \(hint)",
                      file: #file,
                      function: #function,
-                     line: #line
-        )
+                     line: #line)
     }
 }
 
@@ -166,8 +161,7 @@ private func checkSingleBundleAutomation(_ bundleID: String) -> (status: Bool?, 
         axErrorLog(errNoScript,
                    file: #file,
                    function: #function,
-                   line: #line
-        )
+                   line: #line)
         return (nil, errNoScript)
     }
 
@@ -183,12 +177,11 @@ private func executeAppleScriptCheck(
     axDebugLog("Executing AppleScript against \(bundleID) to check automation status.",
                file: #file,
                function: #function,
-               line: #line
-    )
+               line: #line)
 
     let descriptor = script.executeAndReturnError(&errorDict)
 
-    if errorDict == nil && descriptor.descriptorType != typeNull {
+    if errorDict == nil, descriptor.descriptorType != typeNull {
         axDebugLog(
             "AppleScript execution against \(bundleID) succeeded " +
                 "(no errorDict, descriptor type: \(descriptor.descriptorType.description)). " +
@@ -208,8 +201,7 @@ private func executeAppleScriptCheck(
         axWarningLog(logMessage,
                      file: #file,
                      function: #function,
-                     line: #line
-        )
+                     line: #line)
         return (false, "Automation denied for \(bundleID): \(errorMessage) (Code: \(errorCode))")
     }
 }

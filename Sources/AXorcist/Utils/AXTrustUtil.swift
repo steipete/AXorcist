@@ -6,15 +6,15 @@ import Foundation
 
 @MainActor // Make the whole enum MainActor isolated
 public enum AXTrustUtil {
-    // Capture the C global safely within the MainActor context.
-    private static let axTrustedCheckOptionPromptInternal: CFString = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
+    // MARK: Public
 
     /// Checks if the current process is trusted for accessibility access.
     /// - Parameter promptIfNeeded: If true, the system will prompt the user if not trusted.
     /// - Returns: True if the process is trusted, false otherwise.
     public static func checkAccessibilityPermissions(promptIfNeeded: Bool = true) -> Bool {
         // Use the captured CFStringRef.
-        let options = [axTrustedCheckOptionPromptInternal: (promptIfNeeded ? kCFBooleanTrue : kCFBooleanFalse)] as CFDictionary
+        let options =
+            [axTrustedCheckOptionPromptInternal: promptIfNeeded ? kCFBooleanTrue : kCFBooleanFalse] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
 
@@ -24,9 +24,7 @@ public enum AXTrustUtil {
         // For macOS 13 and later, use the new URL scheme
         // For earlier versions, use the old preference pane path
         // This code prefers the modern approach if available.
-        let settingsURLString:
-            // macOS 13 Ventura and later
-            String = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        let settingsURLString = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
 
         // Fallback for older macOS versions if needed, though less common now.
         // else {
@@ -37,4 +35,9 @@ public enum AXTrustUtil {
             NSWorkspace.shared.open(url)
         }
     }
+
+    // MARK: Private
+
+    // Capture the C global safely within the MainActor context.
+    private static let axTrustedCheckOptionPromptInternal: CFString = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
 }

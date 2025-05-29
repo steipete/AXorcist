@@ -7,7 +7,7 @@ import Testing
 
 @Test("Perform Action: Set Value of TextEdit Text Area")
 @MainActor
-func testPerformActionSetTextEditTextAreaValue() async throws {
+func performActionSetTextEditTextAreaValue() async throws {
     let actionCommandId = "performaction-setvalue-\(UUID().uuidString)"
     let queryCommandId = "query-verify-setvalue-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
@@ -39,7 +39,7 @@ func testPerformActionSetTextEditTextAreaValue() async throws {
 
 @Test("Extract Text from TextEdit Text Area")
 @MainActor
-func testExtractTextFromTextEditTextArea() async throws {
+func extractTextFromTextEditTextArea() async throws {
     let setValueCommandId = "setvalue-for-extract-\(UUID().uuidString)"
     let extractTextCommandId = "extracttext-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"

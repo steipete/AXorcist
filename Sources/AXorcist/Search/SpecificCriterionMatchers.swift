@@ -5,7 +5,7 @@ import Foundation
 // MARK: - Specific Criterion Matchers
 
 @MainActor
-internal func matchPidCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
+func matchPidCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
     let expectedPid = expectedValue
     if element.role() == AXRoleNames.kAXApplicationRole {
         guard let actualPidT = element.pid() else {
@@ -57,7 +57,7 @@ internal func matchPidCriterion(element: Element, expectedValue: String, element
 }
 
 @MainActor
-internal func matchIsIgnoredCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
+func matchIsIgnoredCriterion(element: Element, expectedValue: String, elementDescriptionForLog: String) -> Bool {
     let actualIsIgnored: Bool = element.isIgnored()
     let expectedBool = (expectedValue.lowercased() == "true")
     if actualIsIgnored == expectedBool {
@@ -78,7 +78,7 @@ internal func matchIsIgnoredCriterion(element: Element, expectedValue: String, e
 }
 
 @MainActor
-internal func matchDomClassListCriterion(
+func matchDomClassListCriterion(
     element: Element,
     expectedValue: String,
     matchType: JSONPathHintComponent.MatchType,

@@ -78,7 +78,7 @@ extension Element {
     private func convertToInt(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> Int? {
         if cfTypeID == CFNumberGetTypeID() {
             let cfNumber = cfValue as! CFNumber
-            var intValue: Int = 0
+            var intValue = 0
             if CFNumberGetValue(cfNumber, .sInt64Type, &intValue) {
                 return intValue
             }

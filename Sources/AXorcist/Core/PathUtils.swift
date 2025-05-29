@@ -15,8 +15,9 @@ public enum PathUtils {
         "description": AXAttributeNames.kAXDescriptionAttribute,
         "placeholder": AXAttributeNames.kAXPlaceholderValueAttribute,
         "enabled": AXAttributeNames.kAXEnabledAttribute,
-        "focused": AXAttributeNames.kAXFocusedAttribute
+        "focused": AXAttributeNames.kAXFocusedAttribute,
     ]
+
     public static func parsePathComponent(_ pathComponent: String) -> (attributeName: String, expectedValue: String) {
         let trimmedPathComponentString = pathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
         let parts = trimmedPathComponentString.split(separator: ":", maxSplits: 1)
@@ -44,9 +45,9 @@ public enum PathUtils {
 
                 // Remove surrounding quotes from value if present (e.g., Title: "XYZ" or Title: 'XYZ')
                 if value.count >= 2 {
-                    if value.hasPrefix("\"") && value.hasSuffix("\"") {
+                    if value.hasPrefix("\""), value.hasSuffix("\"") {
                         value = String(value.dropFirst().dropLast())
-                    } else if value.hasPrefix("'") && value.hasSuffix("'") {
+                    } else if value.hasPrefix("'"), value.hasSuffix("'") {
                         value = String(value.dropFirst().dropLast())
                     }
                 }

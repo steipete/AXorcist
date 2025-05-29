@@ -3,9 +3,10 @@ import ApplicationServices
 import Foundation
 
 @MainActor
-extension AXorcist {
+public extension AXorcist {
     // MARK: - Perform Action Handler
-    public func handlePerformAction(command: PerformActionCommand) -> AXResponse {
+
+    func handlePerformAction(command: PerformActionCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandlePerformAction: App '\(String(describing: command.appIdentifier))', " +
@@ -77,7 +78,8 @@ extension AXorcist {
     }
 
     // MARK: - Set Focused Value Handler
-    public func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
+
+    func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleSetFocusedValue: App '\(String(describing: command.appIdentifier))', " +
@@ -184,7 +186,7 @@ extension AXorcist {
             ))
             return .successResponse(
                 payload: AnyCodable([
-                    "message": "Value '\(command.value)' set successfully on focused element."
+                    "message": "Value '\(command.value)' set successfully on focused element.",
                 ])
             )
         } else {
@@ -197,7 +199,8 @@ extension AXorcist {
     }
 
     // MARK: - Extract Text Handler
-    public func handleExtractText(command: ExtractTextCommand) -> AXResponse {
+
+    func handleExtractText(command: ExtractTextCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleExtractText: App '\(String(describing: command.appIdentifier))', " +

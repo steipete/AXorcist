@@ -147,7 +147,7 @@ private func pidByLocalizedName(_ ident: String) -> pid_t? {
                 "BundleID: \(app.bundleIdentifier ?? "NIL_BID")) against target '\(ident)'.",
             file: #file, function: #function, line: #line
         )
-        if !app.isTerminated && app.localizedName?.lowercased() == ident.lowercased() {
+        if !app.isTerminated, app.localizedName?.lowercased() == ident.lowercased() {
             axDebugLog(
                 "ProcessUtils: Found non-terminated app by localized name (in loop): " +
                     "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier), " +
@@ -180,7 +180,8 @@ private func pidByPath(_ ident: String) -> pid_t? {
     let potentialPath = (ident as NSString).expandingTildeInPath
     guard FileManager.default.fileExists(atPath: potentialPath),
           let bundle = Bundle(path: potentialPath),
-          let bundleId = bundle.bundleIdentifier else {
+          let bundleId = bundle.bundleIdentifier
+    else {
         axDebugLog(
             "ProcessUtils: Identifier '\(ident)' is not a valid file path or bundle info could not be read.",
             file: #file,
@@ -255,7 +256,8 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
     guard let pidInt = Int32(ident) else { return nil }
 
     if let appByPid = NSRunningApplication(processIdentifier: pidInt),
-       !appByPid.isTerminated {
+       !appByPid.isTerminated
+    {
         axDebugLog(
             "ProcessUtils: Found non-terminated app by PID string '\(ident)': " +
                 "'\(appByPid.localizedName ?? "nil")' " +

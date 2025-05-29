@@ -8,7 +8,7 @@ public typealias ElementAttributes = [String: AnyCodable]
 
 // Wrapper for attribute values to make them Codable and handle Any
 public struct AXValueWrapper: Codable, Sendable {
-    public var anyValue: AnyCodable? // This can be nil if the attribute itself had no value or was absent
+    // MARK: Lifecycle
 
     @MainActor // Added @MainActor to allow calling element.briefDescription
     public init(value: Any?) {
@@ -35,6 +35,12 @@ public struct AXValueWrapper: Codable, Sendable {
             self.anyValue = nil // The AXValueWrapper's own anyValue property is nil
         }
     }
+
+    // MARK: Public
+
+    public var anyValue: AnyCodable? // This can be nil if the attribute itself had no value or was absent
+
+    // MARK: Private
 
     // Static helper to sanitize individual items, called recursively by init for collections
     @MainActor
@@ -66,17 +72,47 @@ public struct AXValueWrapper: Codable, Sendable {
 }
 
 public struct AXElement: Codable, HandlerDataRepresentable {
-    public var attributes: ElementAttributes?
-    public var path: [String]?
+    // MARK: Lifecycle
 
     public init(attributes: ElementAttributes?, path: [String]? = nil) {
         self.attributes = attributes
         self.path = path
     }
+
+    // MARK: Public
+
+    public var attributes: ElementAttributes?
+    public var path: [String]?
 }
 
 // MARK: - Search Log Entry Model (for stderr JSON logging)
+
 public struct SearchLogEntry: Codable {
+    // MARK: Lifecycle
+
+    // Public initializer
+    public init(
+        depth: Int,
+        elementRole: String?,
+        elementTitle: String?,
+        elementIdentifier: String?,
+        maxDepth: Int,
+        criteria: [String: String]?,
+        status: String,
+        isMatch: Bool?
+    ) {
+        self.depth = depth
+        self.elementRole = elementRole
+        self.elementTitle = elementTitle
+        self.elementIdentifier = elementIdentifier
+        self.maxDepth = maxDepth
+        self.criteria = criteria
+        self.status = status
+        self.isMatch = isMatch
+    }
+
+    // MARK: Public
+
     public let depth: Int
     public let elementRole: String?
     public let elementTitle: String?
@@ -85,6 +121,8 @@ public struct SearchLogEntry: Codable {
     public let criteria: [String: String]?
     public let status: String // status (e.g., "vis", "found", "noMatch", "maxD")
     public let isMatch: Bool? // isMatch (true, false, or nil if not applicable for this status)
+
+    // MARK: Internal
 
     enum CodingKeys: String, CodingKey {
         case depth = "d"
@@ -95,17 +133,5 @@ public struct SearchLogEntry: Codable {
         case criteria = "c"
         case status = "s"
         case isMatch = "iM"
-    }
-
-    // Public initializer
-    public init(depth: Int, elementRole: String?, elementTitle: String?, elementIdentifier: String?, maxDepth: Int, criteria: [String: String]?, status: String, isMatch: Bool?) {
-        self.depth = depth
-        self.elementRole = elementRole
-        self.elementTitle = elementTitle
-        self.elementIdentifier = elementIdentifier
-        self.maxDepth = maxDepth
-        self.criteria = criteria
-        self.status = status
-        self.isMatch = isMatch
     }
 }

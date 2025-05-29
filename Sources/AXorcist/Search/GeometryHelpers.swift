@@ -6,18 +6,18 @@ import Foundation
 // Helper functions to convert CoreGraphics types to dictionaries for JSON serialization
 // These are needed because AnyCodable might not handle them directly as dictionaries.
 func NSPointToDictionary(_ point: CGPoint) -> [String: CGFloat] {
-    return ["x": point.x, "y": point.y]
+    ["x": point.x, "y": point.y]
 }
 
 func NSSizeToDictionary(_ size: CGSize) -> [String: CGFloat] {
-    return ["width": size.width, "height": size.height]
+    ["width": size.width, "height": size.height]
 }
 
 func NSRectToDictionary(_ rect: CGRect) -> [String: Any] { // Changed to Any for origin/size
-    return [
+    [
         "x": rect.origin.x,
         "y": rect.origin.y,
         "width": rect.size.width,
-        "height": rect.size.height
+        "height": rect.size.height,
     ]
 }

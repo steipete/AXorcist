@@ -2,9 +2,11 @@
 
 import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
+
 // GlobalAXLogger is expected to be available in this module (AXorcistLib)
 
 // MARK: - Parameterized Attributes Extension
+
 extension Element {
     @MainActor
     public func parameterizedAttribute<T>(
@@ -31,7 +33,7 @@ extension Element {
     }
 
     @MainActor
-    private func convertParameterToCFTypeRef<T>(_ parameter: Any, attribute: Attribute<T>) -> CFTypeRef? {
+    private func convertParameterToCFTypeRef(_ parameter: Any, attribute: Attribute<some Any>) -> CFTypeRef? {
         if var range = parameter as? CFRange {
             return AXValueCreate(.cfRange, &range)
         } else if let string = parameter as? String {
@@ -39,7 +41,7 @@ extension Element {
         } else if let number = parameter as? NSNumber {
             return number
         } else if CFGetTypeID(parameter as CFTypeRef) != 0 {
-            return (parameter as CFTypeRef)
+            return parameter as CFTypeRef
         } else {
             axWarningLog("Unsupported parameter type \(type(of: parameter)) for attribute \(attribute.rawValue)")
             return nil
@@ -47,8 +49,8 @@ extension Element {
     }
 
     @MainActor
-    private func copyParameterizedAttributeValue<T>(
-        attribute: Attribute<T>,
+    private func copyParameterizedAttributeValue(
+        attribute: Attribute<some Any>,
         parameter: CFTypeRef
     ) -> CFTypeRef? {
         var value: CFTypeRef?
@@ -97,47 +99,51 @@ extension Element {
 }
 
 // MARK: - Specific Parameterized Attribute Accessors
-extension Element {
+
+public extension Element {
     @MainActor
-    public func string(forRange range: CFRange) -> String? {
-        return parameterizedAttribute(.stringForRangeParameterized, forParameter: range)
+    func string(forRange range: CFRange) -> String? {
+        parameterizedAttribute(.stringForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    public func range(forLine line: Int) -> CFRange? {
-        return parameterizedAttribute(.rangeForLineParameterized, forParameter: NSNumber(value: line))
+    func range(forLine line: Int) -> CFRange? {
+        parameterizedAttribute(.rangeForLineParameterized, forParameter: NSNumber(value: line))
     }
 
     @MainActor
-    public func bounds(forRange range: CFRange) -> CGRect? {
+    func bounds(forRange range: CFRange) -> CGRect? {
         // The underlying attribute returns AXValueRef holding CGRect
         // The generic parameterizedAttribute should handle unwrapping if T is CGRect
-        return parameterizedAttribute(.boundsForRangeParameterized, forParameter: range)
+        parameterizedAttribute(.boundsForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    public func line(forIndex index: Int) -> Int? {
-        return parameterizedAttribute(.lineForIndexParameterized, forParameter: NSNumber(value: index))
+    func line(forIndex index: Int) -> Int? {
+        parameterizedAttribute(.lineForIndexParameterized, forParameter: NSNumber(value: index))
     }
 
     @MainActor
-    public func attributedString(forRange range: CFRange) -> NSAttributedString? {
-        return parameterizedAttribute(.attributedStringForRangeParameterized, forParameter: range)
+    func attributedString(forRange range: CFRange) -> NSAttributedString? {
+        parameterizedAttribute(.attributedStringForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    public func cell(forColumn column: Int, row: Int) -> Element? {
+    func cell(forColumn column: Int, row: Int) -> Element? {
         // Parameter for AXCellForColumnAndRowParameterized is an array of two NSNumbers: [col, row]
         let params = [NSNumber(value: column), NSNumber(value: row)]
-        guard let axUIElement: AXUIElement = parameterizedAttribute(.cellForColumnAndRowParameterized, forParameter: params) else {
+        guard let axUIElement: AXUIElement = parameterizedAttribute(
+            .cellForColumnAndRowParameterized,
+            forParameter: params
+        ) else {
             return nil
         }
         return Element(axUIElement)
     }
 
     @MainActor
-    public func actionDescription(_ actionName: String) -> String? {
+    func actionDescription(_ actionName: String) -> String? {
         // kAXActionDescriptionAttribute is already Attribute<String>.actionDescription
-        return parameterizedAttribute(.actionDescription, forParameter: actionName)
+        parameterizedAttribute(.actionDescription, forParameter: actionName)
     }
 }

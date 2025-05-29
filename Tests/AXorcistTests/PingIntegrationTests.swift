@@ -5,7 +5,7 @@ import Testing
 // MARK: - Ping Command Tests
 
 @Test("Test Ping via STDIN")
-func testPingViaStdin() async throws {
+func pingViaStdin() async throws {
     let inputJSON = """
     {
         "command_id": "test_ping_stdin",
@@ -45,7 +45,7 @@ func testPingViaStdin() async throws {
 }
 
 @Test("Test Ping via --file")
-func testPingViaFile() async throws {
+func pingViaFile() async throws {
     let payloadMessage = "Hello from testPingViaFile"
     let inputJSON = """
     {
@@ -83,7 +83,7 @@ func testPingViaFile() async throws {
 }
 
 @Test("Test Ping via direct positional argument")
-func testPingViaDirectPayload() async throws {
+func pingViaDirectPayload() async throws {
     let payloadMessage = "Hello from testPingViaDirectPayload"
     let inputJSON =
         "{\"command_id\":\"test_ping_direct\",\"command\":\"ping\",\"payload\":{\"message\":\"\(payloadMessage)\"}}"
@@ -115,7 +115,7 @@ func testPingViaDirectPayload() async throws {
 }
 
 @Test("Test Error: Multiple Input Methods (stdin and file)")
-func testErrorMultipleInputMethods() async throws {
+func errorMultipleInputMethods() async throws {
     let inputJSON = """
     {
         "command_id": "test_error_multiple_inputs",
@@ -157,7 +157,7 @@ func testErrorMultipleInputMethods() async throws {
 }
 
 @Test("Test Error: No Input Provided for Ping")
-func testErrorNoInputProvidedForPing() async throws {
+func errorNoInputProvidedForPing() async throws {
     let (output, errorOutput, terminationStatus) = try runAXORCCommand(arguments: [])
 
     #expect(

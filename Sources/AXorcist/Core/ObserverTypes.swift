@@ -5,7 +5,12 @@ import Foundation
 
 /// New callback type for subscriptions. The AXObserver and AXUIElement might be less relevant to the direct subscriber
 /// if the Center abstracts them, or they can be added back if deemed necessary.
-public typealias AXNotificationSubscriptionHandler = @MainActor (/*element: Element,*/ pid_t, AXNotification, _ rawElement: AXUIElement, _ nsUserInfo: [String: Any]?) -> Void
+public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: Element, */
+    pid_t,
+    AXNotification,
+    _ rawElement: AXUIElement,
+    _ nsUserInfo: [String: Any]?
+) -> Void
 
 /// Key for tracking accessibility notification subscriptions.
 ///

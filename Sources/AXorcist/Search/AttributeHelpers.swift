@@ -18,8 +18,7 @@ public func getElementAttributes(
     let requestingStr = attrNames.isEmpty ? "all" : attrNames.joined(separator: ", ")
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementAttributes called for element: \(element.briefDescription(option: .raw)), " +
-            "requesting: \(requestingStr)"
-    ))
+            "requesting: \(requestingStr)"))
 
     let attributesToProcess = attrNames.isEmpty ? (element.attributeNames() ?? []) : attrNames
 
@@ -55,33 +54,30 @@ public func getElementAttributes(
         }
     }
 
-    if outputFormat == .verbose && result[AXMiscConstants.computedPathAttributeKey] == nil {
+    if outputFormat == .verbose, result[AXMiscConstants.computedPathAttributeKey] == nil {
         let path = element.generatePathString()
         result[AXMiscConstants.computedPathAttributeKey] = AnyCodable(path)
     }
 
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementAttributes finished for element: \(element.briefDescription(option: .raw)). " +
-            "Returning \(result.count) attributes."
-    ))
+            "Returning \(result.count) attributes."))
     return (result, [])
 }
 
 @MainActor
 public func getAllElementDataForAXpector(
     for element: Element,
-    outputFormat: OutputFormat = .jsonString, // Typically .jsonString for AXpector
-    valueFormatOption: ValueFormatOption = .smart
+    outputFormat _: OutputFormat = .jsonString, // Typically .jsonString for AXpector
+    valueFormatOption _: ValueFormatOption = .smart
 ) async -> ([String: AnyCodable], ElementDetails) {
-
     var attributes: [String: AnyCodable] = [:]
     var elementDetails = ElementDetails()
 
     let allAttributeNames = element.attributeNames() ?? []
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getAllElementDataForAXpector: Fetching \(allAttributeNames.count) attributes for " +
-            "\(element.briefDescription(option: .raw))."
-    ))
+            "\(element.briefDescription(option: .raw))."))
 
     for attrName in allAttributeNames {
         if attrName == AXAttributeNames.kAXChildrenAttribute || attrName == AXAttributeNames.kAXParentAttribute {
@@ -124,7 +120,10 @@ public func getAllElementDataForAXpector(
         attributes[AXMiscConstants.computedNameAttributeKey] = AnyCodable(attributeData)
     }
     elementDetails.computedName = element.computedName()
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .raw))."))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "getAllElementDataForAXpector: Finished processing for \(element.briefDescription(option: .raw))."
+    ))
     return (attributes, elementDetails)
 }
 
@@ -134,10 +133,13 @@ public func getElementFullDescription(
     valueFormatOption: ValueFormatOption = .smart,
     includeActions: Bool = true,
     includeStoredAttributes: Bool = true,
-    knownAttributes: [String: AttributeData]? = nil
+    knownAttributes _: [String: AttributeData]? = nil
 ) async -> ([String: AnyCodable], [AXLogEntry]) {
     var attributes: [String: AnyCodable] = [:]
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "getElementFullDescription called for element: \(element.briefDescription(option: .raw))"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "getElementFullDescription called for element: \(element.briefDescription(option: .raw))"
+    ))
 
     // Collect attributes in logical groups
     await addBasicAttributes(to: &attributes, element: element)
@@ -159,7 +161,6 @@ public func getElementFullDescription(
 
     GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
         "getElementFullDescription finished for element: " +
-            "\(element.briefDescription(option: .raw)). Returning \(attributes.count) attributes."
-    ))
+            "\(element.briefDescription(option: .raw)). Returning \(attributes.count) attributes."))
     return (attributes, [])
 }

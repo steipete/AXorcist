@@ -6,7 +6,7 @@ import Foundation
 // MARK: - Core Navigation Functions
 
 @MainActor
-internal func navigateToElement(
+func navigateToElement(
     from startElement: Element,
     pathHint: [String],
     maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
@@ -17,7 +17,7 @@ internal func navigateToElement(
     for (index, pathComponentString) in pathHint.enumerated() {
         currentPathSegmentForLog += (index > 0 ? " -> " : "") + pathComponentString
 
-        if index == 0 && pathComponentString.lowercased() == "application" {
+        if index == 0, pathComponentString.lowercased() == "application" {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "Path component 'application' encountered. " +
@@ -65,7 +65,7 @@ internal func navigateToElement(
 }
 
 @MainActor
-internal func processPathComponent(
+func processPathComponent(
     currentElement: Element,
     pathComponentString: String,
     criteriaToMatch: [String: String],
@@ -104,7 +104,7 @@ internal func processPathComponent(
 }
 
 @MainActor
-internal func getChildrenFromElement(_ element: Element) -> [Element]? {
+func getChildrenFromElement(_ element: Element) -> [Element]? {
     guard let children = element.children() else {
         let currentElementDescForLog = element.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(

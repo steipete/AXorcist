@@ -24,7 +24,7 @@ import Foundation
 /// ### Async Permission Management
 /// - ``requestPermissions()``
 /// - ``permissionChanges(interval:)``
-public struct AXPermissionHelpers {
+public enum AXPermissionHelpers {
     /// Requests accessibility permissions if needed, showing the system prompt.
     ///
     /// This method will display the macOS system dialog asking the user to grant
@@ -49,7 +49,7 @@ public struct AXPermissionHelpers {
     ///
     /// - Returns: `true` if accessibility permissions are granted, `false` otherwise
     public static func hasAccessibilityPermissions() -> Bool {
-        return AXIsProcessTrusted()
+        AXIsProcessTrusted()
     }
 
     /// Determines if the app is running in a sandboxed environment.

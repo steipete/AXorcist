@@ -5,7 +5,7 @@ import Testing
 // MARK: - Application Query Tests
 
 @Test("Get All Running Applications")
-func testGetAllApplications() async throws {
+func getAllApplications() async throws {
     let command = CommandEnvelope(
         commandId: "test-get-all-apps",
         command: .collectAll,
@@ -27,7 +27,8 @@ func testGetAllApplications() async throws {
     #expect(result.output != nil, "Should have output")
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 
@@ -50,7 +51,7 @@ func testGetAllApplications() async throws {
 
 @Test("Get Windows of TextEdit")
 @MainActor
-func testGetWindowsOfApplication() async throws {
+func getWindowsOfApplication() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -84,7 +85,8 @@ func testGetWindowsOfApplication() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 
@@ -105,7 +107,7 @@ func testGetWindowsOfApplication() async throws {
 }
 
 @Test("Query Non-Existent Application")
-func testQueryNonExistentApp() async throws {
+func queryNonExistentApp() async throws {
     let command = CommandEnvelope(
         commandId: "test-nonexistent",
         command: .query,
@@ -126,7 +128,8 @@ func testQueryNonExistentApp() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8) else {
+          let responseData = output.data(using: .utf8)
+    else {
         throw TestError.generic("No output")
     }
 

@@ -6,9 +6,9 @@ import Foundation
 
 // Reverted to simpler AnyCodable with public 'value' to match widespread usage
 public struct AnyCodable: Codable, @unchecked Sendable {
-    public let value: Any
+    // MARK: Lifecycle
 
-    public init<T>(_ value: T?) {
+    public init(_ value: (some Any)?) {
         self.value = value ?? ()
     }
 
@@ -25,13 +25,20 @@ public struct AnyCodable: Codable, @unchecked Sendable {
         } else if let string = try? container.decode(String.self) {
             self.value = string
         } else if let array = try? container.decode([AnyCodable].self) {
-            self.value = array.map { $0.value }
+            self.value = array.map(\.value)
         } else if let dictionary = try? container.decode([String: AnyCodable].self) {
             self.value = dictionary.mapValues { $0.value }
         } else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "AnyCodable value cannot be decoded")
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "AnyCodable value cannot be decoded"
+            )
         }
     }
+
+    // MARK: Public
+
+    public let value: Any
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.singleValueContainer()
@@ -75,8 +82,14 @@ public struct AnyCodable: Codable, @unchecked Sendable {
 // Helper struct for AnyCodable to properly encode intermediate Encodable values
 // This might not be necessary if the direct (value as! Encodable).encode(to: encoder) works.
 struct AnyCodablePośrednik<T: Encodable>: Encodable {
-    let value: T
+    // MARK: Lifecycle
+
     init(_ value: T) { self.value = value }
+
+    // MARK: Internal
+
+    let value: T
+
     func encode(to encoder: Encoder) throws {
         try value.encode(to: encoder)
     }
@@ -89,6 +102,6 @@ private protocol OptionalProtocol {
 
 extension Optional: OptionalProtocol {
     static func isOptional() -> Bool {
-        return true
+        true
     }
 }

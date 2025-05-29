@@ -4,9 +4,10 @@ import ApplicationServices
 import Foundation
 
 // MARK: - Helper for userInfo conversion
+
 @MainActor
-internal func convertCFValueToSwift(_ cfValue: CFTypeRef?) -> Any? {
-    guard let cfValue = cfValue else { return nil }
+func convertCFValueToSwift(_ cfValue: CFTypeRef?) -> Any? {
+    guard let cfValue else { return nil }
     let typeID = CFGetTypeID(cfValue)
 
     switch typeID {

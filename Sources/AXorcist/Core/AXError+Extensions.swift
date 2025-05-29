@@ -22,21 +22,21 @@ extension AXError {
     func toAccessibilityError(context: String? = nil) -> AccessibilityError {
         switch self {
         case .success:
-            return .genericError("Unexpected success in error context")
+            .genericError("Unexpected success in error context")
         case .apiDisabled:
-            return .apiDisabled
+            .apiDisabled
         case .invalidUIElement:
-            return .invalidElement
+            .invalidElement
         case .attributeUnsupported:
-            return .attributeUnsupported(attribute: context ?? "Unknown attribute", elementDescription: nil)
+            .attributeUnsupported(attribute: context ?? "Unknown attribute", elementDescription: nil)
         case .actionUnsupported:
-            return .actionUnsupported(action: context ?? "Unknown action", elementDescription: nil)
+            .actionUnsupported(action: context ?? "Unknown action", elementDescription: nil)
         case .noValue:
-            return .attributeNotReadable(attribute: context ?? "Attribute has no value", elementDescription: nil)
+            .attributeNotReadable(attribute: context ?? "Attribute has no value", elementDescription: nil)
         case .cannotComplete:
-            return .genericError(context ?? "Cannot complete operation")
+            .genericError(context ?? "Cannot complete operation")
         default:
-            return .unknownAXError(self)
+            .unknownAXError(self)
         }
     }
 }

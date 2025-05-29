@@ -28,7 +28,7 @@ struct AXFeatureEnabledResponse: Codable {
 
 // MARK: - Response Helpers
 
-internal func finalizeAndEncodeResponse(
+func finalizeAndEncodeResponse(
     commandId: String,
     commandType: String,
     handlerResponse: HandlerResponse,
@@ -53,7 +53,7 @@ internal func finalizeAndEncodeResponse(
     return encodeToJson(finalResponseObject) ?? "{\"error\": \"JSON encoding failed\", \"commandId\": \"\(commandId)\"}"
 }
 
-internal func encodeToJson<T: Encodable>(_ object: T) -> String? {
+func encodeToJson(_ object: some Encodable) -> String? {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
 
@@ -90,6 +90,6 @@ extension EncodingError {
 // Helper for CodingPathProvider to get a string representation
 extension CodingPathProvider {
     var codingPathString: String {
-        codingPath.map { $0.stringValue }.joined(separator: ".")
+        codingPath.map(\.stringValue).joined(separator: ".")
     }
 }

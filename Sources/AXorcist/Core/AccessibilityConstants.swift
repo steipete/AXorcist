@@ -3,6 +3,7 @@
 import Foundation
 
 // MARK: - Accessibility Action Names
+
 public enum AXActionNames {
     // Standard Actions (from AXActionConstants.h and common usage)
     public static let kAXPressAction = "AXPress"
@@ -37,23 +38,26 @@ public enum AXAction {
     case raise
     case setValue
 
+    // MARK: Public
+
     /// The raw string value for the action
     public var rawValue: String {
         switch self {
-        case .press: return AXActionNames.kAXPressAction
-        case .increment: return AXActionNames.kAXIncrementAction
-        case .decrement: return AXActionNames.kAXDecrementAction
-        case .confirm: return AXActionNames.kAXConfirmAction
-        case .cancel: return AXActionNames.kAXCancelAction
-        case .showMenu: return AXActionNames.kAXShowMenuAction
-        case .pick: return AXActionNames.kAXPickAction
-        case .raise: return AXActionNames.kAXRaiseAction
-        case .setValue: return AXActionNames.kAXSetValueAction
+        case .press: AXActionNames.kAXPressAction
+        case .increment: AXActionNames.kAXIncrementAction
+        case .decrement: AXActionNames.kAXDecrementAction
+        case .confirm: AXActionNames.kAXConfirmAction
+        case .cancel: AXActionNames.kAXCancelAction
+        case .showMenu: AXActionNames.kAXShowMenuAction
+        case .pick: AXActionNames.kAXPickAction
+        case .raise: AXActionNames.kAXRaiseAction
+        case .setValue: AXActionNames.kAXSetValueAction
         }
     }
 }
 
 // MARK: - Accessibility Attribute Names
+
 public enum AXAttributeNames {
     // Core Element Attributes
     public static let kAXPIDAttribute = "AXPid" // Process ID attribute
@@ -75,7 +79,8 @@ public enum AXAttributeNames {
     public static let kAXFocusedAttribute = "AXFocused" // Bool
     public static let kAXElementBusyAttribute = "AXElementBusy" // Bool
     public static let kAXAlternateUIVisibleAttribute = "AXAlternateUIVisible" // Bool
-    public static let kAXOrientationAttribute = "AXOrientation" // String e.g. "AXVerticalOrientationValue", "AXHorizontalOrientationValue"
+    public static let kAXOrientationAttribute =
+        "AXOrientation" // String e.g. "AXVerticalOrientationValue", "AXHorizontalOrientationValue"
 
     // Hierarchy Attributes
     public static let kAXParentAttribute = "AXParent" // AXUIElement
@@ -96,7 +101,8 @@ public enum AXAttributeNames {
     // public static let kAXEnhancedUserInterfaceAttribute = "AXEnhancedUserInterface" // Bool (private)
 
     // System-wide Attributes (available on SystemWide element)
-    public static let kAXFocusedApplicationAttribute = "AXFocusedApplication" // AXUIElement (the currently focused application)
+    public static let kAXFocusedApplicationAttribute =
+        "AXFocusedApplication" // AXUIElement (the currently focused application)
 
     // Window Attributes
     public static let kAXMainAttribute = "AXMain" // Bool (is window main?)
@@ -155,7 +161,8 @@ public enum AXAttributeNames {
     // ScrollView/Area Attributes
     public static let kAXHorizontalScrollBarAttribute = "AXHorizontalScrollBar" // AXUIElement
     public static let kAXVerticalScrollBarAttribute = "AXVerticalScrollBar" // AXUIElement
-    public static let kAXScrollAreaContentsAttribute = "AXContents" // Often an alias or specific child group for scroll areas
+    public static let kAXScrollAreaContentsAttribute =
+        "AXContents" // Often an alias or specific child group for scroll areas
 
     // Web-specific (often found in WebArea roles)
     public static let kAXURLAttribute = "AXURL" // URL or String
@@ -166,7 +173,8 @@ public enum AXAttributeNames {
     // public static let kAXDOMChildrenAttribute = "AXDOMChildren"
 
     // Cell-specific Attributes
-    public static let kAXCellForColumnAndRowParameterizedAttribute = "AXCellForColumnAndRowParameterized" // AXUIElement (params: col, row)
+    public static let kAXCellForColumnAndRowParameterizedAttribute =
+        "AXCellForColumnAndRowParameterized" // AXUIElement (params: col, row)
     public static let kAXRowIndexRangeAttribute = "AXRowIndexRange" // AXValue (CFRange)
     public static let kAXColumnIndexRangeAttribute = "AXColumnIndexRange" // AXValue (CFRange)
     public static let kAXSelectedCellsAttribute = "AXSelectedCells" // [AXUIElement]
@@ -192,7 +200,7 @@ public enum AXAttributeNames {
         "AXStyleRangeForIndexParameterized", // Param: Int (char index) -> AXValue (CFRange)
         "AXLineForIndexParameterized", // Param: Int (char index) -> Int (line number)
         kAXCellForColumnAndRowParameterizedAttribute, // Already defined above
-        kAXActionDescriptionAttribute // Param: String (action name) -> String
+        kAXActionDescriptionAttribute, // Param: String (action name) -> String
         // AXLayoutPointForScreenPointParameterized, AXLayoutSizeForScreenSizeParameterized, etc. for layout areas
     ]
 
@@ -225,18 +233,22 @@ public enum AXAttributeNames {
     // Attributes related to windows and applications (These were duplicated, ensure only one set exists)
     // kAXMainWindowAttribute, kAXFocusedWindowAttribute etc. are defined above.
     // Text Marker Attributes (ensure these are not duplicated from above or are correctly placed if unique)
-    // public static let kAXSelectedTextMarkerRangeAttribute = "AXSelectedTextMarkerRange" // Already exists or part of text attributes
+    // public static let kAXSelectedTextMarkerRangeAttribute = "AXSelectedTextMarkerRange" // Already exists or part of
+    // text attributes
     // public static let kAXVisibleTextMarkerRangeAttribute = "AXVisibleTextMarkerRange" // Already exists
     // public static let kAXTextMarkerRangeForUIElementAttribute = "AXTextMarkerRangeForUIElement" // Already exists
     // public static let kAXUIElementForTextMarkerAttribute = "AXUIElementForTextMarker" // Already exists
-    // public static let kAXAttributedValueForTextMarkerRangeAttribute = "AXAttributedValueForTextMarkerRangeAttribute" // Already exists
+    // public static let kAXAttributedValueForTextMarkerRangeAttribute = "AXAttributedValueForTextMarkerRangeAttribute"
+    // // Already exists
     // public static let kAXIndexForTextMarkerAttribute = "AXIndexForTextMarkerAttribute" // Already exists
     // public static let kAXTextMarkerForIndexAttribute = "AXTextMarkerForIndexAttribute" // Already exists
     // public static let kAXBoundsForTextMarkerRangeAttribute = "AXBoundsForTextMarkerRangeAttribute" // Already exists
-    // public static let kAXLineTextMarkerRangeForTextMarkerAttribute = "AXLineTextMarkerRangeForTextMarkerAttribute" // Already exists
+    // public static let kAXLineTextMarkerRangeForTextMarkerAttribute = "AXLineTextMarkerRangeForTextMarkerAttribute" //
+    // Already exists
 }
 
 // MARK: - Accessibility Role Names
+
 public enum AXRoleNames {
     // Standard Application & System Roles
     public static let kAXApplicationRole = "AXApplication"
@@ -317,6 +329,7 @@ public enum AXRoleNames {
 }
 
 // MARK: - Accessibility Notification Names (Moved from AXNotificationConstants.swift)
+
 public enum AXNotification: String, Sendable {
     // System-Wide Notifications
     case mainWindowChanged = "AXMainWindowChanged" // kAXMainWindowChangedNotification
@@ -340,16 +353,19 @@ public enum AXNotification: String, Sendable {
     case drawerCreated = "AXDrawerCreated"
     case uiElementDestroyed = "AXUIElementDestroyed" // Standard: NSAccessibilityUIElementDestroyedNotification
     case valueChanged = "AXValueChanged"
-    case titleChanged = "AXTitleChanged" // Not a standard top-level notification, often via kAXValueChanged on title attribute
+    case titleChanged =
+        "AXTitleChanged" // Not a standard top-level notification, often via kAXValueChanged on title attribute
     case resized = "AXResized" // Standard: NSAccessibilityResizedNotification
     case moved = "AXMoved" // Standard: NSAccessibilityMovedNotification
     case created = "AXCreated" // Standard: NSAccessibilityCreatedNotification (for UI elements)
     case layoutChanged = "AXLayoutChanged" // Might be app-specific or kAXUIElementsKey in userInfo
     case selectedTextChanged = "AXSelectedTextChanged" // Standard: NSAccessibilitySelectedTextChangedNotification
     case rowCountChanged = "AXRowCountChanged" // Standard: NSAccessibilityRowCountChangedNotification
-    case selectedChildrenChanged = "AXSelectedChildrenChanged" // Standard: NSAccessibilitySelectedChildrenChangedNotification
+    case selectedChildrenChanged =
+        "AXSelectedChildrenChanged" // Standard: NSAccessibilitySelectedChildrenChangedNotification
     case selectedRowsChanged = "AXSelectedRowsChanged" // Standard: NSAccessibilitySelectedRowsChangedNotification
-    case selectedColumnsChanged = "AXSelectedColumnsChanged" // Standard: NSAccessibilitySelectedColumnsChangedNotification
+    case selectedColumnsChanged =
+        "AXSelectedColumnsChanged" // Standard: NSAccessibilitySelectedColumnsChangedNotification
     case rowExpanded = "AXRowExpanded" // Standard: NSAccessibilityRowExpandedNotification (for outlines)
     case rowCollapsed = "AXRowCollapsed" // Standard: NSAccessibilityRowCollapsedNotification (for outlines)
     case selectedCellsChanged = "AXSelectedCellsChanged" // Standard: NSAccessibilitySelectedCellsChangedNotification
@@ -369,6 +385,7 @@ public enum AXNotification: String, Sendable {
 }
 
 // MARK: - Miscellaneous Accessibility Constants
+
 public enum AXMiscConstants {
     public static let axBinaryVersion = "0.8.0" // AXorcist version for this constants file
 
@@ -386,7 +403,7 @@ public enum AXMiscConstants {
         AXAttributeNames.kAXFocusedAttribute,
         AXAttributeNames.kAXPositionAttribute,
         AXAttributeNames.kAXSizeAttribute,
-        AXAttributeNames.kAXChildrenAttribute // To get an idea of hierarchy
+        AXAttributeNames.kAXChildrenAttribute, // To get an idea of hierarchy
     ]
 
     // Default values for collection and search
@@ -404,7 +421,8 @@ public enum AXMiscConstants {
     // Keys for userInfo dictionaries or internal use
     public static let focusedApplicationKey = "focusedApplication" // Key to signify the focused application
     // focusedWindowKey was here, but seems unused, can be re-added if needed
-    public static let focusedUIElementKey = "focusedUIElement" // Key for focused UI element in userInfo (used in AXObserverCenter)
+    public static let focusedUIElementKey =
+        "focusedUIElement" // Key for focused UI element in userInfo (used in AXObserverCenter)
 
     // Keys for Custom/Computed Attributes or App Identifiers (used in AttributeHelpers, etc.)
     public static let computedNameAttributeKey = "ComputedName" // Key for element's computed name
@@ -414,5 +432,6 @@ public enum AXMiscConstants {
 
     // Path generation constants
     public static let maxPathSegments = 20 // Limit for path segment generation to avoid infinite loops
-    // pathHintAttributeKey was for Element.swift's pathHint property, which is different from AXAttributeNames.kAXPathHintAttribute
+    // pathHintAttributeKey was for Element.swift's pathHint property, which is different from
+    // AXAttributeNames.kAXPathHintAttribute
 }

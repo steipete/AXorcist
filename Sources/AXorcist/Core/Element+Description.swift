@@ -2,6 +2,7 @@
 
 import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
+
 // GlobalAXLogger should be available from AXorcistLib/Logging/GlobalAXLogger.swift
 
 // MARK: - Element Description Extension
@@ -30,7 +31,7 @@ extension Element {
         }
 
         // Handle raw option
-        if option == .raw && descriptionParts.count > 1 {
+        if option == .raw, descriptionParts.count > 1 {
             return formatShortDescription(descriptionParts)
         }
 
@@ -59,7 +60,7 @@ extension Element {
     private func addVerboseDetails(to parts: inout [String]) {
         if let value = self.value() {
             let valueStr = String(describing: value)
-            if !valueStr.isEmpty && valueStr != "nil" {
+            if !valueStr.isEmpty, valueStr != "nil" {
                 parts.append("Value: '\(valueStr.truncated(to: 80))'")
             }
         }
@@ -69,7 +70,7 @@ extension Element {
 
     @MainActor
     private func addNonEmptyAttribute(_ value: String?, prefix: String, to parts: inout [String], maxLength: Int) {
-        if let value = value, !value.isEmpty {
+        if let value, !value.isEmpty {
             parts.append("\(prefix): '\(value.truncated(to: maxLength))'")
         }
     }
@@ -86,9 +87,9 @@ extension Element {
     @MainActor
     private func formatShortDescription(_ parts: [String]) -> String {
         if let role = self.role() {
-            return "Role: \(role)"
+            "Role: \(role)"
         } else {
-            return parts.first ?? String(describing: self.underlyingElement)
+            parts.first ?? String(describing: self.underlyingElement)
         }
     }
 }

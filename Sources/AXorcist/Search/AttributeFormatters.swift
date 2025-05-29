@@ -6,7 +6,7 @@ import Foundation
 
 // Helper for formatting raw CFTypeRef values for .textContent output
 @MainActor
-internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
+func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
     if typeID == CFStringGetTypeID() {
@@ -24,23 +24,29 @@ internal func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> St
         let typeDesc = CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType"
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
             "formatRawCFValueForTextContent: Encountered unhandled CFTypeID \(typeID) - " +
-                "\(typeDesc). Returning placeholder."
-        ))
+                "\(typeDesc). Returning placeholder."))
         return "<\(typeDesc)>"
     }
 }
 
 @MainActor
-internal func extractAndFormatAttribute(
+func extractAndFormatAttribute(
     element: Element,
     attributeName: String,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
+    valueFormatOption _: ValueFormatOption
 ) async -> AnyCodable? {
-    GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .raw))"))
+    GlobalAXLogger.shared.log(AXLogEntry(
+        level: .debug,
+        message: "extractAndFormatAttribute: '\(attributeName)' for element \(element.briefDescription(option: .raw))"
+    ))
 
     // Try to extract using known attribute handlers first
-    if let extractedValue = await extractKnownAttribute(element: element, attributeName: attributeName, outputFormat: outputFormat) {
+    if let extractedValue = await extractKnownAttribute(
+        element: element,
+        attributeName: attributeName,
+        outputFormat: outputFormat
+    ) {
         return AnyCodable(extractedValue)
     }
 
@@ -92,7 +98,9 @@ private func formatOptionalIntAttribute(_ value: Int32?, outputFormat: OutputFor
 }
 
 @MainActor
-private func extractRawAttribute(element: Element, attributeName: String, outputFormat: OutputFormat) async -> AnyCodable? {
+private func extractRawAttribute(element: Element, attributeName: String,
+                                 outputFormat: OutputFormat) async -> AnyCodable?
+{
     let rawCFValue = element.rawAttributeValue(named: attributeName)
 
     if outputFormat == .textContent {
@@ -106,8 +114,7 @@ private func extractRawAttribute(element: Element, attributeName: String, output
             let cfTypeID = String(describing: CFGetTypeID(rawCFValue!))
             GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
                 "extractAndFormatAttribute: '\(attributeName)' was non-nil CFTypeRef " +
-                    "but unwrapped to nil. CFTypeID: \(cfTypeID)"
-            ))
+                    "but unwrapped to nil. CFTypeID: \(cfTypeID)"))
             return AnyCodable("<Raw CFTypeRef: \(cfTypeID)>")
         }
         return nil
@@ -117,10 +124,10 @@ private func extractRawAttribute(element: Element, attributeName: String, output
 }
 
 @MainActor
-internal func formatParentAttribute(
+func formatParentAttribute(
     _ parent: Element?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
+    valueFormatOption _: ValueFormatOption
 ) async -> AnyCodable {
     guard let parentElement = parent else { return AnyCodable(nil as String?) }
     if outputFormat == .textContent {
@@ -131,10 +138,10 @@ internal func formatParentAttribute(
 }
 
 @MainActor
-internal func formatChildrenAttribute(
+func formatChildrenAttribute(
     _ children: [Element]?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
+    valueFormatOption _: ValueFormatOption
 ) async -> AnyCodable {
     guard let actualChildren = children, !actualChildren.isEmpty else {
         return AnyCodable(nil as String?)
@@ -152,10 +159,10 @@ internal func formatChildrenAttribute(
 }
 
 @MainActor
-internal func formatFocusedUIElementAttribute(
+func formatFocusedUIElementAttribute(
     _ focusedElement: Element?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
+    valueFormatOption _: ValueFormatOption
 ) async -> AnyCodable {
     guard let element = focusedElement else { return AnyCodable(nil as String?) }
     if outputFormat == .textContent {

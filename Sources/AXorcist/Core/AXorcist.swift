@@ -26,15 +26,18 @@ import Foundation
 /// - ``AXResponse``
 @MainActor
 public class AXorcist {
+    // MARK: Lifecycle
+
     /// Creates a new AXorcist instance.
     @MainActor public init() {}
+
+    // MARK: Public
 
     /// The shared singleton instance of AXorcist.
     ///
     /// Use this shared instance for most accessibility operations to ensure
     /// consistent state and avoid unnecessary resource allocation.
     public static let shared = AXorcist()
-    private let logger = GlobalAXLogger.shared // Use the shared logger
 
     /// Executes an accessibility command and returns the response.
     ///
@@ -59,33 +62,35 @@ public class AXorcist {
     /// let response = AXorcist.shared.runCommand(envelope)
     /// ```
     public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse {
-        logger.log(AXLogEntry(level: .info, message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)"))
+        logger.log(AXLogEntry(
+            level: .info,
+            message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)"
+        ))
 
-        let response: AXResponse
-        switch commandEnvelope.command {
-        case .query(let queryCommand):
-            response = handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
-        case .performAction(let actionCommand):
-            response = handlePerformAction(command: actionCommand)
-        case .getAttributes(let getAttributesCommand):
-            response = handleGetAttributes(command: getAttributesCommand)
-        case .describeElement(let describeCommand):
-            response = handleDescribeElement(command: describeCommand)
-        case .extractText(let extractTextCommand):
-            response = handleExtractText(command: extractTextCommand)
-        case .batch(let batchCommandEnvelope):
+        let response: AXResponse = switch commandEnvelope.command {
+        case let .query(queryCommand):
+            handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
+        case let .performAction(actionCommand):
+            handlePerformAction(command: actionCommand)
+        case let .getAttributes(getAttributesCommand):
+            handleGetAttributes(command: getAttributesCommand)
+        case let .describeElement(describeCommand):
+            handleDescribeElement(command: describeCommand)
+        case let .extractText(extractTextCommand):
+            handleExtractText(command: extractTextCommand)
+        case let .batch(batchCommandEnvelope):
             // The batch command itself is an envelope, pass it directly to handleBatchCommands.
-            response = handleBatchCommands(command: batchCommandEnvelope)
-        case .setFocusedValue(let setFocusedValueCommand):
-            response = handleSetFocusedValue(command: setFocusedValueCommand)
-        case .getElementAtPoint(let getElementAtPointCommand):
-            response = handleGetElementAtPoint(command: getElementAtPointCommand)
-        case .getFocusedElement(let getFocusedElementCommand):
-            response = handleGetFocusedElement(command: getFocusedElementCommand)
-        case .observe(let observeCommand):
-            response = handleObserve(command: observeCommand)
-        case .collectAll(let collectAllCommand):
-            response = handleCollectAll(command: collectAllCommand)
+            handleBatchCommands(command: batchCommandEnvelope)
+        case let .setFocusedValue(setFocusedValueCommand):
+            handleSetFocusedValue(command: setFocusedValueCommand)
+        case let .getElementAtPoint(getElementAtPointCommand):
+            handleGetElementAtPoint(command: getElementAtPointCommand)
+        case let .getFocusedElement(getFocusedElementCommand):
+            handleGetFocusedElement(command: getFocusedElementCommand)
+        case let .observe(observeCommand):
+            handleObserve(command: observeCommand)
+        case let .collectAll(collectAllCommand):
+            handleCollectAll(command: collectAllCommand)
             // Add other command types here
             // default:
             //     let errormsg = "AXorcist/RunCommand: Unknown command type: \(commandEnvelope.command.type)"
@@ -93,12 +98,29 @@ public class AXorcist {
             //     response = .errorResponse(message: errormsg, code: .unknownCommand)
         }
 
-        logger.log(AXLogEntry(level: .info, message: "RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)"))
+        logger.log(AXLogEntry(
+            level: .info,
+            message: "RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)"
+        ))
         return response
     }
 
+    // MARK: - Logger Methods
+
+    public func getLogs() -> [String] {
+        GlobalAXLogger.shared.getLogsAsStrings()
+    }
+
+    public func clearLogs() {
+        GlobalAXLogger.shared.clearEntries()
+        logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
+    }
+
+    // MARK: Internal
+
     // MARK: - CollectAll Handler (New)
-    internal func handleCollectAll(command: CollectAllCommand) -> AXResponse {
+
+    func handleCollectAll(command: CollectAllCommand) -> AXResponse {
         logger.log(AXLogEntry(
             level: .info,
             message: "HandleCollectAll: Starting collection for app '\(command.appIdentifier ?? "focused")' " +
@@ -110,7 +132,8 @@ public class AXorcist {
         if let appId = command.appIdentifier, appId != "focused" {
             // Find specific application
             if let appPid = pid(forAppIdentifier: appId),
-               let app = Element.application(for: appPid) {
+               let app = Element.application(for: appPid)
+            {
                 rootElement = app
             } else {
                 let errorMessage = "HandleCollectAll: Could not find application '\(appId)'."
@@ -148,9 +171,13 @@ public class AXorcist {
 
         return .successResponse(payload: AnyCodable([
             "elements": collectedElements,
-            "count": collectedElements.count
+            "count": collectedElements.count,
         ]))
     }
+
+    // MARK: Private
+
+    private let logger = GlobalAXLogger.shared // Use the shared logger
 
     private func collectElementsRecursively(
         element: Element,
@@ -189,16 +216,5 @@ public class AXorcist {
                 )
             }
         }
-    }
-
-    // MARK: - Logger Methods
-
-    public func getLogs() -> [String] {
-        return GlobalAXLogger.shared.getLogsAsStrings()
-    }
-
-    public func clearLogs() {
-        GlobalAXLogger.shared.clearEntries()
-        logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
     }
 }

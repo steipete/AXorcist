@@ -9,7 +9,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-public struct WindowInfoHelper {
+public enum WindowInfoHelper {
     /// Get window info list with specified options
     public static func getWindowInfoList(
         option: CGWindowListOption,
@@ -29,7 +29,7 @@ public struct WindowInfoHelper {
 
     /// Get all windows on screen (including desktop elements)
     public static func getAllWindowsOnScreen() -> [[String: Any]]? {
-        return getWindowInfoList(option: .optionOnScreenOnly)
+        getWindowInfoList(option: .optionOnScreenOnly)
     }
 
     /// Get window info for a specific window number
@@ -76,7 +76,8 @@ public struct WindowInfoHelper {
         // Try to match by position and size with CGWindowList
         guard let position = element.position(),
               let size = element.size(),
-              let pid = element.pid() else {
+              let pid = element.pid()
+        else {
             return nil
         }
 
@@ -91,15 +92,15 @@ public struct WindowInfoHelper {
                let xCoord = bounds["X"],
                let yCoord = bounds["Y"],
                let width = bounds["Width"],
-               let height = bounds["Height"] {
-
+               let height = bounds["Height"]
+            {
                 // Check if bounds match (with small tolerance for floating point comparison)
                 let tolerance: CGFloat = 1.0
-                if abs(xCoord - position.x) < tolerance &&
-                    abs(yCoord - position.y) < tolerance &&
-                    abs(width - size.width) < tolerance &&
-                    abs(height - size.height) < tolerance {
-
+                if abs(xCoord - position.x) < tolerance,
+                   abs(yCoord - position.y) < tolerance,
+                   abs(width - size.width) < tolerance,
+                   abs(height - size.height) < tolerance
+                {
                     if let windowID = window[kCGWindowNumber as String] as? Int {
                         return CGWindowID(windowID)
                     }
@@ -120,7 +121,8 @@ public struct WindowInfoHelper {
               let xCoord = bounds["X"],
               let yCoord = bounds["Y"],
               let width = bounds["Width"],
-              let height = bounds["Height"] else {
+              let height = bounds["Height"]
+        else {
             return nil
         }
 
@@ -151,6 +153,6 @@ public struct WindowInfoHelper {
 
     /// Check if a window is on screen
     public static func isWindowOnScreen(windowID: CGWindowID) -> Bool {
-        return getWindowInfo(windowNumber: Int(windowID), option: .optionOnScreenOnly) != nil
+        getWindowInfo(windowNumber: Int(windowID), option: .optionOnScreenOnly) != nil
     }
 }
