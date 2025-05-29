@@ -142,8 +142,10 @@ func queryNonExistentApp() async throws {
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
 
     if response.success {
-        if let elements = response.data?["elements"] as? [[String: Any]] {
-            #expect(elements.isEmpty, "Should not find non-existent app")
-        }
+        // For non-existent app, we expect success but should check message or details
+        // to verify no elements were found. Since SimpleSuccessResponse doesn't
+        // have element data, we verify through the success status and message.
+        #expect(response.message.contains("No") || response.message.contains("not found") || response.message.isEmpty,
+               "Message should indicate no elements found or be empty")
     }
 }
