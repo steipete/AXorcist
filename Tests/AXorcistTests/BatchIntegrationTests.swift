@@ -61,7 +61,7 @@ private func createBatchCommand(
         application: textEditBundleId,
         attributes: ["AXRole", "AXValue"],
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": textAreaRole])
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
     )
 
     return CommandEnvelope(
@@ -77,7 +77,7 @@ private func executeBatchCommand(_ command: CommandEnvelope) async throws -> Bat
     let encoder = JSONEncoder()
     encoder.outputFormatting = .prettyPrinted
     let jsonData = try encoder.encode(command)
-    guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON string for batch command.")
     }
 
@@ -85,15 +85,15 @@ private func executeBatchCommand(_ command: CommandEnvelope) async throws -> Bat
     let result = try runAXORCCommand(arguments: [jsonString])
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-    #expect(exitCode == 0, "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR should be empty. Got: \(errorOutput ?? "")")
+    #expect(exitCode == 0, Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")"))
+    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")"))
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output string was nil or empty for batch command.")
     }
     print("Received output from axorc (batch command): \(outputString)")
 
-    guard let responseData = outputString.data(using: .utf8) else {
+    guard let responseData = outputString.data(using: String.Encoding.utf8) else {
         throw TestError.generic("Could not convert output string to data for batch command.")
     }
 

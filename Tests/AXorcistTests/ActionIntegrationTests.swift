@@ -182,7 +182,7 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     let encoder = JSONEncoder()
     encoder.outputFormatting = .withoutEscapingSlashes
     let jsonData = try encoder.encode(command)
-    guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON for command.")
     }
 
@@ -190,8 +190,8 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     let result = try runAXORCCommand(arguments: [jsonString])
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-    #expect(exitCode == 0, "Command failed. Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR should be empty. Got: \(errorOutput ?? "")")
+    #expect(exitCode == 0, Comment(rawValue: "Command failed. Error: \(errorOutput ?? "N/A")"))
+    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")"))
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output was nil/empty.")
@@ -199,7 +199,7 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
 
     print("Received output: \(outputString)")
 
-    guard let responseData = outputString.data(using: .utf8) else {
+    guard let responseData = outputString.data(using: String.Encoding.utf8) else {
         throw TestError.generic("Could not convert output to data.")
     }
 

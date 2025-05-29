@@ -149,8 +149,8 @@ func runAXORCCommand(arguments: [String]) throws -> CommandResult {
     let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
-    let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let output = String(data: outputData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
 
     let cleanOutput = stripJSONPrefix(from: output)
 
@@ -161,7 +161,7 @@ func createTempFile(content: String) throws -> String {
     let tempDir = FileManager.default.temporaryDirectory
     let fileName = UUID().uuidString + ".json"
     let fileURL = tempDir.appendingPathComponent(fileName)
-    try content.write(to: fileURL, atomically: true, encoding: .utf8)
+    try content.write(to: fileURL, atomically: true, encoding: String.Encoding.utf8)
     return fileURL.path
 }
 
@@ -195,7 +195,7 @@ func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> 
 
     try process.run()
 
-    if let inputData = inputJSON.data(using: .utf8) {
+    if let inputData = inputJSON.data(using: String.Encoding.utf8) {
         try inputPipe.fileHandleForWriting.write(contentsOf: inputData)
         inputPipe.fileHandleForWriting.closeFile()
     } else {
@@ -208,8 +208,8 @@ func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> 
     let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
-    let output = String(data: outputData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let errorOutput = String(data: errorData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let output = String(data: outputData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
 
     let cleanOutput = stripJSONPrefix(from: output)
 

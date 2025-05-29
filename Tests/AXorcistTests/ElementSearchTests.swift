@@ -12,7 +12,7 @@ func searchElementsByRole() async throws {
 
     let (pid, _) = try await setupTextEditAndGetInfo()
     defer {
-        if let app = NSRunningApplication.runningApplications(withProcessIdentifier: pid).first {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
         }
     }
@@ -25,13 +25,13 @@ func searchElementsByRole() async throws {
         command: .query,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXButton"]),
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXButton")]),
         outputFormat: .verbose
     )
 
     let encoder = JSONEncoder()
     let jsonData = try encoder.encode(command)
-    guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -40,7 +40,7 @@ func searchElementsByRole() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8)
+          let responseData = output.data(using: String.Encoding.utf8)
     else {
         throw TestError.generic("No output")
     }
@@ -68,7 +68,7 @@ func describeElementHierarchy() async throws {
 
     let (pid, _) = try await setupTextEditAndGetInfo()
     defer {
-        if let app = NSRunningApplication.runningApplications(withProcessIdentifier: pid).first {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
         }
     }
@@ -81,14 +81,14 @@ func describeElementHierarchy() async throws {
         command: .describeElement,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXApplication"]),
-        maxDepth: 3,
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")]),
+        maxElements: 3,
         outputFormat: .verbose
     )
 
     let encoder = JSONEncoder()
     let jsonData = try encoder.encode(command)
-    guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -97,7 +97,7 @@ func describeElementHierarchy() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8)
+          let responseData = output.data(using: String.Encoding.utf8)
     else {
         throw TestError.generic("No output")
     }
@@ -139,7 +139,7 @@ func setAndVerifyText() async throws {
 
     let (pid, _) = try await setupTextEditAndGetInfo()
     defer {
-        if let app = NSRunningApplication.runningApplications(withProcessIdentifier: pid).first {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
         }
     }
@@ -152,14 +152,14 @@ func setAndVerifyText() async throws {
         command: .performAction,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXTextArea"]),
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
         actionName: "AXSetValue",
         actionValue: AnyCodable("Hello from AXorcist tests!")
     )
 
     let encoder = JSONEncoder()
     var jsonData = try encoder.encode(setText)
-    guard let setJsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let setJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -172,12 +172,12 @@ func setAndVerifyText() async throws {
         command: .query,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXTextArea"]),
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
         outputFormat: .verbose
     )
 
     jsonData = try encoder.encode(queryText)
-    guard let queryJsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let queryJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -185,7 +185,7 @@ func setAndVerifyText() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8)
+          let responseData = output.data(using: String.Encoding.utf8)
     else {
         throw TestError.generic("No output")
     }
@@ -219,7 +219,7 @@ func testExtractText() async throws {
 
     let (pid, _) = try await setupTextEditAndGetInfo()
     defer {
-        if let app = NSRunningApplication.runningApplications(withProcessIdentifier: pid).first {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
         }
     }
@@ -232,14 +232,14 @@ func testExtractText() async throws {
         command: .performAction,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXTextArea"]),
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
         actionName: "AXSetValue",
         actionValue: AnyCodable("This is test content.\nIt has multiple lines.\nExtract this text.")
     )
 
     let encoder = JSONEncoder()
     var jsonData = try encoder.encode(setText)
-    guard let setJsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let setJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -251,12 +251,12 @@ func testExtractText() async throws {
         command: .extractText,
         application: "TextEdit",
         debugLogging: true,
-        locator: Locator(criteria: ["AXRole": "AXWindow"]),
+        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]),
         outputFormat: .textContent
     )
 
     jsonData = try encoder.encode(extractCommand)
-    guard let extractJsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let extractJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON")
     }
 
@@ -264,7 +264,7 @@ func testExtractText() async throws {
     #expect(result.exitCode == 0)
 
     guard let output = result.output,
-          let responseData = output.data(using: .utf8)
+          let responseData = output.data(using: String.Encoding.utf8)
     else {
         throw TestError.generic("No output")
     }

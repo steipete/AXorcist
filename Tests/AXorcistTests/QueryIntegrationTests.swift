@@ -31,19 +31,19 @@ func launchAndQueryTextEdit() async throws {
 
     print("Input JSON for axorc:\n\(inputJSON)")
 
-    let (output, errorOutput, terminationStatus) = try runAXORCCommandWithStdin(
+    let result = try runAXORCCommandWithStdin(
         inputJSON: inputJSON,
         arguments: ["--debug"]
     )
 
-    print("axorc STDOUT:\n\(output ?? "nil")")
-    print("axorc STDERR:\n\(errorOutput ?? "nil")")
-    print("axorc Termination Status: \(terminationStatus)")
+    print("axorc STDOUT:\n\(result.output ?? "nil")")
+    print("axorc STDERR:\n\(result.errorOutput ?? "nil")")
+    print("axorc Termination Status: \(result.exitCode)")
 
     let outputJSONString = try validateCommandExecution(
-        output: output,
-        errorOutput: errorOutput,
-        exitCode: terminationStatus,
+        output: result.output,
+        errorOutput: result.errorOutput,
+        exitCode: result.exitCode,
         commandName: "getFocusedElement"
     )
 
@@ -60,11 +60,11 @@ func launchAndQueryTextEdit() async throws {
 
     let expectedRole = ApplicationServices.kAXTextAreaRole as String
     let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.value as? String
-    let attributeKeys = Array(elementData.attributes?.keys ?? [])
+    let attributeKeys = elementData.attributes?.keys.map { Array($0) } ?? []
     #expect(
         actualRole == expectedRole,
-        "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. " +
-            "Attributes: \(attributeKeys)"
+        Comment(rawValue: "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. " +
+            "Attributes: \(attributeKeys)")
     )
 
     #expect(
@@ -98,7 +98,7 @@ func getAttributesForTextEditApplication() async throws {
         print("TextEdit close process initiated for getAttributes test.")
     }
 
-    let appLocator = Locator(criteria: [:])
+    let appLocator = Locator(criteria: [])
 
     let commandEnvelope = createCommandEnvelope(
         commandId: commandId,
@@ -111,12 +111,12 @@ func getAttributesForTextEditApplication() async throws {
     let jsonString = try encodeCommandToJSON(commandEnvelope)
 
     print("Sending getAttributes command to axorc: \(jsonString)")
-    let (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
+    let result = try runAXORCCommand(arguments: [jsonString])
 
     let outputString = try validateCommandExecution(
-        output: output,
-        errorOutput: errorOutput,
-        exitCode: exitCode,
+        output: result.output,
+        errorOutput: result.errorOutput,
+        exitCode: result.exitCode,
         commandName: "getAttributes"
     )
 
@@ -127,15 +127,15 @@ func getAttributesForTextEditApplication() async throws {
     let attributes = queryResponse.data?.attributes
     #expect(
         attributes?["AXRole"]?.value as? String == "AXApplication",
-        "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
+        Comment(rawValue: "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))")
     )
     #expect(
         attributes?["AXTitle"]?.value as? String == "TextEdit",
-        "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
+        Comment(rawValue: "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))")
     )
 
     if let windowsAttr = attributes?["AXWindows"] {
-        #expect(windowsAttr.value is [Any], "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
+        #expect(windowsAttr.value is [Any], Comment(rawValue: "AXWindows should be an array. Type: \(type(of: windowsAttr.value))"))
         if let windowsArray = windowsAttr.value as? [AnyCodable] {
             #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
         } else if let windowsArray = windowsAttr.value as? [Any] {
@@ -176,7 +176,7 @@ func queryForTextEditTextArea() async throws {
     }
 
     let textAreaLocator = Locator(
-        criteria: ["AXRole": textAreaRole]
+        criteria: [Criterion(attribute: "AXRole", value: textAreaRole)]
     )
 
     let commandEnvelope = createCommandEnvelope(
@@ -190,12 +190,12 @@ func queryForTextEditTextArea() async throws {
     let jsonString = try encodeCommandToJSON(commandEnvelope)
 
     print("Sending query command to axorc: \(jsonString)")
-    let (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
+    let result = try runAXORCCommand(arguments: [jsonString])
 
     let outputString = try validateCommandExecution(
-        output: output,
-        errorOutput: errorOutput,
-        exitCode: exitCode,
+        output: result.output,
+        errorOutput: result.errorOutput,
+        exitCode: result.exitCode,
         commandName: "query"
     )
 
@@ -206,7 +206,7 @@ func queryForTextEditTextArea() async throws {
     let attributes = queryResponse.data?.attributes
     #expect(
         attributes?["AXRole"]?.value as? String == textAreaRole,
-        "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
+        Comment(rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))")
     )
 
     #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
@@ -239,7 +239,7 @@ func describeTextEditTextArea() async throws {
     }
 
     let textAreaLocator = Locator(
-        criteria: ["AXRole": textAreaRole]
+        criteria: [Criterion(attribute: "AXRole", value: textAreaRole)]
     )
 
     let commandEnvelope = createCommandEnvelope(
@@ -252,12 +252,12 @@ func describeTextEditTextArea() async throws {
     let jsonString = try encodeCommandToJSON(commandEnvelope)
 
     print("Sending describeElement command to axorc: \(jsonString)")
-    let (output, errorOutput, exitCode) = try runAXORCCommand(arguments: [jsonString])
+    let result = try runAXORCCommand(arguments: [jsonString])
 
     let outputString = try validateCommandExecution(
-        output: output,
-        errorOutput: errorOutput,
-        exitCode: exitCode,
+        output: result.output,
+        errorOutput: result.errorOutput,
+        exitCode: result.exitCode,
         commandName: "describeElement"
     )
 
@@ -270,7 +270,7 @@ func describeTextEditTextArea() async throws {
 
     #expect(
         attributes["AXRole"]?.value as? String == textAreaRole,
-        "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
+        Comment(rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))")
     )
 
     #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
@@ -279,7 +279,7 @@ func describeTextEditTextArea() async throws {
     #expect(attributes["AXSize"]?.value != nil, "AXSize should exist.")
     #expect(
         attributes.count > 10,
-        "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)"
+        Comment(rawValue: "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)")
     )
 
     #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
@@ -318,14 +318,14 @@ private func encodeCommandToJSON(_ commandEnvelope: CommandEnvelope) throws -> S
     let encoder = JSONEncoder()
     encoder.outputFormatting = .withoutEscapingSlashes
     let jsonData = try encoder.encode(commandEnvelope)
-    guard let jsonString = String(data: jsonData, encoding: .utf8) else {
+    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
         throw TestError.generic("Failed to create JSON string for command.")
     }
     return jsonString
 }
 
 private func decodeQueryResponse(from outputString: String, commandName: String) throws -> QueryResponse {
-    guard let responseData = outputString.data(using: .utf8) else {
+    guard let responseData = outputString.data(using: String.Encoding.utf8) else {
         throw TestError.generic("Could not convert output string to data for \(commandName). Output: \(outputString)")
     }
 
@@ -346,8 +346,8 @@ private func validateCommandExecution(
     exitCode: Int32,
     commandName: String
 ) throws -> String {
-    #expect(exitCode == 0, "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")")
-    #expect(errorOutput == nil || errorOutput!.isEmpty, "STDERR should be empty on success. Got: \(errorOutput ?? "")")
+    #expect(exitCode == 0, Comment(rawValue: "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")"))
+    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty on success. Got: \(errorOutput ?? "")"))
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output string was nil or empty for \(commandName).")
@@ -365,9 +365,9 @@ private func validateQueryResponseBasics(
     #expect(queryResponse.commandId == expectedCommandId)
     #expect(
         queryResponse.success == true,
-        "Command should succeed. Error: \(queryResponse.error?.message ?? "None")"
+        Comment(rawValue: "Command should succeed. Error: \(queryResponse.error?.message ?? "None")")
     )
     #expect(queryResponse.command == expectedCommand.rawValue)
-    #expect(queryResponse.error == nil, "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
+    #expect(queryResponse.error == nil, Comment(rawValue: "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")"))
     #expect(queryResponse.data != nil, "Data field should not be nil.")
 }
