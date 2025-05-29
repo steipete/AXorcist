@@ -1,6 +1,14 @@
 import ApplicationServices
 import Foundation
 
+/// Extension providing accessibility notification observation handlers for AXorcist.
+///
+/// This extension handles:
+/// - Setting up AXObserver instances for notifications
+/// - Managing notification subscriptions and callbacks
+/// - Real-time event monitoring and processing
+/// - Element detail extraction for observed events
+/// - Cleanup and lifecycle management of observers
 @MainActor
 public extension AXorcist {
     func handleObserve(command: ObserveCommand) -> AXResponse {

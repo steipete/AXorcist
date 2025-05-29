@@ -2,6 +2,14 @@ import AppKit // For NSRunningApplication & NSValue
 import ApplicationServices
 import Foundation
 
+/// Extension providing action execution handlers for AXorcist.
+///
+/// This extension handles:
+/// - Performing accessibility actions on UI elements
+/// - Action validation and error handling
+/// - Setting element values (text, numeric, selection)
+/// - Complex action coordination and validation
+/// - Integration with element discovery and targeting
 @MainActor
 public extension AXorcist {
     // MARK: - Perform Action Handler

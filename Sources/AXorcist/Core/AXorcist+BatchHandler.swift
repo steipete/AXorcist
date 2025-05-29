@@ -1,5 +1,13 @@
 import Foundation
 
+/// Extension providing batch command processing for AXorcist.
+///
+/// This extension handles:
+/// - Batch execution of multiple accessibility commands
+/// - Sequential processing with error handling
+/// - Result aggregation and response compilation
+/// - Error collection and reporting across batch operations
+/// - Performance optimization for multiple operations
 @MainActor
 extension AXorcist {
     public func handleBatchCommands(command: AXBatchCommand) -> AXResponse {

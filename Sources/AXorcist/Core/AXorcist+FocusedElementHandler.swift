@@ -1,6 +1,14 @@
 import ApplicationServices
 import Foundation
 
+/// Extension providing focused element discovery and handling for AXorcist.
+///
+/// This extension handles:
+/// - Retrieving the currently focused accessibility element
+/// - Cross-application focus tracking
+/// - Focused element attribute extraction
+/// - Focus change monitoring and reporting
+/// - Integration with application targeting
 @MainActor
 public extension AXorcist {
     func handleGetFocusedElement(command: GetFocusedElementCommand) -> AXResponse {

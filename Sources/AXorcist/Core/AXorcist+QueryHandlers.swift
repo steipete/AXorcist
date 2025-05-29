@@ -5,6 +5,14 @@ import Foundation
 // Note: Assumes Element, Attribute, AXValueWrapper, etc. are defined and accessible.
 // Assumes GlobalAXLogger is available.
 
+/// Extension providing element query and discovery handlers for AXorcist.
+///
+/// This extension handles:
+/// - Element discovery using various locator strategies
+/// - Tree traversal with configurable depth limits
+/// - Property extraction and formatting
+/// - Complex element matching and filtering
+/// - Application targeting and focus management
 @MainActor
 public extension AXorcist {
     // MARK: - Query Handler
