@@ -3,8 +3,12 @@
 import ApplicationServices
 import Foundation
 
-/// New callback type for subscriptions. The AXObserver and AXUIElement might be less relevant to the direct subscriber
-/// if the Center abstracts them, or they can be added back if deemed necessary.
+/// Handler function type for accessibility notification callbacks.
+///
+/// This handler is called when an observed accessibility notification occurs.
+/// Parameters include the process ID, notification type, raw element reference,
+/// and optional user info dictionary. The handler runs on the main actor
+/// to ensure UI safety.
 public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: Element, */
     pid_t,
     AXNotification,

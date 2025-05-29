@@ -2,6 +2,14 @@
 
 import Foundation
 
+/// Supported command types for AXorcist accessibility operations.
+///
+/// Each command performs a specific accessibility task:
+/// - Query operations: Find and filter elements
+/// - Attribute operations: Get/set element properties
+/// - Action operations: Perform UI interactions
+/// - Observation: Subscribe to accessibility notifications
+/// - Utility: System checks and batch operations
 public enum CommandType: String, Codable, Sendable {
     case ping
     case query
@@ -23,6 +31,14 @@ public enum CommandType: String, Codable, Sendable {
     case getElementDescription // Utility command for full description
 }
 
+/// Output format options for AXorcist command results.
+///
+/// Different formats optimize for various use cases:
+/// - json: Machine-readable structured data
+/// - verbose: Detailed human-readable output
+/// - smart: Context-aware formatting (default)
+/// - jsonString: JSON as string for embedded usage
+/// - textContent: Text-only extraction
 public enum OutputFormat: String, Codable, Sendable {
     case json
     case verbose

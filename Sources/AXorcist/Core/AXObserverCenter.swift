@@ -8,7 +8,17 @@
 import ApplicationServices
 import Foundation
 
-/// Centralized manager for AXObserver instances
+/// Centralized manager for AXObserver instances that coordinates accessibility notifications.
+///
+/// AXObserverCenter provides:
+/// - Unified management of accessibility observers across the application
+/// - Registration and lifecycle management of notification subscriptions
+/// - Process-specific observer tracking
+/// - Automatic cleanup of observers when processes terminate
+/// - Thread-safe observer operations
+///
+/// This center ensures efficient resource usage by reusing observers for the same
+/// process and prevents memory leaks by properly cleaning up observers.
 @MainActor
 public class AXObserverCenter {
     // MARK: Lifecycle

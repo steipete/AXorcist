@@ -4,7 +4,15 @@ import Foundation
 
 // MARK: - AnyCodable for mixed-type payloads or attributes
 
-// Reverted to simpler AnyCodable with public 'value' to match widespread usage
+/// A type-erased wrapper that enables encoding and decoding of heterogeneous values.
+///
+/// AnyCodable provides a way to work with JSON or other encoded data that contains
+/// mixed types (strings, numbers, booleans, arrays, dictionaries) without knowing
+/// the exact types at compile time. This is particularly useful for handling
+/// accessibility attributes which can have various value types.
+///
+/// The struct is marked as @unchecked Sendable because the underlying value
+/// property is immutable after initialization, making it safe for concurrent access.
 public struct AnyCodable: Codable, @unchecked Sendable {
     // MARK: Lifecycle
 

@@ -3,6 +3,21 @@
 import ApplicationServices
 import Foundation
 
+/// Provides a high-level interface for observing accessibility notifications on UI elements or processes.
+///
+/// NotificationWatcher simplifies the process of:
+/// - Subscribing to accessibility notifications for specific elements or processes
+/// - Managing notification lifecycle with automatic cleanup
+/// - Handling notification callbacks in a type-safe manner
+/// - Supporting both element-specific and process-wide notifications
+///
+/// Example usage:
+/// ```swift
+/// let watcher = NotificationWatcher(forElement: element, notification: .valueChanged) { element, info in
+///     print("Value changed on element")
+/// }
+/// watcher.start()
+/// ```
 @MainActor
 public class NotificationWatcher {
     // MARK: Lifecycle

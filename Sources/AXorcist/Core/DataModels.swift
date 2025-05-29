@@ -3,10 +3,17 @@
 import ApplicationServices // Added for AXUIElementGetTypeID
 import Foundation
 
-// Type alias for element attributes dictionary
+/// Type alias for a dictionary of accessibility element attributes.
+/// Keys are attribute names (e.g., "AXTitle", "AXValue") and values are wrapped in AnyCodable.
 public typealias ElementAttributes = [String: AnyCodable]
 
-// Wrapper for attribute values to make them Codable and handle Any
+/// Wrapper that makes accessibility attribute values Codable and Sendable.
+///
+/// AXValueWrapper handles:
+/// - Converting AXUIElement references to structured Element data
+/// - Sanitizing arrays and dictionaries recursively
+/// - Preserving type information for various accessibility values
+/// - Thread-safe serialization of complex attribute values
 public struct AXValueWrapper: Codable, Sendable {
     // MARK: Lifecycle
 
