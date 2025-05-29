@@ -14,9 +14,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.3.0"),
-        // Added swift-argument-parser
-        .package(url: "https://github.com/apple/swift-testing.git", from: "0.6.0"), // Added swift-testing
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"), // Added swift-log
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"),
     ],
     targets: [
         .target(
@@ -50,7 +48,6 @@ let package = Package(
             name: "AXorcistTests",
             dependencies: [
                 "AXorcist", // Dependency restored to AXorcist
-                .product(name: "Testing", package: "swift-testing"), // Added swift-testing dependency
             ],
             path: "Tests/AXorcistTests" // Explicit path
             // Sources will be inferred by SPM
