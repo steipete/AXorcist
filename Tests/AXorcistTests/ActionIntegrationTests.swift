@@ -1,13 +1,12 @@
 import AppKit
 @testable import AXorcist
 import Foundation
-import Testing
+import XCTest
 
 // MARK: - Action Command Tests
 
-@Test("Perform Action: Set Value of TextEdit Text Area")
-@MainActor
-func performActionSetTextEditTextAreaValue() async throws {
+class ActionIntegrationTests: XCTestCase {
+func testPerformActionSetTextEditTextAreaValue() async throws {
     let actionCommandId = "performaction-setvalue-\(UUID().uuidString)"
     let queryCommandId = "query-verify-setvalue-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
@@ -37,9 +36,7 @@ func performActionSetTextEditTextAreaValue() async throws {
     )
 }
 
-@Test("Extract Text from TextEdit Text Area")
-@MainActor
-func extractTextFromTextEditTextArea() async throws {
+func testExtractTextFromTextEditTextArea() async throws {
     let setValueCommandId = "setvalue-for-extract-\(UUID().uuidString)"
     let extractTextCommandId = "extracttext-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
@@ -89,9 +86,9 @@ private func performSetValueAction(
 
     let response = try await executeCommand(performActionEnvelope)
 
-    #expect(response.commandId == actionCommandId)
-    #expect(
-        response.success == true,
+    XCTAssertEqual(response.commandId , actionCommandId)
+    XCTAssertEqual(
+        response.success , true,
         "performAction command was not successful. Error: \(response.error?.message ?? "N/A")"
     )
 
@@ -115,9 +112,9 @@ private func verifyTextValue(
 
     let response = try await executeCommand(queryEnvelope)
 
-    #expect(response.commandId == queryCommandId)
-    #expect(
-        response.success == true,
+    XCTAssertEqual(response.commandId , queryCommandId)
+    XCTAssertEqual(
+        response.success , true,
         "Query (verify) command failed. Error: \(response.error?.message ?? "N/A")"
     )
 
@@ -126,12 +123,12 @@ private func verifyTextValue(
     }
 
     let retrievedValue = attributes["AXValue"]?.value as? String
-    #expect(
-        retrievedValue == expectedText,
+    XCTAssertEqual(
+        retrievedValue , expectedText,
         "AXValue did not match. Expected: '\(expectedText)'. Got: '\(retrievedValue ?? "nil")'"
     )
 
-    #expect(response.debugLogs != nil)
+    XCTAssertNotEqual(response.debugLogs , nil)
 }
 
 private func extractAndVerifyText(
@@ -150,25 +147,25 @@ private func extractAndVerifyText(
 
     let response = try await executeCommand(extractTextEnvelope)
 
-    #expect(response.commandId == extractTextCommandId)
-    #expect(
-        response.success == true,
+    XCTAssertEqual(response.commandId , extractTextCommandId)
+    XCTAssertEqual(
+        response.success , true,
         "extractText command failed. Error: \(response.error?.message ?? "N/A")"
     )
-    #expect(response.command == CommandType.extractText.rawValue)
+    XCTAssertEqual(response.command , CommandType.extractText.rawValue)
 
     guard let attributes = response.data?.attributes else {
         throw TestError.generic("Attributes nil in extractText response.")
     }
 
     let extractedValue = attributes["AXValue"]?.value as? String
-    #expect(
-        extractedValue == expectedText,
+    XCTAssertEqual(
+        extractedValue , expectedText,
         "Extracted text did not match. Expected: '\(expectedText)'. Got: '\(extractedValue ?? "nil")'"
     )
 
-    #expect(response.debugLogs != nil)
-    #expect(
+    XCTAssertNotEqual(response.debugLogs , nil)
+    XCTAssertTrue(
         response.debugLogs?
             .contains { log in
                 log.contains("Handling extractText command") ||
@@ -190,9 +187,9 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     let result = try runAXORCCommand(arguments: [jsonString])
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-    #expect(exitCode == 0, Comment(rawValue: "Command failed. Error: \(errorOutput ?? "N/A")"))
-    #expect(
-        errorOutput == nil || errorOutput!.isEmpty,
+    XCTAssertEqual(exitCode , 0, Comment(rawValue: "Command failed. Error: \(errorOutput ?? "N/A")"))
+    XCTAssertEqual(
+        errorOutput , nil || errorOutput!.isEmpty,
         Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
     )
 
@@ -211,4 +208,6 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     } catch {
         throw TestError.generic("Failed to decode response: \(error.localizedDescription). JSON: \(outputString)")
     }
+}
+
 }

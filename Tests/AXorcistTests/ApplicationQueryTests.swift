@@ -1,11 +1,11 @@
 import AppKit
 @testable import AXorcist
-import Testing
+import XCTest
 
 // MARK: - Application Query Tests
 
-@Test("Get All Running Applications")
-func getAllApplications() async throws {
+class ApplicationQueryTests: XCTestCase {
+func testGetAllApplications() async throws {
     let command = CommandEnvelope(
         commandId: "test-get-all-apps",
         command: .collectAll,
@@ -23,8 +23,8 @@ func getAllApplications() async throws {
 
     let result = try runAXORCCommand(arguments: [jsonString])
 
-    #expect(result.exitCode == 0, "Command should succeed")
-    #expect(result.output != nil, "Should have output")
+    XCTAssertEqual(result.exitCode , 0, "Command should succeed")
+    XCTAssertNotEqual(result.output , nil, "Should have output")
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -34,28 +34,26 @@ func getAllApplications() async throws {
 
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
 
-    #expect(response.success == true)
+    XCTAssertEqual(response.success , true)
     // TODO: Fix response type - SimpleSuccessResponse doesn't have data property
     // The following code expects response.data which doesn't exist
     /*
-     #expect(response.data?["elements"] != nil, "Should have elements")
+     XCTAssertNotEqual(response.data?["elements"] , nil, "Should have elements")
 
      if let elements = response.data?["elements"] as? [[String: Any]] {
-         #expect(!elements.isEmpty, "Should have at least one application")
+         XCTAssertTrue(!elements.isEmpty, "Should have at least one application")
 
          // Check for Finder
          let appTitles = elements.compactMap { element -> String? in
              guard let attrs = element["attributes"] as? [String: Any] else { return nil }
              return attrs["AXTitle"] as? String
          }
-         #expect(appTitles.contains("Finder"), "Finder should be running")
+         XCTAssertTrue(appTitles.contains("Finder"), "Finder should be running")
      }
      */
 }
 
-@Test("Get Windows of TextEdit")
-@MainActor
-func getWindowsOfApplication() async throws {
+func testGetWindowsOfApplication() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -86,7 +84,7 @@ func getWindowsOfApplication() async throws {
 
     let result = try runAXORCCommand(arguments: [jsonString])
 
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -96,24 +94,23 @@ func getWindowsOfApplication() async throws {
 
     let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
 
-    #expect(response.success == true)
+    XCTAssertEqual(response.success , true)
     // TODO: Fix response type - SimpleSuccessResponse doesn't have data property
     /*
      if let elements = response.data?["elements"] as? [[String: Any]] {
-         #expect(!elements.isEmpty, "Should have at least one window")
+         XCTAssertTrue(!elements.isEmpty, "Should have at least one window")
 
          for window in elements {
              if let attrs = window["attributes"] as? [String: Any] {
-                 #expect(attrs["AXRole"] as? String == "AXWindow")
-                 #expect(attrs["AXTitle"] != nil, "Window should have title")
+                 XCTAssertEqual(attrs["AXRole"] as? String , "AXWindow")
+                 XCTAssertNotEqual(attrs["AXTitle"] , nil, "Window should have title")
              }
          }
      }
      */
 }
 
-@Test("Query Non-Existent Application")
-func queryNonExistentApp() async throws {
+func testQueryNonExistentApp() async throws {
     let command = CommandEnvelope(
         commandId: "test-nonexistent",
         command: .query,
@@ -131,7 +128,7 @@ func queryNonExistentApp() async throws {
     let result = try runAXORCCommand(arguments: [jsonString])
 
     // Command should succeed but return no elements
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -145,7 +142,9 @@ func queryNonExistentApp() async throws {
         // For non-existent app, we expect success but should check message or details
         // to verify no elements were found. Since SimpleSuccessResponse doesn't
         // have element data, we verify through the success status and message.
-        #expect(response.message.contains("No") || response.message.contains("not found") || response.message.isEmpty,
+        XCTAssertTrue(response.message.contains("No") || response.message.contains("not found") || response.message.isEmpty,
                 "Message should indicate no elements found or be empty")
     }
+}
+
 }

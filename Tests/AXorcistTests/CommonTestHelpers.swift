@@ -1,6 +1,5 @@
 import AppKit
 @testable import AXorcist
-import Testing
 import XCTest
 
 // Result struct for AXORC commands

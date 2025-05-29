@@ -1,12 +1,11 @@
 import AppKit
 @testable import AXorcist
-import Testing
+import XCTest
 
 // MARK: - Batch Command Tests
 
-@Test("Batch Command: GetFocusedElement and Query TextEdit")
-@MainActor
-func batchCommandGetFocusedElementAndQuery() async throws {
+class BatchIntegrationTests: XCTestCase {
+func testBatchCommandGetFocusedElementAndQuery() async throws {
     let batchCommandId = "batch-textedit-\(UUID().uuidString)"
     let focusedElementSubCmdId = "batch-sub-getfocused-\(UUID().uuidString)"
     let querySubCmdId = "batch-sub-querytextarea-\(UUID().uuidString)"
@@ -85,12 +84,12 @@ private func executeBatchCommand(_ command: CommandEnvelope) async throws -> Bat
     let result = try runAXORCCommand(arguments: [jsonString])
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-    #expect(
-        exitCode == 0,
+    XCTAssertEqual(
+        exitCode , 0,
         Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
     )
-    #expect(
-        errorOutput == nil || errorOutput!.isEmpty,
+    XCTAssertEqual(
+        errorOutput , nil || errorOutput!.isEmpty,
         Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
     )
 
@@ -113,25 +112,27 @@ private func verifyBatchResponse(
     querySubCmdId: String,
     textAreaRole: String
 ) {
-    #expect(batchResponse.commandId == batchCommandId)
-    #expect(batchResponse.success == true, "Batch command should succeed")
-    #expect(batchResponse.results.count == 2, "Expected 2 results")
+    XCTAssertEqual(batchResponse.commandId , batchCommandId)
+    XCTAssertEqual(batchResponse.success , true, "Batch command should succeed")
+    XCTAssertEqual(batchResponse.results.count , 2, "Expected 2 results")
 
     // Verify first sub-command
     let result1 = batchResponse.results[0]
-    #expect(result1.commandId == focusedElementSubCmdId)
-    #expect(result1.success == true, "GetFocusedElement should succeed")
-    #expect(result1.command == CommandType.getFocusedElement.rawValue)
-    #expect(result1.data != nil)
-    #expect(result1.data?.attributes?["AXRole"]?.value as? String == textAreaRole)
+    XCTAssertEqual(result1.commandId , focusedElementSubCmdId)
+    XCTAssertEqual(result1.success , true, "GetFocusedElement should succeed")
+    XCTAssertEqual(result1.command , CommandType.getFocusedElement.rawValue)
+    XCTAssertNotEqual(result1.data , nil)
+    XCTAssertEqual(result1.data?.attributes?["AXRole"]?.value as? String , textAreaRole)
 
     // Verify second sub-command
     let result2 = batchResponse.results[1]
-    #expect(result2.commandId == querySubCmdId)
-    #expect(result2.success == true, "Query should succeed")
-    #expect(result2.command == CommandType.query.rawValue)
-    #expect(result2.data != nil)
-    #expect(result2.data?.attributes?["AXRole"]?.value as? String == textAreaRole)
+    XCTAssertEqual(result2.commandId , querySubCmdId)
+    XCTAssertEqual(result2.success , true, "Query should succeed")
+    XCTAssertEqual(result2.command , CommandType.query.rawValue)
+    XCTAssertNotEqual(result2.data , nil)
+    XCTAssertEqual(result2.data?.attributes?["AXRole"]?.value as? String , textAreaRole)
 
-    #expect(batchResponse.debugLogs != nil)
+    XCTAssertNotEqual(batchResponse.debugLogs , nil)
+}
+
 }

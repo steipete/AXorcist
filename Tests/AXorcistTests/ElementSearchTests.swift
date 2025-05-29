@@ -1,12 +1,11 @@
 import AppKit
 @testable import AXorcist
-import Testing
+import XCTest
 
 // MARK: - Element Search and Navigation Tests
 
-@Test("Search Elements by Role")
-@MainActor
-func searchElementsByRole() async throws {
+class ElementSearchTests: XCTestCase {
+func testSearchElementsByRole() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -37,7 +36,7 @@ func searchElementsByRole() async throws {
 
     let result = try runAXORCCommand(arguments: [jsonString])
 
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -47,19 +46,17 @@ func searchElementsByRole() async throws {
 
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-    #expect(response.success == true)
+    XCTAssertEqual(response.success , true)
 
     if let data = response.data, let attributes = data.attributes {
         // For a query response, we should find button elements
         if let role = attributes["AXRole"]?.value as? String {
-            #expect(role == "AXButton", "Should find button elements")
+            XCTAssertEqual(role , "AXButton", "Should find button elements")
         }
     }
 }
 
-@Test("Describe Element with Hierarchy")
-@MainActor
-func describeElementHierarchy() async throws {
+func testDescribeElementHierarchy() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -91,7 +88,7 @@ func describeElementHierarchy() async throws {
 
     let result = try runAXORCCommand(arguments: [jsonString])
 
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -101,20 +98,18 @@ func describeElementHierarchy() async throws {
 
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-    #expect(response.success == true)
-    #expect(response.data != nil)
+    XCTAssertEqual(response.success , true)
+    XCTAssertNotEqual(response.data , nil)
 
     // Check hierarchy
     if let data = response.data, let attributes = data.attributes {
         if let role = attributes["AXRole"]?.value as? String {
-            #expect(role == "AXApplication", "Should find application element")
+            XCTAssertEqual(role , "AXApplication", "Should find application element")
         }
     }
 }
 
-@Test("Set and Verify Text Content")
-@MainActor
-func setAndVerifyText() async throws {
+func testSetAndVerifyText() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
@@ -145,7 +140,7 @@ func setAndVerifyText() async throws {
     }
 
     var result = try runAXORCCommand(arguments: [setJsonString])
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     // Query to verify
     let queryText = CommandEnvelope(
@@ -163,7 +158,7 @@ func setAndVerifyText() async throws {
     }
 
     result = try runAXORCCommand(arguments: [queryJsonString])
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -173,17 +168,15 @@ func setAndVerifyText() async throws {
 
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-    #expect(response.success == true)
+    XCTAssertEqual(response.success , true)
 
     if let data = response.data, let attributes = data.attributes {
         if let value = attributes["AXValue"]?.value as? String {
-            #expect(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
+            XCTAssertTrue(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
         }
     }
 }
 
-@Test("Extract Text from Window")
-@MainActor
 func testExtractText() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
@@ -232,7 +225,7 @@ func testExtractText() async throws {
     }
 
     let result = try runAXORCCommand(arguments: [extractJsonString])
-    #expect(result.exitCode == 0)
+    XCTAssertEqual(result.exitCode , 0)
 
     guard let output = result.output,
           let responseData = output.data(using: String.Encoding.utf8)
@@ -242,16 +235,18 @@ func testExtractText() async throws {
 
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-    #expect(response.success == true)
+    XCTAssertEqual(response.success , true)
 
     if let data = response.data, let attributes = data.attributes {
         // For extract text commands, check for extracted text in attributes
         if let extractedText = attributes["extractedText"]?.value as? String {
-            #expect(extractedText.contains("This is test content"), "Should extract the test content")
-            #expect(extractedText.contains("multiple lines"), "Should extract multiple lines")
+            XCTAssertTrue(extractedText.contains("This is test content"), "Should extract the test content")
+            XCTAssertTrue(extractedText.contains("multiple lines"), "Should extract multiple lines")
         } else if let value = attributes["AXValue"]?.value as? String {
-            #expect(value.contains("This is test content"), "Should extract the test content")
-            #expect(value.contains("multiple lines"), "Should extract multiple lines")
+            XCTAssertTrue(value.contains("This is test content"), "Should extract the test content")
+            XCTAssertTrue(value.contains("multiple lines"), "Should extract multiple lines")
         }
     }
+}
+
 }

@@ -1,16 +1,16 @@
 import AppKit
 @testable import AXorcist
-import Testing
+import XCTest
 
 // MARK: - Query Command Tests
 
-@Test("Launch TextEdit, Get Focused Element via STDIN")
-func launchAndQueryTextEdit() async throws {
+class QueryIntegrationTests: XCTestCase {
+func testLaunchAndQueryTextEdit() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
     let (pid, _) = try await setupTextEditAndGetInfo()
-    #expect(pid != 0, "PID should not be zero after TextEdit setup")
+    XCTAssertNotEqual(pid , 0, "PID should not be zero after TextEdit setup")
 
     let commandId = "focused_textedit_test_\(UUID().uuidString)"
     let attributesToFetch: [String] = [
@@ -61,13 +61,13 @@ func launchAndQueryTextEdit() async throws {
     let expectedRole = ApplicationServices.kAXTextAreaRole as String
     let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.value as? String
     let attributeKeys = elementData.attributes?.keys.map { Array($0) } ?? []
-    #expect(
-        actualRole == expectedRole,
+    XCTAssertEqual(
+        actualRole , expectedRole,
         Comment(rawValue: "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. " +
             "Attributes: \(attributeKeys)")
     )
 
-    #expect(
+    XCTAssertTrue(
         elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true,
         "Focused element attributes should contain kAXValueAttribute as it was requested."
     )
@@ -80,9 +80,7 @@ func launchAndQueryTextEdit() async throws {
     await closeTextEdit()
 }
 
-@Test("Get Attributes for TextEdit Application")
-@MainActor
-func getAttributesForTextEditApplication() async throws {
+func testGetAttributesForTextEditApplication() async throws {
     let commandId = "getattributes-textedit-app-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let requestedAttributes = ["AXRole", "AXTitle", "AXWindows", "AXFocusedWindow", "AXMainWindow", "AXIdentifier"]
@@ -122,38 +120,38 @@ func getAttributesForTextEditApplication() async throws {
 
     let queryResponse = try decodeQueryResponse(from: outputString, commandName: "getAttributes")
     validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .getAttributes)
-    #expect(queryResponse.data?.attributes != nil, "AXElement attributes should not be nil.")
+    XCTAssertNotEqual(queryResponse.data?.attributes , nil, "AXElement attributes should not be nil.")
 
     let attributes = queryResponse.data?.attributes
-    #expect(
-        attributes?["AXRole"]?.value as? String == "AXApplication",
+    XCTAssertEqual(
+        attributes?["AXRole"]?.value as? String , "AXApplication",
         Comment(
             rawValue: "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
         )
     )
-    #expect(
-        attributes?["AXTitle"]?.value as? String == "TextEdit",
+    XCTAssertEqual(
+        attributes?["AXTitle"]?.value as? String , "TextEdit",
         Comment(
             rawValue: "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
         )
     )
 
     if let windowsAttr = attributes?["AXWindows"] {
-        #expect(
+        XCTAssertTrue(
             windowsAttr.value is [Any],
             Comment(rawValue: "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
         )
         if let windowsArray = windowsAttr.value as? [AnyCodable] {
-            #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
+            XCTAssertTrue(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
         } else if let windowsArray = windowsAttr.value as? [Any] {
-            #expect(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
+            XCTAssertTrue(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
         }
     } else {
-        #expect(attributes?["AXWindows"] != nil, "AXWindows attribute should be present.")
+        XCTAssertNotEqual(attributes?["AXWindows"] , nil, "AXWindows attribute should be present.")
     }
 
-    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-    #expect(
+    XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+    XCTAssertTrue(
         queryResponse.debugLogs?
             .contains {
                 $0.contains("Handling getAttributes command") || $0.contains("handleGetAttributes completed")
@@ -163,9 +161,7 @@ func getAttributesForTextEditApplication() async throws {
     )
 }
 
-@Test("Query for TextEdit Text Area")
-@MainActor
-func queryForTextEditTextArea() async throws {
+func testQueryForTextEditTextArea() async throws {
     let commandId = "query-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let textAreaRole = ApplicationServices.kAXTextAreaRole as String
@@ -208,30 +204,28 @@ func queryForTextEditTextArea() async throws {
 
     let queryResponse = try decodeQueryResponse(from: outputString, commandName: "query")
     validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .query)
-    #expect(queryResponse.data?.attributes != nil, "AXElement attributes should not be nil.")
+    XCTAssertNotEqual(queryResponse.data?.attributes , nil, "AXElement attributes should not be nil.")
 
     let attributes = queryResponse.data?.attributes
-    #expect(
-        attributes?["AXRole"]?.value as? String == textAreaRole,
+    XCTAssertEqual(
+        attributes?["AXRole"]?.value as? String , textAreaRole,
         Comment(
             rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
         )
     )
 
-    #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
-    #expect(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
+    XCTAssertTrue(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
+    XCTAssertTrue(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
 
-    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-    #expect(
+    XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+    XCTAssertTrue(
         queryResponse.debugLogs?
             .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
         "Debug logs should indicate query execution."
     )
 }
 
-@Test("Describe TextEdit Text Area")
-@MainActor
-func describeTextEditTextArea() async throws {
+func testDescribeTextEditTextArea() async throws {
     let commandId = "describe-textedit-textarea-\(UUID().uuidString)"
     let textEditBundleId = "com.apple.TextEdit"
     let textAreaRole = ApplicationServices.kAXTextAreaRole as String
@@ -277,24 +271,24 @@ func describeTextEditTextArea() async throws {
         throw TestError.generic("Attributes dictionary is nil in describeElement response.")
     }
 
-    #expect(
-        attributes["AXRole"]?.value as? String == textAreaRole,
+    XCTAssertEqual(
+        attributes["AXRole"]?.value as? String , textAreaRole,
         Comment(
             rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
         )
     )
 
-    #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
-    #expect(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
-    #expect(attributes["AXPosition"]?.value != nil, "AXPosition should exist.")
-    #expect(attributes["AXSize"]?.value != nil, "AXSize should exist.")
-    #expect(
+    XCTAssertTrue(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
+    XCTAssertTrue(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
+    XCTAssertNotEqual(attributes["AXPosition"]?.value , nil, "AXPosition should exist.")
+    XCTAssertNotEqual(attributes["AXSize"]?.value , nil, "AXSize should exist.")
+    XCTAssertGreaterThan(
         attributes.count > 10,
-        Comment(rawValue: "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)")
+        Comment(rawValue: "Expected describeElement to return many attributes (e.g., , 10). Got \(attributes.count)")
     )
 
-    #expect(queryResponse.debugLogs != nil, "Debug logs should be present.")
-    #expect(
+    XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+    XCTAssertTrue(
         queryResponse.debugLogs?
             .contains {
                 $0.contains("Handling describeElement command") || $0.contains("handleDescribeElement completed")
@@ -357,12 +351,12 @@ private func validateCommandExecution(
     exitCode: Int32,
     commandName: String
 ) throws -> String {
-    #expect(
-        exitCode == 0,
+    XCTAssertEqual(
+        exitCode , 0,
         Comment(rawValue: "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")")
     )
-    #expect(
-        errorOutput == nil || errorOutput!.isEmpty,
+    XCTAssertEqual(
+        errorOutput , nil || errorOutput!.isEmpty,
         Comment(rawValue: "STDERR should be empty on success. Got: \(errorOutput ?? "")")
     )
 
@@ -379,15 +373,17 @@ private func validateQueryResponseBasics(
     expectedCommandId: String,
     expectedCommand: CommandType
 ) {
-    #expect(queryResponse.commandId == expectedCommandId)
-    #expect(
-        queryResponse.success == true,
+    XCTAssertEqual(queryResponse.commandId , expectedCommandId)
+    XCTAssertEqual(
+        queryResponse.success , true,
         Comment(rawValue: "Command should succeed. Error: \(queryResponse.error?.message ?? "None")")
     )
-    #expect(queryResponse.command == expectedCommand.rawValue)
-    #expect(
-        queryResponse.error == nil,
+    XCTAssertEqual(queryResponse.command , expectedCommand.rawValue)
+    XCTAssertEqual(
+        queryResponse.error , nil,
         Comment(rawValue: "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
     )
-    #expect(queryResponse.data != nil, "Data field should not be nil.")
+    XCTAssertNotEqual(queryResponse.data , nil, "Data field should not be nil.")
+}
+
 }
