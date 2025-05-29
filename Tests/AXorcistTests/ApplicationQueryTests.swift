@@ -38,19 +38,19 @@ func getAllApplications() async throws {
     // TODO: Fix response type - SimpleSuccessResponse doesn't have data property
     // The following code expects response.data which doesn't exist
     /*
-    #expect(response.data?["elements"] != nil, "Should have elements")
+     #expect(response.data?["elements"] != nil, "Should have elements")
 
-    if let elements = response.data?["elements"] as? [[String: Any]] {
-        #expect(!elements.isEmpty, "Should have at least one application")
+     if let elements = response.data?["elements"] as? [[String: Any]] {
+         #expect(!elements.isEmpty, "Should have at least one application")
 
-        // Check for Finder
-        let appTitles = elements.compactMap { element -> String? in
-            guard let attrs = element["attributes"] as? [String: Any] else { return nil }
-            return attrs["AXTitle"] as? String
-        }
-        #expect(appTitles.contains("Finder"), "Finder should be running")
-    }
-    */
+         // Check for Finder
+         let appTitles = elements.compactMap { element -> String? in
+             guard let attrs = element["attributes"] as? [String: Any] else { return nil }
+             return attrs["AXTitle"] as? String
+         }
+         #expect(appTitles.contains("Finder"), "Finder should be running")
+     }
+     */
 }
 
 @Test("Get Windows of TextEdit")
@@ -99,17 +99,17 @@ func getWindowsOfApplication() async throws {
     #expect(response.success == true)
     // TODO: Fix response type - SimpleSuccessResponse doesn't have data property
     /*
-    if let elements = response.data?["elements"] as? [[String: Any]] {
-        #expect(!elements.isEmpty, "Should have at least one window")
+     if let elements = response.data?["elements"] as? [[String: Any]] {
+         #expect(!elements.isEmpty, "Should have at least one window")
 
-        for window in elements {
-            if let attrs = window["attributes"] as? [String: Any] {
-                #expect(attrs["AXRole"] as? String == "AXWindow")
-                #expect(attrs["AXTitle"] != nil, "Window should have title")
-            }
-        }
-    }
-    */
+         for window in elements {
+             if let attrs = window["attributes"] as? [String: Any] {
+                 #expect(attrs["AXRole"] as? String == "AXWindow")
+                 #expect(attrs["AXTitle"] != nil, "Window should have title")
+             }
+         }
+     }
+     */
 }
 
 @Test("Query Non-Existent Application")
@@ -146,6 +146,6 @@ func queryNonExistentApp() async throws {
         // to verify no elements were found. Since SimpleSuccessResponse doesn't
         // have element data, we verify through the success status and message.
         #expect(response.message.contains("No") || response.message.contains("not found") || response.message.isEmpty,
-               "Message should indicate no elements found or be empty")
+                "Message should indicate no elements found or be empty")
     }
 }

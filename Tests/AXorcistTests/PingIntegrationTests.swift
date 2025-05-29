@@ -24,7 +24,10 @@ func pingViaStdin() async throws {
         result.exitCode == 0,
         Comment(rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")")
     )
-    #expect(result.errorOutput == nil || result.errorOutput!.isEmpty, Comment(rawValue: "Expected no error output, but got: \(result.errorOutput!)"))
+    #expect(
+        result.errorOutput == nil || result.errorOutput!.isEmpty,
+        Comment(rawValue: "Expected no error output, but got: \(result.errorOutput!)")
+    )
 
     guard let outputString = result.output else {
         #expect(Bool(false), Comment(rawValue: "Output was nil for ping via STDIN"))
@@ -32,7 +35,10 @@ func pingViaStdin() async throws {
     }
 
     guard let responseData = outputString.data(using: String.Encoding.utf8) else {
-        #expect(Bool(false), Comment(rawValue: "Failed to convert output to Data for ping via STDIN. Output: \(outputString)"))
+        #expect(
+            Bool(false),
+            Comment(rawValue: "Failed to convert output to Data for ping via STDIN. Output: \(outputString)")
+        )
         return
     }
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
@@ -63,14 +69,20 @@ func pingViaFile() async throws {
         result.exitCode == 0,
         Comment(rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")")
     )
-    #expect(result.errorOutput == nil || result.errorOutput!.isEmpty, Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")"))
+    #expect(
+        result.errorOutput == nil || result.errorOutput!.isEmpty,
+        Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")")
+    )
 
     guard let outputString = result.output else {
         #expect(Bool(false), Comment(rawValue: "Output was nil for ping via file"))
         return
     }
     guard let responseData = outputString.data(using: String.Encoding.utf8) else {
-        #expect(Bool(false), Comment(rawValue: "Failed to convert output to Data for ping via file. Output: \(outputString)"))
+        #expect(
+            Bool(false),
+            Comment(rawValue: "Failed to convert output to Data for ping via file. Output: \(outputString)")
+        )
         return
     }
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
@@ -94,14 +106,20 @@ func pingViaDirectPayload() async throws {
         result.exitCode == 0,
         Comment(rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")")
     )
-    #expect(result.errorOutput == nil || result.errorOutput!.isEmpty, Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")"))
+    #expect(
+        result.errorOutput == nil || result.errorOutput!.isEmpty,
+        Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")")
+    )
 
     guard let outputString = result.output else {
         #expect(Bool(false), Comment(rawValue: "Output was nil for ping via direct payload"))
         return
     }
     guard let responseData = outputString.data(using: String.Encoding.utf8) else {
-        #expect(Bool(false), Comment(rawValue: "Failed to convert output to Data for ping via direct payload. Output: \(outputString)"))
+        #expect(
+            Bool(false),
+            Comment(rawValue: "Failed to convert output to Data for ping via direct payload. Output: \(outputString)")
+        )
         return
     }
     let decodedResponse = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
@@ -143,7 +161,9 @@ func errorMultipleInputMethods() async throws {
     guard let responseData = outputString.data(using: String.Encoding.utf8) else {
         #expect(
             Bool(false),
-            Comment(rawValue: "Failed to convert output to Data for multiple input methods error. Output: \(outputString)")
+            Comment(
+                rawValue: "Failed to convert output to Data for multiple input methods error. Output: \(outputString)"
+            )
         )
         return
     }
@@ -170,7 +190,10 @@ func errorNoInputProvidedForPing() async throws {
         return
     }
     guard let responseData = outputString.data(using: String.Encoding.utf8) else {
-        #expect(Bool(false), Comment(rawValue: "Failed to convert output to Data for no input error. Output: \(outputString)"))
+        #expect(
+            Bool(false),
+            Comment(rawValue: "Failed to convert output to Data for no input error. Output: \(outputString)")
+        )
         return
     }
     let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: responseData)

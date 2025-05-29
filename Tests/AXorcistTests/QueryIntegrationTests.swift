@@ -127,15 +127,22 @@ func getAttributesForTextEditApplication() async throws {
     let attributes = queryResponse.data?.attributes
     #expect(
         attributes?["AXRole"]?.value as? String == "AXApplication",
-        Comment(rawValue: "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))")
+        Comment(
+            rawValue: "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
+        )
     )
     #expect(
         attributes?["AXTitle"]?.value as? String == "TextEdit",
-        Comment(rawValue: "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))")
+        Comment(
+            rawValue: "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
+        )
     )
 
     if let windowsAttr = attributes?["AXWindows"] {
-        #expect(windowsAttr.value is [Any], Comment(rawValue: "AXWindows should be an array. Type: \(type(of: windowsAttr.value))"))
+        #expect(
+            windowsAttr.value is [Any],
+            Comment(rawValue: "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
+        )
         if let windowsArray = windowsAttr.value as? [AnyCodable] {
             #expect(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
         } else if let windowsArray = windowsAttr.value as? [Any] {
@@ -206,7 +213,9 @@ func queryForTextEditTextArea() async throws {
     let attributes = queryResponse.data?.attributes
     #expect(
         attributes?["AXRole"]?.value as? String == textAreaRole,
-        Comment(rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))")
+        Comment(
+            rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
+        )
     )
 
     #expect(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
@@ -270,7 +279,9 @@ func describeTextEditTextArea() async throws {
 
     #expect(
         attributes["AXRole"]?.value as? String == textAreaRole,
-        Comment(rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))")
+        Comment(
+            rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
+        )
     )
 
     #expect(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
@@ -346,8 +357,14 @@ private func validateCommandExecution(
     exitCode: Int32,
     commandName: String
 ) throws -> String {
-    #expect(exitCode == 0, Comment(rawValue: "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")"))
-    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty on success. Got: \(errorOutput ?? "")"))
+    #expect(
+        exitCode == 0,
+        Comment(rawValue: "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")")
+    )
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        Comment(rawValue: "STDERR should be empty on success. Got: \(errorOutput ?? "")")
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output string was nil or empty for \(commandName).")
@@ -368,6 +385,9 @@ private func validateQueryResponseBasics(
         Comment(rawValue: "Command should succeed. Error: \(queryResponse.error?.message ?? "None")")
     )
     #expect(queryResponse.command == expectedCommand.rawValue)
-    #expect(queryResponse.error == nil, Comment(rawValue: "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")"))
+    #expect(
+        queryResponse.error == nil,
+        Comment(rawValue: "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
+    )
     #expect(queryResponse.data != nil, "Data field should not be nil.")
 }

@@ -191,7 +191,10 @@ private func executeCommand(_ command: CommandEnvelope) async throws -> QueryRes
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
     #expect(exitCode == 0, Comment(rawValue: "Command failed. Error: \(errorOutput ?? "N/A")"))
-    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")"))
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output was nil/empty.")

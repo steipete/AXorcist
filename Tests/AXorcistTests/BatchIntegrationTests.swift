@@ -85,8 +85,14 @@ private func executeBatchCommand(_ command: CommandEnvelope) async throws -> Bat
     let result = try runAXORCCommand(arguments: [jsonString])
     let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-    #expect(exitCode == 0, Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")"))
-    #expect(errorOutput == nil || errorOutput!.isEmpty, Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")"))
+    #expect(
+        exitCode == 0,
+        Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
+    )
+    #expect(
+        errorOutput == nil || errorOutput!.isEmpty,
+        Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
+    )
 
     guard let outputString = output, !outputString.isEmpty else {
         throw TestError.generic("Output string was nil or empty for batch command.")

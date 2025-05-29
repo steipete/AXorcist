@@ -10,7 +10,7 @@ func searchElementsByRole() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
-    let (_, _) = try await setupTextEditAndGetInfo()
+    _ = try await setupTextEditAndGetInfo()
     defer {
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
@@ -48,7 +48,7 @@ func searchElementsByRole() async throws {
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
     #expect(response.success == true)
-    
+
     if let data = response.data, let attributes = data.attributes {
         // For a query response, we should find button elements
         if let role = attributes["AXRole"]?.value as? String {
@@ -63,7 +63,7 @@ func describeElementHierarchy() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
-    let (_, _) = try await setupTextEditAndGetInfo()
+    _ = try await setupTextEditAndGetInfo()
     defer {
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
@@ -118,7 +118,7 @@ func setAndVerifyText() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
-    let (_, _) = try await setupTextEditAndGetInfo()
+    _ = try await setupTextEditAndGetInfo()
     defer {
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
@@ -174,7 +174,7 @@ func setAndVerifyText() async throws {
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
     #expect(response.success == true)
-    
+
     if let data = response.data, let attributes = data.attributes {
         if let value = attributes["AXValue"]?.value as? String {
             #expect(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
@@ -188,7 +188,7 @@ func testExtractText() async throws {
     await closeTextEdit()
     try await Task.sleep(for: .milliseconds(500))
 
-    let (_, _) = try await setupTextEditAndGetInfo()
+    _ = try await setupTextEditAndGetInfo()
     defer {
         if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
             app.terminate()
@@ -243,7 +243,7 @@ func testExtractText() async throws {
     let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
     #expect(response.success == true)
-    
+
     if let data = response.data, let attributes = data.attributes {
         // For extract text commands, check for extracted text in attributes
         if let extractedText = attributes["extractedText"]?.value as? String {

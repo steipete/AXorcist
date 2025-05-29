@@ -149,8 +149,10 @@ func runAXORCCommand(arguments: [String]) throws -> CommandResult {
     let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
-    let output = String(data: outputData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let output = String(data: outputData, encoding: String.Encoding.utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
 
     let cleanOutput = stripJSONPrefix(from: output)
 
@@ -208,8 +210,10 @@ func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> 
     let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
     let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
 
-    let output = String(data: outputData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
-    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let output = String(data: outputData, encoding: String.Encoding.utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+    let errorOutput = String(data: errorData, encoding: String.Encoding.utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines)
 
     let cleanOutput = stripJSONPrefix(from: output)
 
