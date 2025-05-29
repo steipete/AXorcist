@@ -1,6 +1,16 @@
-# AXorcist Framework 🎯
+# AXorcist: The power of Swift compels your UI to obey! 🧙‍♂️
 
-A powerful Swift framework for macOS accessibility automation that provides a modern, type-safe interface to the macOS Accessibility APIs.
+<p align="center">
+  <img src="assets/logo.png" alt="AXorcist Logo">
+</p>
+
+<p align="center">
+  <strong>Swift wrapper for macOS Accessibility—chainable, fuzzy-matched queries<br>that read, click, and inspect any UI. The dark arts meet modern Swift!</strong>
+</p>
+
+---
+
+**AXorcist** harnesses the supernatural powers of macOS Accessibility APIs to give you mystical control over any application's interface. Whether you're automating workflows, testing applications, or building assistive technologies, AXorcist provides the incantations you need to make UI elements bend to your will.
 
 ## Overview
 
