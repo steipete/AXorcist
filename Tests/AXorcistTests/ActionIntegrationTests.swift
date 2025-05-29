@@ -18,7 +18,7 @@ func performActionSetTextEditTextAreaValue() async throws {
     _ = try await setupTextEditAndGetInfo()
     defer { Task { await closeTextEdit() } }
 
-    let textAreaLocator = Locator(criteria: ["AXRole": textAreaRole])
+    let textAreaLocator = Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
 
     // Perform action
     try await performSetValueAction(
@@ -50,7 +50,7 @@ func extractTextFromTextEditTextArea() async throws {
     _ = try await setupTextEditAndGetInfo()
     defer { Task { await closeTextEdit() } }
 
-    let textAreaLocator = Locator(criteria: ["AXRole": textAreaRole])
+    let textAreaLocator = Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
 
     // Set text value
     try await performSetValueAction(
