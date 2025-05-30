@@ -5,134 +5,137 @@ import XCTest
 // MARK: - Batch Command Tests
 
 class BatchIntegrationTests: XCTestCase {
-func testBatchCommandGetFocusedElementAndQuery() async throws {
-    let batchCommandId = "batch-textedit-\(UUID().uuidString)"
-    let focusedElementSubCmdId = "batch-sub-getfocused-\(UUID().uuidString)"
-    let querySubCmdId = "batch-sub-querytextarea-\(UUID().uuidString)"
-    let textEditBundleId = "com.apple.TextEdit"
-    let textAreaRole = ApplicationServices.kAXTextAreaRole as String
+    // MARK: Internal
 
-    // Setup TextEdit
-    _ = try await setupTextEditAndGetInfo()
-    defer { Task { await closeTextEdit() } }
+    func testBatchCommandGetFocusedElementAndQuery() async throws {
+        let batchCommandId = "batch-textedit-\(UUID().uuidString)"
+        let focusedElementSubCmdId = "batch-sub-getfocused-\(UUID().uuidString)"
+        let querySubCmdId = "batch-sub-querytextarea-\(UUID().uuidString)"
+        let textEditBundleId = "com.apple.TextEdit"
+        let textAreaRole = ApplicationServices.kAXTextAreaRole as String
 
-    // Create batch command
-    let batchCommand = createBatchCommand(
-        batchCommandId: batchCommandId,
-        focusedElementSubCmdId: focusedElementSubCmdId,
-        querySubCmdId: querySubCmdId,
-        textEditBundleId: textEditBundleId,
-        textAreaRole: textAreaRole
-    )
+        // Setup TextEdit
+        _ = try await setupTextEditAndGetInfo()
+        defer { Task { await closeTextEdit() } }
 
-    // Execute batch command
-    let batchResponse = try await executeBatchCommand(batchCommand)
+        // Create batch command
+        let batchCommand = createBatchCommand(
+            batchCommandId: batchCommandId,
+            focusedElementSubCmdId: focusedElementSubCmdId,
+            querySubCmdId: querySubCmdId,
+            textEditBundleId: textEditBundleId,
+            textAreaRole: textAreaRole
+        )
 
-    // Verify results
-    verifyBatchResponse(
-        batchResponse,
-        batchCommandId: batchCommandId,
-        focusedElementSubCmdId: focusedElementSubCmdId,
-        querySubCmdId: querySubCmdId,
-        textAreaRole: textAreaRole
-    )
-}
+        // Execute batch command
+        let batchResponse = try await executeBatchCommand(batchCommand)
 
-// MARK: - Helper Functions
-
-private func createBatchCommand(
-    batchCommandId: String,
-    focusedElementSubCmdId: String,
-    querySubCmdId: String,
-    textEditBundleId: String,
-    textAreaRole: String
-) -> CommandEnvelope {
-    let getFocusedElementSubCommand = CommandEnvelope(
-        commandId: focusedElementSubCmdId,
-        command: .getFocusedElement,
-        application: textEditBundleId,
-        debugLogging: true
-    )
-
-    let queryTextAreaSubCommand = CommandEnvelope(
-        commandId: querySubCmdId,
-        command: .query,
-        application: textEditBundleId,
-        attributes: ["AXRole", "AXValue"],
-        debugLogging: true,
-        locator: Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
-    )
-
-    return CommandEnvelope(
-        commandId: batchCommandId,
-        command: .batch,
-        application: nil,
-        debugLogging: true,
-        subCommands: [getFocusedElementSubCommand, queryTextAreaSubCommand]
-    )
-}
-
-private func executeBatchCommand(_ command: CommandEnvelope) async throws -> BatchOperationResponse {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = .prettyPrinted
-    let jsonData = try encoder.encode(command)
-    guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
-        throw TestError.generic("Failed to create JSON string for batch command.")
+        // Verify results
+        verifyBatchResponse(
+            batchResponse,
+            batchCommandId: batchCommandId,
+            focusedElementSubCmdId: focusedElementSubCmdId,
+            querySubCmdId: querySubCmdId,
+            textAreaRole: textAreaRole
+        )
     }
 
-    print("Sending batch command to axorc: \(jsonString)")
-    let result = try runAXORCCommand(arguments: [jsonString])
-    let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
+    // MARK: Private
 
-    XCTAssertEqual(
-        exitCode , 0,
-        Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
-    )
-    XCTAssertEqual(
-        errorOutput , nil || errorOutput!.isEmpty,
-        Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
-    )
+    // MARK: - Helper Functions
 
-    guard let outputString = output, !outputString.isEmpty else {
-        throw TestError.generic("Output string was nil or empty for batch command.")
+    private func createBatchCommand(
+        batchCommandId: String,
+        focusedElementSubCmdId: String,
+        querySubCmdId: String,
+        textEditBundleId: String,
+        textAreaRole: String
+    ) -> CommandEnvelope {
+        let getFocusedElementSubCommand = CommandEnvelope(
+            commandId: focusedElementSubCmdId,
+            command: .getFocusedElement,
+            application: textEditBundleId,
+            debugLogging: true
+        )
+
+        let queryTextAreaSubCommand = CommandEnvelope(
+            commandId: querySubCmdId,
+            command: .query,
+            application: textEditBundleId,
+            attributes: ["AXRole", "AXValue"],
+            debugLogging: true,
+            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
+        )
+
+        return CommandEnvelope(
+            commandId: batchCommandId,
+            command: .batch,
+            application: nil,
+            debugLogging: true,
+            subCommands: [getFocusedElementSubCommand, queryTextAreaSubCommand]
+        )
     }
-    print("Received output from axorc (batch command): \(outputString)")
 
-    guard let responseData = outputString.data(using: String.Encoding.utf8) else {
-        throw TestError.generic("Could not convert output string to data for batch command.")
+    private func executeBatchCommand(_ command: CommandEnvelope) async throws -> BatchOperationResponse {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .prettyPrinted
+        let jsonData = try encoder.encode(command)
+        guard let jsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
+            throw TestError.generic("Failed to create JSON string for batch command.")
+        }
+
+        print("Sending batch command to axorc: \(jsonString)")
+        let result = try runAXORCCommand(arguments: [jsonString])
+        let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
+
+        XCTAssertEqual(
+            exitCode, 0,
+            Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
+        )
+        XCTAssertEqual(
+            errorOutput, nil || errorOutput!.isEmpty,
+            Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
+        )
+
+        guard let outputString = output, !outputString.isEmpty else {
+            throw TestError.generic("Output string was nil or empty for batch command.")
+        }
+        print("Received output from axorc (batch command): \(outputString)")
+
+        guard let responseData = outputString.data(using: String.Encoding.utf8) else {
+            throw TestError.generic("Could not convert output string to data for batch command.")
+        }
+
+        return try JSONDecoder().decode(BatchOperationResponse.self, from: responseData)
     }
 
-    return try JSONDecoder().decode(BatchOperationResponse.self, from: responseData)
-}
+    private func verifyBatchResponse(
+        _ batchResponse: BatchOperationResponse,
+        batchCommandId: String,
+        focusedElementSubCmdId: String,
+        querySubCmdId: String,
+        textAreaRole: String
+    ) {
+        XCTAssertEqual(batchResponse.commandId, batchCommandId)
+        XCTAssertEqual(batchResponse.success, true, "Batch command should succeed")
+        XCTAssertEqual(batchResponse.results.count, 2, "Expected 2 results")
 
-private func verifyBatchResponse(
-    _ batchResponse: BatchOperationResponse,
-    batchCommandId: String,
-    focusedElementSubCmdId: String,
-    querySubCmdId: String,
-    textAreaRole: String
-) {
-    XCTAssertEqual(batchResponse.commandId , batchCommandId)
-    XCTAssertEqual(batchResponse.success , true, "Batch command should succeed")
-    XCTAssertEqual(batchResponse.results.count , 2, "Expected 2 results")
+        // Verify first sub-command
+        let result1 = batchResponse.results[0]
+        XCTAssertEqual(result1.commandId, focusedElementSubCmdId)
+        XCTAssertEqual(result1.success, true, "GetFocusedElement should succeed")
+        XCTAssertEqual(result1.command, CommandType.getFocusedElement.rawValue)
+        XCTAssertNotEqual(result1.data, nil)
+        XCTAssertEqual(result1.data?.attributes?["AXRole"]?.value as? String, textAreaRole)
 
-    // Verify first sub-command
-    let result1 = batchResponse.results[0]
-    XCTAssertEqual(result1.commandId , focusedElementSubCmdId)
-    XCTAssertEqual(result1.success , true, "GetFocusedElement should succeed")
-    XCTAssertEqual(result1.command , CommandType.getFocusedElement.rawValue)
-    XCTAssertNotEqual(result1.data , nil)
-    XCTAssertEqual(result1.data?.attributes?["AXRole"]?.value as? String , textAreaRole)
+        // Verify second sub-command
+        let result2 = batchResponse.results[1]
+        XCTAssertEqual(result2.commandId, querySubCmdId)
+        XCTAssertEqual(result2.success, true, "Query should succeed")
+        XCTAssertEqual(result2.command, CommandType.query.rawValue)
+        XCTAssertNotEqual(result2.data, nil)
+        XCTAssertEqual(result2.data?.attributes?["AXRole"]?.value as? String, textAreaRole)
 
-    // Verify second sub-command
-    let result2 = batchResponse.results[1]
-    XCTAssertEqual(result2.commandId , querySubCmdId)
-    XCTAssertEqual(result2.success , true, "Query should succeed")
-    XCTAssertEqual(result2.command , CommandType.query.rawValue)
-    XCTAssertNotEqual(result2.data , nil)
-    XCTAssertEqual(result2.data?.attributes?["AXRole"]?.value as? String , textAreaRole)
-
-    XCTAssertNotEqual(batchResponse.debugLogs , nil)
-}
-
+        XCTAssertNotEqual(batchResponse.debugLogs, nil)
+    }
 }
