@@ -38,6 +38,13 @@ public enum AXPermissionHelpers {
     /// to the user. Consider using ``hasAccessibilityPermissions()`` first to check
     /// current permission status.
     public static func askForAccessibilityIfNeeded() -> Bool {
+        // Skip permission dialog in test environment
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
+            ProcessInfo.processInfo.arguments.contains("--test-mode") ||
+            NSClassFromString("XCTest") != nil
+        {
+            return false // Return false to indicate no permissions in test mode
+        }
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         return AXIsProcessTrustedWithOptions(options as CFDictionary?)
     }
