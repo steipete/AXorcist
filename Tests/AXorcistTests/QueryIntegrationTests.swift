@@ -10,7 +10,7 @@ class QueryIntegrationTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(500))
 
         let (pid, _) = try await setupTextEditAndGetInfo()
-        XCTAssertNotEqual(pid , 0, "PID should not be zero after TextEdit setup")
+        XCTAssertNotEqual(pid, 0, "PID should not be zero after TextEdit setup")
 
         let commandId = "focused_textedit_test_\(UUID().uuidString)"
         let attributesToFetch: [String] = [
@@ -62,9 +62,9 @@ class QueryIntegrationTests: XCTestCase {
         let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.value as? String
         let attributeKeys = elementData.attributes?.keys.map { Array($0) } ?? []
         XCTAssertEqual(
-            actualRole , expectedRole,
-            Comment(rawValue: "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. " +
-                "Attributes: \(attributeKeys)")
+            actualRole, expectedRole,
+            "Focused element role should be '\(expectedRole)'. Got: '\(actualRole ?? "nil")'. " +
+                "Attributes: \(attributeKeys)"
         )
 
         XCTAssertTrue(
@@ -120,26 +120,22 @@ class QueryIntegrationTests: XCTestCase {
 
         let queryResponse = try decodeQueryResponse(from: outputString, commandName: "getAttributes")
         validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .getAttributes)
-        XCTAssertNotEqual(queryResponse.data?.attributes , nil, "AXElement attributes should not be nil.")
+        XCTAssertNotEqual(queryResponse.data?.attributes, nil, "AXElement attributes should not be nil.")
 
         let attributes = queryResponse.data?.attributes
         XCTAssertEqual(
-            attributes?["AXRole"]?.value as? String , "AXApplication",
-            Comment(
-                rawValue: "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
-            )
+            attributes?["AXRole"]?.value as? String, "AXApplication",
+            "Application role should be AXApplication. Got: \(String(describing: attributes?["AXRole"]?.value))"
         )
         XCTAssertEqual(
-            attributes?["AXTitle"]?.value as? String , "TextEdit",
-            Comment(
-                rawValue: "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
-            )
+            attributes?["AXTitle"]?.value as? String, "TextEdit",
+            "Application title should be TextEdit. Got: \(String(describing: attributes?["AXTitle"]?.value))"
         )
 
         if let windowsAttr = attributes?["AXWindows"] {
             XCTAssertTrue(
                 windowsAttr.value is [Any],
-                Comment(rawValue: "AXWindows should be an array. Type: \(type(of: windowsAttr.value))")
+                "AXWindows should be an array. Type: \(type(of: windowsAttr.value))"
             )
             if let windowsArray = windowsAttr.value as? [AnyCodable] {
                 XCTAssertTrue(!windowsArray.isEmpty, "AXWindows array should not be empty if TextEdit has windows.")
@@ -147,10 +143,10 @@ class QueryIntegrationTests: XCTestCase {
                 XCTAssertTrue(!windowsArray.isEmpty, "AXWindows array should not be empty (general type check).")
             }
         } else {
-            XCTAssertNotEqual(attributes?["AXWindows"] , nil, "AXWindows attribute should be present.")
+            XCTAssertNotEqual(attributes?["AXWindows"], nil, "AXWindows attribute should be present.")
         }
 
-        XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+        XCTAssertNotEqual(queryResponse.debugLogs, nil, "Debug logs should be present.")
         XCTAssertTrue(
             queryResponse.debugLogs?
                 .contains {
@@ -204,20 +200,18 @@ class QueryIntegrationTests: XCTestCase {
 
         let queryResponse = try decodeQueryResponse(from: outputString, commandName: "query")
         validateQueryResponseBasics(queryResponse, expectedCommandId: commandId, expectedCommand: .query)
-        XCTAssertNotEqual(queryResponse.data?.attributes , nil, "AXElement attributes should not be nil.")
+        XCTAssertNotEqual(queryResponse.data?.attributes, nil, "AXElement attributes should not be nil.")
 
         let attributes = queryResponse.data?.attributes
         XCTAssertEqual(
-            attributes?["AXRole"]?.value as? String , textAreaRole,
-            Comment(
-                rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
-            )
+            attributes?["AXRole"]?.value as? String, textAreaRole,
+            "Element role should be \(textAreaRole). Got: \(String(describing: attributes?["AXRole"]?.value))"
         )
 
         XCTAssertTrue(attributes?["AXValue"]?.value is String, "AXValue should exist and be a string.")
         XCTAssertTrue(attributes?["AXNumberOfCharacters"]?.value is Int, "AXNumberOfCharacters should exist and be an Int.")
 
-        XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+        XCTAssertNotEqual(queryResponse.debugLogs, nil, "Debug logs should be present.")
         XCTAssertTrue(
             queryResponse.debugLogs?
                 .contains { $0.contains("Handling query command") || $0.contains("handleQuery completed") } == true,
@@ -272,22 +266,20 @@ class QueryIntegrationTests: XCTestCase {
         }
 
         XCTAssertEqual(
-            attributes["AXRole"]?.value as? String , textAreaRole,
-            Comment(
-                rawValue: "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
-            )
+            attributes["AXRole"]?.value as? String, textAreaRole,
+            "Element role should be \(textAreaRole). Got: \(String(describing: attributes["AXRole"]?.value))"
         )
 
         XCTAssertTrue(attributes["AXRoleDescription"]?.value is String, "AXRoleDescription should exist.")
         XCTAssertTrue(attributes["AXEnabled"]?.value is Bool, "AXEnabled should exist.")
-        XCTAssertNotEqual(attributes["AXPosition"]?.value , nil, "AXPosition should exist.")
-        XCTAssertNotEqual(attributes["AXSize"]?.value , nil, "AXSize should exist.")
-        XCTAssertGreaterThan(
+        XCTAssertNotNil(attributes["AXPosition"]?.value, "AXPosition should exist.")
+        XCTAssertNotNil(attributes["AXSize"]?.value, "AXSize should exist.")
+        XCTAssertTrue(
             attributes.count > 10,
-            Comment(rawValue: "Expected describeElement to return many attributes (e.g., , 10). Got \(attributes.count)")
+            "Expected describeElement to return many attributes (e.g., > 10). Got \(attributes.count)"
         )
 
-        XCTAssertNotEqual(queryResponse.debugLogs , nil, "Debug logs should be present.")
+        XCTAssertNotEqual(queryResponse.debugLogs, nil, "Debug logs should be present.")
         XCTAssertTrue(
             queryResponse.debugLogs?
                 .contains {
@@ -352,12 +344,12 @@ class QueryIntegrationTests: XCTestCase {
         commandName: String
     ) throws -> String {
         XCTAssertEqual(
-            exitCode , 0,
-            Comment(rawValue: "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")")
+            exitCode, 0,
+            "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")"
         )
-        XCTAssertEqual(
-            errorOutput , nil || errorOutput!.isEmpty,
-            Comment(rawValue: "STDERR should be empty on success. Got: \(errorOutput ?? "")")
+        XCTAssertTrue(
+            (errorOutput == nil || errorOutput!.isEmpty),
+            "STDERR should be empty on success. Got: \(errorOutput ?? "")"
         )
 
         guard let outputString = output, !outputString.isEmpty else {
@@ -373,17 +365,17 @@ class QueryIntegrationTests: XCTestCase {
         expectedCommandId: String,
         expectedCommand: CommandType
     ) {
-        XCTAssertEqual(queryResponse.commandId , expectedCommandId)
+        XCTAssertEqual(queryResponse.commandId, expectedCommandId)
         XCTAssertEqual(
-            queryResponse.success , true,
-            Comment(rawValue: "Command should succeed. Error: \(queryResponse.error?.message ?? "None")")
+            queryResponse.success, true,
+            "Command should succeed. Error: \(queryResponse.error?.message ?? "None")"
         )
-        XCTAssertEqual(queryResponse.command , expectedCommand.rawValue)
-        XCTAssertEqual(
-            queryResponse.error , nil,
-            Comment(rawValue: "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
+        XCTAssertEqual(queryResponse.command, expectedCommand.rawValue)
+        XCTAssertNil(
+            queryResponse.error,
+            "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")"
         )
-        XCTAssertNotEqual(queryResponse.data , nil, "Data field should not be nil.")
+        XCTAssertNotNil(queryResponse.data, "Data field should not be nil.")
     }
 
 }

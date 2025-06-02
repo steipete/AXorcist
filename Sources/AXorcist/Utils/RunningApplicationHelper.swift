@@ -131,12 +131,13 @@ public struct RunningApplicationHelper {
     }
 
     /// Get running applications that have on-screen windows and are accessible.
+    @MainActor 
     public static func accessibleApplicationsWithOnScreenWindows() -> [NSRunningApplication] {
         #if canImport(AppKit) && canImport(CoreGraphics)
             // 1. Get ALL visible windows in one native call
             guard let list = CGWindowListCopyWindowInfo(
-                [.optionOnScreenOnly, .excludeDesktopElements],
-                kCGNullWindowID
+                [CFConstants.cgWindowListOptionOnScreenOnly, CFConstants.cgWindowListExcludeDesktopElements],
+                CFConstants.cgNullWindowID
             ) as? [[String: Any]] else {
                 // Consider logging an error here if a logging mechanism is available
                 // For now, returning empty or falling back to just accessible apps
@@ -145,7 +146,7 @@ public struct RunningApplicationHelper {
             }
 
             // 2. Collect PIDs that own at least one window
-            let pidsWithWindows = Set(list.compactMap { $0[kCGWindowOwnerPID as String] as? pid_t })
+            let pidsWithWindows = Set(list.compactMap { $0[CFConstants.cgWindowOwnerPID] as? pid_t })
 
             // 3. Get all running applications that are also accessible
             let accessibleApps = self.accessibleApplications()

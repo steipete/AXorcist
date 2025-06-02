@@ -46,7 +46,7 @@ public enum AXUtilities {
             return (.apiDisabled, errorMsg)
         }
 
-        let error = AXUIElementSetAttributeValue(element.underlyingElement, attributeName as CFString, cfValue ?? kCFBooleanFalse)
+        let error = AXUIElementSetAttributeValue(element.underlyingElement, attributeName as CFString, cfValue ?? CFConstants.cfBooleanFalse!)
 
         if error == .success {
             axDebugLog("AXUtilities: Successfully set attribute '\(attributeName)' on \(element.briefDescription())")

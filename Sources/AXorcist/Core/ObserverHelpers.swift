@@ -17,9 +17,9 @@ func convertCFValueToSwift(_ cfValue: CFTypeRef?) -> Any? {
         return cfValue as? NSNumber // Could be Int, Double, Bool (via NSNumber bridging)
     case CFBooleanGetTypeID():
         // Ensure correct conversion for CFBoolean
-        if CFEqual(cfValue, kCFBooleanTrue) {
+        if CFEqual(cfValue, CFConstants.cfBooleanTrue) {
             return true
-        } else if CFEqual(cfValue, kCFBooleanFalse) {
+        } else if CFEqual(cfValue, CFConstants.cfBooleanFalse) {
             return false
         }
         // Fallback for other CFBoolean representations if any, or if direct Bool bridging works

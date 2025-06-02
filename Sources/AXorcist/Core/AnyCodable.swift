@@ -13,7 +13,7 @@ import Foundation
 ///
 /// The struct is marked as @unchecked Sendable because the underlying value
 /// property is immutable after initialization, making it safe for concurrent access.
-public struct AnyCodable: Codable, @unchecked Sendable {
+public struct AnyCodable: Codable, @unchecked Sendable, Equatable {
     // MARK: Lifecycle
 
     public init(_ value: (some Any)?) {
@@ -83,6 +83,50 @@ public struct AnyCodable: Codable, @unchecked Sendable {
                     )
                 )
             }
+        }
+    }
+    
+    // MARK: - Equatable Implementation
+    
+    public static func == (lhs: AnyCodable, rhs: AnyCodable) -> Bool {
+        // Handle nil marker case
+        if lhs.value is (), rhs.value is () {
+            return true
+        }
+        if lhs.value is () || rhs.value is () {
+            return false
+        }
+        
+        // Compare based on type
+        switch (lhs.value, rhs.value) {
+        case let (lhsBool as Bool, rhsBool as Bool):
+            return lhsBool == rhsBool
+        case let (lhsInt as Int, rhsInt as Int):
+            return lhsInt == rhsInt
+        case let (lhsDouble as Double, rhsDouble as Double):
+            return lhsDouble == rhsDouble
+        case let (lhsString as String, rhsString as String):
+            return lhsString == rhsString
+        case let (lhsArray as [Any], rhsArray as [Any]):
+            guard lhsArray.count == rhsArray.count else { return false }
+            for (lhsElement, rhsElement) in zip(lhsArray, rhsArray) {
+                if AnyCodable(lhsElement) != AnyCodable(rhsElement) {
+                    return false
+                }
+            }
+            return true
+        case let (lhsDict as [String: Any], rhsDict as [String: Any]):
+            guard lhsDict.count == rhsDict.count else { return false }
+            for (key, lhsValue) in lhsDict {
+                guard let rhsValue = rhsDict[key] else { return false }
+                if AnyCodable(lhsValue) != AnyCodable(rhsValue) {
+                    return false
+                }
+            }
+            return true
+        default:
+            // For types we don't specifically handle, try to compare as strings
+            return String(describing: lhs.value) == String(describing: rhs.value)
         }
     }
 }

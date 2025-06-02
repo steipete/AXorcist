@@ -50,7 +50,7 @@ public func checkAccessibilityPermissions(promptIfNeeded: Bool = true) throws {
     }
 }
 
-// @MainActor // Removed again for pragmatic stability
+@MainActor
 public func getPermissionsStatus(
     checkAutomationFor bundleIDs: [String] = []
 ) -> AXPermissionsStatus {

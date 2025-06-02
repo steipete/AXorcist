@@ -8,6 +8,7 @@ import Foundation
 /// Decodes a string representation of an array into an array of strings.
 /// The input string can be JSON-style (e.g., "["item1", "item2"]")
 /// or a simple comma-separated list (e.g., "item1, item2", with or without brackets).
+@MainActor
 public func decodeExpectedArray(
     fromString: String
 ) -> [String]? {

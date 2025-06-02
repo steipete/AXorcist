@@ -1,6 +1,7 @@
-import AppKit
+@preconcurrency import AppKit
 @testable import AXorcist
 import XCTest
+
 
 // Result struct for AXORC commands
 struct CommandResult {
@@ -11,7 +12,6 @@ struct CommandResult {
 
 // MARK: - Test Helpers
 
-@MainActor
 func setupTextEditAndGetInfo() async throws -> (pid: pid_t, axAppElement: AXUIElement?) {
     let textEditBundleId = "com.apple.TextEdit"
     var app: NSRunningApplication? = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId)

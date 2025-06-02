@@ -110,9 +110,9 @@ public func createCFTypeRefFromString(
                    function: #function,
                    line: #line)
         if stringValue.lowercased() == "true" {
-            return kCFBooleanTrue
+            return CFConstants.cfBooleanTrue
         } else if stringValue.lowercased() == "false" {
-            return kCFBooleanFalse
+            return CFConstants.cfBooleanFalse
         } else {
             axWarningLog(
                 "Could not parse '\(stringValue)' as Bool (true/false) for CFBoolean attribute '\(attributeName)'",

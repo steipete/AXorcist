@@ -8,7 +8,7 @@ public extension Element {
     // Returns true on success, false on failure.
     @MainActor
     private func setBooleanAttribute(_ attributeName: String, value: Bool) -> Bool {
-        let cfValue: CFBoolean = value ? kCFBooleanTrue : kCFBooleanFalse
+        let cfValue: CFBoolean = CFConstants.cfBoolean(from: value)
         let error = AXUIElementSetAttributeValue(underlyingElement, attributeName as CFString, cfValue)
         if error != AXError.success {
             axErrorLog(

@@ -256,7 +256,7 @@ public struct Element: Equatable, Hashable {
         if let strValue = value as? String {
             cfValue = strValue as CFString
         } else if let boolValue = value as? Bool {
-            cfValue = (boolValue ? kCFBooleanTrue : kCFBooleanFalse) as CFBoolean
+            cfValue = CFConstants.cfBoolean(from: boolValue) as CFBoolean
         } else if let numValue = value as? NSNumber { // Handles Int, Double, etc. that bridge to NSNumber
             cfValue = numValue
         } else if let elementValue = value as? Element {

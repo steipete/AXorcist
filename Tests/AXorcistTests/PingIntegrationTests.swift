@@ -22,24 +22,22 @@ class PingIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             result.exitCode, 0,
-            Comment(
-                rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
-            )
+            "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
         )
-        XCTAssertEqual(
-            result.errorOutput, nil || result.errorOutput!.isEmpty,
-            Comment(rawValue: "Expected no error output, but got: \(result.errorOutput!)")
+        XCTAssertTrue(
+            (result.errorOutput == nil || result.errorOutput!.isEmpty),
+            "Expected no error output, but got: \(result.errorOutput!)"
         )
 
         guard let outputString = result.output else {
-            XCTAssertTrue(Bool(false), Comment(rawValue: "Output was nil for ping via STDIN"))
+            XCTAssertTrue(Bool(false), "Output was nil for ping via STDIN")
             return
         }
 
         guard let responseData = outputString.data(using: String.Encoding.utf8) else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(rawValue: "Failed to convert output to Data for ping via STDIN. Output: \(outputString)")
+                "Failed to convert output to Data for ping via STDIN. Output: \(outputString)"
             )
             return
         }
@@ -47,7 +45,7 @@ class PingIntegrationTests: XCTestCase {
         XCTAssertEqual(decodedResponse.success, true)
         XCTAssertEqual(
             decodedResponse.message, "Ping handled by AXORCCommand. Input source: STDIN",
-            Comment(rawValue: "Unexpected success message: \(decodedResponse.message)")
+            "Unexpected success message: \(decodedResponse.message)"
         )
         XCTAssertEqual(decodedResponse.details, "Hello from testPingViaStdin")
     }
@@ -68,23 +66,21 @@ class PingIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             result.exitCode, 0,
-            Comment(
-                rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
-            )
+            "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
         )
-        XCTAssertEqual(
-            result.errorOutput, nil || result.errorOutput!.isEmpty,
-            Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")")
+        XCTAssertTrue(
+            (result.errorOutput == nil || result.errorOutput!.isEmpty),
+            "Expected no error output, but got: \(result.errorOutput ?? "N/A")"
         )
 
         guard let outputString = result.output else {
-            XCTAssertTrue(Bool(false), Comment(rawValue: "Output was nil for ping via file"))
+            XCTAssertTrue(Bool(false), "Output was nil for ping via file")
             return
         }
         guard let responseData = outputString.data(using: String.Encoding.utf8) else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(rawValue: "Failed to convert output to Data for ping via file. Output: \(outputString)")
+                "Failed to convert output to Data for ping via file. Output: \(outputString)"
             )
             return
         }
@@ -92,7 +88,7 @@ class PingIntegrationTests: XCTestCase {
         XCTAssertEqual(decodedResponse.success, true)
         XCTAssertTrue(
             decodedResponse.message.lowercased().contains("file: \(tempFilePath.lowercased())"),
-            Comment(rawValue: "Message should contain file path. Got: \(decodedResponse.message)")
+            "Message should contain file path. Got: \(decodedResponse.message)"
         )
         XCTAssertEqual(decodedResponse.details, payloadMessage)
     }
@@ -106,25 +102,21 @@ class PingIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             result.exitCode, 0,
-            Comment(
-                rawValue: "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
-            )
+            "axorc command failed with status \(result.exitCode). Error: \(result.errorOutput ?? "N/A")"
         )
-        XCTAssertEqual(
-            result.errorOutput, nil || result.errorOutput!.isEmpty,
-            Comment(rawValue: "Expected no error output, but got: \(result.errorOutput ?? "N/A")")
+        XCTAssertTrue(
+            (result.errorOutput == nil || result.errorOutput!.isEmpty),
+            "Expected no error output, but got: \(result.errorOutput ?? "N/A")"
         )
 
         guard let outputString = result.output else {
-            XCTAssertTrue(Bool(false), Comment(rawValue: "Output was nil for ping via direct payload"))
+            XCTAssertTrue(Bool(false), "Output was nil for ping via direct payload")
             return
         }
         guard let responseData = outputString.data(using: String.Encoding.utf8) else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(
-                    rawValue: "Failed to convert output to Data for ping via direct payload. Output: \(outputString)"
-                )
+                "Failed to convert output to Data for ping via direct payload. Output: \(outputString)"
             )
             return
         }
@@ -132,7 +124,7 @@ class PingIntegrationTests: XCTestCase {
         XCTAssertEqual(decodedResponse.success, true)
         XCTAssertTrue(
             decodedResponse.message.contains("Direct Argument Payload"),
-            Comment(rawValue: "Unexpected success message: \(decodedResponse.message)")
+            "Unexpected success message: \(decodedResponse.message)"
         )
         XCTAssertEqual(decodedResponse.details, payloadMessage)
     }
@@ -155,23 +147,21 @@ class PingIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             result.exitCode, 0,
-            Comment(rawValue: "axorc command should return 0 with error on stdout. Status: \(result.exitCode). " +
-                "Error STDOUT: \(result.output ?? "nil"). Error STDERR: \(result.errorOutput ?? "nil")")
+            "axorc command should return 0 with error on stdout. Status: \(result.exitCode). " +
+                "Error STDOUT: \(result.output ?? "nil"). Error STDERR: \(result.errorOutput ?? "nil")"
         )
 
         guard let outputString = result.output, !outputString.isEmpty else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(rawValue: "Output was nil or empty for multiple input methods error test")
+                "Output was nil or empty for multiple input methods error test"
             )
             return
         }
         guard let responseData = outputString.data(using: String.Encoding.utf8) else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(
-                    rawValue: "Failed to convert output to Data for multiple input methods error. Output: \(outputString)"
-                )
+                "Failed to convert output to Data for multiple input methods error. Output: \(outputString)"
             )
             return
         }
@@ -179,7 +169,7 @@ class PingIntegrationTests: XCTestCase {
         XCTAssertEqual(errorResponse.success, false)
         XCTAssertTrue(
             errorResponse.error.message.contains("Multiple input flags specified"),
-            Comment(rawValue: "Unexpected error message: \(errorResponse.error.message)")
+            "Unexpected error message: \(errorResponse.error.message)"
         )
     }
 
@@ -188,18 +178,18 @@ class PingIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             result.exitCode, 0,
-            Comment(rawValue: "axorc should return 0 with error on stdout. Status: \(result.exitCode). " +
-                "Error STDOUT: \(result.output ?? "nil"). Error STDERR: \(result.errorOutput ?? "nil")")
+            "axorc should return 0 with error on stdout. Status: \(result.exitCode). " +
+                "Error STDOUT: \(result.output ?? "nil"). Error STDERR: \(result.errorOutput ?? "nil")"
         )
 
         guard let outputString = result.output, !outputString.isEmpty else {
-            XCTAssertTrue(Bool(false), Comment(rawValue: "Output was nil or empty for no input test."))
+            XCTAssertTrue(Bool(false), "Output was nil or empty for no input test.")
             return
         }
         guard let responseData = outputString.data(using: String.Encoding.utf8) else {
             XCTAssertTrue(
                 Bool(false),
-                Comment(rawValue: "Failed to convert output to Data for no input error. Output: \(outputString)")
+                "Failed to convert output to Data for no input error. Output: \(outputString)"
             )
             return
         }
@@ -207,11 +197,11 @@ class PingIntegrationTests: XCTestCase {
         XCTAssertEqual(errorResponse.success, false)
         XCTAssertEqual(
             errorResponse.commandId, "input_error",
-            Comment(rawValue: "Expected commandId to be input_error, got \(errorResponse.commandId)")
+            "Expected commandId to be input_error, got \(errorResponse.commandId)"
         )
         XCTAssertTrue(
             errorResponse.error.message.contains("No JSON input method specified"),
-            Comment(rawValue: "Unexpected error message for no input: \(errorResponse.error.message)")
+            "Unexpected error message for no input: \(errorResponse.error.message)"
         )
     }
 }

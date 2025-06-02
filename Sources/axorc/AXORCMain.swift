@@ -1,6 +1,6 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
-import ArgumentParser
+@preconcurrency import ArgumentParser
 import AXorcist // For AXorcist instance
 import CoreFoundation
 import Foundation
@@ -13,7 +13,7 @@ struct AXORCCommand: ParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
         commandName: "axorc",
         // Use axorcVersion from AXORCModels.swift or a shared constant place
-        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \\(axorcVersion)"
+        abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(axorcVersion)"
     )
 
     // `--debug` now enables *normal* diagnostic output. Use the new `--verbose` flag for the extremely chatty logs.
@@ -47,8 +47,7 @@ struct AXORCCommand: ParsableCommand {
     var directPayload: String?
 
     // Helper function to process and execute a CommandEnvelope
-    @MainActor
-    private func processAndExecuteCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) {
+    @MainActor private func processAndExecuteCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) {
         if debugCLI {
             axDebugLog("Successfully parsed command: \(command.command) (ID: \(command.commandId))")
         }
@@ -105,8 +104,7 @@ struct AXORCCommand: ParsableCommand {
         }
     }
 
-    @MainActor
-    mutating func run() throws {
+    @MainActor mutating func run() async throws {
         fputs("AXORCMain.run: VERY FIRST LINE EXECUTED.\n", stderr)
         fflush(stderr)
 
@@ -152,7 +150,7 @@ struct AXORCCommand: ParsableCommand {
         let axorcistInstance = AXorcist.shared // Use the shared instance
 
         if let error = inputResult.error {
-            let collectedLogs = debug ? GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
+            let collectedLogs = debug ? axGetLogsAsStrings(format: .text) : nil
             let errorResponse = ErrorResponse(commandId: "input_error", error: error, debugLogs: collectedLogs)
             if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonString = String(data: jsonData, encoding: .utf8) {
                 print(jsonString)
@@ -163,7 +161,7 @@ struct AXORCCommand: ParsableCommand {
         }
 
         guard let jsonStringFromInput = inputResult.jsonString else {
-            let collectedLogs = debug ? GlobalAXLogger.shared.getLogsAsStrings(format: .text) : nil
+            let collectedLogs = debug ? axGetLogsAsStrings(format: .text) : nil
             let errorResponse = ErrorResponse(commandId: "no_input", error: "No valid JSON input received", debugLogs: collectedLogs)
             if let jsonData = try? JSONEncoder().encode(errorResponse), let jsonStr = String(data: jsonData, encoding: .utf8) {
                 print(jsonStr)
@@ -233,7 +231,6 @@ struct AXORCCommand: ParsableCommand {
         }
     }
 
-    @MainActor
     private func commandShouldPrintLogsAtEnd() -> Bool {
         // This is a simplified check. A more robust way would be to check
         // the actual command type if it's available here.

@@ -294,12 +294,12 @@ public extension Element {
                         let paramErrNull = AXUIElementCopyParameterizedAttributeValue(
                             element,
                             param as CFString,
-                            kCFNull,
+                            CFConstants.cfNull!,
                             &paramValue
                         )
                         if paramErrNull == .success {
                             let valueStrNull = String(describing: paramValue ?? "nil" as Any)
-                            output += paramSubIndent + "\(param)(param: kCFNull): \(valueStrNull)\n"
+                            output += paramSubIndent + "\(param)(param: CFConstants.cfNull): \(valueStrNull)\n"
                         } else {
                             let axError1 = AXError(rawValue: paramErr.rawValue)
                             let errorDetail1 = String(describing: axError1 ?? "Error" as Any)

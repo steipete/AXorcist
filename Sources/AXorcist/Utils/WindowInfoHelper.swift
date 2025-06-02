@@ -13,7 +13,7 @@ public enum WindowInfoHelper {
     /// Get window info list with specified options
     public static func getWindowInfoList(
         option: CGWindowListOption,
-        relativeToWindow windowID: CGWindowID = kCGNullWindowID
+        relativeToWindow windowID: CGWindowID = CFConstants.cgNullWindowID
     ) -> [[String: Any]]? {
         guard let info = CGWindowListCopyWindowInfo(option, windowID) as? [[String: Any]] else {
             return nil
@@ -42,7 +42,7 @@ public enum WindowInfoHelper {
         }
 
         return windowInfos.first { dict in
-            if let winNum = dict[kCGWindowNumber as String] as? Int {
+            if let winNum = dict[CFConstants.cgWindowNumber] as? Int {
                 return winNum == windowNumber
             }
             return false
@@ -56,7 +56,7 @@ public enum WindowInfoHelper {
         }
 
         return allWindows.filter { dict in
-            if let ownerPID = dict[kCGWindowOwnerPID as String] as? Int {
+            if let ownerPID = dict[CFConstants.cgWindowOwnerPID] as? Int {
                 return ownerPID == Int(pid)
             }
             return false
@@ -68,7 +68,7 @@ public enum WindowInfoHelper {
     @MainActor
     public static func getWindowID(from element: Element) -> CGWindowID? {
         // Check if this is actually a window element
-        guard element.role() == kAXWindowRole else {
+        guard element.role() == CFConstants.axWindowRole else {
             axDebugLog("Element is not a window, cannot get window ID")
             return nil
         }
@@ -88,7 +88,7 @@ public enum WindowInfoHelper {
 
         // Try to find matching window by bounds
         for window in windows {
-            if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+            if let bounds = window[CFConstants.cgWindowBounds] as? [String: CGFloat],
                let xCoord = bounds["X"],
                let yCoord = bounds["Y"],
                let width = bounds["Width"],
@@ -101,7 +101,7 @@ public enum WindowInfoHelper {
                    abs(width - size.width) < tolerance,
                    abs(height - size.height) < tolerance
                 {
-                    if let windowID = window[kCGWindowNumber as String] as? Int {
+                    if let windowID = window[CFConstants.cgWindowNumber] as? Int {
                         return CGWindowID(windowID)
                     }
                 }
@@ -117,7 +117,7 @@ public enum WindowInfoHelper {
             return nil
         }
 
-        guard let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
+        guard let bounds = info[CFConstants.cgWindowBounds] as? [String: CGFloat],
               let xCoord = bounds["X"],
               let yCoord = bounds["Y"],
               let width = bounds["Width"],
@@ -135,7 +135,7 @@ public enum WindowInfoHelper {
             return nil
         }
 
-        guard let pid = info[kCGWindowOwnerPID as String] as? Int else {
+        guard let pid = info[CFConstants.cgWindowOwnerPID] as? Int else {
             return nil
         }
 
@@ -148,7 +148,7 @@ public enum WindowInfoHelper {
             return nil
         }
 
-        return info[kCGWindowName as String] as? String
+        return info[CFConstants.cgWindowName] as? String
     }
 
     /// Check if a window is on screen

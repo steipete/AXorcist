@@ -90,11 +90,11 @@ class BatchIntegrationTests: XCTestCase {
 
         XCTAssertEqual(
             exitCode, 0,
-            Comment(rawValue: "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")")
+            "axorc process for batch command should exit with 0. Error: \(errorOutput ?? "N/A")"
         )
-        XCTAssertEqual(
-            errorOutput, nil || errorOutput!.isEmpty,
-            Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
+        XCTAssertTrue(
+            (errorOutput == nil || errorOutput!.isEmpty),
+            "STDERR should be empty. Got: \(errorOutput ?? "")"
         )
 
         guard let outputString = output, !outputString.isEmpty else {
@@ -125,7 +125,7 @@ class BatchIntegrationTests: XCTestCase {
         XCTAssertEqual(result1.commandId, focusedElementSubCmdId)
         XCTAssertEqual(result1.success, true, "GetFocusedElement should succeed")
         XCTAssertEqual(result1.command, CommandType.getFocusedElement.rawValue)
-        XCTAssertNotEqual(result1.data, nil)
+        XCTAssertNotNil(result1.data)
         XCTAssertEqual(result1.data?.attributes?["AXRole"]?.value as? String, textAreaRole)
 
         // Verify second sub-command
@@ -133,7 +133,7 @@ class BatchIntegrationTests: XCTestCase {
         XCTAssertEqual(result2.commandId, querySubCmdId)
         XCTAssertEqual(result2.success, true, "Query should succeed")
         XCTAssertEqual(result2.command, CommandType.query.rawValue)
-        XCTAssertNotEqual(result2.data, nil)
+        XCTAssertNotNil(result2.data)
         XCTAssertEqual(result2.data?.attributes?["AXRole"]?.value as? String, textAreaRole)
 
         XCTAssertNotEqual(batchResponse.debugLogs, nil)

@@ -191,10 +191,10 @@ class ActionIntegrationTests: XCTestCase {
         let result = try runAXORCCommand(arguments: [jsonString])
         let (output, errorOutput, exitCode) = (result.output, result.errorOutput, result.exitCode)
 
-        XCTAssertEqual(exitCode, 0, Comment(rawValue: "Command failed. Error: \(errorOutput ?? "N/A")"))
-        XCTAssertEqual(
-            errorOutput, nil || errorOutput!.isEmpty,
-            Comment(rawValue: "STDERR should be empty. Got: \(errorOutput ?? "")")
+        XCTAssertEqual(exitCode, 0, "Command failed. Error: \(errorOutput ?? "N/A")")
+        XCTAssertTrue(
+            (errorOutput == nil || errorOutput!.isEmpty),
+            "STDERR should be empty. Got: \(errorOutput ?? "")"
         )
 
         guard let outputString = output, !outputString.isEmpty else {

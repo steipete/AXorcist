@@ -99,7 +99,7 @@ class ElementSearchTests: XCTestCase {
         let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
         XCTAssertEqual(response.success, true)
-        XCTAssertNotEqual(response.data, nil)
+        XCTAssertNotNil(response.data)
 
         // Check hierarchy
         if let data = response.data, let attributes = data.attributes {

@@ -14,7 +14,7 @@ public typealias ElementAttributes = [String: AnyCodable]
 /// - Sanitizing arrays and dictionaries recursively
 /// - Preserving type information for various accessibility values
 /// - Thread-safe serialization of complex attribute values
-public struct AXValueWrapper: Codable, Sendable {
+public struct AXValueWrapper: Codable, Sendable, Equatable {
     // MARK: Lifecycle
 
     @MainActor // Added @MainActor to allow calling element.briefDescription

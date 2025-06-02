@@ -76,7 +76,7 @@ public enum AXResponse: Sendable {
 public protocol HandlerDataRepresentable: Codable {}
 
 // Definition for AXElementData based on usage in AXorcist+QueryHandlers.swift
-public struct AXElementData: Codable, HandlerDataRepresentable {
+public struct AXElementData: Codable, HandlerDataRepresentable, Equatable {
     // MARK: Lifecycle
 
     public init(
@@ -328,7 +328,7 @@ public struct ErrorResponse: Codable {
     }
 }
 
-public struct ErrorDetail: Codable {
+public struct ErrorDetail: Codable, Equatable {
     // MARK: Lifecycle
 
     public init(message: String) {
