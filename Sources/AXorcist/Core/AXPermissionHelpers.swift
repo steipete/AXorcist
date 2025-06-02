@@ -45,7 +45,7 @@ public enum AXPermissionHelpers {
         {
             return false // Return false to indicate no permissions in test mode
         }
-        let options = [kAXTrustedCheckOptionPrompt as String: true]
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         return AXIsProcessTrustedWithOptions(options as CFDictionary?)
     }
 

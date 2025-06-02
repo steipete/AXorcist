@@ -362,4 +362,4 @@ nonisolated(unsafe) public var axorcScanAll: Bool = false
 
 /// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
 /// CLI flag `--no-stop-first` sets this to `false`.
-public var axorcStopAtFirstMatch: Bool = true
+nonisolated(unsafe) public var axorcStopAtFirstMatch: Bool = true
