@@ -177,7 +177,7 @@ public func traverseAndSearch(
 
     // Maintain a static visited set per traversal to avoid cycles.
     // We store the CFHash of AXUIElement to uniquely identify.
-    struct VisitedSet { static var set = Set<UInt>() }
+    struct VisitedSet { nonisolated(unsafe) static var set = Set<UInt>() }
 
     if let children = element.children(strict: false), !children.isEmpty,
        (axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false)) {
@@ -348,17 +348,17 @@ private let containerRoles: Set<String> = [
 
 /// Global deadline used by `traverseAndSearch` to abort extremely long walks.
 /// It is _only_ set for the duration of a single public search call and then cleared again.
-private var traversalDeadline: Date?
+nonisolated(unsafe) private var traversalDeadline: Date?
 
 /// Counts how many nodes have been visited during the current `findTargetElement` invocation.
-private var traversalNodeCounter: Int = 0
+nonisolated(unsafe) private var traversalNodeCounter: Int = 0
 
 /// Default timeout (seconds) for a full tree traversal. Override at runtime by setting `axorcTraversalTimeout`.
-public var axorcTraversalTimeout: TimeInterval = 30
+nonisolated(unsafe) public var axorcTraversalTimeout: TimeInterval = 30
 
 /// When true, traversal will ignore `containerRoles` pruning and descend into *every* child of every element.
 /// Enable via CLI flag `--scan-all`.
-public var axorcScanAll: Bool = false
+nonisolated(unsafe) public var axorcScanAll: Bool = false
 
 /// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
 /// CLI flag `--no-stop-first` sets this to `false`.

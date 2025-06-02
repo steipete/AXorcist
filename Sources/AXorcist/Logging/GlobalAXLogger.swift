@@ -5,7 +5,8 @@ import os // For OSLog specific configurations if ever needed directly.
 // and not passing entries across actor boundaries, but good for robustness.
 // public struct AXLogEntry: Codable, Identifiable, Sendable { ... }
 
-public class GlobalAXLogger {
+@MainActor
+public class GlobalAXLogger: Sendable {
     // MARK: Lifecycle
 
     private init() {

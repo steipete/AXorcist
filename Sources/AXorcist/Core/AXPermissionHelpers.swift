@@ -45,7 +45,7 @@ public enum AXPermissionHelpers {
         {
             return false // Return false to indicate no permissions in test mode
         }
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let options = [kAXTrustedCheckOptionPrompt as String: true]
         return AXIsProcessTrustedWithOptions(options as CFDictionary?)
     }
 
@@ -132,19 +132,24 @@ public enum AXPermissionHelpers {
         interval: TimeInterval = 1.0
     ) -> AsyncStream<Bool> {
         AsyncStream { continuation in
-            var lastState = hasAccessibilityPermissions()
-            continuation.yield(lastState)
+            let initialState = hasAccessibilityPermissions()
+            continuation.yield(initialState)
 
-            // Use a class to hold the timer to avoid capture issues
+            // Use a class to hold the timer and state to avoid capture issues
             final class TimerBox: @unchecked Sendable {
                 var timer: Timer?
+                var lastState: Bool
+                
+                init(initialState: Bool) {
+                    self.lastState = initialState
+                }
             }
-            let timerBox = TimerBox()
+            let timerBox = TimerBox(initialState: initialState)
 
             timerBox.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
                 let currentState = hasAccessibilityPermissions()
-                if currentState != lastState {
-                    lastState = currentState
+                if currentState != timerBox.lastState {
+                    timerBox.lastState = currentState
                     continuation.yield(currentState)
                 }
             }

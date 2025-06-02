@@ -39,5 +39,5 @@ public enum AXTrustUtil {
     // MARK: Private
 
     // Capture the C global safely within the MainActor context.
-    private static let axTrustedCheckOptionPromptInternal: CFString = kAXTrustedCheckOptionPrompt.takeUnretainedValue()
+    @MainActor private static let axTrustedCheckOptionPromptInternal: CFString = kAXTrustedCheckOptionPrompt
 }
