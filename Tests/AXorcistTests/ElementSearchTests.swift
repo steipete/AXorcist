@@ -1,11 +1,16 @@
 import AppKit
+import Testing
 @testable import AXorcist
-import XCTest
 
-// MARK: - Element Search and Navigation Tests
-
-class ElementSearchTests: XCTestCase {
-    func testSearchElementsByRole() async throws {
+@Suite(
+    "AXorcist Element Search Tests",
+    .tags(.automation),
+    .enabled(if: AXTestEnvironment.runAutomationScenarios)
+)
+@MainActor
+struct ElementSearchTests {
+    @Test("Search elements by role", .tags(.automation))
+    func searchElementsByRole() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -18,7 +23,6 @@ class ElementSearchTests: XCTestCase {
 
         try await Task.sleep(for: .seconds(1))
 
-        // Search for buttons
         let command = CommandEnvelope(
             commandId: "test-search-buttons",
             command: .query,
@@ -35,8 +39,7 @@ class ElementSearchTests: XCTestCase {
         }
 
         let result = try runAXORCCommand(arguments: [jsonString])
-
-        XCTAssertEqual(result.exitCode, 0)
+        #expect(result.exitCode == 0)
 
         guard let output = result.output,
               let responseData = output.data(using: String.Encoding.utf8)
@@ -46,17 +49,17 @@ class ElementSearchTests: XCTestCase {
 
         let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-        XCTAssertEqual(response.success, true)
+        #expect(response.success)
 
         if let data = response.data, let attributes = data.attributes {
-            // For a query response, we should find button elements
-            if let role = attributes["AXRole"]?.value as? String {
-                XCTAssertEqual(role, "AXButton", "Should find button elements")
+            if let role = attributes["AXRole"]?.anyValue as? String {
+                #expect(role == "AXButton", "Should find button elements")
             }
         }
     }
 
-    func testDescribeElementHierarchy() async throws {
+    @Test("Describe element hierarchy", .tags(.automation))
+    func describeElementHierarchy() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -69,7 +72,6 @@ class ElementSearchTests: XCTestCase {
 
         try await Task.sleep(for: .seconds(1))
 
-        // Describe the application element
         let command = CommandEnvelope(
             commandId: "test-describe",
             command: .describeElement,
@@ -87,8 +89,7 @@ class ElementSearchTests: XCTestCase {
         }
 
         let result = try runAXORCCommand(arguments: [jsonString])
-
-        XCTAssertEqual(result.exitCode, 0)
+        #expect(result.exitCode == 0)
 
         guard let output = result.output,
               let responseData = output.data(using: String.Encoding.utf8)
@@ -98,153 +99,131 @@ class ElementSearchTests: XCTestCase {
 
         let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
 
-        XCTAssertEqual(response.success, true)
-        XCTAssertNotNil(response.data)
+        #expect(response.success)
+        #expect(response.data != nil)
 
-        // Check hierarchy
         if let data = response.data, let attributes = data.attributes {
-            if let role = attributes["AXRole"]?.value as? String {
-                XCTAssertEqual(role, "AXApplication", "Should find application element")
+            if let role = attributes["AXRole"]?.anyValue as? String {
+                #expect(role == "AXApplication", "Should find application element")
             }
         }
     }
 
-    func testSetAndVerifyText() async throws {
+    @Test("Set and verify text in TextEdit", .tags(.automation))
+    func setAndVerifyText() async throws {
+        try await withFreshTextEdit { encoder in
+            try await self.setText("Hello from AXorcist tests!", encoder: encoder)
+            let response = try await self.queryTextArea(encoder: encoder)
+            #expect(response.success)
+            if let data = response.data,
+               let value = data.attributes?["AXValue"]?.anyValue as? String
+            {
+                #expect(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
+            }
+        }
+    }
+
+    @Test("Extract text from TextEdit window", .tags(.automation))
+    func extractText() async throws {
+        try await withFreshTextEdit { encoder in
+            try await self.setText(
+                "This is test content.\nIt has multiple lines.\nExtract this text.",
+                encoder: encoder
+            )
+            let response = try await self.extractWindowText(encoder: encoder)
+            #expect(response.success)
+            self.assertExtractedText(response)
+        }
+    }
+}
+
+// MARK: - Helper Extensions
+
+extension ElementSearchTests {
+    private func withFreshTextEdit(_ action: (JSONEncoder) async throws -> Void) async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
-
         _ = try await setupTextEditAndGetInfo()
         defer {
             if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
                 app.terminate()
             }
         }
-
         try await Task.sleep(for: .seconds(1))
+        let encoder = JSONEncoder()
+        try await action(encoder)
+    }
 
-        // Set text
-        let setText = CommandEnvelope(
-            commandId: "test-set-text",
+    private func setText(_ text: String, encoder: JSONEncoder) async throws {
+        let command = CommandEnvelope(
+            commandId: "set-text",
             command: .performAction,
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
             actionName: "AXSetValue",
-            actionValue: AnyCodable("Hello from AXorcist tests!")
+            actionValue: .string(text)
         )
 
-        let encoder = JSONEncoder()
-        var jsonData = try encoder.encode(setText)
-        guard let setJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
-            throw TestError.generic("Failed to create JSON")
-        }
+        try await execute(command: command, encoder: encoder)
+    }
 
-        var result = try runAXORCCommand(arguments: [setJsonString])
-        XCTAssertEqual(result.exitCode, 0)
-
-        // Query to verify
-        let queryText = CommandEnvelope(
-            commandId: "test-query-text",
+    private func queryTextArea(encoder: JSONEncoder) async throws -> QueryResponse {
+        let command = CommandEnvelope(
+            commandId: "query-text",
             command: .query,
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
             outputFormat: .verbose
         )
-
-        jsonData = try encoder.encode(queryText)
-        guard let queryJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
-            throw TestError.generic("Failed to create JSON")
-        }
-
-        result = try runAXORCCommand(arguments: [queryJsonString])
-        XCTAssertEqual(result.exitCode, 0)
-
-        guard let output = result.output,
-              let responseData = output.data(using: String.Encoding.utf8)
-        else {
-            throw TestError.generic("No output")
-        }
-
-        let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
-
-        XCTAssertEqual(response.success, true)
-
-        if let data = response.data, let attributes = data.attributes {
-            if let value = attributes["AXValue"]?.value as? String {
-                XCTAssertTrue(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
-            }
-        }
+        return try await runQuery(command: command, encoder: encoder)
     }
 
-    func testExtractText() async throws {
-        await closeTextEdit()
-        try await Task.sleep(for: .milliseconds(500))
-
-        _ = try await setupTextEditAndGetInfo()
-        defer {
-            if let app = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.TextEdit").first {
-                app.terminate()
-            }
-        }
-
-        try await Task.sleep(for: .seconds(1))
-
-        // Set some text first
-        let setText = CommandEnvelope(
-            commandId: "test-set-for-extract",
-            command: .performAction,
-            application: "TextEdit",
-            debugLogging: true,
-            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
-            actionName: "AXSetValue",
-            actionValue: AnyCodable("This is test content.\nIt has multiple lines.\nExtract this text.")
-        )
-
-        let encoder = JSONEncoder()
-        var jsonData = try encoder.encode(setText)
-        guard let setJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
-            throw TestError.generic("Failed to create JSON")
-        }
-
-        _ = try runAXORCCommand(arguments: [setJsonString])
-
-        // Extract text
-        let extractCommand = CommandEnvelope(
-            commandId: "test-extract",
+    private func extractWindowText(encoder: JSONEncoder) async throws -> QueryResponse {
+        let command = CommandEnvelope(
+            commandId: "extract-text-window",
             command: .extractText,
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]),
             outputFormat: .textContent
         )
+        return try await runQuery(command: command, encoder: encoder)
+    }
 
-        jsonData = try encoder.encode(extractCommand)
-        guard let extractJsonString = String(data: jsonData, encoding: String.Encoding.utf8) else {
+    private func execute(command: CommandEnvelope, encoder: JSONEncoder) async throws {
+        let data = try encoder.encode(command)
+        guard let jsonString = String(data: data, encoding: .utf8) else {
             throw TestError.generic("Failed to create JSON")
         }
+        let result = try runAXORCCommand(arguments: [jsonString])
+        #expect(result.exitCode == 0)
+    }
 
-        let result = try runAXORCCommand(arguments: [extractJsonString])
-        XCTAssertEqual(result.exitCode, 0)
-
+    private func runQuery(command: CommandEnvelope, encoder: JSONEncoder) async throws -> QueryResponse {
+        let data = try encoder.encode(command)
+        guard let jsonString = String(data: data, encoding: .utf8) else {
+            throw TestError.generic("Failed to create JSON")
+        }
+        let result = try runAXORCCommand(arguments: [jsonString])
+        #expect(result.exitCode == 0)
         guard let output = result.output,
-              let responseData = output.data(using: String.Encoding.utf8)
+              let responseData = output.data(using: .utf8)
         else {
             throw TestError.generic("No output")
         }
+        return try JSONDecoder().decode(QueryResponse.self, from: responseData)
+    }
 
-        let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
-
-        XCTAssertEqual(response.success, true)
-
+    private func assertExtractedText(_ response: QueryResponse) {
         if let data = response.data, let attributes = data.attributes {
-            // For extract text commands, check for extracted text in attributes
-            if let extractedText = attributes["extractedText"]?.value as? String {
-                XCTAssertTrue(extractedText.contains("This is test content"), "Should extract the test content")
-                XCTAssertTrue(extractedText.contains("multiple lines"), "Should extract multiple lines")
-            } else if let value = attributes["AXValue"]?.value as? String {
-                XCTAssertTrue(value.contains("This is test content"), "Should extract the test content")
-                XCTAssertTrue(value.contains("multiple lines"), "Should extract multiple lines")
+            if let extractedText = attributes["extractedText"]?.anyValue as? String {
+                #expect(extractedText.contains("This is test content"), "Should extract the test content")
+                #expect(extractedText.contains("multiple lines"), "Should extract multiple lines")
+            } else if let value = attributes["AXValue"]?.anyValue as? String {
+                #expect(value.contains("This is test content"), "Should extract the test content")
+                #expect(value.contains("multiple lines"), "Should extract multiple lines")
             }
         }
     }

@@ -1,7 +1,7 @@
 // Element.swift - Wrapper for AXUIElement for a more Swift-idiomatic interface
 
 import AppKit // Added to provide NSRunningApplication and NSWorkspace
-import ApplicationServices // For AXUIElement and other C APIs
+@preconcurrency import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
 
 /// A Swift-idiomatic wrapper around macOS AXUIElement for accessibility automation.
@@ -40,7 +40,7 @@ import Foundation
 /// // Perform actions
 /// try element.performAction(.press)
 /// ```
-public struct Element: Equatable, Hashable {
+public struct Element: Equatable, Hashable, Sendable {
     // MARK: Lifecycle
 
     /// Creates an Element wrapper around an AXUIElement.
@@ -66,7 +66,12 @@ public struct Element: Equatable, Hashable {
     ///   - attributes: Pre-fetched accessibility attributes
     ///   - children: Pre-fetched child elements
     ///   - actions: Pre-fetched available actions
-    public init(_ element: AXUIElement, attributes: [String: AnyCodable]?, children: [Element]?, actions: [String]?) {
+    public init(
+        _ element: AXUIElement,
+        attributes: [String: AttributeValue]?,
+        children: [Element]?,
+        actions: [String]?)
+    {
         self.underlyingElement = element
         self.attributes = attributes
         self.prefetchedChildren = children // Renamed from 'children'.
@@ -85,7 +90,7 @@ public struct Element: Equatable, Hashable {
     ///
     /// When populated (typically by deep queries), this contains all the
     /// accessibility attributes for the element, avoiding repeated API calls.
-    public var attributes: [String: AnyCodable]?
+    public var attributes: [String: AttributeValue]?
 
     /// Pre-fetched child elements.
     ///
@@ -296,7 +301,7 @@ public struct Element: Equatable, Hashable {
     @MainActor
     private func getStoredAttribute<T>(_ attribute: Attribute<T>) -> T? {
         guard let storedAttributes = self.attributes,
-              let anyCodableValue = storedAttributes[attribute.rawValue]
+              let attributeValue = storedAttributes[attribute.rawValue]
         else {
             return nil
         }
@@ -306,26 +311,26 @@ public struct Element: Equatable, Hashable {
             message: "Found '\\(attribute.rawValue)' in stored attributes."
         ))
 
-        // Attempt to convert AnyCodable to T
-        if T.self == String.self, let strValue = anyCodableValue.value as? String { return strValue as? T }
-        if T.self == Bool.self, let boolValue = anyCodableValue.value as? Bool { return boolValue as? T }
-        if T.self == Int.self, let intValue = anyCodableValue.value as? Int { return intValue as? T }
+        // Attempt to convert AttributeValue to T
+        if T.self == String.self, let strValue = attributeValue.stringValue { return strValue as? T }
+        if T.self == Bool.self, let boolValue = attributeValue.boolValue { return boolValue as? T }
+        if T.self == Int.self, let intValue = attributeValue.intValue { return intValue as? T }
         if T.self == [Element].self,
-           let elementArray = anyCodableValue.value as? [Element] { return elementArray as? T }
+           let elementArray = attributeValue.anyValue as? [Element] { return elementArray as? T }
         if T.self == AXUIElement.self,
-           let cfValue = anyCodableValue.value as CFTypeRef?,
+           let cfValue = attributeValue.anyValue as CFTypeRef?,
            CFGetTypeID(cfValue) == AXUIElementGetTypeID()
         {
             return cfValue as? T
         }
 
-        if let val = anyCodableValue.value as? T {
+        if let val = attributeValue.anyValue as? T {
             return val
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "Stored attribute '\\(attribute.rawValue)' " +
-                    "(type \\(type(of: anyCodableValue.value))) " +
+                    "(type \\(type(of: attributeValue))) " +
                     "could not be cast to \\(String(describing: T.self))"
             ))
             return nil
@@ -358,21 +363,26 @@ public struct Element: Equatable, Hashable {
 
         if let cfArray = value, CFGetTypeID(cfArray) == CFArrayGetTypeID() {
             if let axElements = cfArray as? [AXUIElement] {
+                let message = "Successfully fetched and cast \(axElements.count) AXUIElements " +
+                    "for '\(attribute.rawValue)'."
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "Successfully fetched and cast \(axElements.count) AXUIElements for '\(attribute.rawValue)'."
+                    message: message
                 ))
                 return axElements as? T
             } else {
+                let message = "CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement]."
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement]."
+                    message: message
                 ))
             }
         } else if let unwrappedValue = value {
+            let typeDescription = String(describing: CFGetTypeID(unwrappedValue))
+            let message = "Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(typeDescription)"
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(String(describing: CFGetTypeID(unwrappedValue)))"
+                message: message
             ))
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
@@ -387,7 +397,8 @@ public struct Element: Equatable, Hashable {
     private func fetchAndConvertAttribute<T>(_ attribute: Attribute<T>) -> T? {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Using basic CFTypeRef conversion for T = \\(String(describing: T.self)), Attribute: \\(attribute.rawValue)."
+            message: "Using basic CFTypeRef conversion for T = \\(String(describing: T.self)), " +
+                "Attribute: \\(attribute.rawValue)."
         ))
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
