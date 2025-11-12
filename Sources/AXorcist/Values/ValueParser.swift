@@ -4,8 +4,6 @@ import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
 import Foundation
 
-// swiftlint:disable file_length
-
 // GlobalAXLogger is assumed to be available
 
 // Inspired by UIElementInspector's UIElementUtilities.m
@@ -45,7 +43,10 @@ public func getAXValueTypeForAttribute(element: Element, attributeName: String) 
         return nil
     }
 
-    let axValue = rawValue as! AXValue
+    guard let axValue = rawValue as? AXValue else {
+        axWarningLog("getAXValueTypeForAttribute: Expected AXValue but received \(rawValue).")
+        return nil
+    }
     return AXValueGetType(axValue)
 }
 
@@ -84,7 +85,13 @@ private func convertStringValue(
 
     switch typeID {
     case AXValueGetTypeID():
-        let axValue = currentValue as! AXValue
+        guard let axValue = currentValue as? AXValue else {
+            let detail = "Attribute '\(attributeName)' reported AXValue type but casting failed."
+            axErrorLog(detail, file: #file, function: #function, line: #line)
+            throw AccessibilityError.attributeUnsupported(
+                attribute: detail,
+                elementDescription: element.briefDescription())
+        }
         let axValueType = AXValueGetType(axValue)
         axDebugLog(
             "Attribute '\(attributeName)' is AXValue of type: \(stringFromAXValueType(axValueType))",
@@ -406,5 +413,3 @@ private func parseDefaultAXValueType(
 }
 
 // stringFromAXValueType is now defined in ValueHelpers.swift
-
-// swiftlint:enable file_length

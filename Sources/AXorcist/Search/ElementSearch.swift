@@ -4,8 +4,6 @@ import ApplicationServices
 import Foundation
 import Logging
 
-// swiftlint:disable file_length
-
 private let logger = Logger(label: "AXorcist.ElementSearch")
 
 private struct PathNavigationResult {
@@ -554,5 +552,3 @@ public nonisolated(unsafe) var axorcScanAll: Bool = false
 /// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
 /// CLI flag `--no-stop-first` sets this to `false`.
 public nonisolated(unsafe) var axorcStopAtFirstMatch: Bool = true
-
-// swiftlint:enable file_length

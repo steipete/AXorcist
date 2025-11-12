@@ -137,7 +137,7 @@ func castToAXUIElementArray(_ value: Any, attr: String) -> [AXUIElement]? {
         let result = anyArray.compactMap { item -> AXUIElement? in
             guard let cfItem = item else { return nil }
             if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() {
-                return (cfItem as! AXUIElement)
+                return cfItem as? AXUIElement
             }
             return nil
         }
@@ -157,7 +157,10 @@ func castToElementArray(_ value: Any, attr: String) -> [Element]? {
         let result = anyArray.compactMap { item -> Element? in
             guard let cfItem = item else { return nil }
             if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() {
-                return Element(cfItem as! AXUIElement) // Assumes Element initializer is public/internal
+                guard let axElement = cfItem as? AXUIElement else {
+                    return nil
+                }
+                return Element(axElement) // Assumes Element initializer is public/internal
             }
             return nil
         }
@@ -236,7 +239,7 @@ func castToSpecialType<T>(_ value: Any, expectedType: T.Type, attr: String) -> T
 @MainActor
 func castToAXUIElement(_ value: Any, attr: String) -> AXUIElement? {
     if let cfValue = value as CFTypeRef?, CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
-        return (cfValue as! AXUIElement)
+        return cfValue as? AXUIElement
     }
     let typeDescription = String(describing: type(of: value))
     let valueDescription = String(describing: value)

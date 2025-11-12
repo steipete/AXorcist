@@ -3,8 +3,6 @@
 import CoreGraphics
 import Foundation
 
-// swiftlint:disable file_length
-
 // MARK: - AXCommand and Command Structs
 
 /// Enumeration of all supported AXorcist accessibility commands.
@@ -501,5 +499,3 @@ public struct AXBatchCommand: Sendable {
     /// depending on the configuration.
     public let commands: [SubCommandEnvelope]
 }
-
-// swiftlint:enable file_length

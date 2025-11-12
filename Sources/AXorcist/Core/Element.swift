@@ -4,8 +4,6 @@ import AppKit // Added to provide NSRunningApplication and NSWorkspace
 @preconcurrency import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
 
-// swiftlint:disable file_length
-
 /// A Swift-idiomatic wrapper around macOS AXUIElement for accessibility automation.
 ///
 /// Element provides a modern Swift interface for interacting with UI elements through
@@ -417,5 +415,3 @@ public struct Path {
 
     public let components: [String]
 }
-
-// swiftlint:enable file_length

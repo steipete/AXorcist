@@ -2,8 +2,6 @@
 
 import Foundation
 
-// swiftlint:disable file_length
-
 // MARK: - Accessibility Action Names
 
 public enum AXActionNames {
@@ -439,5 +437,3 @@ public enum AXMiscConstants {
     // pathHintAttributeKey was for Element.swift's pathHint property, which is different from
     // AXAttributeNames.kAXPathHintAttribute
 }
-
-// swiftlint:enable file_length

@@ -2,8 +2,6 @@
 
 import Foundation
 
-// swiftlint:disable file_length
-
 // MARK: - AXErrorCode
 
 // Error codes for AXorcist operations
@@ -537,5 +535,3 @@ public struct CollectAllOutput: Codable {
         case message // MODIFIED: CodingKey updated
     }
 }
-
-// swiftlint:enable file_length

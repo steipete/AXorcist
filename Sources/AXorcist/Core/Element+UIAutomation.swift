@@ -1,8 +1,6 @@
 import AppKit
 import ApplicationServices
 
-// swiftlint:disable file_length
-
 // MARK: - Mouse Button Types
 
 public enum MouseButton: String, Sendable {
@@ -582,5 +580,3 @@ public enum UIAutomationError: Error, LocalizedError {
         }
     }
 }
-
-// swiftlint:enable file_length

@@ -244,8 +244,7 @@ extension Element {
             AXAttributeNames.kAXURLAttribute as CFString,
             &value)
         guard error == .success,
-              let cfURL = value as! CFURL?
-        else {
+              let cfURL = value as? CFURL else {
             return nil
         }
         return cfURL as URL

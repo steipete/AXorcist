@@ -10,16 +10,30 @@ func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
     if typeID == CFStringGetTypeID() {
-        return (value as! String)
+        guard let stringValue = value as? String else {
+            return AXMiscConstants.kAXNotAvailableString
+        }
+        return stringValue
     } else if typeID == CFAttributedStringGetTypeID() {
-        return (value as! NSAttributedString).string
+        guard let attributedString = value as? NSAttributedString else {
+            return AXMiscConstants.kAXNotAvailableString
+        }
+        return attributedString.string
     } else if typeID == AXValueGetTypeID() {
-        let axVal = value as! AXValue
-        return formatAXValue(axVal, option: ValueFormatOption.smart)
+        guard let axValue = value as? AXValue else {
+            return AXMiscConstants.kAXNotAvailableString
+        }
+        return formatAXValue(axValue, option: ValueFormatOption.smart)
     } else if typeID == CFNumberGetTypeID() {
-        return (value as! NSNumber).stringValue
+        guard let number = value as? NSNumber else {
+            return AXMiscConstants.kAXNotAvailableString
+        }
+        return number.stringValue
     } else if typeID == CFBooleanGetTypeID() {
-        return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
+        guard let boolValue = value as? CFBoolean else {
+            return AXMiscConstants.kAXNotAvailableString
+        }
+        return CFBooleanGetValue(boolValue) ? "true" : "false"
     } else {
         let typeDesc = CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType"
         GlobalAXLogger.shared.log(AXLogEntry(

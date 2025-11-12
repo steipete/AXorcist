@@ -22,7 +22,11 @@ func convertCFValueToSwift(_ cfValue: CFTypeRef?) -> Any? {
     case CFDictionaryGetTypeID():
         return convertCFDictionary(cfValue)
     case AXUIElementGetTypeID():
-        return cfValue as! AXUIElement // Should be safe to force unwrap if type matches
+        guard let element = cfValue as? AXUIElement else {
+            axWarningLog("Expected AXUIElement but received \(cfValue)")
+            return nil
+        }
+        return element
     // Add other common CF types if necessary, e.g., CFURL, CFDate
     default:
         axDebugLog("Unhandled CFTypeRef in convertCFValueToSwift: typeID \(typeID). Value: \(cfValue)")

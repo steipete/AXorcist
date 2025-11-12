@@ -8,8 +8,6 @@ extension Comment {
     }
 }
 
-// swiftlint:disable file_length
-
 extension Tag {
     @Tag static var safe: Self
     @Tag static var automation: Self
@@ -502,5 +500,3 @@ var productsDirectory: URL {
     return Bundle.main.bundleURL
     #endif
 }
-
-// swiftlint:enable file_length

@@ -28,17 +28,37 @@ enum ValueUnwrapper {
     {
         switch typeID {
         case ApplicationServices.AXUIElementGetTypeID():
-            return value as! AXUIElement
+            guard let element = value as? AXUIElement else {
+                axWarningLog("Failed to cast CFTypeRef to AXUIElement.")
+                return nil
+            }
+            return element
         case ApplicationServices.AXValueGetTypeID():
             return self.unwrapAXValue(value)
         case CFStringGetTypeID():
-            return (value as! CFString) as String
+            guard let cfString = value as? CFString else {
+                axWarningLog("Failed to cast CFTypeRef to CFString.")
+                return nil
+            }
+            return cfString as String
         case CFAttributedStringGetTypeID():
-            return (value as! NSAttributedString).string
+            guard let attributedString = value as? NSAttributedString else {
+                axWarningLog("Failed to cast CFTypeRef to NSAttributedString.")
+                return nil
+            }
+            return attributedString.string
         case CFBooleanGetTypeID():
-            return CFBooleanGetValue((value as! CFBoolean))
+            guard let cfBool = value as? CFBoolean else {
+                axWarningLog("Failed to cast CFTypeRef to CFBoolean.")
+                return nil
+            }
+            return CFBooleanGetValue(cfBool)
         case CFNumberGetTypeID():
-            return value as! NSNumber
+            guard let number = value as? NSNumber else {
+                axWarningLog("Failed to cast CFTypeRef to NSNumber.")
+                return nil
+            }
+            return number
         case CFArrayGetTypeID():
             return self.unwrapCFArray(value)
         case CFDictionaryGetTypeID():
@@ -55,7 +75,10 @@ enum ValueUnwrapper {
     private static func unwrapAXValue(
         _ value: CFTypeRef) -> Any?
     {
-        let axVal = value as! AXValue
+        guard let axVal = value as? AXValue else {
+            axWarningLog("Failed to cast CFTypeRef to AXValue.")
+            return nil
+        }
         let axValueType = axVal.valueType
 
         // Log the AXValueType
@@ -86,7 +109,10 @@ enum ValueUnwrapper {
     private static func unwrapCFArray(
         _ value: CFTypeRef) -> [Any?]
     {
-        let cfArray = value as! CFArray
+        guard let cfArray = value as? CFArray else {
+            axWarningLog("Failed to cast CFTypeRef to CFArray.")
+            return []
+        }
         var swiftArray: [Any?] = []
 
         for index in 0..<CFArrayGetCount(cfArray) {
@@ -104,7 +130,10 @@ enum ValueUnwrapper {
     private static func unwrapCFDictionary(
         _ value: CFTypeRef) -> [String: Any?]
     {
-        let cfDict = value as! CFDictionary
+        guard let cfDict = value as? CFDictionary else {
+            axWarningLog("Failed to cast CFTypeRef to CFDictionary.")
+            return [:]
+        }
         var swiftDict: [String: Any?] = [:]
 
         if let nsDict = cfDict as? [String: AnyObject] {

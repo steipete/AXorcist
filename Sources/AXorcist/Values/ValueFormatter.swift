@@ -39,17 +39,31 @@ private func formatCFTypeByID(
             value,
             option: option)
     case AXValueGetTypeID():
-        // Map SimpleValueFormatOption concepts to ValueFormatOption if needed, or pass directly if compatible
-        // Assuming formatAXValue (from AXValueSpecificFormatter) now takes ValueFormatOption directly
-        return formatAXValue(value as! AXValue, option: option)
+        guard let axValue = value as? AXValue else {
+            axWarningLog("formatCFTypeByID: Expected AXValue but received \(value).")
+            return "<Invalid AXValue>"
+        }
+        return formatAXValue(axValue, option: option)
     case CFStringGetTypeID():
-        return "\"\(escapeStringForDisplay(value as! String))\""
+        guard let stringValue = value as? String else {
+            return "<Invalid String>"
+        }
+        return "\"\(escapeStringForDisplay(stringValue))\""
     case CFAttributedStringGetTypeID():
-        return "\"\(escapeStringForDisplay((value as! NSAttributedString).string))\""
+        guard let attributedString = value as? NSAttributedString else {
+            return "<Invalid AttributedString>"
+        }
+        return "\"\(escapeStringForDisplay(attributedString.string))\""
     case CFBooleanGetTypeID():
-        return CFBooleanGetValue((value as! CFBoolean)) ? "true" : "false"
+        guard let boolValue = value as? CFBoolean else {
+            return "<Invalid Boolean>"
+        }
+        return CFBooleanGetValue(boolValue) ? "true" : "false"
     case CFNumberGetTypeID():
-        return (value as! NSNumber).stringValue
+        guard let number = value as? NSNumber else {
+            return "<Invalid Number>"
+        }
+        return number.stringValue
     case CFArrayGetTypeID():
         return formatCFArray(value, option: option)
     case CFDictionaryGetTypeID():
@@ -71,7 +85,11 @@ private func formatAXUIElement(
     _ value: CFTypeRef,
     option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
-    let element = Element(value as! AXUIElement)
+    guard let axElement = value as? AXUIElement else {
+        axWarningLog("formatAXUIElement: Failed to cast CFTypeRef to AXUIElement.")
+        return "<Invalid AXUIElement>"
+    }
+    let element = Element(axElement)
 
     // Element.role() and .title() will use GlobalAXLogger internally
     let role = element.role() ?? "Unknown"
@@ -92,7 +110,9 @@ private func formatCFArray(
     _ value: CFTypeRef,
     option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
-    let cfArray = value as! CFArray
+    guard let cfArray = value as? CFArray else {
+        return "<Invalid Array>"
+    }
     let count = CFArrayGetCount(cfArray)
 
     // Adjust logic based on ValueFormatOption cases
@@ -119,7 +139,9 @@ private func formatCFDictionary(
     _ value: CFTypeRef,
     option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
-    let cfDict = value as! CFDictionary
+    guard let cfDict = value as? CFDictionary else {
+        return "<Invalid Dictionary>"
+    }
     let count = CFDictionaryGetCount(cfDict)
 
     // Adjust logic based on ValueFormatOption cases
