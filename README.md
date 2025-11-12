@@ -664,8 +664,16 @@ Enable debug logging in commands:
 
 ## License
 
-[Add your license information here]
+AXorcist is released under the MIT License. See [../LICENSE](../LICENSE) for details.
 
 ## Contributing
 
-[Add contribution guidelines here]
+Please follow the main Peekaboo contributing guidelines and open pull requests against this repository when proposing AXorcist changes.
+
+## Coverage
+
+| Date       | Command                                                                                           | Scope                            | Line Coverage |
+| ---------- | ------------------------------------------------------------------------------------------------- | -------------------------------- | ------------- |
+| 2025-11-12 | `./runner swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
+
+> Only the `PingIntegrationTests` subset currently runs in this headless environment; the automation-tagged suites require interactive UI access. Coverage is produced with `xcrun llvm-cov report AXorcist/.build/debug/axPackagePackageTests.xctest/Contents/MacOS/axPackagePackageTests -instr-profile AXorcist/.build/debug/codecov/default.profdata`.

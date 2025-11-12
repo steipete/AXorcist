@@ -221,7 +221,7 @@ extension Element {
         windowLogger.debug("Activating application: \(app.localizedName ?? "Unknown")")
 
         // Activate the application first
-        let activated = app.activate(options: [.activateIgnoringOtherApps])
+        let activated = app.activate(options: [.activateAllWindows])
         if !activated {
             windowLogger.warning("Application activation returned false, continuing anyway")
             // Continue anyway - sometimes activation reports false but works
@@ -332,7 +332,7 @@ extension Element {
             return false
         }
 
-        return app.activate(options: [.activateIgnoringOtherApps])
+        return app.activate(options: [.activateAllWindows])
     }
 }
 
