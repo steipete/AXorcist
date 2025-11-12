@@ -5,13 +5,14 @@ import Foundation
 
 // MARK: - CommandType Extension for conversion to AXCommand
 
+@MainActor
 extension CommandType {
     func toAXCommand(commandEnvelope: CommandEnvelope) -> AXCommand? {
         guard let builder = Self.commandBuilders[self] else { return nil }
         return builder(commandEnvelope)
     }
 
-    private typealias CommandBuilder = (CommandEnvelope) -> AXCommand?
+    private typealias CommandBuilder = @MainActor (CommandEnvelope) -> AXCommand?
 
     private static let commandBuilders: [CommandType: CommandBuilder] = [
         .query: Self.createQueryCommand,
@@ -24,7 +25,7 @@ extension CommandType {
         .setFocusedValue: Self.createSetFocusedValueCommand,
         .getElementAtPoint: Self.createGetElementAtPointCommand,
         .getFocusedElement: Self.createGetFocusedElementCommand,
-        .observe: Self.createObserveCommand,
+        .observe: Self.createObserveCommand
     ]
 
     private static func createQueryCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {

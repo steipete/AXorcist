@@ -4,6 +4,8 @@ import ApplicationServices
 import CoreGraphics // For CGPoint, CGSize, CGRect, CFRange
 import Foundation
 
+// swiftlint:disable file_length
+
 // GlobalAXLogger is assumed to be available
 
 // Inspired by UIElementInspector's UIElementUtilities.m
@@ -207,8 +209,7 @@ private func parseCGPoint(from stringValue: String) throws -> AXValue? {
 
     if components.count == 2,
        let xValStr = components[0].split(separator: "=").last, let xVal = Double(xValStr),
-       let yValStr = components[1].split(separator: "=").last, let yVal = Double(yValStr)
-    {
+       let yValStr = components[1].split(separator: "=").last, let yVal = Double(yValStr) {
         xCoord = xVal; yCoord = yVal
     } else if components.count == 2, let xVal = Double(components[0]), let yVal = Double(components[1]) {
         xCoord = xVal; yCoord = yVal
@@ -245,8 +246,7 @@ private func parseCGSize(from stringValue: String) throws -> AXValue? {
 
     if components.count == 2,
        let wValStr = components[0].split(separator: "=").last, let wVal = Double(wValStr),
-       let hValStr = components[1].split(separator: "=").last, let hVal = Double(hValStr)
-    {
+       let hValStr = components[1].split(separator: "=").last, let hVal = Double(hValStr) {
         widthValue = wVal; heightValue = hVal
     } else if components.count == 2, let wVal = Double(components[0]), let hVal = Double(components[1]) {
         widthValue = wVal; heightValue = hVal
@@ -285,13 +285,11 @@ private func parseCGRect(from stringValue: String) throws -> AXValue? {
        let xStr = components[0].split(separator: "=").last, let xVal = Double(xStr),
        let yStr = components[1].split(separator: "=").last, let yVal = Double(yStr),
        let wStr = components[2].split(separator: "=").last, let wVal = Double(wStr),
-       let hStr = components[3].split(separator: "=").last, let hVal = Double(hStr)
-    {
+       let hStr = components[3].split(separator: "=").last, let hVal = Double(hStr) {
         xCoord = xVal; yCoord = yVal; width = wVal; height = hVal
     } else if components.count == 4,
               let xVal = Double(components[0]), let yVal = Double(components[1]),
-              let wVal = Double(components[2]), let hVal = Double(components[3])
-    {
+              let wVal = Double(components[2]), let hVal = Double(components[3]) {
         xCoord = xVal; yCoord = yVal; width = wVal; height = hVal
     } else {
         let scanner = Scanner(string: stringValue)
@@ -330,8 +328,7 @@ private func parseCFRange(from stringValue: String) throws -> AXValue? {
 
     if components.count == 2,
        let locStr = components[0].split(separator: "=").last, let locVal = Int(locStr),
-       let lenStr = components[1].split(separator: "=").last, let lenVal = Int(lenStr)
-    {
+       let lenStr = components[1].split(separator: "=").last, let lenVal = Int(lenStr) {
         loc = locVal; len = lenVal
     } else if components.count == 2, let locVal = Int(components[0]), let lenVal = Int(components[1]) {
         loc = locVal; len = lenVal
@@ -416,3 +413,5 @@ private func parseDefaultAXValueType(
 }
 
 // stringFromAXValueType is now defined in ValueHelpers.swift
+
+// swiftlint:enable file_length

@@ -2,6 +2,8 @@
 
 import Foundation
 
+// swiftlint:disable file_length
+
 // MARK: - Accessibility Action Names
 
 public enum AXActionNames {
@@ -173,8 +175,10 @@ public enum AXAttributeNames {
     // public static let kAXDOMChildrenAttribute = "AXDOMChildren"
 
     // Cell-specific Attributes
+    // swiftlint:disable identifier_name
     public static let kAXCellForColumnAndRowParameterizedAttribute =
         "AXCellForColumnAndRowParameterized" // AXUIElement (params: col, row)
+    // swiftlint:enable identifier_name
     public static let kAXRowIndexRangeAttribute = "AXRowIndexRange" // AXValue (CFRange)
     public static let kAXColumnIndexRangeAttribute = "AXColumnIndexRange" // AXValue (CFRange)
     public static let kAXSelectedCellsAttribute = "AXSelectedCells" // [AXUIElement]
@@ -200,7 +204,7 @@ public enum AXAttributeNames {
         "AXStyleRangeForIndexParameterized", // Param: Int (char index) -> AXValue (CFRange)
         "AXLineForIndexParameterized", // Param: Int (char index) -> Int (line number)
         kAXCellForColumnAndRowParameterizedAttribute, // Already defined above
-        kAXActionDescriptionAttribute, // Param: String (action name) -> String
+        kAXActionDescriptionAttribute // Param: String (action name) -> String
         // AXLayoutPointForScreenPointParameterized, AXLayoutSizeForScreenSizeParameterized, etc. for layout areas
     ]
 
@@ -403,7 +407,7 @@ public enum AXMiscConstants {
         AXAttributeNames.kAXFocusedAttribute,
         AXAttributeNames.kAXPositionAttribute,
         AXAttributeNames.kAXSizeAttribute,
-        AXAttributeNames.kAXChildrenAttribute, // To get an idea of hierarchy
+        AXAttributeNames.kAXChildrenAttribute // To get an idea of hierarchy
     ]
 
     // Default values for collection and search
@@ -435,3 +439,5 @@ public enum AXMiscConstants {
     // pathHintAttributeKey was for Element.swift's pathHint property, which is different from
     // AXAttributeNames.kAXPathHintAttribute
 }
+
+// swiftlint:enable file_length

@@ -39,8 +39,7 @@ public extension Element {
             let parentRole = parentElement?.role()
 
             if role == AXRoleNames.kAXApplicationRole ||
-                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil)
-            {
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
                 let locationType = role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"
                 let logMessage2 = "Stopping at \(locationType): \(briefDesc)"
                 axDebugLog(logMessage2)
@@ -97,8 +96,7 @@ public extension Element {
             let parentRole = parentElement?.role()
 
             if role == AXRoleNames.kAXApplicationRole ||
-                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil)
-            {
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
                 let locationType = role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"
                 axDebugLog("Stopping at \(locationType): \(briefDesc)")
                 break

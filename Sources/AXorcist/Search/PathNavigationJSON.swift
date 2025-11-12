@@ -197,8 +197,7 @@ private func findMatchingChildJSON(
             criteria: criteriaToMatch,
             matchType: matchType,
             forPathComponent: pathComponentForLog
-        )
-    {
+        ) {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "PathNav/FMCJ: Found matching child at index \(childIndex) " +

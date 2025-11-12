@@ -201,4 +201,3 @@ struct ActionIntegrationTests {
         return try JSONDecoder().decode(QueryResponse.self, from: responseData)
     }
 }
-

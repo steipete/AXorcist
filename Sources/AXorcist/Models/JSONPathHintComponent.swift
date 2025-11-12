@@ -59,7 +59,7 @@ public struct JSONPathHintComponent: Codable, Sendable {
             "VALUE": AXAttributeNames.kAXValueAttribute,
             "HELP": AXAttributeNames.kAXHelpAttribute,
             "DESCRIPTION": AXAttributeNames.kAXDescriptionAttribute,
-            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute,
+            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute
             // Add other common attributes as needed
         ]
         return attributeTypeMap[attribute.uppercased()]

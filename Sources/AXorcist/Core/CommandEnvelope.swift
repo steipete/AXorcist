@@ -72,8 +72,7 @@ public struct CommandEnvelope: Codable {
                 filterCriteria: [String: String]? = nil,
                 includeChildrenBrief: Bool? = nil,
                 includeChildrenInText: Bool? = nil,
-                includeIgnoredElements: Bool? = nil)
-    {
+                includeIgnoredElements: Bool? = nil) {
         self.commandId = commandId
         self.command = command
         self.application = application

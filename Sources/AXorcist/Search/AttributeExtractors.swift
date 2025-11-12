@@ -63,13 +63,13 @@ private struct AttributeDefaultSet {
             AXAttributeNames.kAXRoleAttribute,
             AXAttributeNames.kAXValueAttribute,
             AXAttributeNames.kAXTitleAttribute,
-            AXAttributeNames.kAXIdentifierAttribute,
+            AXAttributeNames.kAXIdentifierAttribute
         ]
         guard self.role == AXRoleNames.kAXStaticTextRole else { return base }
         return [
             AXAttributeNames.kAXRoleAttribute,
             AXAttributeNames.kAXValueAttribute,
-            AXAttributeNames.kAXIdentifierAttribute,
+            AXAttributeNames.kAXIdentifierAttribute
         ]
     }
 }

@@ -53,8 +53,7 @@ public struct PathStep: Codable, Sendable {
     public init(criteria: [Criterion],
                 matchType: JSONPathHintComponent.MatchType? = .exact,
                 matchAllCriteria: Bool? = true,
-                maxDepthForStep: Int? = nil)
-    { // Added maxDepthForStep
+                maxDepthForStep: Int? = nil) { // Added maxDepthForStep
         self.criteria = criteria
         self.matchType = matchType
         self.matchAllCriteria = matchAllCriteria

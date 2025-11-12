@@ -4,7 +4,15 @@ import ApplicationServices
 import Foundation
 import Logging
 
+// swiftlint:disable file_length
+
 private let logger = Logger(label: "AXorcist.ElementSearch")
+
+private struct PathNavigationResult {
+    let element: Element
+    let description: String?
+    let error: String?
+}
 
 // MARK: - Main Element Finding Orchestration
 
@@ -61,7 +69,6 @@ public func findTargetElement(
         maxDepth: maxDepthForSearch
     )
     let pathHintDebugString = locatorDebug.pathHint
-    let criteriaDebugString = locatorDebug.criteria
     resetTraversalState()
     defer { traversalDeadline = nil }
 
@@ -120,7 +127,7 @@ private func performPathNavigation(
     maxDepthForSearch: Int,
     pathHintDebugString: String,
     searchStartingPointDescription: String
-) -> (element: Element, description: String?, error: String?) {
+) -> PathNavigationResult {
     var element = currentElement
     var description = searchStartingPointDescription
 
@@ -131,7 +138,7 @@ private func performPathNavigation(
                 "search from \(searchStartingPointDescription)"
             )
         )
-        return (element, description, nil)
+        return PathNavigationResult(element: element, description: description, error: nil)
     }
 
     logger.debug(
@@ -166,7 +173,7 @@ private func performPathNavigation(
         element = navigatedElement
         let pathElementDescription = element.briefDescription(option: ValueFormatOption.smart)
         description = "navigated path element \(pathElementDescription)"
-        return (element, description, nil)
+        return PathNavigationResult(element: element, description: description, error: nil)
     }
 
     let pathFailedError = logSegments(
@@ -174,7 +181,7 @@ private func performPathNavigation(
         "at: [\(pathHintDebugString)]"
     )
     logger.warning(pathFailedError)
-    return (element, description, pathFailedError)
+    return PathNavigationResult(element: element, description: description, error: pathFailedError)
 }
 
 private func applyCriteriaSearch(
@@ -544,7 +551,6 @@ private func describeCriteria(_ criteria: [Criterion]) -> String {
     return description.isEmpty ? "none" : description
 }
 
-
 // Container roles that can have meaningful descendants. Non-container roles are treated as leaves.
 private let containerRoles: Set<String> = [
     AXRoleNames.kAXApplicationRole,
@@ -580,3 +586,5 @@ nonisolated(unsafe) public var axorcScanAll: Bool = false
 /// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
 /// CLI flag `--no-stop-first` sets this to `false`.
 nonisolated(unsafe) public var axorcStopAtFirstMatch: Bool = true
+
+// swiftlint:enable file_length

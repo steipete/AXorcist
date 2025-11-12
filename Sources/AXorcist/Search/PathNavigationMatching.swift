@@ -174,8 +174,7 @@ func findMatchingChild(
     logPathNavigation(.debug, searchMessage)
 
     for (childIndex, child) in children.enumerated()
-        where elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog)
-    {
+        where elementMatchesAllCriteria(child, criteria: criteriaToMatch, forPathComponent: pathComponentForLog) {
         let childDescription = child.briefDescription(option: smartValueFormat)
         let matchMessage = "PN/FMC: Found matching child at index \(childIndex) for component "
             + "[\(pathComponentForLog)]: [\(childDescription)]."

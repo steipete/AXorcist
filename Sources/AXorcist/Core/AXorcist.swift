@@ -103,8 +103,7 @@ public class AXorcist {
         if let appId = command.appIdentifier, appId != "focused" {
             // Find specific application
             if let appPid = pid(forAppIdentifier: appId),
-               let app = Element.application(for: appPid)
-            {
+               let app = Element.application(for: appPid) {
                 rootElement = app
             } else {
                 let errorMessage = "HandleCollectAll: Could not find application '\(appId)'."
@@ -145,7 +144,7 @@ public class AXorcist {
 
         return .successResponse(payload: AnyCodable([
             "elements": collectedElements,
-            "count": collectedElements.count,
+            "count": collectedElements.count
         ]))
     }
 

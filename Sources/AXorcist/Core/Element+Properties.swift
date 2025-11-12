@@ -209,7 +209,6 @@ public extension Element {
     }
 }
 
-
 @MainActor
 private struct AXPropertyDumpBuilder {
     private enum AttributeFetchResult {

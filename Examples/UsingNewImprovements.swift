@@ -32,8 +32,7 @@ func exampleStaticFactoryMethods() {
 
     // Get element at position
     if let app = AXUIElement.frontmostApplication(),
-       let element = AXUIElement.elementAtPosition(in: app, x: 500, y: 300)
-    {
+       let element = AXUIElement.elementAtPosition(in: app, x: 500, y: 300) {
         let elem = Element(element)
         print("Element at (500, 300): \(elem.role() ?? "Unknown")")
     }
@@ -50,8 +49,7 @@ func exampleConvenienceAttributes() {
         for window in windows {
             // Use new position and size methods
             if let position = window.position(),
-               let size = window.size()
-            {
+               let size = window.size() {
                 print("Window at \(position) with size \(size)")
 
                 // Get frame as CGRect
@@ -97,7 +95,7 @@ func exampleObserverCenter() {
         kAXFocusedUIElementChangedNotification,
         kAXWindowCreatedNotification,
         kAXWindowMovedNotification,
-        kAXWindowResizedNotification,
+        kAXWindowResizedNotification
     ]
 
     for notification in notifications {
@@ -135,7 +133,7 @@ func exampleModernActions() {
         // All available actions:
         let availableActions: [AXAction] = [
             .press, .increment, .decrement, .confirm, .cancel,
-            .showMenu, .pick, .raise, .setValue,
+            .showMenu, .pick, .raise, .setValue
         ]
 
         print("Available actions: \(availableActions.map(\.rawValue).joined(separator: ", "))")
@@ -199,8 +197,7 @@ func exampleWindowInfo() {
         for window in windows {
             if let name = window[kCGWindowName as String] as? String,
                let pid = window[kCGWindowOwnerPID as String] as? Int,
-               let windowID = window[kCGWindowNumber as String] as? Int
-            {
+               let windowID = window[kCGWindowNumber as String] as? Int {
                 print("Window '\(name)' (ID: \(windowID)) owned by PID: \(pid)")
             }
         }
@@ -249,7 +246,7 @@ func exampleBatchOperations() {
         (attr: Attribute<String>.title, name: "Title"),
         (attr: Attribute<String>.role, name: "Role"),
         (attr: Attribute<Bool>.enabled, name: "Enabled"),
-        (attr: Attribute<Bool>.focused, name: "Focused"),
+        (attr: Attribute<Bool>.focused, name: "Focused")
     ]
 
     for (attribute, name) in attributesToCheck {

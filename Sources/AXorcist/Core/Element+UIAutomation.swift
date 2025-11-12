@@ -1,6 +1,8 @@
 import AppKit
 import ApplicationServices
 
+// swiftlint:disable file_length
+
 // MARK: - Mouse Button Types
 
 public enum MouseButton: String, Sendable {
@@ -74,8 +76,7 @@ public extension Element {
     /// Wait for this element to become actionable
     @MainActor func waitUntilActionable(
         timeout: TimeInterval = 5.0,
-        pollInterval: TimeInterval = 0.1) async throws -> Element
-    {
+        pollInterval: TimeInterval = 0.1) async throws -> Element {
         let startTime = Date()
 
         while Date().timeIntervalSince(startTime) < timeout {
@@ -256,6 +257,7 @@ public extension Element {
 
 // MARK: - Special Keys
 
+// swiftlint:disable identifier_name
 public enum SpecialKey: String {
     case escape
     case tab
@@ -378,15 +380,18 @@ public enum SpecialKey: String {
         }
     }
 }
+// swiftlint:enable identifier_name
 
 // MARK: - Scroll Operations
 
+// swiftlint:disable identifier_name
 public enum ScrollDirection: String, Sendable {
     case up
     case down
     case left
     case right
 }
+// swiftlint:enable identifier_name
 
 public extension Element {
 
@@ -408,8 +413,7 @@ public extension Element {
         _ point: CGPoint,
         direction: ScrollDirection,
         amount: Int = 3,
-        smooth: Bool = false) throws
-    {
+        smooth: Bool = false) throws {
         let scrollAmount = smooth ? 1 : amount
         let iterations = smooth ? amount : 1
         let delay = smooth ? 0.01 : 0.05
@@ -579,3 +583,5 @@ public enum UIAutomationError: Error, LocalizedError {
         }
     }
 }
+
+// swiftlint:enable file_length

@@ -56,8 +56,7 @@ public func decodeExpectedArray(
     // If the original string was just "[]" or "", and after stripping it's empty, it's an empty array.
     // If it was empty to begin with, or just spaces, it's not a valid array string by this func's def.
     if stringToSplit.isEmpty, !trimmedString
-        .isEmpty, !(trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]"))
-    {
+        .isEmpty, !(trimmedString.hasPrefix("[") && trimmedString.hasSuffix("]")) {
         // e.g. input was " " which became "", not a valid array representation
         // or input was "item" which is not an array string
         // However, if original was "[]", stringToSplit is empty, should return []

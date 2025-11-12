@@ -6,7 +6,7 @@ import Testing
 struct AnyDecodable: Decodable {
     let value: Any
 
-    init(from decoder: Decoder) throws {
+    init(from decoder: any Decoder) throws {
         let container = try decoder.singleValueContainer()
 
         if let bool = try? container.decode(Bool.self) {

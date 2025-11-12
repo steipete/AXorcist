@@ -161,8 +161,7 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
     guard let pidInt = Int32(ident) else { return nil }
 
     if let appByPid = NSRunningApplication(processIdentifier: pidInt),
-       !appByPid.isTerminated
-    {
+       !appByPid.isTerminated {
         processDebugLog(
             "ProcessUtils: Found non-terminated app by PID string '\(ident)'",
             "'\(appByPid.localizedName ?? "nil")'",

@@ -136,8 +136,7 @@ class Scanner {
         guard self.location < self.string.count else { return nil }
         let characterString = String(character)
         if characterString
-            .compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame
-        {
+            .compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame {
             self.location += 1
             return character
         }
@@ -287,8 +286,7 @@ class Scanner {
         var digitCount = 0
 
         while let char: Character = scan(characterSet: hexCharSet),
-              let digit = Self.hexValues[char]
-        {
+              let digit = Self.hexValues[char] {
             value = value * 16 + T(digit)
             digitCount += 1
         }
@@ -344,7 +342,7 @@ class Scanner {
     private static let hexValues: [Character: Int] = [
         "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,
         "a": 10, "b": 11, "c": 12, "d": 13, "e": 14, "f": 15,
-        "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15,
+        "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15
     ]
 
     // MARK: - Identifier Scanning

@@ -4,6 +4,8 @@ import AppKit // Added to provide NSRunningApplication and NSWorkspace
 @preconcurrency import ApplicationServices // For AXUIElement and other C APIs
 import Foundation
 
+// swiftlint:disable file_length
+
 /// A Swift-idiomatic wrapper around macOS AXUIElement for accessibility automation.
 ///
 /// Element provides a modern Swift interface for interacting with UI elements through
@@ -70,8 +72,7 @@ public struct Element: Equatable, Hashable, Sendable {
         _ element: AXUIElement,
         attributes: [String: AttributeValue]?,
         children: [Element]?,
-        actions: [String]?)
-    {
+        actions: [String]?) {
         self.underlyingElement = element
         self.attributes = attributes
         self.prefetchedChildren = children // Renamed from 'children'.
@@ -319,8 +320,7 @@ public struct Element: Equatable, Hashable, Sendable {
            let elementArray = attributeValue.anyValue as? [Element] { return elementArray as? T }
         if T.self == AXUIElement.self,
            let cfValue = attributeValue.anyValue as CFTypeRef?,
-           CFGetTypeID(cfValue) == AXUIElementGetTypeID()
-        {
+           CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
             return cfValue as? T
         }
 
@@ -438,3 +438,5 @@ public struct Path {
 
     public let components: [String]
 }
+
+// swiftlint:enable file_length

@@ -42,8 +42,7 @@ public func getApplicationElement(for bundleIdentifier: String) -> Element? {
 public func getApplicationElement(for processId: pid_t) -> Element? {
     let appElement = Element(AXUIElementCreateApplication(processId))
     let bundleIdMessagePart = if let runningApp = NSRunningApplication(processIdentifier: processId),
-                                 let bId = runningApp.bundleIdentifier
-    {
+                                 let bId = runningApp.bundleIdentifier {
         " (\(bId))"
     } else {
         ""

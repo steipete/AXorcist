@@ -34,8 +34,7 @@ func matchStringAttribute(
     } else {
         if expectedValueString.lowercased() == "nil" ||
             expectedValueString == AXMiscConstants.kAXNotAvailableString ||
-            expectedValueString.isEmpty
-        {
+            expectedValueString.isEmpty {
             axDebugLog(
                 "attributesMatch [D\(depth)]: Attribute '\(key)' not found, but expected value " +
                     "('\(expectedValueString)') suggests absence is OK. Match for this key.",
@@ -125,8 +124,7 @@ private func handleMissingArrayAttribute(
     expectedArray: [String],
     expectedValueString: String,
     key: String,
-    depth: Int) -> Bool
-{
+    depth: Int) -> Bool {
     if expectedArray.isEmpty {
         axDebugLog(
             "matchArrayAttribute [D\(depth)]: Array Attribute '\(key)' not found, " +
@@ -220,8 +218,7 @@ func matchComputedNameAttributes(
 
     let computedAttrs = await getComputedAttributes(for: element)
     let computedNameKey = AXMiscConstants.computedNameAttributeKey
-    if let currentComputedName = computedAttrs[computedNameKey]?.value.stringValue
-    {
+    if let currentComputedName = computedAttrs[computedNameKey]?.value.stringValue {
         if let equals = computedNameEquals {
             if currentComputedName != equals {
                 axDebugLog(

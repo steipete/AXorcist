@@ -18,6 +18,6 @@ func NSRectToDictionary(_ rect: CGRect) -> [String: Any] { // Changed to Any for
         "x": rect.origin.x,
         "y": rect.origin.y,
         "width": rect.size.width,
-        "height": rect.size.height,
+        "height": rect.size.height
     ]
 }

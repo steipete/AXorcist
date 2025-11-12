@@ -42,8 +42,7 @@ public enum AXPermissionHelpers {
         // Skip permission dialog in test environment
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
             ProcessInfo.processInfo.arguments.contains("--test-mode") ||
-            NSClassFromString("XCTest") != nil
-        {
+            NSClassFromString("XCTest") != nil {
             return false // Return false to indicate no permissions in test mode
         }
         let options = [CFConstants.axTrustedCheckOptionPrompt as String: true]

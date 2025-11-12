@@ -116,8 +116,7 @@ struct ElementSearchTests {
             let response = try await self.queryTextArea(encoder: encoder)
             #expect(response.success)
             if let data = response.data,
-               let value = data.attributes?["AXValue"]?.anyValue as? String
-            {
+               let value = data.attributes?["AXValue"]?.anyValue as? String {
                 #expect(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
             }
         }

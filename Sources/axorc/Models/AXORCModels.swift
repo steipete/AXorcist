@@ -100,8 +100,7 @@ struct QueryResponse: Codable {
         self.success = success
         self.command = command
         if let anyCodableData = handlerResponse.data,
-           let axElement = anyCodableData.value as? AXElement
-        {
+           let axElement = anyCodableData.value as? AXElement {
             self.data = AXElementForEncoding(from: axElement) // Convert here
         } else {
             self.data = nil
@@ -121,8 +120,7 @@ struct QueryResponse: Codable {
          axElement: AXElement? = nil,
          attributes _: [String: AnyCodable]? = nil,
          error: String? = nil,
-         debugLogs: [String]? = nil)
-    {
+         debugLogs: [String]? = nil) {
         self.commandId = commandId ?? "unknown"
         self.success = success
         self.command = command ?? "unknown"

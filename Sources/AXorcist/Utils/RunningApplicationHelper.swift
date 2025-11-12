@@ -210,8 +210,7 @@ public struct RunningApplicationHelper {
     #if canImport(AppKit)
     /// Subscribe to application launch notifications
     public static func observeApplicationLaunches(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol
-    {
+        -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
@@ -225,8 +224,7 @@ public struct RunningApplicationHelper {
 
     /// Subscribe to application termination notifications
     public static func observeApplicationTerminations(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol
-    {
+        -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
@@ -240,8 +238,7 @@ public struct RunningApplicationHelper {
 
     /// Subscribe to application activation notifications
     public static func observeApplicationActivations(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol
-    {
+        -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,

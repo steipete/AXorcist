@@ -72,7 +72,7 @@ public extension AXLogEntry {
 
         var logParts: [String] = [
             "[\(timeString)]",
-            "[\(level.rawValue.uppercased())]",
+            "[\(level.rawValue.uppercased())]"
         ]
 
         if let fileName = file, let lineNum = line {

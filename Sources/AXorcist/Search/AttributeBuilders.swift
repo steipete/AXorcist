@@ -98,13 +98,12 @@ func addStandardStringAttributes(to attributes: inout [String: AttributeValue], 
     let standardAttributes = [
         AXAttributeNames.kAXRoleDescriptionAttribute,
         AXAttributeNames.kAXValueDescriptionAttribute,
-        AXAttributeNames.kAXIdentifierAttribute,
+        AXAttributeNames.kAXIdentifierAttribute
     ]
 
     for attrName in standardAttributes {
         if attributes[attrName] == nil,
-           let attrValue: String = element.attribute(Attribute<String>(attrName))
-        {
+           let attrValue: String = element.attribute(Attribute<String>(attrName)) {
             attributes[attrName] = .string(attrValue)
         }
     }
@@ -122,8 +121,7 @@ func addStoredAttributes(to attributes: inout [String: AttributeValue], element:
 @MainActor
 func addComputedProperties(to attributes: inout [String: AttributeValue], element: Element) async {
     if attributes[AXMiscConstants.computedNameAttributeKey] == nil,
-       let name = element.computedName()
-    {
+       let name = element.computedName() {
         attributes[AXMiscConstants.computedNameAttributeKey] = .string(name)
     }
 

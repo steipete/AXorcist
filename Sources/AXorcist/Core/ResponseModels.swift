@@ -2,6 +2,8 @@
 
 import Foundation
 
+// swiftlint:disable file_length
+
 // MARK: - AXErrorCode
 
 // Error codes for AXorcist operations
@@ -151,8 +153,7 @@ public struct QueryResponse: Codable {
         self.command = command
         // Extract AXElement from AnyCodable if present
         if let anyCodableData = handlerResponse.data,
-           let axElement = anyCodableData.value as? AXElement
-        {
+           let axElement = anyCodableData.value as? AXElement {
             self.data = axElement
             self.attributes = axElement.attributes
         } else {
@@ -348,8 +349,7 @@ public struct SimpleSuccessResponse: Codable, Equatable {
                 status: String,
                 message: String,
                 details: String? = nil,
-                debugLogs: [String]? = nil)
-    {
+                debugLogs: [String]? = nil) {
         self.commandId = commandId
         self.success = true
         self.status = status
@@ -500,8 +500,7 @@ public struct CollectAllOutput: Codable {
                 collectedElements: [AXElementData]?,
                 appIdentifier: String?,
                 debugLogs: [String]?,
-                message: String?)
-    {
+                message: String?) {
         self.commandId = commandId
         self.success = success
         self.command = command
@@ -533,3 +532,5 @@ public struct CollectAllOutput: Codable {
         case message // MODIFIED: CodingKey updated
     }
 }
+
+// swiftlint:enable file_length

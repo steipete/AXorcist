@@ -8,6 +8,8 @@
 import ApplicationServices
 import Foundation
 
+// swiftlint:disable file_length
+
 /// Centralized manager for AXObserver instances that coordinates accessibility notifications.
 ///
 /// AXObserverCenter provides:
@@ -423,7 +425,7 @@ private extension AXObserverCenter {
 
         let nsUserInfo = convertUserInfoDictionary(userInfo)
         Task { @MainActor in
-            await self.processNotification(
+            self.processNotification(
                 pid: elementPID,
                 notification: axNotification,
                 rawElement: element,
@@ -501,3 +503,5 @@ private extension AXObserverCenter {
         return tempDict
     }
 }
+
+// swiftlint:enable file_length

@@ -92,15 +92,13 @@ public enum WindowInfoHelper {
                let xCoord = bounds["X"],
                let yCoord = bounds["Y"],
                let width = bounds["Width"],
-               let height = bounds["Height"]
-            {
+               let height = bounds["Height"] {
                 // Check if bounds match (with small tolerance for floating point comparison)
                 let tolerance: CGFloat = 1.0
                 if abs(xCoord - position.x) < tolerance,
                    abs(yCoord - position.y) < tolerance,
                    abs(width - size.width) < tolerance,
-                   abs(height - size.height) < tolerance
-                {
+                   abs(height - size.height) < tolerance {
                     if let windowID = window[CFConstants.cgWindowNumber] as? Int {
                         return CGWindowID(windowID)
                     }

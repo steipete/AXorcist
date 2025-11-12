@@ -7,6 +7,17 @@ import Foundation
 
 @main
 struct AXORCCommand: ParsableCommand {
+    static func main() async {
+        do {
+            var command = AXORCCommand()
+            try await command.run()
+        } catch let exitCode as ExitCode {
+            Foundation.exit(exitCode.rawValue)
+        } catch {
+            fputs("axorc error: \(error)\n", stderr)
+            Foundation.exit(1)
+        }
+    }
     @preconcurrency nonisolated static var commandDescription: CommandDescription {
         let version = MainActor.assumeIsolated { axorcVersion }
         return CommandDescription(
@@ -48,6 +59,9 @@ struct AXORCCommand: ParsableCommand {
         )
     )
     var directPayload: String?
+
+    @MainActor
+    private var suppressFinalLogDump = false
 
     // Helper function to process and execute a CommandEnvelope
     @MainActor private func processAndExecuteCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) {
@@ -114,8 +128,7 @@ struct AXORCCommand: ParsableCommand {
                 let jsonOutput = try JSONSerialization.jsonObject(with: resultData, options: []) as?
                     [String: Any],
                 let success = jsonOutput["success"] as? Bool,
-                let status = jsonOutput["status"] as? String
-            {
+                let status = jsonOutput["status"] as? String {
                 axInfoLog(
                     logSegments(
                         "AXORCMain: Parsed initial response for observe",
@@ -154,14 +167,14 @@ struct AXORCCommand: ParsableCommand {
         }
     }
 
-    func run() throws {
-        try MainActor.assumeIsolated {
-            try runMain()
+    mutating func run() async throws {
+        try await MainActor.run {
+            try self.runMain()
         }
     }
 
     @MainActor
-    private func runMain() throws {
+    private mutating func runMain() throws {
         configureLogging()
         applyGlobalFlags()
         logDebugVersion()
@@ -267,7 +280,7 @@ struct AXORCCommand: ParsableCommand {
         }
     }
 
-    private func decodeAndExecute(jsonString: String, axorcist: AXorcist) throws {
+    private mutating func decodeAndExecute(jsonString: String, axorcist: AXorcist) throws {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let data = jsonString.data(using: .utf8) else {
@@ -282,6 +295,7 @@ struct AXORCCommand: ParsableCommand {
 
         do {
             let commands = try decoder.decode([CommandEnvelope].self, from: data)
+            suppressFinalLogDump = commands.contains { $0.command == .observe }
             if let command = commands.first {
                 processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
                 return
@@ -302,6 +316,7 @@ struct AXORCCommand: ParsableCommand {
             )
             do {
                 let command = try decoder.decode(CommandEnvelope.self, from: data)
+                suppressFinalLogDump = command.command == .observe
                 processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
             } catch let singleDecodeError {
                 logDebug(
@@ -333,33 +348,7 @@ struct AXORCCommand: ParsableCommand {
         axDebugLog(message)
     }
     private func commandShouldPrintLogsAtEnd() -> Bool {
-        MainActor.assumeIsolated {
-            let parsedInput = InputHandler.parseInput(
-                stdin: stdin,
-                file: file,
-                json: json,
-                directPayload: directPayload
-            )
-            guard
-                let jsonString = parsedInput.jsonString,
-                let inputData = jsonString.data(using: .utf8)
-            else {
-                return true
-            }
-            let decoder = JSONDecoder()
-            decoder.keyDecodingStrategy = .convertFromSnakeCase
-            if let commands = try? decoder.decode([CommandEnvelope].self, from: inputData),
-               commands.first?.command == .observe
-            {
-                return false
-            }
-            if let command = try? decoder.decode(CommandEnvelope.self, from: inputData),
-               command.command == .observe
-            {
-                return false
-            }
-            return true
-        }
+        !suppressFinalLogDump
     }
 }
 

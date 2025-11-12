@@ -12,6 +12,8 @@ enum InputHandler {
         let error: String?
     }
 
+    typealias Result = ParseResult
+
     static func parseInput(
         stdin: Bool,
         file: String?,
@@ -61,8 +63,7 @@ enum InputHandler {
         let stdinData = stdInputHandle.readDataToEndOfFile()
 
         if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !str.isEmpty
-        {
+           !str.isEmpty {
             axDebugLog("Successfully read \(str.count) characters from STDIN.")
             return ParseResult(jsonString: str, sourceDescription: "STDIN", error: nil)
         } else {

@@ -102,7 +102,7 @@ extension Element {
             AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
             AXAttributeNames.kAXContentsAttribute, "AXChildrenInNavigationOrder",
             AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
-            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute,
+            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute
         ]
         axDebugLog(
             "Using pruned attribute list (\(alternativeAttributes.count) items) " +

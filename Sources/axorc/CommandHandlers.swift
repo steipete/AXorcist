@@ -63,22 +63,31 @@ func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
 
     // Create a custom response structure that matches test expectations
     struct PingResponse: Codable {
-        let command_id: String
+        let commandID: String
         let success: Bool
         let status: String?
         let message: String
         let details: String?
-        let debug_logs: [String]?
+        let debugLogs: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case commandID = "command_id"
+            case success
+            case status
+            case message
+            case details
+            case debugLogs = "debug_logs"
+        }
     }
 
-    let response = PingResponse(
-        command_id: command.commandId,
-        success: true,
-        status: "success",
-        message: formattedMessage,
-        details: message.isEmpty ? nil : message,
-        debug_logs: (debugCLI || command.debugLogging) ? axGetLogsAsStrings() : nil
-    )
+        let response = PingResponse(
+            commandID: command.commandId,
+            success: true,
+            status: "success",
+            message: formattedMessage,
+            details: message.isEmpty ? nil : message,
+            debugLogs: (debugCLI || command.debugLogging) ? axGetLogsAsStrings() : nil
+        )
 
     // Use the same encoder settings as other responses
     let encoder = JSONEncoder()
@@ -157,7 +166,7 @@ private func encodeBatchConversionFailure(commandId: String) -> String {
     return encodeBatchQueryResponse(response, commandId: commandId)
 }
 
-private func buildBatchResponse(commandId: String, axResponse: AXCommandResponse) -> BatchQueryResponse {
+private func buildBatchResponse(commandId: String, axResponse: AXResponse) -> BatchQueryResponse {
     if axResponse.status == "success" {
         return buildSuccessBatchResponse(commandId: commandId, axResponse: axResponse)
     }
@@ -177,7 +186,7 @@ private func buildBatchResponse(commandId: String, axResponse: AXCommandResponse
     )
 }
 
-private func buildSuccessBatchResponse(commandId: String, axResponse: AXCommandResponse) -> BatchQueryResponse {
+private func buildSuccessBatchResponse(commandId: String, axResponse: AXResponse) -> BatchQueryResponse {
     guard let payload = axResponse.payload?.value as? BatchResponsePayload else {
         return BatchQueryResponse(
             commandId: commandId,

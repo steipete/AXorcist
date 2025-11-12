@@ -129,4 +129,3 @@ struct BatchIntegrationTests {
         #expect(batchResponse.debugLogs != nil)
     }
 }
-

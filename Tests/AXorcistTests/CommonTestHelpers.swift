@@ -2,6 +2,14 @@
 import Testing
 @testable import AXorcist
 
+extension Comment {
+    init(_ text: String) {
+        self.init(stringLiteral: text)
+    }
+}
+
+// swiftlint:disable file_length
+
 extension Tag {
     @Tag static var safe: Self
     @Tag static var automation: Self
@@ -18,7 +26,6 @@ enum AXTestEnvironment {
         flag("RUN_AUTOMATION_TESTS") || flag("RUN_LOCAL_TESTS")
     }
 }
-
 
 // Result struct for AXORC commands
 struct CommandResult {
@@ -52,7 +59,7 @@ private func ensureTextEditRunning() async throws -> NSRunningApplication {
     configuration.activates = false
 
     do {
-        let launchedApp = try await withCheckedThrowingContinuation { continuation in
+        let launchedApp: NSRunningApplication = try await withCheckedThrowingContinuation { continuation in
             NSWorkspace.shared.openApplication(at: url, configuration: configuration) { runningApp, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -283,8 +290,7 @@ struct CommandEnvelope: Codable {
          actionName: String? = nil,
          actionValue: AttributeValue? = nil,
          payload: [String: AttributeValue]? = nil,
-         subCommands: [CommandEnvelope]? = nil)
-    {
+         subCommands: [CommandEnvelope]? = nil) {
         self.commandId = commandId
         self.command = command
         self.application = application
@@ -341,8 +347,7 @@ struct SimpleSuccessResponse: Codable {
          status: String?,
          message: String,
          details: String?,
-         debugLogs: [String]?)
-    {
+         debugLogs: [String]?) {
         self.commandId = commandId
         self.success = success
         self.status = status
@@ -481,7 +486,7 @@ var productsDirectory: URL {
     let buildPathsToTry = [
         packageRootPath.appendingPathComponent(".build/debug"),
         packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
-        packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug"),
+        packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
     ]
 
     let fileManager = FileManager.default
@@ -499,3 +504,5 @@ var productsDirectory: URL {
     return Bundle.main.bundleURL
     #endif
 }
+
+// swiftlint:enable file_length

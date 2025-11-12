@@ -58,8 +58,8 @@ struct CommandExecutor {
         return previousDetailLevel
     }
 
-    private typealias DirectCommandHandler = (CommandEnvelope, AXorcist, Bool) -> String
-    private typealias SimpleCommandExecutor = (CommandEnvelope, AXorcist) -> HandlerResponse
+    private typealias DirectCommandHandler = @MainActor (CommandEnvelope, AXorcist, Bool) -> String
+    private typealias SimpleCommandExecutor = @MainActor (CommandEnvelope, AXorcist) -> HandlerResponse
 
     private static let simpleExecutors: [CommandType: SimpleCommandExecutor] = [
         .getFocusedElement: executeGetFocusedElement,

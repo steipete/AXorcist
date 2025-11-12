@@ -23,7 +23,7 @@ struct QueryIntegrationTests {
             ApplicationServices.kAXRoleAttribute as String,
             ApplicationServices.kAXRoleDescriptionAttribute as String,
             ApplicationServices.kAXValueAttribute as String,
-            "AXPlaceholderValue",
+            "AXPlaceholderValue"
         ]
 
         let response = try self.executeCommand(
@@ -195,11 +195,10 @@ struct QueryIntegrationTests {
         envelope: CommandEnvelope,
         commandName: String,
         viaStdin: Bool = false,
-        arguments: [String] = []) throws -> QueryResponse
-    {
+        arguments: [String] = []) throws -> QueryResponse {
         let jsonString = try encodeCommandToJSON(envelope)
         print("Sending \(commandName) command to axorc: \(jsonString)")
-        let result: (output: String?, errorOutput: String?, exitCode: Int32)
+        let result: CommandResult
         if viaStdin {
             result = try runAXORCCommandWithStdin(inputJSON: jsonString, arguments: arguments)
         } else {
@@ -238,17 +237,16 @@ struct QueryIntegrationTests {
         _ response: QueryResponse,
         expectedCommandId: String,
         expectedRole: String,
-        requestedAttributes: [String]) throws
-    {
+        requestedAttributes: [String]) throws {
         validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .getFocusedElement)
         guard let elementData = response.data else {
             throw TestError.generic("QueryResponse data is nil for getFocusedElement.")
         }
         let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.anyValue as? String
-        let attributeKeys = Array(elementData.attributes?.keys ?? [])
+        let attributeKeys = elementData.attributes?.keys.map { $0 } ?? []
         let roleMessage = "Focused element role should be '\(expectedRole)'. " +
             "Got: '\(actualRole ?? "nil")'. Attributes: \(attributeKeys)"
-        #expect(actualRole == expectedRole, roleMessage)
+        #expect(actualRole == expectedRole, Comment(roleMessage))
         #expect(
             elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true,
             "Focused element attributes should contain kAXValueAttribute as it was requested."
@@ -262,8 +260,7 @@ struct QueryIntegrationTests {
     private func assertApplicationAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedTitle: String) throws
-    {
+        expectedTitle: String) throws {
         validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .getAttributes)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("AXElement attributes should not be nil for getAttributes.")
@@ -279,8 +276,7 @@ struct QueryIntegrationTests {
     private func assertQueryAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedRole: String) throws
-    {
+        expectedRole: String) throws {
         validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .query)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("AXElement attributes should not be nil for query.")
@@ -297,8 +293,7 @@ struct QueryIntegrationTests {
     private func assertDescribeAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedRole: String) throws
-    {
+        expectedRole: String) throws {
         validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .describeElement)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("Attributes dictionary is nil in describeElement response.")
