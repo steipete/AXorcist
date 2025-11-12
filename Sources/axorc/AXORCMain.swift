@@ -327,7 +327,7 @@ struct AXORCCommand: ParsableCommand {
 
 extension AXORCCommand {
     private static func parseCommandLineArguments() throws -> ParsedValues {
-        let prototype = Self.init()
+        let prototype = Self()
         let signature = CommandSignature.describe(prototype)
         let parser = CommandParser(signature: signature)
         let rawArguments = Array(CommandLine.arguments.dropFirst())
@@ -360,7 +360,7 @@ extension AXORCCommand {
     }
 
     private static func emitArgumentError(message: String) {
-        Self.printErrorResponse(commandId: "argument_error", error: message, logs: nil)
+        self.printErrorResponse(commandId: "argument_error", error: message, logs: nil)
     }
 
     private static func printErrorResponse(commandId: String, error: String, logs: [String]?) {
