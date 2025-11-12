@@ -18,10 +18,10 @@ public struct JSONPathHintComponent: Codable, Sendable {
     // and want to maintain existing JSON compatibility (if matchType is often absent):
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        attribute = try container.decode(String.self, forKey: .attribute)
-        value = try container.decode(String.self, forKey: .value)
-        depth = try container.decodeIfPresent(Int.self, forKey: .depth)
-        matchType = try container.decodeIfPresent(MatchType.self, forKey: .matchType)
+        self.attribute = try container.decode(String.self, forKey: .attribute)
+        self.value = try container.decode(String.self, forKey: .value)
+        self.depth = try container.decodeIfPresent(Int.self, forKey: .depth)
+        self.matchType = try container.decodeIfPresent(MatchType.self, forKey: .matchType)
     }
 
     // MARK: Public
@@ -59,10 +59,10 @@ public struct JSONPathHintComponent: Codable, Sendable {
             "VALUE": AXAttributeNames.kAXValueAttribute,
             "HELP": AXAttributeNames.kAXHelpAttribute,
             "DESCRIPTION": AXAttributeNames.kAXDescriptionAttribute,
-            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute
+            "PLACEHOLDER": AXAttributeNames.kAXPlaceholderValueAttribute,
             // Add other common attributes as needed
         ]
-        return attributeTypeMap[attribute.uppercased()]
+        return attributeTypeMap[self.attribute.uppercased()]
     }
 
     /// Converts this component to a simple criteria dictionary for use with existing matching logic.
@@ -71,23 +71,23 @@ public struct JSONPathHintComponent: Codable, Sendable {
             // Log a warning here if this component is used, as it means an invalid attribute type was provided.
             // GlobalAXLogger.shared.log(...) or axWarningLog(...) - Requires importing/access
             // For now, just return nil. The calling code should handle this.
-            print("WARNING: JSONPathHintComponent has unrecognized attribute type: \(attribute)")
+            print("WARNING: JSONPathHintComponent has unrecognized attribute type: \(self.attribute)")
             return nil
         }
-        return [resolvedAttributeName: value]
+        return [resolvedAttributeName: self.value]
     }
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(attribute, forKey: .attribute)
-        try container.encode(value, forKey: .value)
-        try container.encodeIfPresent(depth, forKey: .depth)
-        try container.encodeIfPresent(matchType, forKey: .matchType)
+        try container.encode(self.attribute, forKey: .attribute)
+        try container.encode(self.value, forKey: .value)
+        try container.encodeIfPresent(self.depth, forKey: .depth)
+        try container.encodeIfPresent(self.matchType, forKey: .matchType)
     }
 
     /// Returns a string representation suitable for logging
     public func descriptionForLog() -> String {
-        "\(axAttributeName ?? attribute):\(value)"
+        "\(self.axAttributeName ?? self.attribute):\(self.value)"
     }
 
     // MARK: Internal

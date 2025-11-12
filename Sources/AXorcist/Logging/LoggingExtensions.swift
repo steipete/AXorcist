@@ -12,8 +12,7 @@ public func logDebug(_ message: String, file: String = #file, function: String =
         message: message,
         file: file,
         function: function,
-        line: line
-    ))
+        line: line))
 }
 
 /// Log an info message
@@ -24,8 +23,7 @@ public func logInfo(_ message: String, file: String = #file, function: String = 
         message: message,
         file: file,
         function: function,
-        line: line
-    ))
+        line: line))
 }
 
 /// Log a warning message
@@ -36,8 +34,7 @@ public func logWarning(_ message: String, file: String = #file, function: String
         message: message,
         file: file,
         function: function,
-        line: line
-    ))
+        line: line))
 }
 
 /// Log an error message
@@ -48,8 +45,7 @@ public func logError(_ message: String, file: String = #file, function: String =
         message: message,
         file: file,
         function: function,
-        line: line
-    ))
+        line: line))
 }
 
 /// Log a critical message
@@ -60,6 +56,5 @@ public func logCritical(_ message: String, file: String = #file, function: Strin
         message: message,
         file: file,
         function: function,
-        line: line
-    ))
+        line: line))
 }

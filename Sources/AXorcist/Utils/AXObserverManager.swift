@@ -59,11 +59,11 @@ public class AXObserverManager {
     public func addObserver(
         for element: Element,
         notification: AXNotification,
-        callback: @escaping AXNotificationCallback
-    ) throws {
+        callback: @escaping AXNotificationCallback) throws
+    {
         let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
 
-        observerLock.lock()
+        self.observerLock.lock()
         defer { observerLock.unlock() }
 
         if var observerInfo = observers[elementId] {
@@ -71,24 +71,22 @@ public class AXObserverManager {
                 info: &observerInfo,
                 element: element,
                 notification: notification,
-                callback: callback
-            )
-            observers[elementId] = observerInfo
+                callback: callback)
+            self.observers[elementId] = observerInfo
             return
         }
 
-        observers[elementId] = try createObserverInfo(
+        self.observers[elementId] = try createObserverInfo(
             for: element,
             notification: notification,
-            callback: callback
-        )
+            callback: callback)
     }
 
     // Remove observer for an element and notification
     public func removeObserver(for element: Element, notification: AXNotification) throws {
         let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
 
-        observerLock.lock()
+        self.observerLock.lock()
         defer { observerLock.unlock() }
 
         guard var observerInfo = observers[elementId] else {
@@ -100,8 +98,7 @@ public class AXObserverManager {
         let error = AXObserverRemoveNotification(
             observerInfo.observer,
             element.underlyingElement,
-            notification.rawValue as CFString
-        )
+            notification.rawValue as CFString)
         if error != .success {
             axErrorLog("Failed to remove notification: \(error)")
             throw ObserverError.other("Failed to remove notification: \(error)")
@@ -119,21 +116,21 @@ public class AXObserverManager {
             CFRunLoopSourceInvalidate(observerInfo.runLoopSource)
 
             // Remove from our storage
-            observers.removeValue(forKey: elementId)
+            self.observers.removeValue(forKey: elementId)
 
             axDebugLog("Removed observer for element")
         } else {
             // Update the observer info with removed callback
-            observers[elementId] = observerInfo
+            self.observers[elementId] = observerInfo
         }
     }
 
     // Remove all observers
     public func removeAllObservers() {
-        observerLock.lock()
+        self.observerLock.lock()
         defer { observerLock.unlock() }
 
-        for (_, observerInfo) in observers {
+        for (_, observerInfo) in self.observers {
             // Remove from run loop
             CFRunLoopRemoveSource(CFRunLoopGetMain(), observerInfo.runLoopSource, .defaultMode)
 
@@ -141,7 +138,7 @@ public class AXObserverManager {
             CFRunLoopSourceInvalidate(observerInfo.runLoopSource)
         }
 
-        observers.removeAll()
+        self.observers.removeAll()
         axDebugLog("Removed all observers")
     }
 
@@ -166,13 +163,13 @@ public class AXObserverManager {
         observer: AXObserver,
         element: AXUIElement,
         notification: CFString,
-        userInfo: CFDictionary?
-    ) {
+        userInfo: CFDictionary?)
+    {
         let elementId = ObjectIdentifier(element as AnyObject)
 
-        observerLock.lock()
-        let observerInfo = observers[elementId]
-        observerLock.unlock()
+        self.observerLock.lock()
+        let observerInfo = self.observers[elementId]
+        self.observerLock.unlock()
 
         guard let observerInfo,
               let callback = observerInfo.callbacks[notification]
@@ -187,21 +184,20 @@ public class AXObserverManager {
 }
 
 @MainActor
-private extension AXObserverManager {
+extension AXObserverManager {
     private func updateExistingObserver(
         info: inout ObserverInfo,
         element: Element,
         notification: AXNotification,
-        callback: @escaping AXNotificationCallback
-    ) throws {
+        callback: @escaping AXNotificationCallback) throws
+    {
         info.callbacks[self.notificationKey(for: notification)] = callback
 
         let error = AXObserverAddNotification(
             info.observer,
             element.underlyingElement,
             notification.rawValue as CFString,
-            nil
-        )
+            nil)
 
         if error != .success {
             axErrorLog("Failed to add notification: \(error)")
@@ -212,8 +208,8 @@ private extension AXObserverManager {
     private func createObserverInfo(
         for element: Element,
         notification: AXNotification,
-        callback: @escaping AXNotificationCallback
-    ) throws -> ObserverInfo {
+        callback: @escaping AXNotificationCallback) throws -> ObserverInfo
+    {
         let pid = try pidForElement(element)
         let observer = try makeObserver(pid: pid)
         try addNotification(notification, to: observer, element: element)
@@ -228,29 +224,27 @@ private extension AXObserverManager {
         return ObserverInfo(observer: observer, runLoopSource: runLoopSource, callbacks: callbacks)
     }
 
-    func pidForElement(_ element: Element) throws -> pid_t {
+    private func pidForElement(_ element: Element) throws -> pid_t {
         guard let pid = element.pid() else {
             throw ObserverError.other("Could not get PID for element")
         }
         return pid
     }
 
-    func makeObserver(pid: pid_t) throws -> AXObserver {
+    private func makeObserver(pid: pid_t) throws -> AXObserver {
         var observer: AXObserver?
         let axCallback: AXObserverCallbackWithInfo = { observer, element, notification, userInfo, _ in
             AXObserverManager.shared.handleNotification(
                 observer: observer,
                 element: element,
                 notification: notification,
-                userInfo: userInfo
-            )
+                userInfo: userInfo)
         }
 
         let creationError = AXObserverCreateWithInfoCallback(
             pid,
             axCallback,
-            &observer
-        )
+            &observer)
 
         guard creationError == .success, let observer else {
             axErrorLog("Failed to create observer: \(creationError)")
@@ -259,17 +253,16 @@ private extension AXObserverManager {
         return observer
     }
 
-    func addNotification(
+    private func addNotification(
         _ notification: AXNotification,
         to observer: AXObserver,
-        element: Element
-    ) throws {
+        element: Element) throws
+    {
         let error = AXObserverAddNotification(
             observer,
             element.underlyingElement,
             notification.rawValue as CFString,
-            nil
-        )
+            nil)
         if error != .success {
             axErrorLog("Failed to add notification: \(error)")
             throw ObserverError.addNotificationFailed(error)

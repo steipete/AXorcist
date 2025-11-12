@@ -59,7 +59,7 @@ public struct AXValueWrapper: Codable, Sendable, Equatable {
     // Static helper to sanitize individual items, called recursively by init for collections
     @MainActor
     private static func recursivelySanitize(_ item: Any?) -> Any {
-        return recursivelySanitizeWithDepth(item, depth: 0, visited: Set<ObjectIdentifier>())
+        self.recursivelySanitizeWithDepth(item, depth: 0, visited: Set<ObjectIdentifier>())
     }
 
     // Convert sanitized Any value to AttributeValue
@@ -74,10 +74,10 @@ public struct AXValueWrapper: Codable, Sendable, Equatable {
         case let double as Double:
             return .double(double)
         case let array as [Any]:
-            let attributeArray = array.compactMap { convertToAttributeValue($0) }
+            let attributeArray = array.compactMap { self.convertToAttributeValue($0) }
             return .array(attributeArray)
         case let dict as [String: Any]:
-            let attributeDict = dict.compactMapValues { convertToAttributeValue($0) }
+            let attributeDict = dict.compactMapValues { self.convertToAttributeValue($0) }
             return .dictionary(attributeDict)
         case is ():
             return .null
@@ -112,10 +112,10 @@ public struct AXValueWrapper: Codable, Sendable, Equatable {
 
         // If it's a collection, recurse with cycle detection
         if let array = anItem as? [Any?] {
-            return array.map { recursivelySanitizeWithDepth($0, depth: depth + 1, visited: currentVisited) }
+            return array.map { self.recursivelySanitizeWithDepth($0, depth: depth + 1, visited: currentVisited) }
         }
         if let dict = anItem as? [String: Any?] {
-            return dict.mapValues { recursivelySanitizeWithDepth($0, depth: depth + 1, visited: currentVisited) }
+            return dict.mapValues { self.recursivelySanitizeWithDepth($0, depth: depth + 1, visited: currentVisited) }
         }
 
         // For basic, already encodable types, return as is.
@@ -156,8 +156,8 @@ public struct SearchLogEntry: Codable {
         maxDepth: Int,
         criteria: [String: String]?,
         status: String,
-        isMatch: Bool?
-    ) {
+        isMatch: Bool?)
+    {
         self.depth = depth
         self.elementRole = elementRole
         self.elementTitle = elementTitle

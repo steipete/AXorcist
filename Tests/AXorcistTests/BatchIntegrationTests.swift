@@ -6,8 +6,7 @@ import Testing
 @Suite(
     "AXorcist Batch Command Tests",
     .tags(.automation),
-    .enabled(if: AXTestEnvironment.runAutomationScenarios)
-)
+    .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct BatchIntegrationTests {
     @Test("Get focused element and query textarea", .tags(.automation))
@@ -21,23 +20,21 @@ struct BatchIntegrationTests {
         _ = try await setupTextEditAndGetInfo()
         defer { Task { await closeTextEdit() } }
 
-        let batchCommand = createBatchCommand(
+        let batchCommand = self.createBatchCommand(
             batchCommandId: batchCommandId,
             focusedElementSubCmdId: focusedElementSubCmdId,
             querySubCmdId: querySubCmdId,
             textEditBundleId: textEditBundleId,
-            textAreaRole: textAreaRole
-        )
+            textAreaRole: textAreaRole)
 
         let batchResponse = try await executeBatchCommand(batchCommand)
 
-        verifyBatchResponse(
+        self.verifyBatchResponse(
             batchResponse,
             batchCommandId: batchCommandId,
             focusedElementSubCmdId: focusedElementSubCmdId,
             querySubCmdId: querySubCmdId,
-            textAreaRole: textAreaRole
-        )
+            textAreaRole: textAreaRole)
     }
 
     // MARK: - Helper Functions
@@ -47,14 +44,13 @@ struct BatchIntegrationTests {
         focusedElementSubCmdId: String,
         querySubCmdId: String,
         textEditBundleId: String,
-        textAreaRole: String
-    ) -> CommandEnvelope {
+        textAreaRole: String) -> CommandEnvelope
+    {
         let getFocusedElementSubCommand = CommandEnvelope(
             commandId: focusedElementSubCmdId,
             command: .getFocusedElement,
             application: textEditBundleId,
-            debugLogging: true
-        )
+            debugLogging: true)
 
         let queryTextAreaSubCommand = CommandEnvelope(
             commandId: querySubCmdId,
@@ -62,16 +58,14 @@ struct BatchIntegrationTests {
             application: textEditBundleId,
             attributes: ["AXRole", "AXValue"],
             debugLogging: true,
-            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
-        )
+            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: textAreaRole)]))
 
         return CommandEnvelope(
             commandId: batchCommandId,
             command: .batch,
             application: nil,
             debugLogging: true,
-            subCommands: [getFocusedElementSubCommand, queryTextAreaSubCommand]
-        )
+            subCommands: [getFocusedElementSubCommand, queryTextAreaSubCommand])
     }
 
     private func executeBatchCommand(_ command: CommandEnvelope) async throws -> BatchOperationResponse {
@@ -106,8 +100,8 @@ struct BatchIntegrationTests {
         batchCommandId: String,
         focusedElementSubCmdId: String,
         querySubCmdId: String,
-        textAreaRole: String
-    ) {
+        textAreaRole: String)
+    {
         #expect(batchResponse.commandId == batchCommandId)
         #expect(batchResponse.success, "Batch command should succeed")
         #expect(batchResponse.results.count == 2, "Expected 2 results")

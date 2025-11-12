@@ -60,14 +60,12 @@ class ElementSearch {
 public func findTargetElement(
     for appIdentifier: String,
     locator: Locator,
-    maxDepthForSearch: Int
-) -> (element: Element?, error: String?) {
-
+    maxDepthForSearch: Int) -> (element: Element?, error: String?)
+{
     let locatorDebug = logFindTargetSetup(
         appIdentifier: appIdentifier,
         locator: locator,
-        maxDepth: maxDepthForSearch
-    )
+        maxDepth: maxDepthForSearch)
     let pathHintDebugString = locatorDebug.pathHint
     resetTraversalState()
     defer { traversalDeadline = nil }
@@ -85,8 +83,7 @@ public func findTargetElement(
         locator: locator,
         maxDepthForSearch: maxDepthForSearch,
         pathHintDebugString: pathHintDebugString,
-        searchStartingPointDescription: searchStartingPointDescription
-    )
+        searchStartingPointDescription: searchStartingPointDescription)
 
     if let error = pathResult.error {
         return (nil, error)
@@ -102,9 +99,7 @@ public func findTargetElement(
         }
         logger.info(
             logSegments(
-                "FTE: PH only -> \(currentSearchElement.briefDescription(option: .smart))"
-            )
-        )
+                "FTE: PH only -> \(currentSearchElement.briefDescription(option: .smart))"))
         return (currentSearchElement, nil)
     }
 
@@ -112,8 +107,7 @@ public func findTargetElement(
         startElement: currentSearchElement,
         locator: locator,
         maxDepthForSearch: maxDepthForSearch,
-        searchStartingPointDescription: searchStartingPointDescription
-    )
+        searchStartingPointDescription: searchStartingPointDescription)
 
     if let error = criteriaResult.error {
         return (nil, error)
@@ -126,8 +120,8 @@ private func performPathNavigation(
     locator: Locator,
     maxDepthForSearch: Int,
     pathHintDebugString: String,
-    searchStartingPointDescription: String
-) -> PathNavigationResult {
+    searchStartingPointDescription: String) -> PathNavigationResult
+{
     var element = currentElement
     var description = searchStartingPointDescription
 
@@ -135,18 +129,14 @@ private func performPathNavigation(
         logger.debug(
             logSegments(
                 "FTE: No PH",
-                "search from \(searchStartingPointDescription)"
-            )
-        )
+                "search from \(searchStartingPointDescription)"))
         return PathNavigationResult(element: element, description: description, error: nil)
     }
 
     logger.debug(
         logSegments(
             "FTE: PH=\(jsonPathComponents.count)",
-            "from \(searchStartingPointDescription)"
-        )
-    )
+            "from \(searchStartingPointDescription)"))
 
     let pathSteps = jsonPathComponents.map { component -> PathStep in
         let attributeName = component.axAttributeName ?? component.attribute
@@ -155,21 +145,18 @@ private func performPathNavigation(
             criteria: [criterion],
             matchType: component.matchType,
             matchAllCriteria: true,
-            maxDepthForStep: component.depth
-        )
+            maxDepthForStep: component.depth)
     }
 
     if let navigatedElement = findDescendantAtPath(
         currentRoot: element,
         pathComponents: pathSteps,
         maxDepth: maxDepthForSearch,
-        debugSearch: locator.debugPathSearch ?? false
-    ) {
+        debugSearch: locator.debugPathSearch ?? false)
+    {
         logger.info(
             logSegments(
-                "FTE: Path nav OK -> \(navigatedElement.briefDescription(option: ValueFormatOption.smart))"
-            )
-        )
+                "FTE: Path nav OK -> \(navigatedElement.briefDescription(option: ValueFormatOption.smart))"))
         element = navigatedElement
         let pathElementDescription = element.briefDescription(option: ValueFormatOption.smart)
         description = "navigated path element \(pathElementDescription)"
@@ -178,8 +165,7 @@ private func performPathNavigation(
 
     let pathFailedError = logSegments(
         "FTE: Path nav failed",
-        "at: [\(pathHintDebugString)]"
-    )
+        "at: [\(pathHintDebugString)]")
     logger.warning(pathFailedError)
     return PathNavigationResult(element: element, description: description, error: pathFailedError)
 }
@@ -188,8 +174,8 @@ private func applyCriteriaSearch(
     startElement: Element,
     locator: Locator,
     maxDepthForSearch: Int,
-    searchStartingPointDescription: String
-) -> (element: Element?, error: String?) {
+    searchStartingPointDescription: String) -> (element: Element?, error: String?)
+{
     let criteriaCount = locator.criteria.count
     let matchAll = locator.matchAll ?? true
     let matchType = locator.criteria.first?.matchType?.rawValue ?? "default/exact"
@@ -197,9 +183,7 @@ private func applyCriteriaSearch(
         logSegments(
             "FTE: Apply C=\(criteriaCount) from \(searchStartingPointDescription)",
             "MA=\(matchAll)",
-            "MT=\(matchType)"
-        )
-    )
+            "MT=\(matchType)"))
 
     let finalSearchMatchType = locator.criteria.first?.matchType ?? .exact
     let finalSearchMatchAll = locator.matchAll ?? true
@@ -209,24 +193,20 @@ private func applyCriteriaSearch(
         matchType: finalSearchMatchType,
         matchAllCriteria: finalSearchMatchAll,
         stopAtFirstMatch: axorcStopAtFirstMatch,
-        maxDepth: maxDepthForSearch
-    )
+        maxDepth: maxDepthForSearch)
 
     traverseAndSearch(
         element: startElement,
         visitor: searchVisitor,
         currentDepth: 0,
-        maxDepth: maxDepthForSearch
-    )
+        maxDepth: maxDepthForSearch)
 
     if let foundMatch = searchVisitor.foundElement {
         let foundDescription = foundMatch.briefDescription(option: .smart)
         logger.info(
             logSegments(
                 "FindTargetEl: Found final descendant matching criteria: \(foundDescription)",
-                "Nodes visited = \(traversalNodeCounter)"
-            )
-        )
+                "Nodes visited = \(traversalNodeCounter)"))
         return (foundMatch, nil)
     }
 
@@ -234,8 +214,7 @@ private func applyCriteriaSearch(
     let finalSearchError = logSegments(
         "FTE: Not found C=[\(criteriaDesc)] from \(searchStartingPointDescription)",
         "Max depth visited = \(searchVisitor.deepestDepthReached) of \(maxDepthForSearch)",
-        "Nodes visited = \(traversalNodeCounter)"
-    )
+        "Nodes visited = \(traversalNodeCounter)")
     logger.warning(finalSearchError)
     return (nil, finalSearchError)
 }
@@ -243,8 +222,8 @@ private func applyCriteriaSearch(
 private func logFindTargetSetup(
     appIdentifier: String,
     locator: Locator,
-    maxDepth: Int
-) -> (pathHint: String, criteria: String) {
+    maxDepth: Int) -> (pathHint: String, criteria: String)
+{
     let pathHint = locator.rootElementPathHint?
         .map { $0.descriptionForLog() }
         .joined(separator: "\n    -> ") ?? "nil"
@@ -254,9 +233,7 @@ private func logFindTargetSetup(
             "FTE: App='\(appIdentifier)'",
             "D=\(maxDepth)",
             "C=\(criteria)",
-            "PH=\(locator.rootElementPathHint?.count ?? 0)"
-        )
-    )
+            "PH=\(locator.rootElementPathHint?.count ?? 0)"))
     return (pathHint, criteria)
 }
 
@@ -272,8 +249,8 @@ public func collectAllElements(
     from startElement: Element,
     matching criteria: [Criterion]? = nil,
     maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
-    includeIgnored: Bool = false
-) -> [Element] {
+    includeIgnored: Bool = false) -> [Element]
+{
     let criteriaDebugString = criteria?
         .map { "\($0.attribute):\($0.value)(\($0.matchType?.rawValue ?? "exact"))" }
         .joined(separator: ", ")
@@ -283,9 +260,7 @@ public func collectAllElements(
             "CA: From [\(startElement.briefDescription(option: ValueFormatOption.smart))]",
             "C=[\(criteriaDebugString)]",
             "D=\(maxDepth)",
-            "I=\(includeIgnored)"
-        )
-    )
+            "I=\(includeIgnored)"))
 
     let visitor = CollectAllVisitor(criteria: criteria, includeIgnored: includeIgnored)
     traverseAndSearch(element: startElement, visitor: visitor, currentDepth: 0, maxDepth: maxDepth)
@@ -315,8 +290,8 @@ public func traverseAndSearch(
     element: Element,
     visitor: any ElementVisitor,
     currentDepth: Int,
-    maxDepth: Int
-) {
+    maxDepth: Int)
+{
     let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
 
     guard currentDepth <= maxDepth else {
@@ -339,17 +314,17 @@ public func traverseAndSearch(
             "CONTINUE",
             elementDescription: elementDescription,
             depth: currentDepth,
-            extra: "Processing children"
-        )
+            extra: "Processing children")
         // Continue to process children
     }
 
     // Maintain a static visited set per traversal to avoid cycles.
     // We store the CFHash of AXUIElement to uniquely identify.
-    struct VisitedSet { nonisolated(unsafe) static var set = Set<UInt>() }
+    enum VisitedSet { nonisolated(unsafe) static var set = Set<UInt>() }
 
     if let children = element.children(strict: false), !children.isEmpty,
-       axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false) {
+       axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false)
+    {
         // Abort if we are past the deadline
         if let deadline = traversalDeadline, Date() > deadline {
             logger.warning("Traverse: global search timeout (\(axorcTraversalTimeout)s) reached. Aborting traversal.")
@@ -364,13 +339,12 @@ public func traverseAndSearch(
             traverseAndSearch(element: child, visitor: visitor, currentDepth: currentDepth + 1, maxDepth: maxDepth)
             if let searchVisitor = visitor as? SearchVisitor,
                searchVisitor.stopAtFirstMatchInternal,
-               searchVisitor.foundElement != nil {
+               searchVisitor.foundElement != nil
+            {
                 logger.debug(
                     logSegments(
                         "Traverse: SearchVisitor found match and stopAtFirstMatch is true",
-                        "Stopping traversal early"
-                    )
-                )
+                        "Stopping traversal early"))
                 return // Stop traversal early
             }
         }
@@ -381,20 +355,18 @@ private func logTraversalDepthExceeded(_ maxDepth: Int, _ elementDescription: St
     logger.debug(
         logSegments(
             "Traverse: Max depth \(maxDepth) reached at [\(elementDescription)]",
-            "Stopping this branch"
-        )
-    )
+            "Stopping this branch"))
 }
 
 private func logTraversalEvent(
     _ event: String,
     elementDescription: String,
     depth: Int,
-    extra: String? = nil
-) {
+    extra: String? = nil)
+{
     var messageParts = [
         "Traverse: Visitor requested \(event) at [\(elementDescription)]",
-        "depth \(depth)"
+        "depth \(depth)",
     ]
     if let extra {
         messageParts.append(extra)
@@ -409,20 +381,20 @@ public class SearchVisitor: ElementVisitor {
     public var foundElement: Element? // Stores the first element that matches criteria
     public var allFoundElements: [Element] = [] // Stores all elements that match criteria
     private let criteria: [Criterion]
-    internal let stopAtFirstMatchInternal: Bool
+    let stopAtFirstMatchInternal: Bool
     private let maxDepth: Int
     private var currentMaxDepthReachedByVisitor: Int = 0
     private let matchType: JSONPathHintComponent.MatchType
     private let matchAllCriteriaBool: Bool
-    public var deepestDepthReached: Int { currentMaxDepthReachedByVisitor }
+    public var deepestDepthReached: Int { self.currentMaxDepthReachedByVisitor }
 
     init(
         criteria: [Criterion],
         matchType: JSONPathHintComponent.MatchType = .exact, // Added with default
         matchAllCriteria: Bool = true, // Added with default
         stopAtFirstMatch: Bool = false,
-        maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
-    ) {
+        maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch)
+    {
         self.criteria = criteria
         self.matchType = matchType
         self.matchAllCriteriaBool = matchAllCriteria
@@ -433,49 +405,45 @@ public class SearchVisitor: ElementVisitor {
         logger.debug(
             logSegments(
                 "SearchVisitor Init: Criteria: \(criteriaDesc)",
-                "StopAtFirst: \(stopAtFirstMatchInternal)",
+                "StopAtFirst: \(self.stopAtFirstMatchInternal)",
                 "MaxDepth: \(maxDepth)",
                 "MatchType: \(matchType)",
-                "MatchAll: \(matchAllCriteria)"
-            )
-        )
+                "MatchAll: \(matchAllCriteria)"))
     }
 
     @MainActor
     public func visit(element: Element, depth: Int) -> TreeVisitorResult {
         let elementDesc = element.briefDescription(option: ValueFormatOption.smart)
-        currentMaxDepthReachedByVisitor = max(currentMaxDepthReachedByVisitor, depth)
+        self.currentMaxDepthReachedByVisitor = max(self.currentMaxDepthReachedByVisitor, depth)
 
-        if depth > maxDepth {
+        if depth > self.maxDepth {
             logger.debug(
                 logSegments(
-                    "SearchVisitor: Max depth \(maxDepth) reached internally at [\(elementDesc)]",
-                    "Skipping"
-                )
-            )
+                    "SearchVisitor: Max depth \(self.maxDepth) reached internally at [\(elementDesc)]",
+                    "Skipping"))
             return .skipChildren
         }
 
-        logger.debug("SV: [\(elementDesc)] @\(depth) C:\(criteria.count)")
+        logger.debug("SV: [\(elementDesc)] @\(depth) C:\(self.criteria.count)")
 
         var matches = false
-        if matchAllCriteriaBool {
+        if self.matchAllCriteriaBool {
             // Use the stored matchType
-            if elementMatchesAllCriteria(element: element, criteria: criteria, matchType: self.matchType) {
+            if elementMatchesAllCriteria(element: element, criteria: self.criteria, matchType: self.matchType) {
                 matches = true
             }
         } else {
             // Use the stored matchType
-            if elementMatchesAnyCriterion(element: element, criteria: criteria, matchType: self.matchType) {
+            if elementMatchesAnyCriterion(element: element, criteria: self.criteria, matchType: self.matchType) {
                 matches = true
             }
         }
 
         if matches {
             logger.debug("SV: ✓ [\(elementDesc)] @\(depth)")
-            foundElement = element
-            allFoundElements.append(element)
-            if stopAtFirstMatchInternal {
+            self.foundElement = element
+            self.allFoundElements.append(element)
+            if self.stopAtFirstMatchInternal {
                 logger.debug("SV: Stop (first match)")
                 return .stop
             }
@@ -516,22 +484,22 @@ public class CollectAllVisitor: ElementVisitor {
         let elementDesc = element.briefDescription(option: ValueFormatOption.smart)
         logger.debug("CAV: [\(elementDesc)] @\(depth)")
 
-        if !includeIgnored && element.isIgnored() {
+        if !self.includeIgnored, element.isIgnored() {
             logger.debug("CAV: Skip ignored [\(elementDesc)]")
             return .skipChildren // Skip ignored elements and their children if not including ignored
         }
 
-        if let criteria = criteria {
+        if let criteria {
             if elementMatchesAllCriteria(element: element, criteria: criteria) {
                 logger.debug("CAV: + [\(elementDesc)] (match)")
-                collectedElements.append(element)
+                self.collectedElements.append(element)
             } else {
                 logger.debug("CollectAllVisitor: [\(elementDesc)] did NOT match criteria.")
             }
         } else {
             // No criteria, collect all (respecting includeIgnored)
             logger.debug("CollectAllVisitor: Adding [\(elementDesc)] (no criteria given).")
-            collectedElements.append(element)
+            self.collectedElements.append(element)
         }
         return .continue
     }
@@ -564,27 +532,27 @@ private let containerRoles: Set<String> = [
     AXRoleNames.kAXListRole,
     AXRoleNames.kAXOutlineRole,
     AXRoleNames.kAXUnknownRole,
-    "AXGeneric", "AXSection", "AXArticle", "AXSplitter", "AXScrollBar", "AXPane"
+    "AXGeneric", "AXSection", "AXArticle", "AXSplitter", "AXScrollBar", "AXPane",
 ]
 
 // MARK: - Search Timeout Handling
 
 /// Global deadline used by `traverseAndSearch` to abort extremely long walks.
 /// It is _only_ set for the duration of a single public search call and then cleared again.
-nonisolated(unsafe) private var traversalDeadline: Date?
+private nonisolated(unsafe) var traversalDeadline: Date?
 
 /// Counts how many nodes have been visited during the current `findTargetElement` invocation.
-nonisolated(unsafe) private var traversalNodeCounter: Int = 0
+private nonisolated(unsafe) var traversalNodeCounter: Int = 0
 
 /// Default timeout (seconds) for a full tree traversal. Override at runtime by setting `axorcTraversalTimeout`.
-nonisolated(unsafe) public var axorcTraversalTimeout: TimeInterval = 30
+public nonisolated(unsafe) var axorcTraversalTimeout: TimeInterval = 30
 
 /// When true, traversal will ignore `containerRoles` pruning and descend into *every* child of every element.
 /// Enable via CLI flag `--scan-all`.
-nonisolated(unsafe) public var axorcScanAll: Bool = false
+public nonisolated(unsafe) var axorcScanAll: Bool = false
 
 /// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
 /// CLI flag `--no-stop-first` sets this to `false`.
-nonisolated(unsafe) public var axorcStopAtFirstMatch: Bool = true
+public nonisolated(unsafe) var axorcStopAtFirstMatch: Bool = true
 
 // swiftlint:enable file_length

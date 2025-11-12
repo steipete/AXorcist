@@ -27,37 +27,37 @@ public struct HandlerResponse: Codable, Sendable {
 
 // MARK: - Convenience Initializers & Properties
 
-public extension HandlerResponse {
+extension HandlerResponse {
     /// A Boolean value indicating whether the response represents a successful operation.
     /// A response is considered successful if `error` is `nil`.
-    var succeeded: Bool {
-        error == nil
+    public var succeeded: Bool {
+        self.error == nil
     }
 
     /// A Boolean value indicating whether the response represents a failed operation.
     /// A response is considered failed if `error` is not `nil`.
-    var failed: Bool {
-        error != nil
+    public var failed: Bool {
+        self.error != nil
     }
 
     /// Convenience initializer for a success response with no specific data.
-    static func success(data: AnyCodable? = nil) -> HandlerResponse {
+    public static func success(data: AnyCodable? = nil) -> HandlerResponse {
         HandlerResponse(data: data, error: nil)
     }
 
     /// Convenience initializer for a failure response.
     /// - Parameter errorMessage: The error message describing the failure.
-    static func failure(errorMessage: String) -> HandlerResponse {
+    public static func failure(errorMessage: String) -> HandlerResponse {
         HandlerResponse(data: nil, error: errorMessage)
     }
 }
 
 // MARK: - AXResponse Integration
 
-public extension HandlerResponse {
+extension HandlerResponse {
     /// Creates a HandlerResponse from an AXResponse
     /// - Parameter axResponse: The AXResponse to convert
-    init(from axResponse: AXResponse) {
+    public init(from axResponse: AXResponse) {
         switch axResponse {
         case let .success(payload, _):
             self.init(data: payload, error: nil)

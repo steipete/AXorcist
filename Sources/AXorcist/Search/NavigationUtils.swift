@@ -5,8 +5,8 @@ import Foundation
 // This function demonstrates the requested pattern for trimming whitespace before splitting
 @MainActor
 public func navigateToElementWithTrimming(
-    pathComponents: [String]
-) -> [(String, String)] {
+    pathComponents: [String]) -> [(String, String)]
+{
     var results: [(String, String)] = []
 
     for pathComponentString in pathComponents {

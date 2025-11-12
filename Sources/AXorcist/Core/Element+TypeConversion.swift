@@ -15,8 +15,7 @@ extension Element {
         if T.self == Any.self || T.self == AnyObject.self {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Attribute \(attribute.rawValue): T is Any/AnyObject. Using ValueUnwrapper."
-            ))
+                message: "Attribute \(attribute.rawValue): T is Any/AnyObject. Using ValueUnwrapper."))
             return ValueUnwrapper.unwrap(cfValue) as? T
         }
 
@@ -25,8 +24,7 @@ extension Element {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "Basic conversion succeeded with direct cast for T = \(String(describing: T.self)), " +
-                    "Attribute: \(attribute.rawValue)."
-            ))
+                    "Attribute: \(attribute.rawValue)."))
             return directCast
         }
 
@@ -34,8 +32,7 @@ extension Element {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "Attempting ValueUnwrapper for T = \(String(describing: T.self)), " +
-                "Attribute: \(attribute.rawValue)."
-        ))
+                "Attribute: \(attribute.rawValue)."))
         return ValueUnwrapper.unwrap(cfValue) as? T
     }
 
@@ -44,13 +41,13 @@ extension Element {
 
         switch targetType {
         case is String.Type:
-            return convertToString(cfValue, cfTypeID: cfTypeID)
+            return self.convertToString(cfValue, cfTypeID: cfTypeID)
         case is Bool.Type:
-            return convertToBool(cfValue, cfTypeID: cfTypeID)
+            return self.convertToBool(cfValue, cfTypeID: cfTypeID)
         case is Int.Type:
-            return convertToInt(cfValue, cfTypeID: cfTypeID)
+            return self.convertToInt(cfValue, cfTypeID: cfTypeID)
         case is AXUIElement.Type:
-            return convertToAXUIElement(cfValue, cfTypeID: cfTypeID)
+            return self.convertToAXUIElement(cfValue, cfTypeID: cfTypeID)
         default:
             return nil
         }

@@ -14,8 +14,8 @@ func navigateToElementByJSONPathHint(
     from startElement: Element,
     jsonPathHint: [JSONPathHintComponent],
     overallMaxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
-    initialPathSegmentForLog: String = "Application"
-) -> Element? {
+    initialPathSegmentForLog: String = "Application") -> Element?
+{
     var currentElement = startElement
     var currentPathSegmentForLog = initialPathSegmentForLog
 
@@ -26,8 +26,7 @@ func navigateToElementByJSONPathHint(
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "PathNav/JPHN: JSON path component \(index) is 'application'. " +
-                    "Using current element (app root) as context for next component."
-            ))
+                    "Using current element (app root) as context for next component."))
             continue
         }
 
@@ -35,8 +34,7 @@ func navigateToElementByJSONPathHint(
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "PathNav/JPHN: Navigation aborted: JSON path hint index \(index) " +
-                    "reached overallMaxDepth \(overallMaxDepth). Path so far: \(currentPathSegmentForLog)"
-            ))
+                    "reached overallMaxDepth \(overallMaxDepth). Path so far: \(currentPathSegmentForLog)"))
             return nil
         }
 
@@ -44,8 +42,8 @@ func navigateToElementByJSONPathHint(
             currentElement: currentElement,
             pathComponent: pathComponent,
             currentPathSegmentForLog: currentPathSegmentForLog,
-            componentLogString: componentLogString
-        ) {
+            componentLogString: componentLogString)
+        {
             currentElement = nextElement
         } else {
             return nil
@@ -56,8 +54,7 @@ func navigateToElementByJSONPathHint(
         level: .info,
         message: "PathNav/JPHN: Navigation successful. " +
             "Final element: [\(currentElement.briefDescription(option: ValueFormatOption.smart))]. " +
-            "Full path: \(currentPathSegmentForLog)"
-    ))
+            "Full path: \(currentPathSegmentForLog)"))
     return currentElement
 }
 
@@ -66,8 +63,8 @@ private func processJSONPathComponent(
     currentElement: Element,
     pathComponent: JSONPathHintComponent,
     currentPathSegmentForLog: String,
-    componentLogString: String
-) -> Element? {
+    componentLogString: String) -> Element?
+{
     let context = JSONPathComponentContext(
         currentElement: currentElement,
         currentElementDescription: currentElement.briefDescription(option: .smart),
@@ -75,8 +72,7 @@ private func processJSONPathComponent(
         matchType: pathComponent.matchType ?? .exact,
         maxDepth: pathComponent.depth ?? 1,
         currentPathSegmentForLog: currentPathSegmentForLog,
-        componentLogString: componentLogString
-    )
+        componentLogString: componentLogString)
     logJSONPathProcessing(context)
 
     if context.maxDepth > 1 {
@@ -106,14 +102,12 @@ private func logJSONPathProcessing(_ context: JSONPathComponentContext) {
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "PathNav/JPHN: Processing JSON path component '\(context.componentLogString)' " +
-            "at element [\(context.currentElementDescription)]. Path: \(context.currentPathSegmentForLog)"
-    ))
+            "at element [\(context.currentElementDescription)]. Path: \(context.currentPathSegmentForLog)"))
 
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "PathNav/JPHN: Converted JSON component to criteria: \(context.criteriaToMatch). " +
-            "MatchType: \(context.matchType.rawValue), MaxDepthForSearch: \(context.maxDepth)"
-    ))
+            "MatchType: \(context.matchType.rawValue), MaxDepthForSearch: \(context.maxDepth)"))
 }
 
 @MainActor
@@ -123,16 +117,15 @@ private func processDeepJSONPathComponent(_ context: JSONPathComponentContext) -
         criteria: context.criteriaToMatch,
         matchType: context.matchType,
         maxDepth: context.maxDepth,
-        pathComponentForLog: context.componentLogString
-    ) else {
+        pathComponentForLog: context.componentLogString)
+    else {
         return nil
     }
 
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .info,
         message: "PathNav/JPHN: Deep match found for component '\(context.componentLogString)': " +
-            "[\(deepMatch.briefDescription(option: ValueFormatOption.smart))]"
-    ))
+            "[\(deepMatch.briefDescription(option: ValueFormatOption.smart))]"))
     return deepMatch
 }
 
@@ -142,8 +135,8 @@ private func processDirectJSONPathComponent(_ context: JSONPathComponentContext)
         parentElement: context.currentElement,
         criteriaToMatch: context.criteriaToMatch,
         matchType: context.matchType,
-        pathComponentForLog: context.componentLogString
-    ) {
+        pathComponentForLog: context.componentLogString)
+    {
         return directChild
     }
 
@@ -151,13 +144,12 @@ private func processDirectJSONPathComponent(_ context: JSONPathComponentContext)
         context.currentElement,
         criteria: context.criteriaToMatch,
         matchType: context.matchType,
-        forPathComponent: context.componentLogString
-    ) {
+        forPathComponent: context.componentLogString)
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "PathNav/JPHN: JSON path component '\(context.componentLogString)' " +
-                "matches current element [\(context.currentElementDescription)]."
-        ))
+                "matches current element [\(context.currentElementDescription)]."))
         return context.currentElement
     }
     return nil
@@ -170,8 +162,7 @@ private func logJSONPathFailure(_ context: JSONPathComponentContext) {
         message: "PathNav/JPHN: JSON path component '\(context.componentLogString)' with criteria " +
             "\(context.criteriaToMatch) did not match any child or current element " +
             "[\(context.currentElementDescription)]. Path so far: \(context.currentPathSegmentForLog)." +
-            " Search depth was \(context.maxDepth)."
-    ))
+            " Search depth was \(context.maxDepth)."))
 }
 
 @MainActor
@@ -185,8 +176,8 @@ private func findMatchingChildJSON(
     parentElement: Element,
     criteriaToMatch: [String: String],
     matchType: JSONPathHintComponent.MatchType,
-    pathComponentForLog: String
-) -> Element? {
+    pathComponentForLog: String) -> Element?
+{
     guard let children = getChildrenFromElement(parentElement) else {
         return nil
     }
@@ -196,14 +187,13 @@ private func findMatchingChildJSON(
             child,
             criteria: criteriaToMatch,
             matchType: matchType,
-            forPathComponent: pathComponentForLog
-        ) {
+            forPathComponent: pathComponentForLog)
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "PathNav/FMCJ: Found matching child at index \(childIndex) " +
                 "for JSON component [\(pathComponentForLog)]: " +
-                "[\(child.briefDescription(option: ValueFormatOption.smart))]."
-        ))
+                "[\(child.briefDescription(option: ValueFormatOption.smart))]."))
         return child
     }
 
@@ -215,8 +205,8 @@ private func elementMatchesAllCriteriaJSON(
     _ element: Element,
     criteria: [String: String],
     matchType: JSONPathHintComponent.MatchType,
-    forPathComponent _: String
-) -> Bool {
+    forPathComponent _: String) -> Bool
+{
     if criteria.isEmpty {
         return true
     }
@@ -227,8 +217,7 @@ private func elementMatchesAllCriteriaJSON(
             key: key,
             expectedValue: expectedValue,
             matchType: matchType,
-            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.smart)
-        )
+            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.smart))
 
         if !criterionDidMatch {
             return false
@@ -244,13 +233,12 @@ private func findMatchRecursively(
     criteria: [String: String],
     matchType: JSONPathHintComponent.MatchType,
     maxDepth: Int,
-    pathComponentForLog: String
-) -> Element? {
+    pathComponentForLog: String) -> Element?
+{
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "PathNav/FMR: Starting recursive search for component '\(pathComponentForLog)' " +
-            "with maxDepth \(maxDepth) from [\(rootElement.briefDescription(option: ValueFormatOption.smart))]"
-    ))
+            "with maxDepth \(maxDepth) from [\(rootElement.briefDescription(option: ValueFormatOption.smart))]"))
 
     var queue: [(element: Element, depth: Int)] = [(rootElement, 0)]
     var visited = Set<Element>()
@@ -267,13 +255,12 @@ private func findMatchRecursively(
             currentElement,
             criteria: criteria,
             matchType: matchType,
-            forPathComponent: pathComponentForLog
-        ) {
+            forPathComponent: pathComponentForLog)
+        {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
                 message: "PathNav/FMR: Found match at depth \(currentDepth): " +
-                    "[\(currentElement.briefDescription(option: ValueFormatOption.smart))]"
-            ))
+                    "[\(currentElement.briefDescription(option: ValueFormatOption.smart))]"))
             return currentElement
         }
 
@@ -288,7 +275,6 @@ private func findMatchRecursively(
 
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "PathNav/FMR: No match found in recursive search for component '\(pathComponentForLog)'"
-    ))
+        message: "PathNav/FMR: No match found in recursive search for component '\(pathComponentForLog)'"))
     return nil
 }

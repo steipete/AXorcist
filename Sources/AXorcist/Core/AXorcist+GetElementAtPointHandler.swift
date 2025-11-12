@@ -2,8 +2,8 @@ import ApplicationServices
 import Foundation
 
 @MainActor
-public extension AXorcist {
-    func handleGetElementAtPoint(command: GetElementAtPointCommand) -> AXResponse {
+extension AXorcist {
+    public func handleGetElementAtPoint(command: GetElementAtPointCommand) -> AXResponse {
         self.logGetPointRequest(command)
 
         guard let appElement = self.applicationElement(for: command) else {
@@ -39,7 +39,7 @@ public extension AXorcist {
         HandleGetElementAtPoint: Could not get application element for '\(target)'.
         Application context is required even though elementAtPoint is system-wide.
         """
-        .trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
         return .errorResponse(message: message, code: .elementNotFound)
     }
@@ -72,8 +72,7 @@ public extension AXorcist {
             textualContent: nil,
             childrenBriefDescriptions: nil,
             fullAXDescription: element.briefDescription(option: .stringified),
-            path: element.generatePathString().components(separatedBy: " -> ")
-        )
+            path: element.generatePathString().components(separatedBy: " -> "))
     }
 }
 

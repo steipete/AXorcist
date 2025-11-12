@@ -6,8 +6,7 @@ import Testing
 @Suite(
     "AXorcist Action Integration Tests",
     .tags(.automation),
-    .enabled(if: AXTestEnvironment.runAutomationScenarios)
-)
+    .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ActionIntegrationTests {
     @Test("Perform AXSetValue on TextEdit", .tags(.automation))
@@ -27,15 +26,13 @@ struct ActionIntegrationTests {
             actionCommandId: actionCommandId,
             textEditBundleId: textEditBundleId,
             textAreaLocator: textAreaLocator,
-            textToSet: textToSet
-        )
+            textToSet: textToSet)
 
         try await verifyTextValue(
             queryCommandId: queryCommandId,
             textEditBundleId: textEditBundleId,
             textAreaLocator: textAreaLocator,
-            expectedText: textToSet
-        )
+            expectedText: textToSet)
     }
 
     @Test("Extract text after setting value", .tags(.automation))
@@ -55,15 +52,13 @@ struct ActionIntegrationTests {
             actionCommandId: setValueCommandId,
             textEditBundleId: textEditBundleId,
             textAreaLocator: textAreaLocator,
-            textToSet: textToSetAndExtract
-        )
+            textToSet: textToSetAndExtract)
 
         try await extractAndVerifyText(
             extractTextCommandId: extractTextCommandId,
             textEditBundleId: textEditBundleId,
             textAreaLocator: textAreaLocator,
-            expectedText: textToSetAndExtract
-        )
+            expectedText: textToSetAndExtract)
     }
 
     // MARK: - Helper Functions
@@ -72,8 +67,8 @@ struct ActionIntegrationTests {
         actionCommandId: String,
         textEditBundleId: String,
         textAreaLocator: Locator,
-        textToSet: String
-    ) async throws {
+        textToSet: String) async throws
+    {
         let performActionEnvelope = CommandEnvelope(
             commandId: actionCommandId,
             command: .performAction,
@@ -81,16 +76,14 @@ struct ActionIntegrationTests {
             debugLogging: true,
             locator: textAreaLocator,
             actionName: "AXSetValue",
-            actionValue: .string(textToSet)
-        )
+            actionValue: .string(textToSet))
 
         let response = try await executeCommand(performActionEnvelope)
 
         #expect(response.commandId == actionCommandId)
         #expect(
             response.success,
-            "performAction command was not successful. Error: \(response.error?.message ?? "N/A")"
-        )
+            "performAction command was not successful. Error: \(response.error?.message ?? "N/A")")
 
         try await Task.sleep(for: .milliseconds(100))
     }
@@ -99,24 +92,22 @@ struct ActionIntegrationTests {
         queryCommandId: String,
         textEditBundleId: String,
         textAreaLocator: Locator,
-        expectedText: String
-    ) async throws {
+        expectedText: String) async throws
+    {
         let queryEnvelope = CommandEnvelope(
             commandId: queryCommandId,
             command: .query,
             application: textEditBundleId,
             attributes: ["AXValue"],
             debugLogging: true,
-            locator: textAreaLocator
-        )
+            locator: textAreaLocator)
 
         let response = try await executeCommand(queryEnvelope)
 
         #expect(response.commandId == queryCommandId)
         #expect(
             response.success,
-            "Query (verify) command failed. Error: \(response.error?.message ?? "N/A")"
-        )
+            "Query (verify) command failed. Error: \(response.error?.message ?? "N/A")")
 
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("Attributes nil in query (verify) response.")
@@ -125,8 +116,7 @@ struct ActionIntegrationTests {
         let retrievedValue = attributes["AXValue"]?.anyValue as? String
         #expect(
             retrievedValue == expectedText,
-            "AXValue did not match. Expected: '\(expectedText)'. Got: '\(retrievedValue ?? "nil")'"
-        )
+            "AXValue did not match. Expected: '\(expectedText)'. Got: '\(retrievedValue ?? "nil")'")
 
         #expect(response.debugLogs != nil)
     }
@@ -135,23 +125,21 @@ struct ActionIntegrationTests {
         extractTextCommandId: String,
         textEditBundleId: String,
         textAreaLocator: Locator,
-        expectedText: String
-    ) async throws {
+        expectedText: String) async throws
+    {
         let extractTextEnvelope = CommandEnvelope(
             commandId: extractTextCommandId,
             command: .extractText,
             application: textEditBundleId,
             debugLogging: true,
-            locator: textAreaLocator
-        )
+            locator: textAreaLocator)
 
         let response = try await executeCommand(extractTextEnvelope)
 
         #expect(response.commandId == extractTextCommandId)
         #expect(
             response.success,
-            "extractText command failed. Error: \(response.error?.message ?? "N/A")"
-        )
+            "extractText command failed. Error: \(response.error?.message ?? "N/A")")
         #expect(response.command == CommandType.extractText.rawValue)
 
         guard let attributes = response.data?.attributes else {
@@ -161,16 +149,14 @@ struct ActionIntegrationTests {
         let extractedValue = attributes["AXValue"]?.anyValue as? String
         #expect(
             extractedValue == expectedText,
-            "Extracted text did not match. Expected: '\(expectedText)'. Got: '\(extractedValue ?? "nil")'"
-        )
+            "Extracted text did not match. Expected: '\(expectedText)'. Got: '\(extractedValue ?? "nil")'")
 
         #expect(response.debugLogs != nil)
         #expect(
             response.debugLogs?.contains { log in
                 log.contains("Handling extractText command") || log.contains("handleExtractText completed")
             } == true,
-            "Debug logs should indicate extractText execution."
-        )
+            "Debug logs should indicate extractText execution.")
     }
 
     private func executeCommand(_ command: CommandEnvelope) async throws -> QueryResponse {
@@ -188,8 +174,7 @@ struct ActionIntegrationTests {
         #expect(exitCode == 0, "Command failed. Error: \(errorOutput ?? "N/A")")
         #expect(
             errorOutput?.isEmpty ?? true,
-            "STDERR should be empty. Got: \(errorOutput ?? "")"
-        )
+            "STDERR should be empty. Got: \(errorOutput ?? "")")
 
         guard let outputString = output, !outputString.isEmpty else {
             throw TestError.generic("Output string was nil or empty for command: \(command.commandId)")

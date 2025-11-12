@@ -13,8 +13,8 @@ public enum WindowInfoHelper {
     /// Get window info list with specified options
     public static func getWindowInfoList(
         option: CGWindowListOption,
-        relativeToWindow windowID: CGWindowID = CFConstants.cgNullWindowID
-    ) -> [[String: Any]]? {
+        relativeToWindow windowID: CGWindowID = CFConstants.cgNullWindowID) -> [[String: Any]]?
+    {
         guard let info = CGWindowListCopyWindowInfo(option, windowID) as? [[String: Any]] else {
             return nil
         }
@@ -24,19 +24,19 @@ public enum WindowInfoHelper {
     /// Get all visible windows on screen (excluding desktop elements)
     public static func getVisibleWindows() -> [[String: Any]]? {
         let options = CGWindowListOption.optionOnScreenOnly.union(.excludeDesktopElements)
-        return getWindowInfoList(option: options)
+        return self.getWindowInfoList(option: options)
     }
 
     /// Get all windows on screen (including desktop elements)
     public static func getAllWindowsOnScreen() -> [[String: Any]]? {
-        getWindowInfoList(option: .optionOnScreenOnly)
+        self.getWindowInfoList(option: .optionOnScreenOnly)
     }
 
     /// Get window info for a specific window number
     public static func getWindowInfo(
         windowNumber: Int,
-        option: CGWindowListOption = .optionOnScreenOnly
-    ) -> [String: Any]? {
+        option: CGWindowListOption = .optionOnScreenOnly) -> [String: Any]?
+    {
         guard let windowInfos = getWindowInfoList(option: option) else {
             return nil
         }
@@ -92,13 +92,15 @@ public enum WindowInfoHelper {
                let xCoord = bounds["X"],
                let yCoord = bounds["Y"],
                let width = bounds["Width"],
-               let height = bounds["Height"] {
+               let height = bounds["Height"]
+            {
                 // Check if bounds match (with small tolerance for floating point comparison)
                 let tolerance: CGFloat = 1.0
                 if abs(xCoord - position.x) < tolerance,
                    abs(yCoord - position.y) < tolerance,
                    abs(width - size.width) < tolerance,
-                   abs(height - size.height) < tolerance {
+                   abs(height - size.height) < tolerance
+                {
                     if let windowID = window[CFConstants.cgWindowNumber] as? Int {
                         return CGWindowID(windowID)
                     }
@@ -151,6 +153,6 @@ public enum WindowInfoHelper {
 
     /// Check if a window is on screen
     public static func isWindowOnScreen(windowID: CGWindowID) -> Bool {
-        getWindowInfo(windowNumber: Int(windowID), option: .optionOnScreenOnly) != nil
+        self.getWindowInfo(windowNumber: Int(windowID), option: .optionOnScreenOnly) != nil
     }
 }

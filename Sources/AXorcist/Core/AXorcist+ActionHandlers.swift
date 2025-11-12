@@ -11,25 +11,23 @@ import Foundation
 /// - Complex action coordination and validation
 /// - Integration with element discovery and targeting
 @MainActor
-public extension AXorcist {
+extension AXorcist {
     // MARK: - Perform Action Handler
 
-    func handlePerformAction(command: PerformActionCommand) -> AXResponse {
+    public func handlePerformAction(command: PerformActionCommand) -> AXResponse {
         self.logPerformActionStart(command)
 
         let appIdentifier = command.appIdentifier ?? "focused"
         let (foundElement, errorMessage) = findTargetElement(
             for: appIdentifier,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch
-        )
+            maxDepthForSearch: command.maxDepthForSearch)
 
         guard let element = foundElement else {
             let fallback = missingElementMessage(
                 prefix: "HandlePerformAction",
                 appIdentifier: appIdentifier,
-                locatorDescription: String(describing: command.locator)
-            )
+                locatorDescription: String(describing: command.locator))
             let message = errorMessage ?? fallback
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
             return .errorResponse(message: message, code: .elementNotFound)
@@ -43,22 +41,20 @@ public extension AXorcist {
 
     // MARK: - Set Focused Value Handler
 
-    func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
+    public func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
         self.logSetFocusedValueStart(command)
 
         let appIdentifier = command.appIdentifier ?? "focused"
         let (foundElement, errorMessage) = findTargetElement(
             for: appIdentifier,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch
-        )
+            maxDepthForSearch: command.maxDepthForSearch)
 
         guard let element = foundElement else {
             let fallback = missingElementMessage(
                 prefix: "HandleSetFocusedValue",
                 appIdentifier: appIdentifier,
-                locatorDescription: String(describing: command.locator)
-            )
+                locatorDescription: String(describing: command.locator))
             let message = errorMessage ?? fallback
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
             return .errorResponse(message: message, code: .elementNotFound)
@@ -72,20 +68,18 @@ public extension AXorcist {
 
     // MARK: - Extract Text Handler
 
-func handleExtractText(command: ExtractTextCommand) -> AXResponse {
+    public func handleExtractText(command: ExtractTextCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleExtractText: App '\(String(describing: command.appIdentifier))', " +
                 "Locator: \(command.locator), " +
                 "IncludeChildren: \(String(describing: command.includeChildren)), " +
-                "MaxDepth: \(String(describing: command.maxDepth))"
-        ))
+                "MaxDepth: \(String(describing: command.maxDepth))"))
 
         let (foundElement, error) = findTargetElement(
             for: command.appIdentifier ?? "focused",
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch
-        )
+            maxDepthForSearch: command.maxDepthForSearch)
 
         guard let element = foundElement else {
             let errorMessage = error ?? "HandleExtractText: Element not found for app " +
@@ -96,18 +90,16 @@ func handleExtractText(command: ExtractTextCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "HandleExtractText: Found element: " +
-                "\(element.briefDescription(option: ValueFormatOption.smart))"
-        ))
+                "\(element.briefDescription(option: ValueFormatOption.smart))"))
 
         if let textContent = getElementTextualContent(
             element: element,
             includeChildren: command.includeChildren ?? true,
-            maxDepth: command.maxDepth ?? 5
-        ) {
+            maxDepth: command.maxDepth ?? 5)
+        {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "HandleExtractText: Extracted text: '\(textContent)'"
-            ))
+                message: "HandleExtractText: Extracted text: '\(textContent)'"))
             return .successResponse(payload: AnyCodable(TextPayload(text: textContent)))
         } else {
             let message = "HandleExtractText: No text content found for " +
@@ -126,16 +118,14 @@ extension AXorcist {
             level: .info,
             message: "HandlePerformAction: App '\(String(describing: command.appIdentifier))', " +
                 "Locator: \(command.locator), Action: \(command.action), " +
-                "Value: \(String(describing: command.value))"
-        ))
+                "Value: \(String(describing: command.value))"))
     }
 
     private func logSetFocusedValueStart(_ command: SetFocusedValueCommand) {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleSetFocusedValue: App '\(String(describing: command.appIdentifier))', " +
-                "Locator: \(command.locator), Value: '\(command.value)'"
-        ))
+                "Locator: \(command.locator), Value: '\(command.value)'"))
     }
 
     private func validateActionSupport(_ action: String, for element: Element) -> AXResponse? {
@@ -154,8 +144,7 @@ extension AXorcist {
         if let actionValue = value?.value {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .warning,
-                message: "HandlePerformAction: Action value provided but not used: \(actionValue)"
-            ))
+                message: "HandlePerformAction: Action value provided but not used: \(actionValue)"))
         }
 
         do {
@@ -163,11 +152,9 @@ extension AXorcist {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
                 message: "HandlePerformAction: Successfully performed action '\(action)' on " +
-                    "\(element.briefDescription(option: ValueFormatOption.smart))."
-            ))
+                    "\(element.briefDescription(option: ValueFormatOption.smart))."))
             return .successResponse(
-                payload: AnyCodable(["message": "Action '\(action)' performed successfully."])
-            )
+                payload: AnyCodable(["message": "Action '\(action)' performed successfully."]))
         } catch {
             let errorMessage = "HandlePerformAction: Failed to perform action '\(action)' on " +
                 "\(element.briefDescription(option: ValueFormatOption.smart)). Error: \(error)"
@@ -185,7 +172,7 @@ extension AXorcist {
         guard element.isActionSupported(AXActionNames.kAXPressAction) else {
             let focusError = [
                 "HandleSetFocusedValue: Element \(elementDescription) is not focusable",
-                "(kAXFocusedAttribute not settable and kAXPressAction not supported)."
+                "(kAXFocusedAttribute not settable and kAXPressAction not supported).",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: focusError))
             return false
@@ -194,18 +181,16 @@ extension AXorcist {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "HandleSetFocusedValue: Element not directly focusable by kAXFocusedAttribute, " +
-                "but supports kAXPressAction. Attempting press."
-        ))
+                "but supports kAXPressAction. Attempting press."))
         do {
             try element.performAction(.press)
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "HandleSetFocusedValue: Successfully pressed element to potentially gain focus."
-            ))
+                message: "HandleSetFocusedValue: Successfully pressed element to potentially gain focus."))
         } catch {
             let pressError = [
                 "HandleSetFocusedValue: Element \(elementDescription) could not be pressed",
-                "to potentially gain focus."
+                "to potentially gain focus.",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: pressError))
         }
@@ -216,16 +201,14 @@ extension AXorcist {
         let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "HandleSetFocusedValue: Attempting to set kAXFocusedAttribute to true for \(elementDescription)"
-        ))
+            message: "HandleSetFocusedValue: Attempting to set kAXFocusedAttribute to true for \(elementDescription)"))
         if element.setValue(true, forAttribute: AXAttributeNames.kAXFocusedAttribute) { return }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .warning,
             message: [
                 "HandleSetFocusedValue: Failed to set kAXFocusedAttribute for \(elementDescription),",
-                "but proceeding to set value."
-            ].joined(separator: " ")
-        ))
+                "but proceeding to set value.",
+            ].joined(separator: " ")))
     }
 
     private func setValue(_ value: String, on element: Element) -> AXResponse {
@@ -233,16 +216,13 @@ extension AXorcist {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "HandleSetFocusedValue: Attempting to set kAXValueAttribute to '\(value)' " +
-                "for \(elementDescription)"
-        ))
+                "for \(elementDescription)"))
         if element.setValue(value, forAttribute: AXAttributeNames.kAXValueAttribute) {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "HandleSetFocusedValue: Successfully set value for \(elementDescription)."
-            ))
+                message: "HandleSetFocusedValue: Successfully set value for \(elementDescription)."))
             return .successResponse(
-                payload: AnyCodable(["message": "Value '\(value)' set successfully on focused element."])
-            )
+                payload: AnyCodable(["message": "Value '\(value)' set successfully on focused element."]))
         }
 
         let setError = "HandleSetFocusedValue: Failed to set kAXValueAttribute for \(elementDescription)."

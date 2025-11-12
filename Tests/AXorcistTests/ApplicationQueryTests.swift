@@ -10,23 +10,23 @@ struct AnyDecodable: Decodable {
         let container = try decoder.singleValueContainer()
 
         if let bool = try? container.decode(Bool.self) {
-            value = bool
+            self.value = bool
         } else if let int = try? container.decode(Int.self) {
-            value = int
+            self.value = int
         } else if let double = try? container.decode(Double.self) {
-            value = double
+            self.value = double
         } else if let string = try? container.decode(String.self) {
-            value = string
+            self.value = string
         } else if let array = try? container.decode([AnyDecodable].self) {
-            value = array.map { $0.value }
+            self.value = array.map(\.value)
         } else if let dict = try? container.decode([String: AnyDecodable].self) {
             var result: [String: Any] = [:]
             for (key, val) in dict {
                 result[key] = val.value
             }
-            value = result
+            self.value = result
         } else {
-            value = NSNull()
+            self.value = NSNull()
         }
     }
 }
@@ -40,8 +40,7 @@ struct ApplicationQueryTests {
             command: .collectAll,
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")]),
-            outputFormat: .verbose
-        )
+            outputFormat: .verbose)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -74,8 +73,7 @@ struct ApplicationQueryTests {
     @Test(
         "List TextEdit windows",
         .tags(.automation),
-        .enabled(if: AXTestEnvironment.runAutomationScenarios)
-    )
+        .enabled(if: AXTestEnvironment.runAutomationScenarios))
     @MainActor
     func getWindowsOfApplication() async throws {
         await closeTextEdit()
@@ -96,8 +94,7 @@ struct ApplicationQueryTests {
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]),
-            outputFormat: .verbose
-        )
+            outputFormat: .verbose)
 
         let encoder = JSONEncoder()
         let jsonData = try encoder.encode(command)
@@ -134,8 +131,7 @@ struct ApplicationQueryTests {
             command: .query,
             application: "NonExistentApp12345",
             debugLogging: true,
-            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")])
-        )
+            locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")]))
 
         let encoder = JSONEncoder()
         let jsonData = try encoder.encode(command)
@@ -159,8 +155,7 @@ struct ApplicationQueryTests {
             let message = response.message
             #expect(
                 message.contains("No") || message.contains("not found") || message.isEmpty,
-                "Message should indicate no elements found or be empty"
-            )
+                "Message should indicate no elements found or be empty")
         }
     }
 }

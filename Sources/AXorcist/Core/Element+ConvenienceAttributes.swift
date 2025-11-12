@@ -9,37 +9,36 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-public extension Element {
+extension Element {
     // MARK: - Position and Size
 
     /// Get the position (CGPoint) of the element
     @MainActor
-    func position() -> CGPoint? {
+    public func position() -> CGPoint? {
         attribute(Attribute<CGPoint>.position)
     }
 
     /// Set the position of the element
     @MainActor
-    func setPosition(_ point: CGPoint) -> AXError {
+    public func setPosition(_ point: CGPoint) -> AXError {
         guard let axValue = AXValue.create(point: point) else {
             return .failure
         }
         return AXUIElementSetAttributeValue(
             underlyingElement,
             AXAttributeNames.kAXPositionAttribute as CFString,
-            axValue
-        )
+            axValue)
     }
 
     /// Get the size (CGSize) of the element
     @MainActor
-    func size() -> CGSize? {
+    public func size() -> CGSize? {
         attribute(Attribute<CGSize>.size)
     }
 
     /// Set the size of the element
     @MainActor
-    func setSize(_ size: CGSize) -> AXError {
+    public func setSize(_ size: CGSize) -> AXError {
         guard let axValue = AXValue.create(size: size) else {
             return .failure
         }
@@ -48,7 +47,7 @@ public extension Element {
 
     /// Get the frame (CGRect) of the element
     @MainActor
-    func frame() -> CGRect? {
+    public func frame() -> CGRect? {
         guard let origin = position(),
               let size = size()
         else {
@@ -59,75 +58,73 @@ public extension Element {
 
     /// Set the frame of the element
     @MainActor
-    func setFrame(_ rect: CGRect) {
-        _ = setPosition(rect.origin)
-        _ = setSize(rect.size)
+    public func setFrame(_ rect: CGRect) {
+        _ = self.setPosition(rect.origin)
+        _ = self.setSize(rect.size)
     }
 
     /// Set the frame using separate origin and size
     @MainActor
-    func setFrame(origin: CGPoint, size: CGSize) {
-        _ = setPosition(origin)
-        _ = setSize(size)
+    public func setFrame(origin: CGPoint, size: CGSize) {
+        _ = self.setPosition(origin)
+        _ = self.setSize(size)
     }
 
     // MARK: - Window State
 
     /// Check if the element is minimized
     @MainActor
-    func isMinimized() -> Bool? {
+    public func isMinimized() -> Bool? {
         attribute(Attribute<Bool>.minimized)
     }
 
     /// Set the minimized state
     @MainActor
-    func setMinimized(_ isMinimized: Bool) -> AXError {
+    public func setMinimized(_ isMinimized: Bool) -> AXError {
         AXUIElementSetAttributeValue(
             underlyingElement,
             AXAttributeNames.kAXMinimizedAttribute as CFString,
-            isMinimized as CFBoolean
-        )
+            isMinimized as CFBoolean)
     }
 
     /// Check if the element is in fullscreen
     @MainActor
-    func isFullScreen() -> Bool? {
+    public func isFullScreen() -> Bool? {
         attribute(Attribute<Bool>.fullScreen)
     }
 
     /// Set fullscreen state
     @MainActor
-    func setFullScreen(_ fullScreen: Bool) -> AXError {
+    public func setFullScreen(_ fullScreen: Bool) -> AXError {
         AXUIElementSetAttributeValue(
             underlyingElement,
             AXAttributeNames.kAXFullScreenAttribute as CFString,
-            fullScreen as CFBoolean
-        )
+            fullScreen as CFBoolean)
     }
 
     // MARK: - Text Attributes
 
     /// Get selected text
     @MainActor
-    func selectedText() -> String? {
+    public func selectedText() -> String? {
         attribute(Attribute<String>.selectedText)
     }
 
     /// Get selected text range
     @MainActor
-    func selectedTextRange() -> CFRange? {
+    public func selectedTextRange() -> CFRange? {
         attribute(Attribute<CFRange>.selectedTextRange)
     }
 
     /// Get visible character range
     @MainActor
-    func visibleCharacterRange() -> CFRange? {
+    public func visibleCharacterRange() -> CFRange? {
         attribute(Attribute<CFRange>.visibleCharacterRange)
     }
 
     /// Get number of characters
     @MainActor
-    func numberOfCharacters() -> Int? {
+    public func numberOfCharacters() -> Int? {
         attribute(Attribute<Int>.numberOfCharacters)
     }
 
@@ -137,14 +134,14 @@ public extension Element {
 
     /// Get selected children
     @MainActor
-    func selectedChildren() -> [Element]? {
+    public func selectedChildren() -> [Element]? {
         guard let selectedUI: [AXUIElement] = attribute(.selectedChildren) else { return nil }
         return selectedUI.map { Element($0) }
     }
 
     /// Get visible children
     @MainActor
-    func visibleChildren() -> [Element]? {
+    public func visibleChildren() -> [Element]? {
         guard let visibleUI: [AXUIElement] = attribute(.visibleChildren) else { return nil }
         return visibleUI.map { Element($0) }
     }
@@ -154,7 +151,7 @@ public extension Element {
     /// Get the main menu bar element of an application. This is typically called on an Element representing an
     /// application.
     @MainActor
-    func mainMenu() -> Element? {
+    public func mainMenu() -> Element? {
         guard let menuBarUI = attribute(Attribute<AXUIElement>.mainMenu) else { return nil }
         return Element(menuBarUI)
     }
@@ -162,27 +159,27 @@ public extension Element {
     /// Check if the application element is the frontmost application. This is typically called on an Element
     /// representing an application.
     @MainActor
-    func isFrontmost() -> Bool? {
+    public func isFrontmost() -> Bool? {
         attribute(Attribute<Bool>.frontmost)
     }
 
     /// Check if the application represented by this element is hidden. This is typically called on an Element
     /// representing an application.
     @MainActor
-    func isApplicationHidden() -> Bool? {
+    public func isApplicationHidden() -> Bool? {
         attribute(Attribute<Bool>.hidden)
     }
 
     /// Check if element is main (e.g., the main window of an application). This is typically called on an Element
     /// representing a window.
     @MainActor
-    func isMain() -> Bool? {
+    public func isMain() -> Bool? {
         attribute(Attribute<Bool>(AXAttributeNames.kAXMainAttribute))
     }
 
     /// Check if element is modal
     @MainActor
-    func isModal() -> Bool? {
+    public func isModal() -> Bool? {
         attribute(Attribute<Bool>.modal)
     }
 
@@ -190,28 +187,28 @@ public extension Element {
 
     /// Get rows
     @MainActor
-    func rows() -> [Element]? {
+    public func rows() -> [Element]? {
         guard let rowsUI: [AXUIElement] = attribute(.rows) else { return nil }
         return rowsUI.map { Element($0) }
     }
 
     /// Get columns
     @MainActor
-    func columns() -> [Element]? {
+    public func columns() -> [Element]? {
         guard let columnsUI: [AXUIElement] = attribute(.columns) else { return nil }
         return columnsUI.map { Element($0) }
     }
 
     /// Get visible rows
     @MainActor
-    func visibleRows() -> [Element]? {
+    public func visibleRows() -> [Element]? {
         guard let rowsUI: [AXUIElement] = attribute(.visibleRows) else { return nil }
         return rowsUI.map { Element($0) }
     }
 
     /// Get visible columns
     @MainActor
-    func visibleColumns() -> [Element]? {
+    public func visibleColumns() -> [Element]? {
         guard let columnsUI: [AXUIElement] = attribute(.visibleColumns) else { return nil }
         return columnsUI.map { Element($0) }
     }
@@ -220,19 +217,19 @@ public extension Element {
 
     /// Get minimum value
     @MainActor
-    func minValue() -> Any? {
+    public func minValue() -> Any? {
         attribute(Attribute<Any>(AXAttributeNames.kAXMinValueAttribute))
     }
 
     /// Get maximum value
     @MainActor
-    func maxValue() -> Any? {
+    public func maxValue() -> Any? {
         attribute(Attribute<Any>(AXAttributeNames.kAXMaxValueAttribute))
     }
 
     /// Get value increment
     @MainActor
-    func valueIncrement() -> Any? {
+    public func valueIncrement() -> Any? {
         attribute(Attribute<Any>(AXAttributeNames.kAXValueIncrementAttribute))
     }
 
@@ -240,13 +237,12 @@ public extension Element {
 
     /// Get URL for elements that represent disk or network items
     @MainActor
-    func url() -> URL? {
+    public func url() -> URL? {
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(
             underlyingElement,
             AXAttributeNames.kAXURLAttribute as CFString,
-            &value
-        )
+            &value)
         guard error == .success,
               let cfURL = value as! CFURL?
         else {
@@ -260,7 +256,7 @@ public extension Element {
     /// If this element is the SystemWide element, gets the currently focused application.
     /// Returns nil if this element is not the SystemWide element or if the attribute cannot be retrieved.
     @MainActor
-    func focusedApplicationElement() -> Element? {
+    public func focusedApplicationElement() -> Element? {
         guard let appElementUI: AXUIElement = attribute(Attribute<AXUIElement>.focusedApplication) else { return nil }
         return Element(appElementUI)
     }

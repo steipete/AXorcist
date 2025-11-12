@@ -42,7 +42,8 @@ public enum AXPermissionHelpers {
         // Skip permission dialog in test environment
         if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil ||
             ProcessInfo.processInfo.arguments.contains("--test-mode") ||
-            NSClassFromString("XCTest") != nil {
+            NSClassFromString("XCTest") != nil
+        {
             return false // Return false to indicate no permissions in test mode
         }
         let options = [CFConstants.axTrustedCheckOptionPrompt as String: true]
@@ -96,7 +97,7 @@ public enum AXPermissionHelpers {
     /// > Only call it when appropriate for your user experience.
     public static func requestPermissions() async -> Bool {
         await MainActor.run {
-            askForAccessibilityIfNeeded()
+            self.askForAccessibilityIfNeeded()
         }
     }
 
@@ -125,11 +126,11 @@ public enum AXPermissionHelpers {
     ///
     /// > Note: The stream automatically cleans up its timer when cancelled.
     public static func permissionChanges(
-        interval: TimeInterval = 1.0
-    ) -> AsyncStream<Bool> {
+        interval: TimeInterval = 1.0) -> AsyncStream<Bool>
+    {
         AsyncStream { continuation in
             let initialState = Self.syncOnMainActor {
-                hasAccessibilityPermissions()
+                self.hasAccessibilityPermissions()
             }
             continuation.yield(initialState)
 
@@ -147,7 +148,7 @@ public enum AXPermissionHelpers {
             Self.syncOnMainActor {
                 timerBox.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
                     let currentState = Self.syncOnMainActor {
-                        hasAccessibilityPermissions()
+                        self.hasAccessibilityPermissions()
                     }
                     if currentState != timerBox.lastState {
                         timerBox.lastState = currentState
@@ -166,9 +167,9 @@ public enum AXPermissionHelpers {
     }
 
     @inline(__always)
-    nonisolated private static func syncOnMainActor<Value: Sendable>(
-        _ work: @MainActor () -> Value
-    ) -> Value {
+    private nonisolated static func syncOnMainActor<Value: Sendable>(
+        _ work: @MainActor () -> Value) -> Value
+    {
         if Thread.isMainThread {
             return MainActor.assumeIsolated(work)
         }

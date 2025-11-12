@@ -8,14 +8,13 @@ private func processDebugLog(
     _ parts: String...,
     file: StaticString = #file,
     function: StaticString = #function,
-    line: UInt = #line
-) {
+    line: UInt = #line)
+{
     axDebugLog(
         logSegments(parts),
         file: String(describing: file),
         function: String(describing: function),
-        line: Int(line)
-    )
+        line: Int(line))
 }
 
 @inline(__always)
@@ -23,14 +22,13 @@ private func processWarningLog(
     _ parts: String...,
     file: StaticString = #file,
     function: StaticString = #function,
-    line: UInt = #line
-) {
+    line: UInt = #line)
+{
     axWarningLog(
         logSegments(parts),
         file: String(describing: file),
         function: String(describing: function),
-        line: Int(line)
-    )
+        line: Int(line))
 }
 
 // GlobalAXLogger is assumed to be available
@@ -43,7 +41,7 @@ public func pid(forAppIdentifier ident: String) -> pid_t? {
         { pidByBundleIdentifier(ident) },
         { pidByLocalizedName(ident) },
         { pidByPath(ident) },
-        { pidByPIDString(ident) }
+        { pidByPIDString(ident) },
     ]
 
     for strategy in strategies {
@@ -66,8 +64,7 @@ private func pidForFocusedApp(_ ident: String) -> pid_t? {
             "ProcessUtils: Frontmost app is '\(frontmostApp.localizedName ?? "nil")'",
             "PID: \(frontmostApp.processIdentifier)",
             "BundleID: \(frontmostApp.bundleIdentifier ?? "nil")",
-            "Terminated: \(frontmostApp.isTerminated)"
-        )
+            "Terminated: \(frontmostApp.isTerminated)")
         return frontmostApp.processIdentifier
     } else {
         processWarningLog("ProcessUtils: NSWorkspace.shared.frontmostApplication returned nil.")
@@ -91,8 +88,7 @@ private func pidByBundleIdentifier(_ ident: String) -> pid_t? {
     if let app = appsByBundleID.first(where: { !$0.isTerminated }) {
         processDebugLog(
             "ProcessUtils: Using first non-terminated app found by bundle ID",
-            "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier))"
-        )
+            "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier))")
         return app.processIdentifier
     } else {
         processDebugLog("ProcessUtils: All apps found by bundle ID '\(ident)' are terminated.")
@@ -106,29 +102,25 @@ private func pidByLocalizedName(_ ident: String) -> pid_t? {
     let allApps = NSWorkspace.shared.runningApplications
     processDebugLog(
         "ProcessUtils: pidByLocalizedName - NSWorkspace.shared.runningApplications returned",
-        "\(allApps.count) total apps."
-    )
+        "\(allApps.count) total apps.")
 
     for (idx, app) in allApps.enumerated() {
         processDebugLog(
             "ProcessUtils: pidByLocalizedName - Checking app [\(idx)]",
             "'\(app.localizedName ?? "NIL_NAME")' (Terminated: \(app.isTerminated))",
-            "BundleID: \(app.bundleIdentifier ?? "NIL_BID") against target '\(ident)'"
-        )
+            "BundleID: \(app.bundleIdentifier ?? "NIL_BID") against target '\(ident)'")
         if !app.isTerminated, app.localizedName?.lowercased() == ident.lowercased() {
             processDebugLog(
                 "ProcessUtils: Found non-terminated app by localized name (in loop)",
                 "'\(app.localizedName ?? "nil")' (PID: \(app.processIdentifier))",
-                "BundleID: '\(app.bundleIdentifier ?? "nil")'"
-            )
+                "BundleID: '\(app.bundleIdentifier ?? "nil")'")
             return app.processIdentifier
         }
     }
 
     processDebugLog(
         "ProcessUtils: No non-terminated app found matching localized name '\(ident)'",
-        "Original filter logic skipped as redundant"
-    )
+        "Original filter logic skipped as redundant")
     return nil
 }
 
@@ -142,15 +134,13 @@ private func pidByPath(_ ident: String) -> pid_t? {
     else {
         processDebugLog(
             "ProcessUtils: Identifier '\(ident)' is not a valid file path",
-            "Bundle info could not be read"
-        )
+            "Bundle info could not be read")
         return nil
     }
 
     processDebugLog(
         "ProcessUtils: Path '\(potentialPath)' resolved to bundle '\(bundleId)'",
-        "Looking up running apps with this bundle ID"
-    )
+        "Looking up running apps with this bundle ID")
 
     return pidForResolvedBundleID(bundleId, fromPath: potentialPath)
 }
@@ -161,13 +151,13 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
     guard let pidInt = Int32(ident) else { return nil }
 
     if let appByPid = NSRunningApplication(processIdentifier: pidInt),
-       !appByPid.isTerminated {
+       !appByPid.isTerminated
+    {
         processDebugLog(
             "ProcessUtils: Found non-terminated app by PID string '\(ident)'",
             "'\(appByPid.localizedName ?? "nil")'",
             "PID: \(appByPid.processIdentifier)",
-            "BundleID: '\(appByPid.bundleIdentifier ?? "nil")'"
-        )
+            "BundleID: '\(appByPid.bundleIdentifier ?? "nil")'")
         return pidInt
     } else {
         if NSRunningApplication(processIdentifier: pidInt)?.isTerminated == true {
@@ -175,8 +165,7 @@ private func pidByPIDString(_ ident: String) -> pid_t? {
         } else {
             processDebugLog(
                 "ProcessUtils: String '\(ident)' looked like a PID",
-                "but no running application found for it."
-            )
+                "but no running application found for it.")
         }
         return nil
     }
@@ -189,8 +178,7 @@ private func logRunningApplications(_ apps: [NSRunningApplication], context: Str
             "ProcessUtils: App [\(index)]\(contextPrefix) - Name: '\(application.localizedName ?? "nil")'",
             "PID: \(application.processIdentifier)",
             "BundleID: '\(application.bundleIdentifier ?? "nil")'",
-            "Terminated: \(application.isTerminated)"
-        )
+            "Terminated: \(application.isTerminated)")
     }
 }
 
@@ -224,13 +212,11 @@ func findFrontmostApplicationPid() -> pid_t? {
             "ProcessUtils: Frontmost app for findFrontmostApplicationPid is '\(frontmostApp.localizedName ?? "nil")'",
             "PID: \(frontmostApp.processIdentifier)",
             "BundleID: \(frontmostApp.bundleIdentifier ?? "nil")",
-            "Terminated: \(frontmostApp.isTerminated)"
-        )
+            "Terminated: \(frontmostApp.isTerminated)")
         return frontmostApp.processIdentifier
     } else {
         processWarningLog(
-            "ProcessUtils: NSWorkspace.shared.frontmostApplication returned nil in findFrontmostApplicationPid."
-        )
+            "ProcessUtils: NSWorkspace.shared.frontmostApplication returned nil in findFrontmostApplicationPid.")
         return nil
     }
 }
@@ -241,8 +227,7 @@ public func getParentProcessName() -> String? {
     if let parentApp = NSRunningApplication(processIdentifier: parentPid) {
         processDebugLog(
             "ProcessUtils: Parent app is '\(parentApp.localizedName ?? "nil")'",
-            "BundleID: '\(parentApp.bundleIdentifier ?? "nil")'"
-        )
+            "BundleID: '\(parentApp.bundleIdentifier ?? "nil")'")
         return parentApp.localizedName ?? parentApp.bundleIdentifier
     }
     processWarningLog("ProcessUtils: Could not get NSRunningApplication for parent PID \(parentPid).")

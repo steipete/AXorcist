@@ -70,7 +70,7 @@ public class GlobalAXLogger {
                     return """
                     {"error": "Failed to serialize log entry to JSON: \(error.localizedDescription)"}
                     """
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
                 }
             }
         case .text:
@@ -148,8 +148,7 @@ public class GlobalAXLogger {
             file: sourceEntry.file,
             function: sourceEntry.function,
             line: sourceEntry.line,
-            details: nil
-        )
+            details: nil)
     }
 
     private func emitJSONIfNeeded(_ entry: AXLogEntry) {
@@ -192,16 +191,15 @@ extension Logging.Logger {
     }
 }
 
-private extension AXLogEntry {
-    func withMessage(_ message: String) -> AXLogEntry {
+extension AXLogEntry {
+    fileprivate func withMessage(_ message: String) -> AXLogEntry {
         AXLogEntry(
             level: self.level,
             message: message,
             file: self.file,
             function: self.function,
             line: self.line,
-            details: self.details
-        )
+            details: self.details)
     }
 }
 
@@ -209,14 +207,13 @@ private extension AXLogEntry {
 
 // These are synchronous and assume GlobalAXLogger.shared.log is safe to call directly (i.e., from main thread).
 
-nonisolated
-public func axDebugLog(
+public nonisolated func axDebugLog(
     _ message: String,
     details: [String: AnyCodable]? = nil,
     file: String = #file,
     function: String = #function,
-    line: Int = #line
-) {
+    line: Int = #line)
+{
     Task { @MainActor in
         let entry = AXLogEntry(
             level: .debug,
@@ -224,20 +221,18 @@ public func axDebugLog(
             file: file,
             function: function,
             line: line,
-            details: details
-        )
+            details: details)
         GlobalAXLogger.shared.log(entry)
     }
 }
 
-nonisolated
-public func axInfoLog(
+public nonisolated func axInfoLog(
     _ message: String,
     details: [String: AnyCodable]? = nil,
     file: String = #file,
     function: String = #function,
-    line: Int = #line
-) {
+    line: Int = #line)
+{
     Task { @MainActor in
         let entry = AXLogEntry(
             level: .info,
@@ -245,20 +240,18 @@ public func axInfoLog(
             file: file,
             function: function,
             line: line,
-            details: details
-        )
+            details: details)
         GlobalAXLogger.shared.log(entry)
     }
 }
 
-nonisolated
-public func axWarningLog(
+public nonisolated func axWarningLog(
     _ message: String,
     details: [String: AnyCodable]? = nil,
     file: String = #file,
     function: String = #function,
-    line: Int = #line
-) {
+    line: Int = #line)
+{
     Task { @MainActor in
         let entry = AXLogEntry(
             level: .warning,
@@ -266,20 +259,18 @@ public func axWarningLog(
             file: file,
             function: function,
             line: line,
-            details: details
-        )
+            details: details)
         GlobalAXLogger.shared.log(entry)
     }
 }
 
-nonisolated
-public func axErrorLog(
+public nonisolated func axErrorLog(
     _ message: String,
     details: [String: AnyCodable]? = nil,
     file: String = #file,
     function: String = #function,
-    line: Int = #line
-) {
+    line: Int = #line)
+{
     Task { @MainActor in
         let entry = AXLogEntry(
             level: .error,
@@ -287,20 +278,18 @@ public func axErrorLog(
             file: file,
             function: function,
             line: line,
-            details: details
-        )
+            details: details)
         GlobalAXLogger.shared.log(entry)
     }
 }
 
-nonisolated
-public func axFatalLog(
+public nonisolated func axFatalLog(
     _ message: String,
     details: [String: AnyCodable]? = nil,
     file: String = #file,
     function: String = #function,
-    line: Int = #line
-) {
+    line: Int = #line)
+{
     Task { @MainActor in
         let entry = AXLogEntry(
             level: .critical,
@@ -308,29 +297,25 @@ public func axFatalLog(
             file: file,
             function: function,
             line: line,
-            details: details
-        )
+            details: details)
         GlobalAXLogger.shared.log(entry)
     }
 }
 
 // MARK: - Global Log Access Functions
 
-nonisolated
-public func axGetLogEntries() -> [AXLogEntry] {
-    return [] // Return empty for now to avoid concurrency issues
+public nonisolated func axGetLogEntries() -> [AXLogEntry] {
+    [] // Return empty for now to avoid concurrency issues
 }
 
-nonisolated
-public func axClearLogs() {
+public nonisolated func axClearLogs() {
     Task { @MainActor in
         GlobalAXLogger.shared.clearEntries()
     }
 }
 
-nonisolated
-public func axGetLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
-    return [] // Return empty for now to avoid concurrency issues
+public nonisolated func axGetLogsAsStrings(format: AXLogOutputFormat = .text) -> [String] {
+    [] // Return empty for now to avoid concurrency issues
 }
 
 // Assuming AXLogEntry and its formattedForTextBasedOutput() method are defined elsewhere

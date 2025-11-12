@@ -10,35 +10,32 @@ import Foundation
 /// - Element detail extraction for observed events
 /// - Cleanup and lifecycle management of observers
 @MainActor
-public extension AXorcist {
-    func handleObserve(command: ObserveCommand) -> AXResponse {
-        logObservationStart(command)
+extension AXorcist {
+    public func handleObserve(command: ObserveCommand) -> AXResponse {
+        self.logObservationStart(command)
 
         let appIdentifier = command.appIdentifier ?? "focused"
-        let locator = makeObservationLocator()
+        let locator = self.makeObservationLocator()
 
         let (targetElement, error) = findTargetElement(
             for: appIdentifier,
             locator: locator,
-            maxDepthForSearch: command.maxDepthForSearch
-        )
+            maxDepthForSearch: command.maxDepthForSearch)
 
         guard let elementToObserve = targetElement else {
-            return observationNotFoundResponse(
+            return self.observationNotFoundResponse(
                 appIdentifier: appIdentifier,
                 locator: locator,
-                error: error
-            )
+                error: error)
         }
 
-        logObservationTarget(elementToObserve)
+        self.logObservationTarget(elementToObserve)
 
-        let callback = makeObservationCallback()
-        return startObservation(
+        let callback = self.makeObservationCallback()
+        return self.startObservation(
             element: elementToObserve,
             command: command,
-            callback: callback
-        )
+            callback: callback)
     }
 
     private func logObservationStart(_ command: ObserveCommand) {
@@ -46,7 +43,7 @@ public extension AXorcist {
         let message = [
             "HandleObserve: App \(command.appIdentifier ?? "focused")",
             "Notifications: \(command.notificationName.rawValue)",
-            "Details: \(details)"
+            "Details: \(details)",
         ].joined(separator: ", ")
         GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
     }
@@ -59,7 +56,7 @@ public extension AXorcist {
     private func logObservationTarget(_ element: Element) {
         let message = [
             "HandleObserve: Element to observe:",
-            element.briefDescription(option: ValueFormatOption.smart)
+            element.briefDescription(option: ValueFormatOption.smart),
         ].joined(separator: " ")
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: message))
     }
@@ -67,11 +64,11 @@ public extension AXorcist {
     private func observationNotFoundResponse(
         appIdentifier: String,
         locator: Locator,
-        error: String?
-    ) -> AXResponse {
+        error: String?) -> AXResponse
+    {
         let fallback = [
             "HandleObserve: Element to observe not found for app '\(appIdentifier)'",
-            "locator \(String(describing: locator))"
+            "locator \(String(describing: locator))",
         ].joined(separator: ", ")
         let errorMessage = error ?? fallback
         GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
@@ -81,17 +78,16 @@ public extension AXorcist {
     private func startObservation(
         element: Element,
         command: ObserveCommand,
-        callback: @escaping AXObserverManager.AXNotificationCallback
-    ) -> AXResponse {
+        callback: @escaping AXObserverManager.AXNotificationCallback) -> AXResponse
+    {
         do {
             try AXObserverManager.shared.addObserver(
                 for: element,
                 notification: command.notificationName,
-                callback: callback
-            )
+                callback: callback)
             let successMessage = [
                 "HandleObserve: Successfully started observing '\(command.notificationName)' on",
-                element.briefDescription(option: ValueFormatOption.smart)
+                element.briefDescription(option: ValueFormatOption.smart),
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: successMessage))
             return .successResponse(payload: AnyCodable(["message": successMessage]))
@@ -100,7 +96,7 @@ public extension AXorcist {
                 "HandleObserve: Failed to add observer.",
                 "Error: \(obError.localizedDescription) (Code: \(obError))",
                 "Pid: \(element.pid()?.description ?? "N/A")",
-                "Notification: \(command.notificationName)"
+                "Notification: \(command.notificationName)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: details))
             return .errorResponse(message: details, code: .observationFailed)
@@ -110,7 +106,7 @@ public extension AXorcist {
                 error.localizedDescription,
                 "Element:",
                 element.briefDescription(option: ValueFormatOption.smart),
-                "Notification: \(command.notificationName)"
+                "Notification: \(command.notificationName)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: details))
             return .errorResponse(message: details, code: .observationFailed)
@@ -125,7 +121,7 @@ public extension AXorcist {
                 "AXObserver CALLBACK:",
                 "Element: \(element.briefDescription(option: ValueFormatOption.smart))",
                 "Notification: \(notification as String)",
-                "UserInfo: \(userInfoDesc)"
+                "UserInfo: \(userInfoDesc)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
         }

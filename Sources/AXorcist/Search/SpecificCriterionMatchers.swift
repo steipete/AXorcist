@@ -11,31 +11,27 @@ func matchPidCriterion(element: Element, expectedValue: String, elementDescripti
         guard let actualPidT = element.pid() else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "SC/PID: \(elementDescriptionForLog) (app role) failed to provide PID. No match."
-            ))
+                message: "SC/PID: \(elementDescriptionForLog) (app role) failed to provide PID. No match."))
             return false
         }
         if String(actualPidT) == expectedPid {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "SC/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
-                    "MATCHES expected \(expectedPid)."
-            ))
+                    "MATCHES expected \(expectedPid)."))
             return true
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "SC/PID: \(elementDescriptionForLog) (app role) PID \(actualPidT) " +
-                    "MISMATCHES expected \(expectedPid)."
-            ))
+                    "MISMATCHES expected \(expectedPid)."))
             return false
         }
     }
     guard let actualPidT = element.pid() else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SC/PID: \(elementDescriptionForLog) failed to provide PID. No match."
-        ))
+            message: "SC/PID: \(elementDescriptionForLog) failed to provide PID. No match."))
         return false
     }
     let actualPidString = String(actualPidT)
@@ -43,15 +39,13 @@ func matchPidCriterion(element: Element, expectedValue: String, elementDescripti
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
-                "MATCHES expected \(expectedPid)."
-        ))
+                "MATCHES expected \(expectedPid)."))
         return true
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/PID: \(elementDescriptionForLog) PID \(actualPidString) " +
-                "MISMATCHES expected \(expectedPid)."
-        ))
+                "MISMATCHES expected \(expectedPid)."))
         return false
     }
 }
@@ -64,15 +58,13 @@ func matchIsIgnoredCriterion(element: Element, expectedValue: String, elementDes
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
-                "MATCHES expected ('\(expectedBool)')."
-        ))
+                "MATCHES expected ('\(expectedBool)')."))
         return true
     } else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/IsIgnored: \(elementDescriptionForLog) actual ('\(actualIsIgnored)') " +
-                "MISMATCHES expected ('\(expectedBool)')."
-        ))
+                "MISMATCHES expected ('\(expectedBool)')."))
         return false
     }
 }
@@ -82,13 +74,12 @@ func matchDomClassListCriterion(
     element: Element,
     expectedValue: String,
     matchType: JSONPathHintComponent.MatchType,
-    elementDescriptionForLog: String
-) -> Bool {
+    elementDescriptionForLog: String) -> Bool
+{
     guard let domClassListValue: Any = element.attribute(Attribute(AXAttributeNames.kAXDOMClassListAttribute)) else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "SC/DOMClass: \(elementDescriptionForLog) attribute was nil. No match."
-        ))
+            message: "SC/DOMClass: \(elementDescriptionForLog) attribute was nil. No match."))
         return false
     }
 
@@ -96,8 +87,7 @@ func matchDomClassListCriterion(
         value: domClassListValue,
         matchType: matchType,
         expectedValue: expectedValue,
-        elementDescription: elementDescriptionForLog
-    )
+        elementDescription: elementDescriptionForLog)
     return matcher.evaluate()
 }
 
@@ -119,8 +109,7 @@ private struct DOMClassMatcher {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/DOMClass: \(self.elementDescription) attribute was not [String] or String " +
-                "(type: \(type(of: self.value))). No match."
-        ))
+                "(type: \(type(of: self.value))). No match."))
         return false
     }
 
@@ -163,8 +152,7 @@ private struct DOMClassMatcher {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/DOMClass: Regex matching for \(typeDescription). " +
-                "Element: \(self.elementDescription) Expected: \(self.expectedValue)."
-        ))
+                "Element: \(self.elementDescription) Expected: \(self.expectedValue)."))
     }
 
     private func logResult(array: [String], joinedString: String?, matchFound: Bool) {
@@ -172,13 +160,11 @@ private struct DOMClassMatcher {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/DOMClass: \(self.elementDescription) match type '\(self.matchType.rawValue)' " +
-                "with '\(self.expectedValue)' resolved to \(matchFound). Classes: \(representation)"
-        ))
+                "with '\(self.expectedValue)' resolved to \(matchFound). Classes: \(representation)"))
         let resultText = matchFound ? "MATCHED" : "MISMATCHED"
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "SC/DOMClass: \(self.elementDescription) \(resultText) expected '\(self.expectedValue)' " +
-                "with type '\(self.matchType.rawValue)'."
-        ))
+                "with type '\(self.matchType.rawValue)'."))
     }
 }

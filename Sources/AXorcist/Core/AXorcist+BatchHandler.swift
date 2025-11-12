@@ -13,8 +13,7 @@ extension AXorcist {
     public func handleBatchCommands(command: AXBatchCommand) -> AXResponse {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "HandleBatch: Received \(command.commands.count) sub-commands."
-        ))
+            message: "HandleBatch: Received \(command.commands.count) sub-commands."))
         var results: [AXResponse] = []
         var overallSuccess = true
         var errorMessages: [String] = []
@@ -23,10 +22,9 @@ extension AXorcist {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): " +
-                    "ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"
-            ))
+                    "ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"))
 
-            let response = processSingleBatchCommand(subCommandEnvelope.command)
+            let response = self.processSingleBatchCommand(subCommandEnvelope.command)
             results.append(response)
 
             if response.status != "success" {
@@ -38,16 +36,14 @@ extension AXorcist {
                 errorMessages.append(failureMessage)
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .warning,
-                    message: "HandleBatch: Sub-command \(subCommandEnvelope.commandID) failed: \(errorDetail)"
-                ))
+                    message: "HandleBatch: Sub-command \(subCommandEnvelope.commandID) failed: \(errorDetail)"))
             }
         }
 
         if overallSuccess {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "HandleBatch: All \(command.commands.count) sub-commands succeeded."
-            ))
+                message: "HandleBatch: All \(command.commands.count) sub-commands succeeded."))
             let successfulPayloads = results.map(\.payload)
             return .successResponse(payload: AnyCodable(BatchResponsePayload(results: successfulPayloads, errors: nil)))
         } else {
@@ -71,32 +67,32 @@ extension AXorcist {
     private func processQueryAndActionCommands(_ command: AXCommand) -> AXResponse? {
         switch command {
         case let .query(queryCommand):
-            return handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
+            handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
         case let .performAction(actionCommand):
-            return handlePerformAction(command: actionCommand)
+            handlePerformAction(command: actionCommand)
         case let .getAttributes(getAttributesCommand):
-            return handleGetAttributes(command: getAttributesCommand)
+            handleGetAttributes(command: getAttributesCommand)
         case let .describeElement(describeCommand):
-            return handleDescribeElement(command: describeCommand)
+            handleDescribeElement(command: describeCommand)
         case let .extractText(extractTextCommand):
-            return handleExtractText(command: extractTextCommand)
+            handleExtractText(command: extractTextCommand)
         case let .setFocusedValue(setFocusedValueCommand):
-            return handleSetFocusedValue(command: setFocusedValueCommand)
+            handleSetFocusedValue(command: setFocusedValueCommand)
         default:
-            return nil
+            nil
         }
     }
 
     private func processFocusAndPointCommands(_ command: AXCommand) -> AXResponse? {
         switch command {
         case let .getElementAtPoint(getElementAtPointCommand):
-            return handleGetElementAtPoint(command: getElementAtPointCommand)
+            handleGetElementAtPoint(command: getElementAtPointCommand)
         case let .getFocusedElement(getFocusedElementCommand):
-            return handleGetFocusedElement(command: getFocusedElementCommand)
+            handleGetFocusedElement(command: getFocusedElementCommand)
         case let .collectAll(collectAllCommand):
-            return handleCollectAll(command: collectAllCommand)
+            handleCollectAll(command: collectAllCommand)
         default:
-            return nil
+            nil
         }
     }
 
@@ -108,13 +104,11 @@ extension AXorcist {
         case .batch:
             return .errorResponse(
                 message: "Nested batch commands are not supported within a single batch operation.",
-                code: .invalidCommand
-            )
+                code: .invalidCommand)
         default:
             return .errorResponse(
                 message: "Unsupported command type in batch operation: \(command.type)",
-                code: .invalidCommand
-            )
+                code: .invalidCommand)
         }
     }
 }

@@ -4,17 +4,16 @@ import Foundation
 
 // MARK: - Text and Label Attributes
 
-public extension Element {
-
+extension Element {
     /// Get the label of the element (common for UI controls)
     @MainActor
-    func label() -> String? {
+    public func label() -> String? {
         attribute(Attribute<String>("AXLabel"))
     }
 
     /// Get the string value of the element (for text fields, etc.)
     @MainActor
-    func stringValue() -> String? {
+    public func stringValue() -> String? {
         // First try to get as String directly
         if let str = attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)) {
             return str
@@ -28,13 +27,13 @@ public extension Element {
 
     /// Get the placeholder value (for text fields)
     @MainActor
-    func placeholderValue() -> String? {
+    public func placeholderValue() -> String? {
         attribute(Attribute<String>("AXPlaceholderValue"))
     }
 
     /// Get the linked UI elements (for labels linked to controls)
     @MainActor
-    func linkedUIElements() -> [Element]? {
+    public func linkedUIElements() -> [Element]? {
         guard let linkedUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>("AXLinkedUIElements")) else {
             return nil
         }
@@ -43,7 +42,7 @@ public extension Element {
 
     /// Get the serves as title for UI elements (for labels that title other elements)
     @MainActor
-    func servesAsTitleForUIElements() -> [Element]? {
+    public func servesAsTitleForUIElements() -> [Element]? {
         guard let servesAsUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>("AXServesAsTitleForUIElements")) else {
             return nil
         }
@@ -52,7 +51,7 @@ public extension Element {
 
     /// Get the titled UI elements (elements that this element titles)
     @MainActor
-    func titledUIElements() -> [Element]? {
+    public func titledUIElements() -> [Element]? {
         guard let titledUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>("AXTitledUIElements")) else {
             return nil
         }
@@ -61,7 +60,7 @@ public extension Element {
 
     /// Get the described UI elements (elements that this element describes)
     @MainActor
-    func describesUIElements() -> [Element]? {
+    public func describesUIElements() -> [Element]? {
         guard let describesUI: [AXUIElement] = attribute(Attribute<[AXUIElement]>("AXDescribesUIElements")) else {
             return nil
         }
@@ -70,19 +69,19 @@ public extension Element {
 
     /// Check if the element is editable (for text fields)
     @MainActor
-    func isEditable() -> Bool? {
+    public func isEditable() -> Bool? {
         attribute(Attribute<Bool>("AXEditable"))
     }
 
     /// Get the insertion point line number (for text areas)
     @MainActor
-    func insertionPointLineNumber() -> Int? {
+    public func insertionPointLineNumber() -> Int? {
         attribute(Attribute<Int>("AXInsertionPointLineNumber"))
     }
 
     /// Get the title UI element (the element that serves as this element's title)
     @MainActor
-    func titleUIElement() -> Element? {
+    public func titleUIElement() -> Element? {
         guard let titleUI = attribute(Attribute<AXUIElement>("AXTitleUIElement")) else {
             return nil
         }
@@ -91,31 +90,31 @@ public extension Element {
 
     /// Get the menu item command character (for menu items with keyboard shortcuts)
     @MainActor
-    func menuItemCmdChar() -> String? {
+    public func menuItemCmdChar() -> String? {
         attribute(Attribute<String>("AXMenuItemCmdChar"))
     }
 
     /// Get the menu item command virtual key code
     @MainActor
-    func menuItemCmdVirtualKey() -> Int? {
+    public func menuItemCmdVirtualKey() -> Int? {
         attribute(Attribute<Int>("AXMenuItemCmdVirtualKey"))
     }
 
     /// Get the menu item command modifiers
     @MainActor
-    func menuItemCmdModifiers() -> Int? {
+    public func menuItemCmdModifiers() -> Int? {
         attribute(Attribute<Int>("AXMenuItemCmdModifiers"))
     }
 
     /// Get the menu item mark character (checkmark, dash, etc.)
     @MainActor
-    func menuItemMarkChar() -> String? {
+    public func menuItemMarkChar() -> String? {
         attribute(Attribute<String>("AXMenuItemMarkChar"))
     }
 
     /// Check if menu item has a submenu
     @MainActor
-    func hasSubmenu() -> Bool {
+    public func hasSubmenu() -> Bool {
         // Check if children exist and are menu items
         if let children = children(), !children.isEmpty {
             // If it has children and they're menu items, it's a submenu
@@ -127,7 +126,7 @@ public extension Element {
     /// Get keyboard shortcut for the element (primarily for menu items)
     /// Returns a formatted string like "⌘S" or nil if no shortcut
     @MainActor
-    func keyboardShortcut() -> String? {
+    public func keyboardShortcut() -> String? {
         // First check if there's a direct keyboard shortcut attribute (non-standard but sometimes used)
         if let shortcut = attribute(Attribute<String>("AXKeyboardShortcut")) {
             return shortcut

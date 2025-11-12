@@ -7,7 +7,6 @@ import Foundation
 
 @MainActor
 public enum AXUtilities {
-
     public static func performAXAction(_ actionName: String, on element: Element) -> AXError {
         let description = element.briefDescription()
         axDebugLog(
@@ -40,7 +39,8 @@ public enum AXUtilities {
 
     public static func performSetValueAction(
         forElement element: Element,
-        valueToSet: Any?) -> (error: AXError, errorMessage: String?) {
+        valueToSet: Any?) -> (error: AXError, errorMessage: String?)
+    {
         let description = element.briefDescription()
         axDebugLog(
             "AXUtilities: Attempting to set value for element: \(description) " +

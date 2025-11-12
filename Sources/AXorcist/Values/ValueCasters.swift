@@ -37,8 +37,7 @@ func castValueToType<T>(_ value: Any, expectedType: T.Type, attr: String) -> T? 
             "Unwrapped value was \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -69,8 +68,7 @@ func castToString(_ value: Any, attr: String) -> String? {
         "axValue: Expected String for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -85,8 +83,7 @@ func castToBool(_ value: Any, attr: String) -> Bool? {
         "axValue: Expected Bool for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -101,8 +98,7 @@ func castToInt(_ value: Any, attr: String) -> Int? {
         "axValue: Expected Int for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -117,8 +113,7 @@ func castToDouble(_ value: Any, attr: String) -> Double? {
         "axValue: Expected Double for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -152,8 +147,7 @@ func castToAXUIElementArray(_ value: Any, attr: String) -> [AXUIElement]? {
         "axValue: Expected [AXUIElement] for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -173,8 +167,7 @@ func castToElementArray(_ value: Any, attr: String) -> [Element]? {
         "axValue: Expected [Element] for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -190,8 +183,7 @@ func castToStringArray(_ value: Any, attr: String) -> [String]? {
         "axValue: Expected [String] for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -216,8 +208,7 @@ func castToCGPoint(_ value: Any, attr: String) -> CGPoint? {
         "axValue: Expected CGPoint for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -230,8 +221,7 @@ func castToCGSize(_ value: Any, attr: String) -> CGSize? {
         "axValue: Expected CGSize for attribute '\(attr)', but got \(type(of: value)): \(value)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }
 
@@ -254,7 +244,6 @@ func castToAXUIElement(_ value: Any, attr: String) -> AXUIElement? {
         "axValue: Expected AXUIElement for attribute '\(attr)', but got \(typeDescription): \(valueDescription)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return nil
 }

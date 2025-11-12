@@ -17,8 +17,7 @@ struct PingIntegrationTests {
         """
         let result = try runAXORCCommandWithStdin(
             inputJSON: inputJSON,
-            arguments: ["--stdin"]
-        )
+            arguments: ["--stdin"])
 
         let stdinFailureMessage = """
         axorc command failed with status \(result.exitCode).
@@ -42,8 +41,7 @@ struct PingIntegrationTests {
         #expect(decodedResponse.success)
         #expect(
             decodedResponse.message == "Ping handled by AXORCCommand. Input source: STDIN",
-            "Unexpected success message: \(decodedResponse.message)"
-        )
+            "Unexpected success message: \(decodedResponse.message)")
         #expect(decodedResponse.details == "Hello from testPingViaStdin")
     }
 
@@ -82,8 +80,7 @@ struct PingIntegrationTests {
         #expect(decodedResponse.success)
         #expect(
             decodedResponse.message.lowercased().contains("file: \(tempFilePath.lowercased())"),
-            "Message should contain file path. Got: \(decodedResponse.message)"
-        )
+            "Message should contain file path. Got: \(decodedResponse.message)")
         #expect(decodedResponse.details == payloadMessage)
     }
 
@@ -116,8 +113,7 @@ struct PingIntegrationTests {
         #expect(decodedResponse.success)
         #expect(
             decodedResponse.message.contains("Direct Argument Payload"),
-            "Unexpected success message: \(decodedResponse.message)"
-        )
+            "Unexpected success message: \(decodedResponse.message)")
         #expect(decodedResponse.details == payloadMessage)
     }
 
@@ -135,8 +131,7 @@ struct PingIntegrationTests {
 
         let result = try runAXORCCommandWithStdin(
             inputJSON: inputJSON,
-            arguments: ["--file", tempFilePath]
-        )
+            arguments: ["--file", tempFilePath])
 
         let multiInputMessage = """
         axorc command should return 0 with error on stdout.
@@ -157,8 +152,7 @@ struct PingIntegrationTests {
         #expect(errorResponse.success == false)
         #expect(
             errorResponse.error.message.contains("Multiple input flags specified"),
-            "Unexpected error message: \(errorResponse.error.message)"
-        )
+            "Unexpected error message: \(errorResponse.error.message)")
     }
 
     @Test("Reject ping without input", .tags(.safe))

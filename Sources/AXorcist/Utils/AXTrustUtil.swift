@@ -13,7 +13,7 @@ public enum AXTrustUtil {
     /// - Returns: True if the process is trusted, false otherwise.
     public static func checkAccessibilityPermissions(promptIfNeeded: Bool = true) -> Bool {
         let options: CFDictionary = [
-            CFConstants.axTrustedCheckOptionPrompt: CFConstants.cfBoolean(from: promptIfNeeded)
+            CFConstants.axTrustedCheckOptionPrompt: CFConstants.cfBoolean(from: promptIfNeeded),
         ] as CFDictionary
         return AXIsProcessTrustedWithOptions(options)
     }
@@ -35,5 +35,4 @@ public enum AXTrustUtil {
             NSWorkspace.shared.open(url)
         }
     }
-
 }

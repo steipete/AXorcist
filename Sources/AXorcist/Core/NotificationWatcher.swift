@@ -28,8 +28,8 @@ public class NotificationWatcher {
     public init(
         forElement element: Element,
         notification: AXNotification,
-        handler: @escaping AXNotificationSubscriptionHandler
-    ) {
+        handler: @escaping AXNotificationSubscriptionHandler)
+    {
         self.target = .element(element)
         self.notification = notification
         self.handler = handler
@@ -73,7 +73,7 @@ public class NotificationWatcher {
 
     /// Indicates whether the watcher is currently observing notifications.
     public var isActive: Bool {
-        isObserving
+        self.isObserving
     }
 
     // MARK: - Observation Control
@@ -83,7 +83,7 @@ public class NotificationWatcher {
     /// - Throws: An `AccessibilityError` if starting the observation fails (e.g., subscription to `AXObserverCenter`
     /// fails).
     public func start() throws {
-        guard !isObserving else {
+        guard !self.isObserving else {
             let logMessage =
                 "NotificationWatcher for \(self.notification.rawValue) on \(self.target) is already observing."
             axDebugLog(logMessage)
@@ -94,7 +94,7 @@ public class NotificationWatcher {
         var elementForSubscription: Element? // For element-specific, pass the element to subscribe
         var targetDescription: String
 
-        switch target {
+        switch self.target {
         case let .element(element):
             targetDescription = element.briefDescription()
             elementForSubscription = element
@@ -124,16 +124,15 @@ public class NotificationWatcher {
             pid: effectivePid,
             element: elementForSubscription, // Pass element if target is .element
             notification: self.notification,
-            handler: self.handler
-        )
+            handler: self.handler)
 
         switch subscribeResult {
         case let .success(token):
             self.subscriptionToken = token
-            isObserving = true
+            self.isObserving = true
             axInfoLog("\(logStart) - SUBSCRIBED successfully. Token: \(token.id)")
         case let .failure(error):
-            isObserving = false // Ensure this is reset
+            self.isObserving = false // Ensure this is reset
             axErrorLog("\(logStart) - FAILED to subscribe: \(error.localizedDescription)")
             // Rethrow the error, or a new specific one if preferred
             throw error // Or AccessibilityError.genericError("Failed to subscribe: \\(errDesc)")
@@ -143,7 +142,7 @@ public class NotificationWatcher {
     /// Stops observing the notification.
     @MainActor
     public func stop() {
-        guard isObserving, let token = subscriptionToken else {
+        guard self.isObserving, let token = subscriptionToken else {
             // let logMessage = "NotificationWatcher for \(self.notification.rawValue) on \(self.target) is not
             // observing or no token."
             // axDebugLog(logMessage) // Can be noisy
@@ -160,7 +159,7 @@ public class NotificationWatcher {
             axErrorLog("\(logStop) - FAILED to unsubscribe token \(token.id): \(error.localizedDescription)")
         }
         self.subscriptionToken = nil
-        isObserving = false
+        self.isObserving = false
     }
 
     // MARK: Private

@@ -13,26 +13,26 @@ extension Element {
         var descriptionParts: [String] = []
 
         // Always add role if available
-        addRoleDescription(to: &descriptionParts)
+        self.addRoleDescription(to: &descriptionParts)
 
         // Add standard details for smart and stringified
         if option == .smart || option == .stringified {
-            addStandardDetails(to: &descriptionParts)
+            self.addStandardDetails(to: &descriptionParts)
         }
 
         // Add verbose details for stringified option
         if option == .stringified {
-            addVerboseDetails(to: &descriptionParts)
+            self.addVerboseDetails(to: &descriptionParts)
         }
 
         // Handle empty description
         if descriptionParts.isEmpty {
-            return handleEmptyDescription()
+            return self.handleEmptyDescription()
         }
 
         // Handle raw option
         if option == .raw, descriptionParts.count > 1 {
-            return formatShortDescription(descriptionParts)
+            return self.formatShortDescription(descriptionParts)
         }
 
         return descriptionParts.joined(separator: ", ")
@@ -51,9 +51,9 @@ extension Element {
             parts.append("PID: \(pidValue)")
         }
 
-        addNonEmptyAttribute(self.title(), prefix: "Title", to: &parts, maxLength: 50)
-        addNonEmptyAttribute(self.identifier(), prefix: "ID", to: &parts, maxLength: 50)
-        addNonEmptyAttribute(self.domIdentifier(), prefix: "DOMId", to: &parts, maxLength: 50)
+        self.addNonEmptyAttribute(self.title(), prefix: "Title", to: &parts, maxLength: 50)
+        self.addNonEmptyAttribute(self.identifier(), prefix: "ID", to: &parts, maxLength: 50)
+        self.addNonEmptyAttribute(self.domIdentifier(), prefix: "DOMId", to: &parts, maxLength: 50)
     }
 
     @MainActor
@@ -65,7 +65,7 @@ extension Element {
             }
         }
 
-        addNonEmptyAttribute(self.help(), prefix: "Help", to: &parts, maxLength: 80)
+        self.addNonEmptyAttribute(self.help(), prefix: "Help", to: &parts, maxLength: 80)
     }
 
     @MainActor
@@ -79,8 +79,7 @@ extension Element {
     private func handleEmptyDescription() -> String {
         axDebugLog(
             "briefDescription: No descriptive attributes found, falling back to underlyingElement description.",
-            details: ["element": AnyCodable(String(describing: self.underlyingElement))]
-        )
+            details: ["element": AnyCodable(String(describing: self.underlyingElement))])
         return String(describing: self.underlyingElement)
     }
 

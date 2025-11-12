@@ -11,43 +11,41 @@ import Foundation
 import AppKit
 #endif
 
-public extension AXUIElement {
+extension AXUIElement {
     // MARK: - Static Factory Methods
 
     /// Returns the system-wide accessibility object
-    static var systemWide: AXUIElement {
+    public static var systemWide: AXUIElement {
         AXUIElementCreateSystemWide()
     }
 
     /// Creates an application accessibility object for the given process ID
-    static func application(pid: pid_t) -> AXUIElement {
+    public static func application(pid: pid_t) -> AXUIElement {
         AXUIElementCreateApplication(pid)
     }
 
     /// Returns the currently focused application
     @MainActor
-    static func focusedApplication() throws -> AXUIElement {
+    public static func focusedApplication() throws -> AXUIElement {
         let systemWideElement = AXUIElementCreateSystemWide()
         var focusedApp: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(
             systemWideElement,
             AXAttributeNames.kAXFocusedApplicationAttribute as CFString,
-            &focusedApp
-        )
+            &focusedApp)
 
         guard error == .success, let app = focusedApp, CFGetTypeID(app) == AXUIElementGetTypeID() else {
             let errorDetails = "AXError: \(error.rawValue) - \(error.localizedDescription)"
             axErrorLog("Failed to get focused application: \(errorDetails)")
             throw AccessibilityError.attributeNotReadable(
                 attribute: AXAttributeNames.kAXFocusedApplicationAttribute,
-                elementDescription: "SystemWideElement"
-            )
+                elementDescription: "SystemWideElement")
         }
         return app as! AXUIElement
     }
 
     /// Returns the frontmost application using NSWorkspace
-    static func frontmostApplication() -> AXUIElement? {
+    public static func frontmostApplication() -> AXUIElement? {
         #if canImport(AppKit)
         guard let app = NSWorkspace.shared.frontmostApplication else {
             return nil
@@ -55,17 +53,17 @@ public extension AXUIElement {
         return AXUIElement.application(pid: app.processIdentifier)
         #else
         // Fallback to focused application on non-AppKit platforms
-        return focusedApplication()
+        return self.focusedApplication()
         #endif
     }
 
     /// Gets the element at the specified position within an application
     @MainActor
-    static func elementAtPosition(
+    public static func elementAtPosition(
         in app: AXUIElement,
         x: Float,
-        y: Float
-    ) -> AXUIElement? {
+        y: Float) -> AXUIElement?
+    {
         var element: AXUIElement?
         let error = AXUIElementCopyElementAtPosition(app, x, y, &element)
 
@@ -81,27 +79,26 @@ public extension AXUIElement {
 
     /// Returns the focused window in the focused application
     @MainActor
-    static func focusedWindowInFocusedApplication() -> AXUIElement? {
+    public static func focusedWindowInFocusedApplication() -> AXUIElement? {
         guard let app = try? AXUIElement.focusedApplication() else { return nil }
         return AXUIElement.focusedWindow(in: app)
     }
 
     /// Returns the focused window in the frontmost application
     @MainActor
-    static func focusedWindowInFrontmostApplication() -> AXUIElement? {
+    public static func focusedWindowInFrontmostApplication() -> AXUIElement? {
         guard let app = AXUIElement.frontmostApplication() else { return nil }
         return AXUIElement.focusedWindow(in: app)
     }
 
     /// Returns the focused window in the specified application
     @MainActor
-    static func focusedWindow(in app: AXUIElement) -> AXUIElement? {
+    public static func focusedWindow(in app: AXUIElement) -> AXUIElement? {
         var focusedWindow: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(
             app,
             AXAttributeNames.kAXFocusedWindowAttribute as CFString,
-            &focusedWindow
-        )
+            &focusedWindow)
 
         guard error == .success,
               let window = focusedWindow,
@@ -115,14 +112,14 @@ public extension AXUIElement {
 
     /// Returns the main window in the frontmost application
     @MainActor
-    static func mainWindowInFrontmostApplication() -> AXUIElement? {
+    public static func mainWindowInFrontmostApplication() -> AXUIElement? {
         guard let app = AXUIElement.frontmostApplication() else { return nil }
         return AXUIElement.mainWindow(in: app)
     }
 
     /// Returns the main window in the specified application
     @MainActor
-    static func mainWindow(in app: AXUIElement) -> AXUIElement? {
+    public static func mainWindow(in app: AXUIElement) -> AXUIElement? {
         var mainWindow: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(app, AXAttributeNames.kAXMainWindowAttribute as CFString, &mainWindow)
 
@@ -138,7 +135,7 @@ public extension AXUIElement {
 
     /// Returns all windows for the specified application
     @MainActor
-    static func windows(for app: AXUIElement) -> [AXUIElement]? {
+    public static func windows(for app: AXUIElement) -> [AXUIElement]? {
         var windows: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(app, AXAttributeNames.kAXWindowsAttribute as CFString, &windows)
 
@@ -154,7 +151,7 @@ public extension AXUIElement {
 
     /// Returns all windows for the specified process ID
     @MainActor
-    static func windows(for pid: pid_t) -> [AXUIElement]? {
+    public static func windows(for pid: pid_t) -> [AXUIElement]? {
         let app = AXUIElement.application(pid: pid)
         return AXUIElement.windows(for: app)
     }

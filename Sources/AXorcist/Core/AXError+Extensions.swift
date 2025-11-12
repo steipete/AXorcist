@@ -17,7 +17,7 @@ public struct AccessibilitySystemError: Error, LocalizedError {
     }
 
     public var errorDescription: String? {
-        switch axError {
+        switch self.axError {
         case .success:
             return "No error (success)"
         case .apiDisabled:
@@ -51,7 +51,7 @@ public struct AccessibilitySystemError: Error, LocalizedError {
         case .failure:
             return "Operation failed"
         @unknown default:
-            return "Unknown AXError: \(axError.rawValue)"
+            return "Unknown AXError: \(self.axError.rawValue)"
         }
     }
 }

@@ -54,17 +54,15 @@ func addGeometryAttributes(to attributes: inout [String: AttributeValue], elemen
 func addHierarchyAttributes(
     to attributes: inout [String: AttributeValue],
     element: Element,
-    valueFormatOption _: ValueFormatOption
-) async {
+    valueFormatOption _: ValueFormatOption) async
+{
     if let parent = element.parent() {
         attributes[AXAttributeNames.kAXParentAttribute] = .string(
-            parent.briefDescription(option: .raw)
-        )
+            parent.briefDescription(option: .raw))
     }
     if let children = element.children() {
         attributes[AXAttributeNames.kAXChildrenAttribute] = .array(
-            children.map { .string($0.briefDescription(option: .raw)) }
-        )
+            children.map { .string($0.briefDescription(option: .raw)) })
     }
 }
 
@@ -75,13 +73,12 @@ func addActionAttributes(to attributes: inout [String: AttributeValue], element:
     if let currentActions = element.supportedActions(), !currentActions.isEmpty {
         actionsToStore = currentActions
     } else if let fallbackActions: [String] = element.attribute(
-        Attribute<[String]>(AXAttributeNames.kAXActionsAttribute)
-    ), !fallbackActions.isEmpty {
+        Attribute<[String]>(AXAttributeNames.kAXActionsAttribute)), !fallbackActions.isEmpty
+    {
         actionsToStore = fallbackActions
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"
-        ))
+            message: "Used fallback kAXActionsAttribute for \(element.briefDescription(option: .raw))"))
     }
 
     attributes[AXAttributeNames.kAXActionsAttribute] = actionsToStore != nil
@@ -98,12 +95,13 @@ func addStandardStringAttributes(to attributes: inout [String: AttributeValue], 
     let standardAttributes = [
         AXAttributeNames.kAXRoleDescriptionAttribute,
         AXAttributeNames.kAXValueDescriptionAttribute,
-        AXAttributeNames.kAXIdentifierAttribute
+        AXAttributeNames.kAXIdentifierAttribute,
     ]
 
     for attrName in standardAttributes {
         if attributes[attrName] == nil,
-           let attrValue: String = element.attribute(Attribute<String>(attrName)) {
+           let attrValue: String = element.attribute(Attribute<String>(attrName))
+        {
             attributes[attrName] = .string(attrValue)
         }
     }
@@ -121,7 +119,8 @@ func addStoredAttributes(to attributes: inout [String: AttributeValue], element:
 @MainActor
 func addComputedProperties(to attributes: inout [String: AttributeValue], element: Element) async {
     if attributes[AXMiscConstants.computedNameAttributeKey] == nil,
-       let name = element.computedName() {
+       let name = element.computedName()
+    {
         attributes[AXMiscConstants.computedNameAttributeKey] = .string(name)
     }
 

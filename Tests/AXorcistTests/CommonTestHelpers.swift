@@ -68,24 +68,21 @@ private func ensureTextEditRunning() async throws -> NSRunningApplication {
                 } else {
                     continuation.resume(
                         throwing: TestError.appNotRunning(
-                            "openApplication completion returned nil without error."
-                        )
-                    )
+                            "openApplication completion returned nil without error."))
                 }
             }
         }
         return try await waitForTextEdit(launchedApp: launchedApp)
     } catch {
         throw TestError.appNotRunning(
-            "Failed to launch TextEdit using openApplication: \(error.localizedDescription)"
-        )
+            "Failed to launch TextEdit using openApplication: \(error.localizedDescription)")
     }
 }
 
 @MainActor
 private func waitForTextEdit(launchedApp: NSRunningApplication) async throws -> NSRunningApplication {
     let textEditBundleId = "com.apple.TextEdit"
-    for attempt in 1 ... 10 {
+    for attempt in 1...10 {
         if let running = NSRunningApplication.runningApplications(withBundleIdentifier: textEditBundleId).first {
             print("TextEdit found running after launch, attempt \(attempt)")
             return running
@@ -118,8 +115,7 @@ private func axWindowCount(for appElement: AXUIElement) async throws -> Int {
     let result = AXUIElementCopyAttributeValue(
         appElement,
         ApplicationServices.kAXWindowsAttribute as CFString,
-        &window
-    )
+        &window)
     guard result == AXError.success else { return 0 }
     return (window as? [AXUIElement])?.count ?? 0
 }
@@ -150,8 +146,7 @@ private func logFocusedElement(axAppElement: AXUIElement) {
     let status = AXUIElementCopyAttributeValue(
         axAppElement,
         ApplicationServices.kAXFocusedUIElementAttribute as CFString,
-        &cfFocusedElement
-    )
+        &cfFocusedElement)
     if status == AXError.success, cfFocusedElement != nil {
         print("AX API successfully got a focused element during setup.")
     } else {
@@ -167,7 +162,7 @@ func closeTextEdit() async {
     }
 
     textEdit.terminate()
-    for _ in 0 ..< 5 {
+    for _ in 0..<5 {
         if textEdit.isTerminated { break }
         try? await Task.sleep(for: .milliseconds(500))
     }
@@ -278,19 +273,21 @@ enum CommandType: String, Codable {
 struct CommandEnvelope: Codable {
     // MARK: Lifecycle
 
-    init(commandId: String,
-         command: CommandType,
-         application: String? = nil,
-         attributes: [String]? = nil,
-         debugLogging: Bool? = nil,
-         locator: Locator? = nil,
-         pathHint: [String]? = nil,
-         maxElements: Int? = nil,
-         outputFormat: OutputFormat? = nil,
-         actionName: String? = nil,
-         actionValue: AttributeValue? = nil,
-         payload: [String: AttributeValue]? = nil,
-         subCommands: [CommandEnvelope]? = nil) {
+    init(
+        commandId: String,
+        command: CommandType,
+        application: String? = nil,
+        attributes: [String]? = nil,
+        debugLogging: Bool? = nil,
+        locator: Locator? = nil,
+        pathHint: [String]? = nil,
+        maxElements: Int? = nil,
+        outputFormat: OutputFormat? = nil,
+        actionName: String? = nil,
+        actionValue: AttributeValue? = nil,
+        payload: [String: AttributeValue]? = nil,
+        subCommands: [CommandEnvelope]? = nil)
+    {
         self.commandId = commandId
         self.command = command
         self.application = application
@@ -342,12 +339,14 @@ struct CommandEnvelope: Codable {
 struct SimpleSuccessResponse: Codable {
     // MARK: Lifecycle
 
-    init(commandId: String,
-         success: Bool = true,
-         status: String?,
-         message: String,
-         details: String?,
-         debugLogs: [String]?) {
+    init(
+        commandId: String,
+        success: Bool = true,
+        status: String?,
+        message: String,
+        details: String?,
+        debugLogs: [String]?)
+    {
         self.commandId = commandId
         self.success = success
         self.status = status
@@ -486,7 +485,7 @@ var productsDirectory: URL {
     let buildPathsToTry = [
         packageRootPath.appendingPathComponent(".build/debug"),
         packageRootPath.appendingPathComponent(".build/arm64-apple-macosx/debug"),
-        packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug")
+        packageRootPath.appendingPathComponent(".build/x86_64-apple-macosx/debug"),
     ]
 
     let fileManager = FileManager.default
@@ -498,8 +497,7 @@ var productsDirectory: URL {
     fatalError(
         "couldn't find the products directory via Bundle or SPM fallback. " +
             "Package root guessed as: \(packageRootPath.path). " +
-            "Searched paths: \(searchedPaths)"
-    )
+            "Searched paths: \(searchedPaths)")
     #else
     return Bundle.main.bundleURL
     #endif

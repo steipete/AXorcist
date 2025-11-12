@@ -13,8 +13,7 @@ public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: El
     pid_t,
     AXNotification,
     _ rawElement: AXUIElement,
-    _ nsUserInfo: [String: Any]?
-) -> Void
+    _ nsUserInfo: [String: Any]?) -> Void
 
 /// Key for tracking accessibility notification subscriptions.
 ///

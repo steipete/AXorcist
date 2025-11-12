@@ -18,8 +18,7 @@ func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, de
             commandType: command.command.rawValue,
             handlerResponse: errorResponse,
             debugCLI: debugCLI,
-            commandDebugLogging: command.debugLogging
-        )
+            commandDebugLogging: command.debugLogging)
     }
 
     return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executePerformAction)
@@ -49,16 +48,15 @@ func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
     let message = command.payload?["message"] ?? ""
 
     // Determine input source based on how we received the command
-    let formattedMessage: String
-    if axorcInputSource.hasPrefix("File: ") {
+    let formattedMessage = if axorcInputSource.hasPrefix("File: ") {
         // For file input, test expects the file path in the message
-        formattedMessage = "Ping handled by AXORCCommand. " + axorcInputSource
+        "Ping handled by AXORCCommand. " + axorcInputSource
     } else if axorcInputSource == "Direct argument" {
         // For direct argument, test expects specific text
-        formattedMessage = "Ping handled by AXORCCommand. Direct Argument Payload"
+        "Ping handled by AXORCCommand. Direct Argument Payload"
     } else {
         // For STDIN
-        formattedMessage = "Ping handled by AXORCCommand. Input source: STDIN"
+        "Ping handled by AXORCCommand. Input source: STDIN"
     }
 
     // Create a custom response structure that matches test expectations
@@ -80,14 +78,13 @@ func handlePingCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
         }
     }
 
-        let response = PingResponse(
-            commandID: command.commandId,
-            success: true,
-            status: "success",
-            message: formattedMessage,
-            details: message.isEmpty ? nil : message,
-            debugLogs: (debugCLI || command.debugLogging) ? axGetLogsAsStrings() : nil
-        )
+    let response = PingResponse(
+        commandID: command.commandId,
+        success: true,
+        status: "success",
+        message: formattedMessage,
+        details: message.isEmpty ? nil : message,
+        debugLogs: (debugCLI || command.debugLogging) ? axGetLogsAsStrings() : nil)
 
     // Use the same encoder settings as other responses
     let encoder = JSONEncoder()
@@ -109,8 +106,7 @@ func handleNotImplementedCommand(command: CommandEnvelope, message: String, debu
         commandType: command.command.rawValue,
         handlerResponse: notImplementedResponse,
         debugCLI: debugCLI,
-        commandDebugLogging: command.debugLogging
-    )
+        commandDebugLogging: command.debugLogging)
 }
 
 @MainActor
@@ -123,8 +119,7 @@ func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI
             commandType: command.command.rawValue,
             handlerResponse: errorResponse,
             debugCLI: debugCLI,
-            commandDebugLogging: command.debugLogging
-        )
+            commandDebugLogging: command.debugLogging)
     }
 
     let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axObserveCommand))
@@ -135,8 +130,7 @@ func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI
         commandType: command.command.rawValue,
         handlerResponse: handlerResponse,
         debugCLI: debugCLI,
-        commandDebugLogging: command.debugLogging
-    )
+        commandDebugLogging: command.debugLogging)
 }
 
 @MainActor
@@ -144,16 +138,15 @@ func handleSimpleCommand(
     command: CommandEnvelope,
     axorcist: AXorcist,
     debugCLI: Bool,
-    executor: (CommandEnvelope, AXorcist) -> HandlerResponse
-) -> String {
+    executor: (CommandEnvelope, AXorcist) -> HandlerResponse) -> String
+{
     let handlerResponse = executor(command, axorcist)
     return finalizeAndEncodeResponse(
         commandId: command.commandId,
         commandType: command.command.rawValue,
         handlerResponse: handlerResponse,
         debugCLI: debugCLI,
-        commandDebugLogging: command.debugLogging
-    )
+        commandDebugLogging: command.debugLogging)
 }
 
 @MainActor
@@ -161,8 +154,7 @@ private func encodeBatchConversionFailure(commandId: String) -> String {
     let response = BatchQueryResponse(
         commandId: commandId,
         status: "error",
-        message: "Failed to create AXCommand for Batch"
-    )
+        message: "Failed to create AXCommand for Batch")
     return encodeBatchQueryResponse(response, commandId: commandId)
 }
 
@@ -182,8 +174,7 @@ private func buildBatchResponse(commandId: String, axResponse: AXResponse) -> Ba
         message: errorMessage,
         data: payload.results,
         errors: payload.errors,
-        debugLogs: nil
-    )
+        debugLogs: nil)
 }
 
 private func buildSuccessBatchResponse(commandId: String, axResponse: AXResponse) -> BatchQueryResponse {
@@ -192,8 +183,7 @@ private func buildSuccessBatchResponse(commandId: String, axResponse: AXResponse
             commandId: commandId,
             status: "error",
             message: "Batch success but payload was not BatchResponsePayload",
-            debugLogs: nil
-        )
+            debugLogs: nil)
     }
 
     return BatchQueryResponse(
@@ -201,14 +191,13 @@ private func buildSuccessBatchResponse(commandId: String, axResponse: AXResponse
         status: "success",
         data: payload.results,
         errors: payload.errors,
-        debugLogs: nil
-    )
+        debugLogs: nil)
 }
 
 private func encodeBatchQueryResponse(
     _ response: BatchQueryResponse,
-    commandId: String? = nil
-) -> String {
+    commandId: String? = nil) -> String
+{
     if let json = encodeToJson(response) {
         return json
     }

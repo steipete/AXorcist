@@ -9,8 +9,8 @@ import Foundation
 func navigateToElement(
     from startElement: Element,
     pathHint: [String],
-    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
-) -> Element? {
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch) -> Element?
+{
     var currentElement = startElement
     var currentPathSegmentForLog = ""
 
@@ -21,8 +21,7 @@ func navigateToElement(
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "Path component 'application' encountered. " +
-                    "Using current element (app root) as context for next component."
-            ))
+                    "Using current element (app root) as context for next component."))
             continue
         }
 
@@ -30,8 +29,7 @@ func navigateToElement(
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "Navigation aborted: Path hint index \(index) reached maxDepth \(maxDepth). " +
-                    "Path so far: \(currentPathSegmentForLog)"
-            ))
+                    "Path so far: \(currentPathSegmentForLog)"))
             return nil
         }
 
@@ -40,8 +38,7 @@ func navigateToElement(
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .error,
                 message: "CRITICAL_NAV_PARSE_FAILURE_MARKER: Empty or unparsable criteria " +
-                    "from pathComponentString '\(pathComponentString)'"
-            ))
+                    "from pathComponentString '\(pathComponentString)'"))
             return nil
         }
 
@@ -49,8 +46,8 @@ func navigateToElement(
             currentElement: currentElement,
             pathComponentString: pathComponentString,
             criteriaToMatch: criteriaToMatch,
-            currentPathSegmentForLog: currentPathSegmentForLog
-        ) {
+            currentPathSegmentForLog: currentPathSegmentForLog)
+        {
             currentElement = nextElement
         } else {
             return nil
@@ -60,8 +57,7 @@ func navigateToElement(
     let finalDescription = currentElement.briefDescription(option: .smart)
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "Navigation successful. Final element: \(finalDescription)"
-    ))
+        message: "Navigation successful. Final element: \(finalDescription)"))
     return currentElement
 }
 
@@ -70,28 +66,26 @@ func processPathComponent(
     currentElement: Element,
     pathComponentString: String,
     criteriaToMatch: [String: String],
-    currentPathSegmentForLog: String
-) -> Element? {
+    currentPathSegmentForLog: String) -> Element?
+{
     let currentElementDescForLog = currentElement.briefDescription(option: ValueFormatOption.smart)
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "Processing path component '\(pathComponentString)' at element [\(currentElementDescForLog)]. " +
-            "Path: \(currentPathSegmentForLog)"
-    ))
+            "Path: \(currentPathSegmentForLog)"))
 
     if let matchingChild = findMatchingChild(
         parentElement: currentElement,
         criteriaToMatch: criteriaToMatch,
-        pathComponentForLog: pathComponentString
-    ) {
+        pathComponentForLog: pathComponentString)
+    {
         return matchingChild
     }
 
     if elementMatchesAllCriteria(currentElement, criteria: criteriaToMatch, forPathComponent: pathComponentString) {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Path component '\(pathComponentString)' matches current element [\(currentElementDescForLog)]."
-        ))
+            message: "Path component '\(pathComponentString)' matches current element [\(currentElementDescForLog)]."))
         return currentElement
     }
 
@@ -99,8 +93,7 @@ func processPathComponent(
         currentElement: currentElement,
         pathComponentString: pathComponentString,
         criteriaToMatch: criteriaToMatch,
-        currentPathSegmentForLog: currentPathSegmentForLog
-    )
+        currentPathSegmentForLog: currentPathSegmentForLog)
     return nil
 }
 
@@ -110,16 +103,14 @@ func getChildrenFromElement(_ element: Element) -> [Element]? {
         let currentElementDescForLog = element.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Element [\(currentElementDescForLog)] has no children (returned nil for .children())."
-        ))
+            message: "Element [\(currentElementDescForLog)] has no children (returned nil for .children())."))
         return nil
     }
     if children.isEmpty {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "Element [\(element.briefDescription(option: ValueFormatOption.smart))] has zero children " +
-                "(returned empty array for .children())."
-        ))
+                "(returned empty array for .children())."))
     }
     return children
 }

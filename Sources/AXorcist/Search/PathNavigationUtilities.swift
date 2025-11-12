@@ -42,7 +42,8 @@ public func getApplicationElement(for bundleIdentifier: String) -> Element? {
 public func getApplicationElement(for processId: pid_t) -> Element? {
     let appElement = Element(AXUIElementCreateApplication(processId))
     let bundleIdMessagePart = if let runningApp = NSRunningApplication(processIdentifier: processId),
-                                 let bId = runningApp.bundleIdentifier {
+                                 let bId = runningApp.bundleIdentifier
+    {
         " (\(bId))"
     } else {
         ""
@@ -60,8 +61,8 @@ public func getApplicationElement(for processId: pid_t) -> Element? {
 public func getElement(
     appIdentifier: String,
     pathHint: [Any],
-    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch
-) -> Element? {
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch) -> Element?
+{
     let attemptMessage = "PN/GetEl: Attempting to get element for app '\(appIdentifier)' with path hint "
         + "(count: \(pathHint.count))."
     logPathNavigation(.debug, attemptMessage)
@@ -91,7 +92,7 @@ public func getElement(
         let jsonHintDetails = jsonPathHint.map { $0.descriptionForLog() }.joined(separator: " -> ")
         let jsonHintMessage =
             "PN/GetEl: Interpreting path hint as [JSONPathHintComponent]. Count: \(jsonPathHint.count). "
-            + "Hint: \(jsonHintDetails)"
+                + "Hint: \(jsonHintDetails)"
         logPathNavigation(.debug, jsonHintMessage)
         let initialLogSegment = rootElement.role() == AXRoleNames.kAXApplicationRole ? "Application" : rootElement
             .briefDescription(option: smartValueFormat)
@@ -99,8 +100,7 @@ public func getElement(
             from: rootElement,
             jsonPathHint: jsonPathHint,
             overallMaxDepth: maxDepth,
-            initialPathSegmentForLog: initialLogSegment
-        )
+            initialPathSegmentForLog: initialLogSegment)
     } else {
         let errorMessage =
             "PN/GetEl: Path hint type is not [String] or [JSONPathHintComponent]. Hint: \(pathHint). Cannot navigate."
@@ -116,8 +116,8 @@ func findDescendantAtPath(
     currentRoot: Element,
     pathComponents: [PathStep],
     maxDepth _: Int,
-    debugSearch _: Bool
-) -> Element? {
+    debugSearch _: Bool) -> Element?
+{
     var currentElement = currentRoot
     logPathSearchStart(currentElement: currentElement, componentCount: pathComponents.count)
 
@@ -165,7 +165,7 @@ private func childrenForPathComponent(element: Element, componentIndex: Int) -> 
     guard let children = element.children(strict: false), !children.isEmpty else {
         let warning =
             "PN/findDescendantAtPath: [Component \(componentLabel)] No children found (or list was empty) "
-            + "for \(elementDescription). Path navigation cannot proceed further down this branch."
+                + "for \(elementDescription). Path navigation cannot proceed further down this branch."
         logger.warning(warning)
         return nil
     }
@@ -179,15 +179,14 @@ private func childrenForPathComponent(element: Element, componentIndex: Int) -> 
 private func findMatch(
     for component: PathStep,
     among children: [Element],
-    componentIndex: Int
-) -> Element? {
+    componentIndex: Int) -> Element?
+{
     let searchVisitor = SearchVisitor(
         criteria: component.criteria,
         matchType: component.matchType ?? .exact,
         matchAllCriteria: component.matchAllCriteria ?? true,
         stopAtFirstMatch: true,
-        maxDepth: component.maxDepthForStep ?? 1
-    )
+        maxDepth: component.maxDepthForStep ?? 1)
 
     for child in children {
         searchVisitor.reset()
@@ -195,8 +194,7 @@ private func findMatch(
             element: child,
             visitor: searchVisitor,
             currentDepth: 0,
-            maxDepth: component.maxDepthForStep ?? 1
-        )
+            maxDepth: component.maxDepthForStep ?? 1)
         if let foundElement = searchVisitor.foundElement {
             logMatch(component: component, element: foundElement, index: componentIndex)
             return foundElement
@@ -212,7 +210,7 @@ private func logMatch(component: PathStep, element: Element, index: Int) {
     let elementDescription = element.briefDescription(option: smartValueFormat)
     let message =
         "PN/findDescendantAtPath: [Component \(componentLabel)] MATCHED component criteria \(componentDescription) "
-        + "on child: \(elementDescription)"
+            + "on child: \(elementDescription)"
     logger.info(message)
 }
 

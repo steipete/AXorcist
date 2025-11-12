@@ -14,7 +14,7 @@ import Foundation
 /// - Complex element matching and filtering
 /// - Application targeting and focus management
 @MainActor
-public extension AXorcist {
+extension AXorcist {
     private func logQuery(_ level: AXLogLevel, _ parts: String...) {
         let message = parts.joined(separator: ", ")
         GlobalAXLogger.shared.log(AXLogEntry(level: level, message: message))
@@ -22,80 +22,72 @@ public extension AXorcist {
 
     // MARK: - Query Handler
 
-    func handleQuery(command: QueryCommand, maxDepth externalMaxDepth: Int?) -> AXResponse {
-        logQuery(
+    public func handleQuery(command: QueryCommand, maxDepth externalMaxDepth: Int?) -> AXResponse {
+        self.logQuery(
             .info,
             "HandleQuery: App '\(command.appIdentifier ?? "focused")'",
-            "Locator: \(command.locator)"
-        )
+            "Locator: \(command.locator)")
 
         let appIdentifier = command.appIdentifier ?? "focused"
         let resolvedMaxDepth = externalMaxDepth ?? 10
 
         // DEBUG LOG FOR MAX DEPTH
-        logQuery(
+        self.logQuery(
             .debug,
             "HandleQuery: externalMaxDepth = \(String(describing: externalMaxDepth))",
-            "resolved maxDepth = \(resolvedMaxDepth)"
-        )
+            "resolved maxDepth = \(resolvedMaxDepth)")
 
         let (foundElement, findError) = findTargetElement(
             for: appIdentifier,
             locator: command.locator,
-            maxDepthForSearch: resolvedMaxDepth
-        )
+            maxDepthForSearch: resolvedMaxDepth)
 
         guard let element = foundElement else {
             let errorMessage = findError ??
                 "HandleQuery: Element not found for app '\(appIdentifier)' with locator \(command.locator)."
-            logQuery(.error, errorMessage)
+            self.logQuery(.error, errorMessage)
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        logQuery(
+        self.logQuery(
             .debug,
-            "HandleQuery: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"
-        )
+            "HandleQuery: Found element: \(element.briefDescription(option: ValueFormatOption.smart))")
 
         // Fetch attributes specified in command.attributesToReturn, or default if nil/empty
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
-        let elementData = buildQueryResponse(
+        let elementData = self.buildQueryResponse(
             element: element,
             attributesToFetch: attributesToFetch,
-            includeChildrenBrief: command.includeChildrenBrief ?? false
-        )
+            includeChildrenBrief: command.includeChildrenBrief ?? false)
 
         return .successResponse(payload: AnyCodable(elementData))
     }
 
     // MARK: - Get Attributes Handler
 
-    func handleGetAttributes(command: GetAttributesCommand) -> AXResponse {
-        logQuery(
+    public func handleGetAttributes(command: GetAttributesCommand) -> AXResponse {
+        self.logQuery(
             .info,
             "HandleGetAttrs: App '\(command.appIdentifier ?? "focused")'",
             "Locator: \(command.locator)",
-            "Attributes: \(command.attributes.joined(separator: ", "))"
-        )
+            "Attributes: \(command.attributes.joined(separator: ", "))")
 
         let (foundElement, findError) = findTargetElement(
             for: command.appIdentifier ?? "focused",
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch
-        )
+            maxDepthForSearch: command.maxDepthForSearch)
 
         guard let element = foundElement else {
             let fallbackError = [
                 "HandleGetAttrs: Element not found for app '\(command.appIdentifier ?? "focused")'",
-                "Locator: \(command.locator)"
+                "Locator: \(command.locator)",
             ].joined(separator: ", ")
             let errorMessage = findError ?? fallbackError
-            logQuery(.error, errorMessage)
+            self.logQuery(.error, errorMessage)
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        logQuery(
+        self.logQuery(
             .debug,
-            "HandleGetAttrs: Found element: \(element.briefDescription(option: ValueFormatOption.smart))"
-        )
+            "HandleGetAttrs: Found element: \(element.briefDescription(option: ValueFormatOption.smart))")
 
         var attributesDict: [String: AXValueWrapper] = [:]
         for attrName in command.attributes {
@@ -107,18 +99,16 @@ public extension AXorcist {
         }
 
         let briefDesc = element.briefDescription(option: ValueFormatOption.smart)
-        logQuery(
+        self.logQuery(
             .debug,
             "HandleGetAttrs: Attributes for '\(briefDesc)'",
-            "\(attributesDict.mapValues { String(describing: $0.anyValue) })"
-        )
+            "\(attributesDict.mapValues { String(describing: $0.anyValue) })")
 
         // Log fetched attributes for debugging purposes
-        logQuery(
+        self.logQuery(
             .debug,
             "GetAttributes: Fetched attributes for \(briefDesc)",
-            "\(attributesDict.mapValues { String(describing: $0.anyValue) })"
-        )
+            "\(attributesDict.mapValues { String(describing: $0.anyValue) })")
 
         // Construct a simple payload containing just the attributes dictionary.
         // For a more structured response like AXElementData, we'd use buildQueryResponse or similar.
@@ -133,54 +123,50 @@ public extension AXorcist {
 
     // MARK: - Describe Element Handler
 
-    func handleDescribeElement(command: DescribeElementCommand) -> AXResponse {
-        logQuery(
+    public func handleDescribeElement(command: DescribeElementCommand) -> AXResponse {
+        self.logQuery(
             .info,
             "HandleDescribe: App '\(command.appIdentifier ?? "focused")'",
             "Locator: \(command.locator)",
             "Depth: \(command.depth)",
-            "IncludeIgnored: \(command.includeIgnored)"
-        )
+            "IncludeIgnored: \(command.includeIgnored)")
 
         let (foundElement, findError) = findTargetElement(
             for: command.appIdentifier ?? "focused",
             locator: command.locator,
-            maxDepthForSearch: command.maxSearchDepth
-        )
+            maxDepthForSearch: command.maxSearchDepth)
 
         guard let element = foundElement else {
             let fallbackError = [
                 "HandleDescribe: Element not found for app '\(command.appIdentifier ?? "focused")'",
-                "Locator: \(command.locator)"
+                "Locator: \(command.locator)",
             ].joined(separator: ", ")
             let errorMessage = findError ?? fallbackError
-            logQuery(.error, errorMessage)
+            self.logQuery(.error, errorMessage)
             return .errorResponse(message: errorMessage, code: .elementNotFound)
         }
-        logQuery(
+        self.logQuery(
             .debug,
             "HandleDescribe: Found element: \(element.briefDescription(option: ValueFormatOption.smart))",
-            "Describing tree..."
-        )
+            "Describing tree...")
 
-        let descriptionTree = describeElementTree(
+        let descriptionTree = self.describeElementTree(
             element: element,
             depth: command.depth,
             includeIgnored: command.includeIgnored,
-            currentDepth: 0
-        )
+            currentDepth: 0)
 
         return .successResponse(payload: AnyCodable(descriptionTree))
     }
 
     // MARK: - Helper Methods for Querying
 
-    internal func buildQueryResponse(
+    func buildQueryResponse(
         element: Element,
         attributesToFetch: [String],
-        includeChildrenBrief: Bool
-    ) -> AXElementData {
-        let fetchedAttributes = fetchInstanceElementAttributes(element: element, attributeNames: attributesToFetch)
+        includeChildrenBrief: Bool) -> AXElementData
+    {
+        let fetchedAttributes = self.fetchInstanceElementAttributes(element: element, attributeNames: attributesToFetch)
 
         // Get all possible attribute names for this element
         let allAXAttributes = element.attributeNames()
@@ -203,30 +189,27 @@ public extension AXorcist {
             textualContent: textualContent,
             childrenBriefDescriptions: childrenBriefs,
             fullAXDescription: fullDesc,
-            path: pathArray
-        )
+            path: pathArray)
     }
 
     private func describeElementTree(
         element: Element,
         depth: Int,
         includeIgnored: Bool,
-        currentDepth: Int
-    ) -> AXElementDescription {
+        currentDepth: Int) -> AXElementDescription
+    {
         if !includeIgnored, element.isIgnored() {
             // Return a minimal description for an ignored element if not including them
             return AXElementDescription(
                 briefDescription: element.briefDescription(option: ValueFormatOption.smart) + " (Ignored)",
                 role: element.role(),
                 attributes: [:], // No attributes for ignored elements unless explicitly asked
-                children: nil
-            )
+                children: nil)
         }
 
-        let attributes = fetchInstanceElementAttributes(
+        let attributes = self.fetchInstanceElementAttributes(
             element: element,
-            attributeNames: AXMiscConstants.defaultAttributesToFetch
-        )
+            attributeNames: AXMiscConstants.defaultAttributesToFetch)
         var childrenDescriptions: [AXElementDescription]?
 
         if currentDepth < depth {
@@ -236,12 +219,11 @@ public extension AXorcist {
                     if !includeIgnored, child.isIgnored() {
                         continue // Skip ignored children if not including them
                     }
-                    childrenDescriptions?.append(describeElementTree(
+                    childrenDescriptions?.append(self.describeElementTree(
                         element: child,
                         depth: depth,
                         includeIgnored: includeIgnored,
-                        currentDepth: currentDepth + 1
-                    ))
+                        currentDepth: currentDepth + 1))
                 }
                 if childrenDescriptions?.isEmpty ?? true { childrenDescriptions = nil }
             }
@@ -251,14 +233,13 @@ public extension AXorcist {
             briefDescription: element.briefDescription(option: ValueFormatOption.smart),
             role: element.role(),
             attributes: attributes,
-            children: childrenDescriptions
-        )
+            children: childrenDescriptions)
     }
 
     private func fetchInstanceElementAttributes(
         element: Element,
-        attributeNames: [String]
-    ) -> [String: AXValueWrapper] {
+        attributeNames: [String]) -> [String: AXValueWrapper]
+    {
         var attributesDict: [String: AXValueWrapper] = [:]
         for name in attributeNames {
             if let value: Any = element.attribute(Attribute<Any>(name)) {

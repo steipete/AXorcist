@@ -18,8 +18,8 @@ enum InputHandler {
         stdin: Bool,
         file: String?,
         json: String?,
-        directPayload: String?
-    ) -> ParseResult {
+        directPayload: String?) -> ParseResult
+    {
         axDebugLog("InputHandler: Parsing input...")
 
         let activeInputFlags = (stdin ? 1 : 0) + (file != nil ? 1 : 0) + (json != nil ? 1 : 0)
@@ -27,11 +27,11 @@ enum InputHandler {
             !(directPayload?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
 
         if activeInputFlags > 1 {
-            return handleMultipleInputFlags()
+            return self.handleMultipleInputFlags()
         } else if stdin {
-            return handleStdinInput()
+            return self.handleStdinInput()
         } else if let filePath = file {
-            return handleFileInput(filePath: filePath)
+            return self.handleFileInput(filePath: filePath)
         } else if let jsonString = json {
             axDebugLog("Using --json flag with payload of \(jsonString.count) characters.")
             let trimmedJsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -42,9 +42,9 @@ enum InputHandler {
             }
             return ParseResult(jsonString: trimmedJsonString, sourceDescription: "--json argument", error: nil)
         } else if positionalPayloadProvided {
-            return handleDirectPayload(directPayload: directPayload)
+            return self.handleDirectPayload(directPayload: directPayload)
         } else {
-            return handleNoInput()
+            return self.handleNoInput()
         }
     }
 
@@ -63,7 +63,8 @@ enum InputHandler {
         let stdinData = stdInputHandle.readDataToEndOfFile()
 
         if let str = String(data: stdinData, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !str.isEmpty {
+           !str.isEmpty
+        {
             axDebugLog("Successfully read \(str.count) characters from STDIN.")
             return ParseResult(jsonString: str, sourceDescription: "STDIN", error: nil)
         } else {
@@ -74,15 +75,14 @@ enum InputHandler {
     }
 
     private static func handleFileInput(
-        filePath: String
-    ) -> ParseResult {
+        filePath: String) -> ParseResult
+    {
         let sourceDescription = "File: \(filePath)"
 
         do {
             let rawFileContent = try String(contentsOfFile: filePath, encoding: .utf8) // Read raw
             axDebugLog(
-                "HFI_DEBUG: Raw file content for [\(filePath)]: '\(rawFileContent)' (length: \(rawFileContent.count))"
-            )
+                "HFI_DEBUG: Raw file content for [\(filePath)]: '\(rawFileContent)' (length: \(rawFileContent.count))")
 
             let str = rawFileContent.trimmingCharacters(in: .whitespacesAndNewlines)
             axDebugLog("HFI_DEBUG: Trimmed file content: '\(str)' (length: \(str.count))")
@@ -103,8 +103,8 @@ enum InputHandler {
     }
 
     private static func handleDirectPayload(
-        directPayload: String?
-    ) -> ParseResult {
+        directPayload: String?) -> ParseResult
+    {
         let jsonString = directPayload?.trimmingCharacters(in: .whitespacesAndNewlines)
         axDebugLog("Using direct payload argument with \(jsonString?.count ?? 0) characters.")
         return ParseResult(jsonString: jsonString, sourceDescription: "Direct argument", error: nil)

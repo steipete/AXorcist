@@ -8,8 +8,8 @@ import Foundation
 public func elementMatchesAllCriteria(
     element: Element,
     criteria: [Criterion],
-    matchType: JSONPathHintComponent.MatchType = .exact
-) -> Bool {
+    matchType: JSONPathHintComponent.MatchType = .exact) -> Bool
+{
     for criterion in criteria {
         let effectiveMatchType = criterion.matchType ?? matchType
         if !matchSingleCriterion(
@@ -17,16 +17,15 @@ public func elementMatchesAllCriteria(
             key: criterion.attribute,
             expectedValue: criterion.value,
             matchType: effectiveMatchType,
-            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.raw)
-        ) {
+            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.raw))
+        {
             return false
         }
     }
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "elementMatchesAllCriteria: Element '\(element.briefDescription(option: ValueFormatOption.raw))' " +
-            "MATCHED ALL \(criteria.count) criteria: \(criteria)."
-    ))
+            "MATCHED ALL \(criteria.count) criteria: \(criteria)."))
     return true
 }
 
@@ -34,14 +33,13 @@ public func elementMatchesAllCriteria(
 public func elementMatchesAnyCriterion(
     element: Element,
     criteria: [Criterion],
-    matchType: JSONPathHintComponent.MatchType = .exact
-) -> Bool {
+    matchType: JSONPathHintComponent.MatchType = .exact) -> Bool
+{
     // If there are no criteria, it's vacuously false that any criterion matches.
     if criteria.isEmpty {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "elementMatchesAnyCriterion: No criteria provided. Returning false."
-        ))
+            message: "elementMatchesAnyCriterion: No criteria provided. Returning false."))
         return false
     }
     for criterion in criteria {
@@ -52,13 +50,12 @@ public func elementMatchesAnyCriterion(
             key: criterion.attribute,
             expectedValue: criterion.value,
             matchType: effectiveMatchType,
-            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.raw)
-        ) {
+            elementDescriptionForLog: element.briefDescription(option: ValueFormatOption.raw))
+        {
             let description = element.briefDescription(option: .raw)
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "elementMatchesAnyCriterion: Element '\(description)' MATCHED criterion: \(criterion)."
-            ))
+                message: "elementMatchesAnyCriterion: Element '\(description)' MATCHED criterion: \(criterion)."))
             // Found one criterion that matches
             return true
         }
@@ -68,9 +65,8 @@ public func elementMatchesAnyCriterion(
         level: .debug,
         message: [
             "elementMatchesAnyCriterion: Element '\(description)' DID NOT MATCH ANY",
-            "of \(criteria.count) criteria: \(criteria)."
-        ].joined(separator: " ")
-    ))
+            "of \(criteria.count) criteria: \(criteria).",
+        ].joined(separator: " ")))
     return false
 }
 
@@ -78,8 +74,8 @@ public func elementMatchesAnyCriterion(
 public func elementMatchesCriteria(
     _ element: Element,
     criteria: [String: String],
-    matchType: JSONPathHintComponent.MatchType = .exact
-) -> Bool {
+    matchType: JSONPathHintComponent.MatchType = .exact) -> Bool
+{
     let criterionArray = criteria.map { key, value in
         Criterion(attribute: key, value: value, matchType: nil)
     }

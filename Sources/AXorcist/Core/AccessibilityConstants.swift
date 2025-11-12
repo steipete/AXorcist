@@ -204,7 +204,7 @@ public enum AXAttributeNames {
         "AXStyleRangeForIndexParameterized", // Param: Int (char index) -> AXValue (CFRange)
         "AXLineForIndexParameterized", // Param: Int (char index) -> Int (line number)
         kAXCellForColumnAndRowParameterizedAttribute, // Already defined above
-        kAXActionDescriptionAttribute // Param: String (action name) -> String
+        kAXActionDescriptionAttribute, // Param: String (action name) -> String
         // AXLayoutPointForScreenPointParameterized, AXLayoutSizeForScreenSizeParameterized, etc. for layout areas
     ]
 
@@ -407,7 +407,7 @@ public enum AXMiscConstants {
         AXAttributeNames.kAXFocusedAttribute,
         AXAttributeNames.kAXPositionAttribute,
         AXAttributeNames.kAXSizeAttribute,
-        AXAttributeNames.kAXChildrenAttribute // To get an idea of hierarchy
+        AXAttributeNames.kAXChildrenAttribute, // To get an idea of hierarchy
     ]
 
     // Default values for collection and search

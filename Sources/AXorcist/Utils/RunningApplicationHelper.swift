@@ -24,8 +24,8 @@ public struct RunningApplicationHelper {
             requireBundleIdentifier: Bool = true,
             excludeSystemProcesses: Bool = true,
             sortAlphabetically: Bool = true,
-            activeOnly: Bool = false
-        ) {
+            activeOnly: Bool = false)
+        {
             self.excludeProhibitedApps = excludeProhibitedApps
             self.requireBundleIdentifier = requireBundleIdentifier
             self.excludeSystemProcesses = excludeSystemProcesses
@@ -90,7 +90,7 @@ public struct RunningApplicationHelper {
     /// Get filtered running applications based on options
     public static func filteredApplications(options: FilterOptions = FilterOptions()) -> [NSRunningApplication] {
         #if canImport(AppKit)
-        var apps = allApplications()
+        var apps = self.allApplications()
 
         // Apply filters
         if options.excludeProhibitedApps {
@@ -122,12 +122,11 @@ public struct RunningApplicationHelper {
 
     /// Get applications suitable for accessibility inspection (convenience method)
     public static func accessibleApplications() -> [NSRunningApplication] {
-        filteredApplications(options: FilterOptions(
+        self.filteredApplications(options: FilterOptions(
             excludeProhibitedApps: true,
             requireBundleIdentifier: true,
             excludeSystemProcesses: true,
-            sortAlphabetically: true
-        ))
+            sortAlphabetically: true))
     }
 
     /// Get running applications that have on-screen windows and are accessible.
@@ -137,8 +136,8 @@ public struct RunningApplicationHelper {
         // 1. Get ALL visible windows in one native call
         guard let list = CGWindowListCopyWindowInfo(
             [CFConstants.cgWindowListOptionOnScreenOnly, CFConstants.cgWindowListExcludeDesktopElements],
-            CFConstants.cgNullWindowID
-        ) as? [[String: Any]] else {
+            CFConstants.cgNullWindowID) as? [[String: Any]]
+        else {
             // Consider logging an error here if a logging mechanism is available
             // For now, returning empty or falling back to just accessible apps
             axErrorLog("RunningApplicationHelper: Failed to get CGWindowListCopyWindowInfo")
@@ -157,16 +156,15 @@ public struct RunningApplicationHelper {
         // Fallback for platforms without AppKit or CoreGraphics (e.g., Linux if ever supported)
         // Or if one of them is missing, which is unlikely for macOS targets
         axWarningLog(
-            "RunningApplicationHelper: AppKit or CoreGraphics not available, cannot filter for on-screen windows."
-        )
-        return accessibleApplications() // Return all accessible apps as a fallback
+            "RunningApplicationHelper: AppKit or CoreGraphics not available, cannot filter for on-screen windows.")
+        return self.accessibleApplications() // Return all accessible apps as a fallback
         #endif
     }
 
     /// Get a running application by its process ID
     public static func runningApplication(pid: pid_t) -> NSRunningApplication? {
         #if canImport(AppKit)
-        return allApplications().first { $0.processIdentifier == pid }
+        return self.allApplications().first { $0.processIdentifier == pid }
         #else
         return nil
         #endif
@@ -183,7 +181,7 @@ public struct RunningApplicationHelper {
 
     /// Check if an application is running by bundle ID
     public static func isApplicationRunning(bundleID: String) -> Bool {
-        !applications(withBundleIdentifier: bundleID).isEmpty
+        !self.applications(withBundleIdentifier: bundleID).isEmpty
     }
 
     /// Get application info from PID using AX API
@@ -197,7 +195,7 @@ public struct RunningApplicationHelper {
 
         // For bundle ID, we need to use NSRunningApplication if available
         #if canImport(AppKit)
-        let bundleID = runningApplication(pid: pid)?.bundleIdentifier
+        let bundleID = self.runningApplication(pid: pid)?.bundleIdentifier
         #else
         let bundleID: String? = nil
         #endif
@@ -210,12 +208,12 @@ public struct RunningApplicationHelper {
     #if canImport(AppKit)
     /// Subscribe to application launch notifications
     public static func observeApplicationLaunches(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol {
+    -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didLaunchApplicationNotification,
             object: nil,
-            queue: .main
-        ) { notification in
+            queue: .main)
+        { notification in
             if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
                 handler(app)
             }
@@ -224,12 +222,12 @@ public struct RunningApplicationHelper {
 
     /// Subscribe to application termination notifications
     public static func observeApplicationTerminations(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol {
+    -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didTerminateApplicationNotification,
             object: nil,
-            queue: .main
-        ) { notification in
+            queue: .main)
+        { notification in
             if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
                 handler(app)
             }
@@ -238,12 +236,12 @@ public struct RunningApplicationHelper {
 
     /// Subscribe to application activation notifications
     public static func observeApplicationActivations(handler: @escaping @Sendable (NSRunningApplication) -> Void)
-        -> any NSObjectProtocol {
+    -> any NSObjectProtocol {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil,
-            queue: .main
-        ) { notification in
+            queue: .main)
+        { notification in
             if let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication {
                 handler(app)
             }

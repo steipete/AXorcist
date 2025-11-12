@@ -62,17 +62,15 @@ public class AXorcist {
     /// let response = AXorcist.shared.runCommand(envelope)
     /// ```
     public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse {
-        logger.log(AXLogEntry(
+        self.logger.log(AXLogEntry(
             level: .info,
-            message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)"
-        ))
+            message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)"))
 
-        let response = execute(commandEnvelope: commandEnvelope)
+        let response = self.execute(commandEnvelope: commandEnvelope)
 
-        logger.log(AXLogEntry(
+        self.logger.log(AXLogEntry(
             level: .info,
-            message: "RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)"
-        ))
+            message: "RunCommand ID '\(commandEnvelope.commandID)' completed. Status: \(response.status)"))
         return response
     }
 
@@ -84,7 +82,7 @@ public class AXorcist {
 
     public func clearLogs() {
         GlobalAXLogger.shared.clearEntries()
-        logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
+        self.logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
     }
 
     // MARK: Internal
@@ -92,22 +90,22 @@ public class AXorcist {
     // MARK: - CollectAll Handler (New)
 
     func handleCollectAll(command: CollectAllCommand) -> AXResponse {
-        logger.log(AXLogEntry(
+        self.logger.log(AXLogEntry(
             level: .info,
             message: "HandleCollectAll: Starting collection for app '\(command.appIdentifier ?? "focused")' " +
-                "with maxDepth: \(command.maxDepth)"
-        ))
+                "with maxDepth: \(command.maxDepth)"))
 
         // Find the target application element
         let rootElement: Element
         if let appId = command.appIdentifier, appId != "focused" {
             // Find specific application
             if let appPid = pid(forAppIdentifier: appId),
-               let app = Element.application(for: appPid) {
+               let app = Element.application(for: appPid)
+            {
                 rootElement = app
             } else {
                 let errorMessage = "HandleCollectAll: Could not find application '\(appId)'."
-                logger.log(AXLogEntry(level: .error, message: errorMessage))
+                self.logger.log(AXLogEntry(level: .error, message: errorMessage))
                 return .errorResponse(message: errorMessage, code: .applicationNotFound)
             }
         } else {
@@ -116,7 +114,7 @@ public class AXorcist {
                 rootElement = app
             } else {
                 let errorMessage = "HandleCollectAll: No focused application found."
-                logger.log(AXLogEntry(level: .error, message: errorMessage))
+                self.logger.log(AXLogEntry(level: .error, message: errorMessage))
                 return .errorResponse(message: errorMessage, code: .applicationNotFound)
             }
         }
@@ -127,24 +125,21 @@ public class AXorcist {
         let collectionContext = ElementCollectionContext(
             maxDepth: command.maxDepth,
             filterCriteria: command.filterCriteria,
-            attributesToFetch: attributesToFetch
-        )
+            attributesToFetch: attributesToFetch)
 
-        collectElementsRecursively(
+        self.collectElementsRecursively(
             element: rootElement,
             currentDepth: 0,
             context: collectionContext,
-            collectedElements: &collectedElements
-        )
+            collectedElements: &collectedElements)
 
-        logger.log(AXLogEntry(
+        self.logger.log(AXLogEntry(
             level: .info,
-            message: "HandleCollectAll: Collected \(collectedElements.count) elements"
-        ))
+            message: "HandleCollectAll: Collected \(collectedElements.count) elements"))
 
         return .successResponse(payload: AnyCodable([
             "elements": collectedElements,
-            "count": collectedElements.count
+            "count": collectedElements.count,
         ]))
     }
 
@@ -159,47 +154,47 @@ public class AXorcist {
         if let response = executeInteractionCommands(commandEnvelope) {
             return response
         }
-        return executeObserverCommands(commandEnvelope)
+        return self.executeObserverCommands(commandEnvelope)
     }
 
     private func executeQueryRelatedCommands(_ envelope: AXCommandEnvelope) -> AXResponse? {
         switch envelope.command {
         case let .query(queryCommand):
-            return handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
+            handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
         case let .getAttributes(getAttributesCommand):
-            return handleGetAttributes(command: getAttributesCommand)
+            handleGetAttributes(command: getAttributesCommand)
         case let .describeElement(describeCommand):
-            return handleDescribeElement(command: describeCommand)
+            handleDescribeElement(command: describeCommand)
         case let .collectAll(collectAllCommand):
-            return handleCollectAll(command: collectAllCommand)
+            self.handleCollectAll(command: collectAllCommand)
         default:
-            return nil
+            nil
         }
     }
 
     private func executeInteractionCommands(_ envelope: AXCommandEnvelope) -> AXResponse? {
         switch envelope.command {
         case let .performAction(actionCommand):
-            return handlePerformAction(command: actionCommand)
+            handlePerformAction(command: actionCommand)
         case let .extractText(extractTextCommand):
-            return handleExtractText(command: extractTextCommand)
+            handleExtractText(command: extractTextCommand)
         case let .setFocusedValue(setFocusedValueCommand):
-            return handleSetFocusedValue(command: setFocusedValueCommand)
+            handleSetFocusedValue(command: setFocusedValueCommand)
         default:
-            return nil
+            nil
         }
     }
 
     private func executeObserverCommands(_ envelope: AXCommandEnvelope) -> AXResponse {
         switch envelope.command {
         case let .batch(batchCommandEnvelope):
-            return handleBatchCommands(command: batchCommandEnvelope)
+            handleBatchCommands(command: batchCommandEnvelope)
         case let .getElementAtPoint(getElementAtPointCommand):
-            return handleGetElementAtPoint(command: getElementAtPointCommand)
+            handleGetElementAtPoint(command: getElementAtPointCommand)
         case let .getFocusedElement(getFocusedElementCommand):
-            return handleGetFocusedElement(command: getFocusedElementCommand)
+            handleGetFocusedElement(command: getFocusedElementCommand)
         case let .observe(observeCommand):
-            return handleObserve(command: observeCommand)
+            handleObserve(command: observeCommand)
         default:
             fatalError("Unsupported command type: \(envelope.command)")
         }
@@ -209,8 +204,8 @@ public class AXorcist {
         element: Element,
         currentDepth: Int,
         context: ElementCollectionContext,
-        collectedElements: inout [AXElementData]
-    ) {
+        collectedElements: inout [AXElementData])
+    {
         // Check depth limit
         guard currentDepth <= context.maxDepth else { return }
 
@@ -223,19 +218,17 @@ public class AXorcist {
         let elementData = buildQueryResponse(
             element: element,
             attributesToFetch: context.attributesToFetch,
-            includeChildrenBrief: false
-        )
+            includeChildrenBrief: false)
         collectedElements.append(elementData)
 
         // Recursively collect children
         if let children = element.children() {
             for child in children {
-                collectElementsRecursively(
+                self.collectElementsRecursively(
                     element: child,
                     currentDepth: currentDepth + 1,
                     context: context,
-                    collectedElements: &collectedElements
-                )
+                    collectedElements: &collectedElements)
             }
         }
     }

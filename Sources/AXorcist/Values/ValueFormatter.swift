@@ -16,7 +16,7 @@ import Foundation
 @MainActor
 public func formatCFTypeRef(
     _ cfValue: CFTypeRef?,
-    option: ValueFormatOption = .smart // Changed from SimpleValueFormatOption & .default to ValueFormatOption & .smart
+    option: ValueFormatOption = .smart, // Changed from SimpleValueFormatOption & .default to ValueFormatOption & .smart
 ) -> String {
     guard let value = cfValue else { return "<nil>" }
     let typeID = CFGetTypeID(value)
@@ -24,22 +24,20 @@ public func formatCFTypeRef(
     return formatCFTypeByID(
         value,
         typeID: typeID,
-        option: option
-    )
+        option: option)
 }
 
 @MainActor
 private func formatCFTypeByID(
     _ value: CFTypeRef,
     typeID: CFTypeID,
-    option: ValueFormatOption // Changed from SimpleValueFormatOption
+    option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
     switch typeID {
     case AXUIElementGetTypeID():
         return formatAXUIElement(
             value,
-            option: option
-        )
+            option: option)
     case AXValueGetTypeID():
         // Map SimpleValueFormatOption concepts to ValueFormatOption if needed, or pass directly if compatible
         // Assuming formatAXValue (from AXValueSpecificFormatter) now takes ValueFormatOption directly
@@ -59,10 +57,11 @@ private func formatCFTypeByID(
     default:
         let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"
         // Use GlobalAXLogger for unhandled types if necessary, though format functions usually just return strings.
-        axDebugLog("formatCFTypeByID: Unhandled CFType: \(typeDescription) for value. Returning description string.",
-                   file: #file,
-                   function: #function,
-                   line: #line)
+        axDebugLog(
+            "formatCFTypeByID: Unhandled CFType: \(typeDescription) for value. Returning description string.",
+            file: #file,
+            function: #function,
+            line: #line)
         return "<Unhandled CFType: \(typeDescription)>"
     }
 }
@@ -70,7 +69,7 @@ private func formatCFTypeByID(
 @MainActor
 private func formatAXUIElement(
     _ value: CFTypeRef,
-    option: ValueFormatOption // Changed from SimpleValueFormatOption
+    option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
     let element = Element(value as! AXUIElement)
 
@@ -91,7 +90,7 @@ private func formatAXUIElement(
 @MainActor
 private func formatCFArray(
     _ value: CFTypeRef,
-    option: ValueFormatOption // Changed from SimpleValueFormatOption
+    option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
     let cfArray = value as! CFArray
     let count = CFArrayGetCount(cfArray)
@@ -99,14 +98,14 @@ private func formatCFArray(
     // Adjust logic based on ValueFormatOption cases
     if option != .raw || count <= 5 { // Example: .raw might mean short, others verbose
         var swiftArray: [String] = []
-        for index in 0 ..< count {
+        for index in 0..<count {
             guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                 swiftArray.append("<nil_in_array>")
                 continue
             }
             swiftArray.append(formatCFTypeRef(
                 Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue(),
-                option: .smart // Recursive calls, .smart is a good default
+                option: .smart, // Recursive calls, .smart is a good default
             ))
         }
         return "[\\(swiftArray.joined(separator: \", \"))]"
@@ -118,7 +117,7 @@ private func formatCFArray(
 @MainActor
 private func formatCFDictionary(
     _ value: CFTypeRef,
-    option: ValueFormatOption // Changed from SimpleValueFormatOption
+    option: ValueFormatOption, // Changed from SimpleValueFormatOption
 ) -> String {
     let cfDict = value as! CFDictionary
     let count = CFDictionaryGetCount(cfDict)
@@ -131,7 +130,7 @@ private func formatCFDictionary(
             for (key, val) in nsDict {
                 swiftDict[key] = formatCFTypeRef(
                     val,
-                    option: .smart // Recursive calls, .smart is a good default
+                    option: .smart, // Recursive calls, .smart is a good default
                 )
             }
         } else {
@@ -140,8 +139,7 @@ private func formatCFDictionary(
                     "Iteration might be incomplete.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             // Implement manual iteration if necessary for full support, though this is a formatter.
         }
         let pairs = swiftDict.map { "\"\(escapeStringForDisplay($0))\": \($1)" }

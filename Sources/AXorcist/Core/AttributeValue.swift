@@ -47,8 +47,7 @@ public enum AttributeValue: Codable, Sendable, Equatable {
         } else {
             throw DecodingError.dataCorruptedError(
                 in: container,
-                debugDescription: "AttributeValue cannot decode value"
-            )
+                debugDescription: "AttributeValue cannot decode value")
         }
     }
 
@@ -58,17 +57,17 @@ public enum AttributeValue: Codable, Sendable, Equatable {
         switch self {
         case .null:
             try container.encodeNil()
-        case .bool(let value):
+        case let .bool(value):
             try container.encode(value)
-        case .int(let value):
+        case let .int(value):
             try container.encode(value)
-        case .double(let value):
+        case let .double(value):
             try container.encode(value)
-        case .string(let value):
+        case let .string(value):
             try container.encode(value)
-        case .array(let value):
+        case let .array(value):
             try container.encode(value)
-        case .dictionary(let value):
+        case let .dictionary(value):
             try container.encode(value)
         }
     }
@@ -76,45 +75,45 @@ public enum AttributeValue: Codable, Sendable, Equatable {
 
 // MARK: - Value Extraction Helpers
 
-public extension AttributeValue {
+extension AttributeValue {
     /// Extracts the string value if this is a string, otherwise returns nil
-    var stringValue: String? {
-        if case .string(let value) = self { return value }
+    public var stringValue: String? {
+        if case let .string(value) = self { return value }
         return nil
     }
 
     /// Extracts the boolean value if this is a bool, otherwise returns nil
-    var boolValue: Bool? {
-        if case .bool(let value) = self { return value }
+    public var boolValue: Bool? {
+        if case let .bool(value) = self { return value }
         return nil
     }
 
     /// Extracts the integer value if this is an int, otherwise returns nil
-    var intValue: Int? {
-        if case .int(let value) = self { return value }
+    public var intValue: Int? {
+        if case let .int(value) = self { return value }
         return nil
     }
 
     /// Extracts the double value if this is a double, otherwise returns nil
-    var doubleValue: Double? {
-        if case .double(let value) = self { return value }
+    public var doubleValue: Double? {
+        if case let .double(value) = self { return value }
         return nil
     }
 
     /// Extracts the array value if this is an array, otherwise returns nil
-    var arrayValue: [AttributeValue]? {
-        if case .array(let value) = self { return value }
+    public var arrayValue: [AttributeValue]? {
+        if case let .array(value) = self { return value }
         return nil
     }
 
     /// Extracts the dictionary value if this is a dictionary, otherwise returns nil
-    var dictionaryValue: [String: AttributeValue]? {
-        if case .dictionary(let value) = self { return value }
+    public var dictionaryValue: [String: AttributeValue]? {
+        if case let .dictionary(value) = self { return value }
         return nil
     }
 
     /// Returns true if this is a null value
-    var isNull: Bool {
+    public var isNull: Bool {
         if case .null = self { return true }
         return false
     }
@@ -122,10 +121,10 @@ public extension AttributeValue {
 
 // MARK: - Convenience Initializers
 
-public extension AttributeValue {
+extension AttributeValue {
     /// Creates an AttributeValue from any value, attempting to match the appropriate case
-    init(from value: Any?) {
-        guard let value = value else {
+    public init(from value: Any?) {
+        guard let value else {
             self = .null
             return
         }
@@ -156,22 +155,22 @@ public extension AttributeValue {
     }
 
     /// Converts the AttributeValue back to its underlying Any representation
-    var anyValue: Any? {
+    public var anyValue: Any? {
         switch self {
         case .null:
-            return nil
-        case .string(let value):
-            return value
-        case .bool(let value):
-            return value
-        case .int(let value):
-            return value
-        case .double(let value):
-            return value
-        case .array(let values):
-            return values.map { $0.anyValue }
-        case .dictionary(let dict):
-            return dict.mapValues { $0.anyValue }
+            nil
+        case let .string(value):
+            value
+        case let .bool(value):
+            value
+        case let .int(value):
+            value
+        case let .double(value):
+            value
+        case let .array(values):
+            values.map(\.anyValue)
+        case let .dictionary(dict):
+            dict.mapValues { $0.anyValue }
         }
     }
 }
@@ -183,18 +182,18 @@ extension AttributeValue: CustomStringConvertible {
         switch self {
         case .null:
             return "null"
-        case .string(let value):
+        case let .string(value):
             return "\"\(value)\""
-        case .bool(let value):
+        case let .bool(value):
             return value ? "true" : "false"
-        case .int(let value):
+        case let .int(value):
             return "\(value)"
-        case .double(let value):
+        case let .double(value):
             return "\(value)"
-        case .array(let values):
-            let items = values.map { $0.description }.joined(separator: ", ")
+        case let .array(values):
+            let items = values.map(\.description).joined(separator: ", ")
             return "[\(items)]"
-        case .dictionary(let dict):
+        case let .dictionary(dict):
             let items = dict.map { "\"\($0.key)\": \($0.value.description)" }.joined(separator: ", ")
             return "{\(items)}"
         }
@@ -203,18 +202,18 @@ extension AttributeValue: CustomStringConvertible {
 
 // MARK: - Migration Helper
 
-public extension AttributeValue {
+extension AttributeValue {
     /// Creates an AttributeValue from an AnyCodable for migration purposes
     /// This will be removed once AnyCodable is fully eliminated
-    init(fromAnyCodable anyCodable: AnyCodable) {
+    public init(fromAnyCodable anyCodable: AnyCodable) {
         self.init(from: anyCodable.value)
     }
 }
 
 // MARK: - Private Helpers
 
-private extension AttributeValue {
-    static func fromNSNumber(_ number: NSNumber) -> AttributeValue {
+extension AttributeValue {
+    fileprivate static func fromNSNumber(_ number: NSNumber) -> AttributeValue {
         if number === kCFBooleanTrue as NSNumber {
             return .bool(true)
         }

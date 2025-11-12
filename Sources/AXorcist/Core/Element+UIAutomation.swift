@@ -13,10 +13,9 @@ public enum MouseButton: String, Sendable {
 
 // MARK: - Click Operations
 
-public extension Element {
-
+extension Element {
     /// Click on this element
-    @MainActor func click(button: MouseButton = .left, clickCount: Int = 1) throws {
+    @MainActor public func click(button: MouseButton = .left, clickCount: Int = 1) throws {
         // Ensure element is actionable
         guard isEnabled() ?? true else {
             throw UIAutomationError.elementNotEnabled
@@ -34,14 +33,14 @@ public extension Element {
     }
 
     /// Click at a specific point on screen
-    @MainActor static func clickAt(_ point: CGPoint, button: MouseButton = .left, clickCount: Int = 1) throws {
+    @MainActor public static func clickAt(_ point: CGPoint, button: MouseButton = .left, clickCount: Int = 1) throws {
         // Create mouse down event
         guard let mouseDown = CGEvent(
             mouseEventSource: nil,
             mouseType: button == .left ? .leftMouseDown : .rightMouseDown,
             mouseCursorPosition: point,
-            mouseButton: button == .left ? .left : .right
-        ) else {
+            mouseButton: button == .left ? .left : .right)
+        else {
             throw UIAutomationError.failedToCreateEvent
         }
 
@@ -53,8 +52,8 @@ public extension Element {
             mouseEventSource: nil,
             mouseType: button == .left ? .leftMouseUp : .rightMouseUp,
             mouseCursorPosition: point,
-            mouseButton: button == .left ? .left : .right
-        ) else {
+            mouseButton: button == .left ? .left : .right)
+        else {
             throw UIAutomationError.failedToCreateEvent
         }
 
@@ -74,14 +73,15 @@ public extension Element {
     }
 
     /// Wait for this element to become actionable
-    @MainActor func waitUntilActionable(
+    @MainActor public func waitUntilActionable(
         timeout: TimeInterval = 5.0,
-        pollInterval: TimeInterval = 0.1) async throws -> Element {
+        pollInterval: TimeInterval = 0.1) async throws -> Element
+    {
         let startTime = Date()
 
         while Date().timeIntervalSince(startTime) < timeout {
             // Check if element is actionable
-            if isActionable() {
+            if self.isActionable() {
                 return self
             }
 
@@ -93,7 +93,7 @@ public extension Element {
     }
 
     /// Check if element is actionable (enabled, visible, on screen)
-    @MainActor func isActionable() -> Bool {
+    @MainActor public func isActionable() -> Bool {
         // Must be enabled
         guard isEnabled() ?? true else { return false }
 
@@ -101,7 +101,7 @@ public extension Element {
         guard let frame = frame() else { return false }
 
         // Must be on screen
-        guard frame.width > 0 && frame.height > 0 else { return false }
+        guard frame.width > 0, frame.height > 0 else { return false }
 
         // Check if on any screen
         return NSScreen.screens.contains { screen in
@@ -112,10 +112,9 @@ public extension Element {
 
 // MARK: - Keyboard Operations
 
-public extension Element {
-
+extension Element {
     /// Type text into this element
-    @MainActor func typeText(_ text: String, delay: TimeInterval = 0.005, clearFirst: Bool = false) throws {
+    @MainActor public func typeText(_ text: String, delay: TimeInterval = 0.005, clearFirst: Bool = false) throws {
         // Focus the element first
         if attribute(Attribute<Bool>.focused) != true {
             // Try to focus the element
@@ -125,7 +124,7 @@ public extension Element {
 
         // Clear existing text if requested
         if clearFirst {
-            try clearField()
+            try self.clearField()
         }
 
         // Type the text
@@ -133,7 +132,7 @@ public extension Element {
     }
 
     /// Clear the text field
-    @MainActor func clearField() throws {
+    @MainActor public func clearField() throws {
         // Select all with Cmd+A
         try Element.performHotkey(keys: ["cmd", "a"])
         Thread.sleep(forTimeInterval: 0.05)
@@ -143,14 +142,14 @@ public extension Element {
     }
 
     /// Type text at current focus
-    @MainActor static func typeText(_ text: String, delay: TimeInterval = 0.005) throws {
+    @MainActor public static func typeText(_ text: String, delay: TimeInterval = 0.005) throws {
         for character in text {
             if character == "\n" {
-                try typeKey(.return)
+                try self.typeKey(.return)
             } else if character == "\t" {
-                try typeKey(.tab)
+                try self.typeKey(.tab)
             } else {
-                try typeCharacter(character)
+                try self.typeCharacter(character)
             }
 
             if delay > 0 {
@@ -160,7 +159,7 @@ public extension Element {
     }
 
     /// Type a single character
-    @MainActor static func typeCharacter(_ character: Character) throws {
+    @MainActor public static func typeCharacter(_ character: Character) throws {
         let string = String(character)
 
         // Create keyboard event
@@ -189,7 +188,7 @@ public extension Element {
     }
 
     /// Type a special key
-    @MainActor static func typeKey(_ key: SpecialKey, modifiers: CGEventFlags = []) throws {
+    @MainActor public static func typeKey(_ key: SpecialKey, modifiers: CGEventFlags = []) throws {
         guard let keyCode = key.keyCode else {
             throw UIAutomationError.unsupportedKey(key.rawValue)
         }
@@ -213,7 +212,7 @@ public extension Element {
     }
 
     /// Perform a hotkey combination
-    @MainActor static func performHotkey(keys: [String], holdDuration: TimeInterval = 0.1) throws {
+    @MainActor public static func performHotkey(keys: [String], holdDuration: TimeInterval = 0.1) throws {
         var modifiers: CGEventFlags = []
         var mainKey: SpecialKey?
 
@@ -248,7 +247,7 @@ public extension Element {
         }
 
         // Type the key with modifiers
-        try typeKey(key, modifiers: modifiers)
+        try self.typeKey(key, modifiers: modifiers)
 
         // Hold for specified duration
         Thread.sleep(forTimeInterval: holdDuration)
@@ -325,61 +324,62 @@ public enum SpecialKey: String {
 
     var keyCode: CGKeyCode? {
         switch self {
-        case .escape: return 53
-        case .tab: return 48
-        case .space: return 49
-        case .delete: return 51
-        case .forwardDelete: return 117
-        case .return, .enter: return 36
-        case .up: return 126
-        case .down: return 125
-        case .left: return 123
-        case .right: return 124
-        case .pageUp: return 116
-        case .pageDown: return 121
-        case .home: return 115
-        case .end: return 119
-        case .f1: return 122
-        case .f2: return 120
-        case .f3: return 99
-        case .f4: return 118
-        case .f5: return 96
-        case .f6: return 97
-        case .f7: return 98
-        case .f8: return 100
-        case .f9: return 101
-        case .f10: return 109
-        case .f11: return 103
-        case .f12: return 111
-        case .a: return 0
-        case .b: return 11
-        case .c: return 8
-        case .d: return 2
-        case .e: return 14
-        case .f: return 3
-        case .g: return 5
-        case .h: return 4
-        case .i: return 34
-        case .j: return 38
-        case .k: return 40
-        case .l: return 37
-        case .m: return 46
-        case .n: return 45
-        case .o: return 31
-        case .p: return 35
-        case .q: return 12
-        case .r: return 15
-        case .s: return 1
-        case .t: return 17
-        case .u: return 32
-        case .v: return 9
-        case .w: return 13
-        case .x: return 7
-        case .y: return 16
-        case .z: return 6
+        case .escape: 53
+        case .tab: 48
+        case .space: 49
+        case .delete: 51
+        case .forwardDelete: 117
+        case .return, .enter: 36
+        case .up: 126
+        case .down: 125
+        case .left: 123
+        case .right: 124
+        case .pageUp: 116
+        case .pageDown: 121
+        case .home: 115
+        case .end: 119
+        case .f1: 122
+        case .f2: 120
+        case .f3: 99
+        case .f4: 118
+        case .f5: 96
+        case .f6: 97
+        case .f7: 98
+        case .f8: 100
+        case .f9: 101
+        case .f10: 109
+        case .f11: 103
+        case .f12: 111
+        case .a: 0
+        case .b: 11
+        case .c: 8
+        case .d: 2
+        case .e: 14
+        case .f: 3
+        case .g: 5
+        case .h: 4
+        case .i: 34
+        case .j: 38
+        case .k: 40
+        case .l: 37
+        case .m: 46
+        case .n: 45
+        case .o: 31
+        case .p: 35
+        case .q: 12
+        case .r: 15
+        case .s: 1
+        case .t: 17
+        case .u: 32
+        case .v: 9
+        case .w: 13
+        case .x: 7
+        case .y: 16
+        case .z: 6
         }
     }
 }
+
 // swiftlint:enable identifier_name
 
 // MARK: - Scroll Operations
@@ -391,12 +391,12 @@ public enum ScrollDirection: String, Sendable {
     case left
     case right
 }
+
 // swiftlint:enable identifier_name
 
-public extension Element {
-
+extension Element {
     /// Scroll this element in a specific direction
-    @MainActor func scroll(direction: ScrollDirection, amount: Int = 3, smooth: Bool = false) throws {
+    @MainActor public func scroll(direction: ScrollDirection, amount: Int = 3, smooth: Bool = false) throws {
         // Get element bounds for scroll location
         guard let frame = frame() else {
             throw UIAutomationError.missingFrame
@@ -409,11 +409,12 @@ public extension Element {
     }
 
     /// Scroll at a specific point
-    @MainActor static func scrollAt(
+    @MainActor public static func scrollAt(
         _ point: CGPoint,
         direction: ScrollDirection,
         amount: Int = 3,
-        smooth: Bool = false) throws {
+        smooth: Bool = false) throws
+    {
         let scrollAmount = smooth ? 1 : amount
         let iterations = smooth ? amount : 1
         let delay = smooth ? 0.01 : 0.05
@@ -426,8 +427,8 @@ public extension Element {
                 wheelCount: 2,
                 wheel1: direction == .up || direction == .down ? Int32(scrollAmount) : 0,
                 wheel2: direction == .left || direction == .right ? Int32(scrollAmount) : 0,
-                wheel3: 0
-            ) else {
+                wheel3: 0)
+            else {
                 throw UIAutomationError.failedToCreateEvent
             }
 
@@ -459,15 +460,14 @@ public extension Element {
 
 // MARK: - Element Finding
 
-public extension Element {
-
+extension Element {
     /// Find element at a specific screen location
-    @MainActor static func elementAt(_ point: CGPoint, role: String? = nil) -> Element? {
+    @MainActor public static func elementAt(_ point: CGPoint, role: String? = nil) -> Element? {
         // Get element at point
         let element = Element.elementAtPoint(point)
 
         // If role specified, check if matches
-        if let role = role, let found = element {
+        if let role, let found = element {
             if found.role() != role {
                 // Try to find parent with matching role
                 var current: Element? = found
@@ -485,18 +485,18 @@ public extension Element {
     }
 
     /// Find elements matching specific criteria
-    @MainActor func findElements(
+    @MainActor public func findElements(
         role: String? = nil,
         title: String? = nil,
         label: String? = nil,
         value: String? = nil,
         identifier: String? = nil,
-        maxDepth: Int = 10
-    ) -> [Element] {
+        maxDepth: Int = 10) -> [Element]
+    {
         var results: [Element] = []
 
         // Check self
-        if matchesCriteria(role: role, title: title, label: label, value: value, identifier: identifier) {
+        if self.matchesCriteria(role: role, title: title, label: label, value: value, identifier: identifier) {
             results.append(self)
         }
 
@@ -510,8 +510,7 @@ public extension Element {
                         label: label,
                         value: value,
                         identifier: identifier,
-                        maxDepth: maxDepth - 1
-                    ))
+                        maxDepth: maxDepth - 1))
                 }
             }
         }
@@ -525,30 +524,30 @@ public extension Element {
         title: String? = nil,
         label: String? = nil,
         value: String? = nil,
-        identifier: String? = nil
-    ) -> Bool {
+        identifier: String? = nil) -> Bool
+    {
         // Check role
-        if let role = role, self.role() != role {
+        if let role, self.role() != role {
             return false
         }
 
         // Check title
-        if let title = title, self.title() != title {
+        if let title, self.title() != title {
             return false
         }
 
         // Check label (using description as label)
-        if let label = label, self.descriptionText() != label {
+        if let label, self.descriptionText() != label {
             return false
         }
 
         // Check value
-        if let value = value, self.value() as? String != value {
+        if let value, self.value() as? String != value {
             return false
         }
 
         // Check identifier
-        if let identifier = identifier, self.identifier() != identifier {
+        if let identifier, self.identifier() != identifier {
             return false
         }
 
@@ -569,17 +568,17 @@ public enum UIAutomationError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .failedToCreateEvent:
-            return "Failed to create system event"
+            "Failed to create system event"
         case .elementNotEnabled:
-            return "Element is not enabled"
-        case .elementNotActionable(let timeout):
-            return "Element did not become actionable within \(timeout) seconds"
-        case .unsupportedKey(let key):
-            return "Unsupported key: \(key)"
-        case .invalidHotkey(let keys):
-            return "Invalid hotkey combination: \(keys)"
+            "Element is not enabled"
+        case let .elementNotActionable(timeout):
+            "Element did not become actionable within \(timeout) seconds"
+        case let .unsupportedKey(key):
+            "Unsupported key: \(key)"
+        case let .invalidHotkey(keys):
+            "Invalid hotkey combination: \(keys)"
         case .missingFrame:
-            return "Element has no frame attribute"
+            "Element has no frame attribute"
         }
     }
 }

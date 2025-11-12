@@ -38,8 +38,8 @@ extension Bool: Scannable {
         scanner.scanWhitespaces()
         if let value: Bool = scanner.scan(
             dictionary: ["true": true, "false": false],
-            options: [.caseInsensitive]
-        ) {
+            options: [.caseInsensitive])
+        {
             self = value
         } else {
             return nil

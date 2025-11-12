@@ -15,13 +15,13 @@ extension Element {
         var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
         // print("[PRINT Element.children] Before collectDirectChildren for: \(self.briefDescription(option: .smart))")
-        collectDirectChildren(collector: &childCollector)
+        self.collectDirectChildren(collector: &childCollector)
         // print("[PRINT Element.children] After collectDirectChildren, collector has:
         // \(childCollector.collectedChildrenCount()) unique children.")
 
         // collectAlternativeChildren may be expensive, so respect `strict` flag there.
         if !strict {
-            collectAlternativeChildren(collector: &childCollector)
+            self.collectAlternativeChildren(collector: &childCollector)
         }
 
         // Always collect `AXWindows` when this element is an application. Some Electron apps only expose
@@ -30,7 +30,7 @@ extension Element {
         // window (depth ≈ 37) and never reach hidden/background chat panes.  Fetching `AXWindows` every
         // time is cheap (<10 elements) and guarantees the walker can explore every window even during a
         // brute-force scan.
-        collectApplicationWindows(collector: &childCollector)
+        self.collectApplicationWindows(collector: &childCollector)
 
         // Also collect AXFocusedUIElement. This exposes the single element (often a remote renderer proxy)
         // that currently has keyboard/accessibility focus – crucial for Electron/Chromium where the deep
@@ -58,8 +58,7 @@ extension Element {
         let error = AXUIElementCopyAttributeValue(
             self.underlyingElement,
             AXAttributeNames.kAXChildrenAttribute as CFString,
-            &value
-        )
+            &value)
 
         // self.briefDescription() is assumed to be refactored
         let selfDescForLog = self.briefDescription(option: .smart)
@@ -69,20 +68,17 @@ extension Element {
                 if let directChildrenUI = childrenCFArray as? [AXUIElement] {
                     axDebugLog(
                         "[\(selfDescForLog)]: Successfully fetched and cast " +
-                            "\(directChildrenUI.count) direct children."
-                    )
+                            "\(directChildrenUI.count) direct children.")
                     collector.addChildren(from: directChildrenUI)
                 } else {
                     axDebugLog(
                         "[\(selfDescForLog)]: kAXChildrenAttribute was a CFArray but failed to cast " +
-                            "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))"
-                    )
+                            "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))")
                 }
             } else if let nonArrayValue = value {
                 axDebugLog(
                     "[\(selfDescForLog)]: kAXChildrenAttribute was not a CFArray. " +
-                        "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))"
-                )
+                        "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))")
             } else {
                 axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute was nil despite .success error code.")
             }
@@ -102,15 +98,14 @@ extension Element {
             AXAttributeNames.kAXLayoutAreaChildrenAttribute, AXAttributeNames.kAXGroupChildrenAttribute,
             AXAttributeNames.kAXContentsAttribute, "AXChildrenInNavigationOrder",
             AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
-            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute
+            AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute,
         ]
         axDebugLog(
             "Using pruned attribute list (\(alternativeAttributes.count) items) " +
-                "to avoid heavy payloads for alternative children."
-        )
+                "to avoid heavy payloads for alternative children.")
 
         for attrName in alternativeAttributes {
-            collectChildrenFromAttribute(attributeName: attrName, collector: &collector)
+            self.collectChildrenFromAttribute(attributeName: attrName, collector: &collector)
         }
     }
 
@@ -162,42 +157,41 @@ private struct ChildCollector {
     // MARK: Public
 
     // New public method to get the count of unique children
-    public func collectedChildrenCount() -> Int {
-        uniqueChildrenSet.count
+    func collectedChildrenCount() -> Int {
+        self.uniqueChildrenSet.count
     }
 
     // MARK: Internal
 
     mutating func addChildren(from childrenUI: [AXUIElement]) { // Removed dLog param
-        if limitReached { return }
+        if self.limitReached { return }
 
         for childUI in childrenUI {
-            if collectedChildren.count >= maxChildrenPerElement {
-                if !limitReached {
+            if self.collectedChildren.count >= maxChildrenPerElement {
+                if !self.limitReached {
                     axWarningLog(
                         "ChildCollector: Reached maximum children limit (\(maxChildrenPerElement)). " +
-                            "No more children will be added for this element."
-                    )
-                    limitReached = true
+                            "No more children will be added for this element.")
+                    self.limitReached = true
                 }
                 break
             }
 
             let childElement = Element(childUI)
-            if !uniqueChildrenSet.contains(childElement) {
-                collectedChildren.append(childElement)
-                uniqueChildrenSet.insert(childElement)
+            if !self.uniqueChildrenSet.contains(childElement) {
+                self.collectedChildren.append(childElement)
+                self.uniqueChildrenSet.insert(childElement)
             }
         }
     }
 
     func finalizeResults() -> [Element]? { // Removed dLog param
-        if collectedChildren.isEmpty {
+        if self.collectedChildren.isEmpty {
             axDebugLog("ChildCollector: No children found after all collection methods.")
             return nil
         } else {
-            axDebugLog("ChildCollector: Found \(collectedChildren.count) unique children.")
-            return collectedChildren
+            axDebugLog("ChildCollector: Found \(self.collectedChildren.count) unique children.")
+            return self.collectedChildren
         }
     }
 

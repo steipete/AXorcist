@@ -1,7 +1,7 @@
 // AXORCMain.swift - Main entry point for AXORC CLI
 
-@preconcurrency import Commander
 import AXorcist
+@preconcurrency import Commander
 import CoreFoundation
 import Foundation
 
@@ -9,8 +9,16 @@ import Foundation
 struct AXORCCommand: ParsableCommand {
     static func main() async {
         do {
+            let parsedValues = try Self.parseCommandLineArguments()
             var command = AXORCCommand()
+            try command.apply(parsedValues: parsedValues)
             try await command.run()
+        } catch let error as CommanderError {
+            Self.emitArgumentError(message: error.description)
+            Foundation.exit(ExitCode.failure.rawValue)
+        } catch let validation as ValidationError {
+            Self.emitArgumentError(message: validation.description)
+            Foundation.exit(ExitCode.failure.rawValue)
         } catch let exitCode as ExitCode {
             Foundation.exit(exitCode.rawValue)
         } catch {
@@ -18,13 +26,13 @@ struct AXORCCommand: ParsableCommand {
             Foundation.exit(1)
         }
     }
+
     @preconcurrency nonisolated static var commandDescription: CommandDescription {
         let version = MainActor.assumeIsolated { axorcVersion }
         return CommandDescription(
             commandName: "axorc",
             // Use axorcVersion from AXORCModels.swift or a shared constant place
-            abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(version)"
-        )
+            abstract: "AXORC CLI - Handles JSON commands via various input methods. Version \(version)")
     }
 
     // `--debug` now enables *normal* diagnostic output. Use the new `--verbose` flag for the extremely chatty logs.
@@ -55,9 +63,7 @@ struct AXORCCommand: ParsableCommand {
     @Argument(
         help: logSegments(
             "Read JSON payload directly from this string argument.",
-            "Ignored when other input flags (--stdin, --file, --json) are provided."
-        )
-    )
+            "Ignored when other input flags (--stdin, --file, --json) are provided."))
     var directPayload: String?
 
     @MainActor
@@ -72,13 +78,12 @@ struct AXORCCommand: ParsableCommand {
         let resultJsonString = CommandExecutor.execute(
             command: command,
             axorcist: axorcist,
-            debugCLI: debugCLI
-        )
+            debugCLI: debugCLI)
         print(resultJsonString)
         fflush(stdout)
 
         if command.command == .observe {
-            handleObserveCommand(resultJsonString: resultJsonString, debugCLI: debug)
+            self.handleObserveCommand(resultJsonString: resultJsonString, debugCLI: self.debug)
         } else {
             axClearLogs()
         }
@@ -86,14 +91,12 @@ struct AXORCCommand: ParsableCommand {
 
     @MainActor
     private func handleObserveCommand(resultJsonString: String, debugCLI: Bool) {
-        let observerSetupSucceeded = parseObserveSetup(resultJsonString)
+        let observerSetupSucceeded = self.parseObserveSetup(resultJsonString)
         if observerSetupSucceeded {
             axInfoLog(
                 logSegments(
                     "AXORCMain: Observer setup successful",
-                    "Process will remain alive by running current RunLoop"
-                )
-            )
+                    "Process will remain alive by running current RunLoop"))
             #if DEBUG
             axInfoLog("AXORCMain: DEBUG mode - entering RunLoop.current.run() for observer.")
             RunLoop.current.run()
@@ -102,7 +105,7 @@ struct AXORCCommand: ParsableCommand {
             let errorPayload = [
                 "{\"error\": \"The 'observe' command is intended for DEBUG builds or specific use cases.",
                 " In release, it sets up the observer but will not keep the process alive indefinitely by itself.",
-                " Exiting normally after setup.\"}\n"
+                " Exiting normally after setup.\"}\n",
             ].joined()
             fputs(errorPayload, stderr)
             fflush(stderr)
@@ -111,9 +114,7 @@ struct AXORCCommand: ParsableCommand {
             axErrorLog(
                 logSegments(
                     "AXORCMain: Observe command setup reported failure or result was not a success status",
-                    "Exiting"
-                )
-            )
+                    "Exiting"))
         }
     }
 
@@ -126,17 +127,16 @@ struct AXORCCommand: ParsableCommand {
         do {
             if
                 let jsonOutput = try JSONSerialization.jsonObject(with: resultData, options: []) as?
-                    [String: Any],
+                [String: Any],
                 let success = jsonOutput["success"] as? Bool,
-                let status = jsonOutput["status"] as? String {
+                let status = jsonOutput["status"] as? String
+            {
                 axInfoLog(
                     logSegments(
                         "AXORCMain: Parsed initial response for observe",
                         "success=\(success)",
-                        "status=\(status)"
-                    )
-                )
-                if success && status == "observer_started" {
+                        "status=\(status)"))
+                if success, status == "observer_started" {
                     axInfoLog("AXORCMain: Observer setup deemed SUCCEEDED for observe command.")
                     return true
                 }
@@ -144,25 +144,19 @@ struct AXORCCommand: ParsableCommand {
                     logSegments(
                         "AXORCMain: Observer setup deemed FAILED for observe command",
                         "success=\(success)",
-                        "status=\(status)"
-                    )
-                )
+                        "status=\(status)"))
                 return false
             }
             axErrorLog(
                 logSegments(
                     "AXORCMain: Failed to parse expected fields (success, status)",
-                    "from observe setup JSON"
-                )
-            )
+                    "from observe setup JSON"))
             return false
         } catch {
             axErrorLog(
                 logSegments(
                     "AXORCMain: Could not parse result JSON from observe setup to check for success",
-                    error.localizedDescription
-                )
-            )
+                    error.localizedDescription))
             return false
         }
     }
@@ -175,52 +169,48 @@ struct AXORCCommand: ParsableCommand {
 
     @MainActor
     private mutating func runMain() throws {
-        configureLogging()
-        applyGlobalFlags()
-        logDebugVersion()
+        self.configureLogging()
+        self.applyGlobalFlags()
+        self.logDebugVersion()
 
         let inputResult = InputHandler.parseInput(
-            stdin: stdin,
-            file: file,
-            json: json,
-            directPayload: directPayload
-        )
+            stdin: self.stdin,
+            file: self.file,
+            json: self.json,
+            directPayload: self.directPayload)
         axorcInputSource = inputResult.sourceDescription
 
         let axorcistInstance = AXorcist.shared
 
-        if handleInputError(inputResult) {
+        if self.handleInputError(inputResult) {
             return
         }
 
         guard let jsonStringFromInput = inputResult.jsonString else {
-            handleMissingInput()
+            self.handleMissingInput()
             return
         }
 
-        logDebug(
+        self.logDebug(
             logSegments(
                 "AXORCMain Test: Received jsonStringFromInput",
                 "[\(jsonStringFromInput)]",
-                "length: \(jsonStringFromInput.count)"
-            )
-        )
+                "length: \(jsonStringFromInput.count)"))
 
-        try decodeAndExecute(
+        try self.decodeAndExecute(
             jsonString: jsonStringFromInput,
-            axorcist: axorcistInstance
-        )
+            axorcist: axorcistInstance)
 
-        if debug && commandShouldPrintLogsAtEnd() {
-            flushDebugLogs()
+        if self.debug, self.commandShouldPrintLogsAtEnd() {
+            self.flushDebugLogs()
         }
     }
 
     private func configureLogging() {
-        if verbose {
+        if self.verbose {
             GlobalAXLogger.shared.isLoggingEnabled = true
             GlobalAXLogger.shared.detailLevel = .verbose
-        } else if debug {
+        } else if self.debug {
             GlobalAXLogger.shared.isLoggingEnabled = true
             GlobalAXLogger.shared.detailLevel = .normal
         } else {
@@ -230,54 +220,41 @@ struct AXORCCommand: ParsableCommand {
     }
 
     private func applyGlobalFlags() {
-        axorcScanAll = scanAll
-        axorcStopAtFirstMatch = !noStopFirst
-        if let timeout = timeout {
+        axorcScanAll = self.scanAll
+        axorcStopAtFirstMatch = !self.noStopFirst
+        if let timeout {
             axorcTraversalTimeout = TimeInterval(timeout)
         }
     }
 
     private func logDebugVersion() {
-        guard debug || verbose else { return }
+        guard self.debug || self.verbose else { return }
         let version = MainActor.assumeIsolated { axorcVersion }
         fputs(
             logSegments(
                 "AXORCMain.run: AXorc version \(version) build \(axorcBuildStamp)",
-                "Detail level: \(GlobalAXLogger.shared.detailLevel)."
-            ) + "\n",
-            stderr
-        )
+                "Detail level: \(GlobalAXLogger.shared.detailLevel).") + "\n",
+            stderr)
     }
 
     private func handleInputError(_ inputResult: InputHandler.Result) -> Bool {
         guard let error = inputResult.error else { return false }
-        respondWithError(
+        self.respondWithError(
             commandId: "input_error",
             error: error,
-            logs: debug ? axGetLogsAsStrings(format: .text) : nil
-        )
+            logs: self.debug ? axGetLogsAsStrings(format: .text) : nil)
         return true
     }
 
     private func handleMissingInput() {
-        respondWithError(
+        self.respondWithError(
             commandId: "no_input",
             error: "No valid JSON input received",
-            logs: debug ? axGetLogsAsStrings(format: .text) : nil
-        )
+            logs: self.debug ? axGetLogsAsStrings(format: .text) : nil)
     }
 
     private func respondWithError(commandId: String, error: String, logs: [String]?) {
-        let errorResponse = ErrorResponse(commandId: commandId, error: error, debugLogs: logs)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        encoder.keyEncodingStrategy = .convertToSnakeCase
-        if let jsonData = try? encoder.encode(errorResponse),
-           let jsonString = String(data: jsonData, encoding: .utf8) {
-            print(jsonString)
-        } else {
-            print("{\"error\": \"Failed to encode error response\"}")
-        }
+        Self.printErrorResponse(commandId: commandId, error: error, logs: logs)
     }
 
     private mutating func decodeAndExecute(jsonString: String, axorcist: AXorcist) throws {
@@ -285,35 +262,31 @@ struct AXORCCommand: ParsableCommand {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let data = jsonString.data(using: .utf8) else {
             axDebugLog("AXORCMain Test: Failed to convert jsonStringFromInput to data.")
-            respondWithError(
+            self.respondWithError(
                 commandId: "data_conversion_error",
                 error: "Failed to convert JSON string to data",
-                logs: debug ? axGetLogsAsStrings() : nil
-            )
+                logs: self.debug ? axGetLogsAsStrings() : nil)
             return
         }
 
         do {
             let commands = try decoder.decode([CommandEnvelope].self, from: data)
-            suppressFinalLogDump = commands.contains { $0.command == .observe }
+            self.suppressFinalLogDump = commands.contains { $0.command == .observe }
             if let command = commands.first {
-                processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: debug)
+                self.processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: self.debug)
                 return
             }
-            logDebug("AXORCMain Test: Decode attempt 1: Decoded [CommandEnvelope] but array was empty.")
+            self.logDebug("AXORCMain Test: Decode attempt 1: Decoded [CommandEnvelope] but array was empty.")
             throw NSError(
                 domain: "AXORCErrorDomain",
                 code: 1001,
-                userInfo: [NSLocalizedDescriptionKey: "Decoded empty command array from [CommandEnvelope] attempt."]
-            )
+                userInfo: [NSLocalizedDescriptionKey: "Decoded empty command array from [CommandEnvelope] attempt."])
         } catch let arrayDecodeError {
             logDebug(
                 logSegments(
                     "AXORCMain Test: Decode attempt 1 (as [CommandEnvelope]) FAILED",
                     "Error: \(arrayDecodeError)",
-                    "Will try as single CommandEnvelope"
-                )
-            )
+                    "Will try as single CommandEnvelope"))
             do {
                 let command = try decoder.decode(CommandEnvelope.self, from: data)
                 suppressFinalLogDump = command.command == .observe
@@ -323,14 +296,11 @@ struct AXORCCommand: ParsableCommand {
                     logSegments(
                         "AXORCMain Test: Decode attempt 2 (as single CommandEnvelope) ALSO FAILED",
                         "Error: \(singleDecodeError)",
-                        "Original array decode error was: \(arrayDecodeError)"
-                    )
-                )
+                        "Original array decode error was: \(arrayDecodeError)"))
                 respondWithError(
                     commandId: "decode_error",
                     error: "Failed to decode JSON input: \(singleDecodeError.localizedDescription)",
-                    logs: debug ? axGetLogsAsStrings() : nil
-                )
+                    logs: debug ? axGetLogsAsStrings() : nil)
             }
         }
     }
@@ -347,8 +317,64 @@ struct AXORCCommand: ParsableCommand {
     private func logDebug(_ message: String) {
         axDebugLog(message)
     }
+
     private func commandShouldPrintLogsAtEnd() -> Bool {
-        !suppressFinalLogDump
+        !self.suppressFinalLogDump
+    }
+}
+
+// MARK: - Commander Parsing
+
+extension AXORCCommand {
+    private static func parseCommandLineArguments() throws -> ParsedValues {
+        let prototype = Self.init()
+        let signature = CommandSignature.describe(prototype)
+        let parser = CommandParser(signature: signature)
+        let rawArguments = Array(CommandLine.arguments.dropFirst())
+        return try parser.parse(arguments: rawArguments)
+    }
+
+    private mutating func apply(parsedValues: ParsedValues) throws {
+        self.debug = parsedValues.flags.contains("debug")
+        self.verbose = parsedValues.flags.contains("verbose")
+        self.stdin = parsedValues.flags.contains("stdin")
+        self.scanAll = parsedValues.flags.contains("scanAll")
+        self.noStopFirst = parsedValues.flags.contains("noStopFirst")
+
+        if let fileValue = parsedValues.options["file"]?.last {
+            self.file = fileValue
+        }
+
+        if let jsonValue = parsedValues.options["json"]?.last {
+            self.json = jsonValue
+        }
+
+        if let timeoutString = parsedValues.options["timeout"]?.last {
+            guard let timeoutValue = Int(timeoutString) else {
+                throw ValidationError("Invalid value for --timeout: \(timeoutString)")
+            }
+            self.timeout = timeoutValue
+        }
+
+        self.directPayload = parsedValues.positional.first
+    }
+
+    private static func emitArgumentError(message: String) {
+        Self.printErrorResponse(commandId: "argument_error", error: message, logs: nil)
+    }
+
+    private static func printErrorResponse(commandId: String, error: String, logs: [String]?) {
+        let errorResponse = ErrorResponse(commandId: commandId, error: error, debugLogs: logs)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        if let jsonData = try? encoder.encode(errorResponse),
+           let jsonString = String(data: jsonData, encoding: .utf8)
+        {
+            print(jsonString)
+        } else {
+            print("{\"error\": \"Failed to encode error response\"}")
+        }
     }
 }
 

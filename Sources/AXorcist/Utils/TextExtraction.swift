@@ -9,8 +9,7 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "extractTextFromElement: Max depth reached for element: " +
-                "\(element.briefDescription(option: ValueFormatOption.smart))"
-        ))
+                "\(element.briefDescription(option: ValueFormatOption.smart))"))
         return nil
     }
 
@@ -38,8 +37,7 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "extractTextFromElement: No text found for element: " +
-            "\(element.briefDescription(option: ValueFormatOption.smart))"
-    ))
+            "\(element.briefDescription(option: ValueFormatOption.smart))"))
     return nil
 }
 
@@ -62,8 +60,7 @@ public func extractTextFromElementNonRecursive(_ element: Element) -> String? {
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
         message: "extractTextFromElementNonRecursive: No direct text found for element: " +
-            "\(element.briefDescription(option: ValueFormatOption.smart))"
-    ))
+            "\(element.briefDescription(option: ValueFormatOption.smart))"))
     return nil
 }
 
@@ -73,23 +70,21 @@ func getElementTextualContent(
     element: Element,
     includeChildren: Bool = false,
     maxDepth: Int = 1,
-    currentDepth: Int = 0
-) -> String? {
+    currentDepth: Int = 0) -> String?
+{
     let directText = joinedText(from: collectDirectText(from: element))
     let childText = childText(
         for: element,
         includeChildren: includeChildren,
         maxDepth: maxDepth,
-        currentDepth: currentDepth
-    )
+        currentDepth: currentDepth)
 
     let resolved = mergeText(directText: directText, childText: childText)
     logExtractionResult(
         resolvedText: resolved,
         element: element,
         includeChildren: includeChildren,
-        depth: currentDepth
-    )
+        depth: currentDepth)
     return resolved
 }
 
@@ -114,16 +109,15 @@ private func childText(
     for element: Element,
     includeChildren: Bool,
     maxDepth: Int,
-    currentDepth: Int
-) -> String? {
+    currentDepth: Int) -> String?
+{
     guard includeChildren, currentDepth < maxDepth, let children = element.children() else { return nil }
     let childTexts = children.compactMap { child in
         getElementTextualContent(
             element: child,
             includeChildren: true,
             maxDepth: maxDepth,
-            currentDepth: currentDepth + 1
-        )
+            currentDepth: currentDepth + 1)
     }
     return joinedText(from: childTexts)
 }
@@ -155,8 +149,8 @@ private func logExtractionResult(
     resolvedText: String?,
     element: Element,
     includeChildren: Bool,
-    depth: Int
-) {
+    depth: Int)
+{
     let descriptor = element.briefDescription(option: ValueFormatOption.smart)
     if let resolvedText {
         let message = """

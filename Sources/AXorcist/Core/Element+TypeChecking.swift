@@ -10,9 +10,9 @@ import Foundation
 
 // MARK: - Role Constants
 
-public extension Element {
+extension Element {
     /// Common accessibility role constants
-    struct Roles {
+    public enum Roles {
         public static let application = "AXApplication"
         public static let window = "AXWindow"
         public static let button = "AXButton"
@@ -46,7 +46,7 @@ public extension Element {
     }
 
     /// Common accessibility subrole constants
-    struct Subroles {
+    public enum Subroles {
         public static let dialog = "AXDialog"
         public static let systemDialog = "AXSystemDialog"
         public static let floatingWindow = "AXFloatingWindow"
@@ -69,21 +69,20 @@ public extension Element {
 
 // MARK: - Type Checking Methods
 
-public extension Element {
-
+extension Element {
     // MARK: - Window Types
 
     // Note: isWindow is already defined as a computed property in Element+WindowOperations.swift
 
     /// Check if element is a dialog window
     @MainActor
-    func isDialog() -> Bool {
+    public func isDialog() -> Bool {
         role() == Roles.window && (subrole() == Subroles.dialog || subrole() == Subroles.systemDialog)
     }
 
     /// Check if element is a standard window (not floating, dialog, etc.)
     @MainActor
-    func isStandardWindow() -> Bool {
+    public func isStandardWindow() -> Bool {
         role() == Roles.window && subrole() == Subroles.standardWindow
     }
 
@@ -91,79 +90,79 @@ public extension Element {
 
     /// Check if element is a button
     @MainActor
-    func isButton() -> Bool {
+    public func isButton() -> Bool {
         role() == Roles.button
     }
 
     /// Check if element is a text field
     @MainActor
-    func isTextField() -> Bool {
+    public func isTextField() -> Bool {
         role() == Roles.textField
     }
 
     /// Check if element is a secure text field (password field)
     @MainActor
-    func isSecureTextField() -> Bool {
+    public func isSecureTextField() -> Bool {
         role() == Roles.textField && subrole() == Subroles.secureTextField
     }
 
     /// Check if element is a search field
     @MainActor
-    func isSearchField() -> Bool {
+    public func isSearchField() -> Bool {
         role() == Roles.textField && subrole() == Subroles.searchField
     }
 
     /// Check if element is a text area
     @MainActor
-    func isTextArea() -> Bool {
+    public func isTextArea() -> Bool {
         role() == Roles.textArea
     }
 
     /// Check if element is any kind of text input (field or area)
     @MainActor
-    func isTextInput() -> Bool {
-        isTextField() || isTextArea()
+    public func isTextInput() -> Bool {
+        self.isTextField() || self.isTextArea()
     }
 
     /// Check if element is static text
     @MainActor
-    func isStaticText() -> Bool {
+    public func isStaticText() -> Bool {
         role() == Roles.staticText
     }
 
     /// Check if element is a link
     @MainActor
-    func isLink() -> Bool {
+    public func isLink() -> Bool {
         role() == Roles.link
     }
 
     /// Check if element is a checkbox
     @MainActor
-    func isCheckBox() -> Bool {
+    public func isCheckBox() -> Bool {
         role() == Roles.checkBox
     }
 
     /// Check if element is a radio button
     @MainActor
-    func isRadioButton() -> Bool {
+    public func isRadioButton() -> Bool {
         role() == Roles.radioButton
     }
 
     /// Check if element is a combo box
     @MainActor
-    func isComboBox() -> Bool {
+    public func isComboBox() -> Bool {
         role() == Roles.comboBox
     }
 
     /// Check if element is a popup button
     @MainActor
-    func isPopUpButton() -> Bool {
+    public func isPopUpButton() -> Bool {
         role() == Roles.popUpButton
     }
 
     /// Check if element is a slider
     @MainActor
-    func isSlider() -> Bool {
+    public func isSlider() -> Bool {
         role() == Roles.slider
     }
 
@@ -171,31 +170,31 @@ public extension Element {
 
     /// Check if element is a menu
     @MainActor
-    func isMenu() -> Bool {
+    public func isMenu() -> Bool {
         role() == Roles.menu
     }
 
     /// Check if element is a menu item
     @MainActor
-    func isMenuItem() -> Bool {
+    public func isMenuItem() -> Bool {
         role() == Roles.menuItem
     }
 
     /// Check if element is a separator menu item
     @MainActor
-    func isSeparatorMenuItem() -> Bool {
+    public func isSeparatorMenuItem() -> Bool {
         role() == Roles.menuItem && subrole() == Subroles.separatorMenuItem
     }
 
     /// Check if element is a menu bar
     @MainActor
-    func isMenuBar() -> Bool {
+    public func isMenuBar() -> Bool {
         role() == Roles.menuBar
     }
 
     /// Check if element is a menu button
     @MainActor
-    func isMenuButton() -> Bool {
+    public func isMenuButton() -> Bool {
         role() == Roles.menuButton
     }
 
@@ -203,43 +202,43 @@ public extension Element {
 
     /// Check if element is a scroll area
     @MainActor
-    func isScrollArea() -> Bool {
+    public func isScrollArea() -> Bool {
         role() == Roles.scrollArea
     }
 
     /// Check if element is a scroll bar
     @MainActor
-    func isScrollBar() -> Bool {
+    public func isScrollBar() -> Bool {
         role() == Roles.scrollBar
     }
 
     /// Check if element is a list
     @MainActor
-    func isList() -> Bool {
+    public func isList() -> Bool {
         role() == Roles.list
     }
 
     /// Check if element is a table
     @MainActor
-    func isTable() -> Bool {
+    public func isTable() -> Bool {
         role() == Roles.table
     }
 
     /// Check if element is an outline
     @MainActor
-    func isOutline() -> Bool {
+    public func isOutline() -> Bool {
         role() == Roles.outline
     }
 
     /// Check if element is a group
     @MainActor
-    func isGroup() -> Bool {
+    public func isGroup() -> Bool {
         role() == Roles.group
     }
 
     /// Check if element is a tab group
     @MainActor
-    func isTabGroup() -> Bool {
+    public func isTabGroup() -> Bool {
         role() == Roles.tabGroup
     }
 
@@ -251,7 +250,7 @@ public extension Element {
 
     /// Check if element is any kind of dock item
     @MainActor
-    func isDockItem() -> Bool {
+    public func isDockItem() -> Bool {
         let sub = subrole()
         return sub == Subroles.applicationDockItem ||
             sub == Subroles.folderDockItem ||
@@ -262,7 +261,7 @@ public extension Element {
 
     /// Check if element is a separator (in dock or elsewhere)
     @MainActor
-    func isSeparator() -> Bool {
+    public func isSeparator() -> Bool {
         role() == Subroles.separator || subrole() == Subroles.separator
     }
 
@@ -270,7 +269,7 @@ public extension Element {
 
     /// Check if element is interactive (can be clicked, typed into, etc.)
     @MainActor
-    func isInteractive() -> Bool {
+    public func isInteractive() -> Bool {
         // Check if enabled
         guard isEnabled() != false else { return false }
 
@@ -286,7 +285,7 @@ public extension Element {
             Roles.popUpButton,
             Roles.menuItem,
             Roles.menuButton,
-            Roles.slider
+            Roles.slider,
         ]
 
         if let currentRole = role(), interactiveRoles.contains(currentRole) {
@@ -303,14 +302,14 @@ public extension Element {
 
     /// Check if element can contain text input
     @MainActor
-    func canAcceptTextInput() -> Bool {
-        isTextInput() && isEnabled() != false
+    public func canAcceptTextInput() -> Bool {
+        self.isTextInput() && isEnabled() != false
     }
 
     /// Check if element is scrollable (has scroll bars or is a scroll area)
     @MainActor
-    func isScrollable() -> Bool {
-        if isScrollArea() { return true }
+    public func isScrollable() -> Bool {
+        if self.isScrollArea() { return true }
 
         // Check if it has scroll bars
         if horizontalScrollBar() != nil || verticalScrollBar() != nil {

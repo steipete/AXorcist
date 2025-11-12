@@ -27,26 +27,26 @@ func sanitizeValue(_ val: Any) -> Any {
 private func sanitizeSpecialValue(_ value: Any) -> Any? {
     switch value {
     case let notif as AXNotification:
-        return notif.rawValue
+        notif.rawValue
     case is AXUIElement:
-        return "<AXUIElement>"
+        "<AXUIElement>"
     case let element as Element:
-        return String(describing: element)
+        String(describing: element)
     case let attributed as NSAttributedString:
-        return attributed.string
+        attributed.string
     case let rect as CGRect:
-        return [
+        [
             "x": rect.origin.x,
             "y": rect.origin.y,
             "width": rect.size.width,
-            "height": rect.size.height
+            "height": rect.size.height,
         ]
     case let point as CGPoint:
-        return ["x": point.x, "y": point.y]
+        ["x": point.x, "y": point.y]
     case let size as CGSize:
-        return ["width": size.width, "height": size.height]
+        ["width": size.width, "height": size.height]
     default:
-        return nil
+        nil
     }
 }
 

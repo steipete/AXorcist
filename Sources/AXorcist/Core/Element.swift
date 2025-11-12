@@ -72,7 +72,8 @@ public struct Element: Equatable, Hashable, Sendable {
         _ element: AXUIElement,
         attributes: [String: AttributeValue]?,
         children: [Element]?,
-        actions: [String]?) {
+        actions: [String]?)
+    {
         self.underlyingElement = element
         self.attributes = attributes
         self.prefetchedChildren = children // Renamed from 'children'.
@@ -112,7 +113,7 @@ public struct Element: Equatable, Hashable, Sendable {
 
     // Implement Hashable
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(CFHash(underlyingElement))
+        hasher.combine(CFHash(self.underlyingElement))
     }
 
     // Generic method to get an attribute's value (converted to Swift type T)
@@ -125,13 +126,12 @@ public struct Element: Equatable, Hashable, Sendable {
 
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "'\\(attribute.rawValue)' not in stored. Fetching..."
-        ))
+            message: "'\\(attribute.rawValue)' not in stored. Fetching..."))
 
         if T.self == [AXUIElement].self {
-            return fetchAXUIElementArray(attribute)
+            return self.fetchAXUIElementArray(attribute)
         } else {
-            return fetchAndConvertAttribute(attribute)
+            return self.fetchAndConvertAttribute(attribute)
         }
     }
 
@@ -144,18 +144,15 @@ public struct Element: Equatable, Hashable, Sendable {
         } else if error == .attributeUnsupported {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Attribute \\(attributeName) unsupported for element."
-            ))
+                message: "Attribute \\(attributeName) unsupported for element."))
         } else if error == .noValue {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Attribute \\(attributeName) has no value for element."
-            ))
+                message: "Attribute \\(attributeName) has no value for element."))
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Error getting attribute \\(attributeName) for element: \\(error.rawValue)"
-            ))
+                message: "Error getting attribute \\(attributeName) for element: \\(error.rawValue)"))
         }
         return nil
     }
@@ -191,8 +188,7 @@ public struct Element: Equatable, Hashable, Sendable {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
                     message: "Parameterized attribute '\(attribute.rawValue)' called with " +
-                        "non-CF bridgable Swift type: \(type(of: parameter)). This might fail."
-                ))
+                        "non-CF bridgable Swift type: \(type(of: parameter)). This might fail."))
             }
             cfParameter = parameter as CFTypeRef // This can crash if parameter is not CF-bridgable
         }
@@ -201,23 +197,20 @@ public struct Element: Equatable, Hashable, Sendable {
             self.underlyingElement,
             attribute.rawValue as CFString,
             cfParameter,
-            &value
-        )
+            &value)
 
         if error != .success {
             if error != .noValue {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."
-                ))
+                    message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."))
             }
             return nil
         }
         guard let unwrappedCFValue = value else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Parameterized attribute '\(attribute.rawValue)' value was nil after fetch."
-            ))
+                message: "Parameterized attribute '\(attribute.rawValue)' value was nil after fetch."))
             return nil
         }
         // Use the type conversion functionality from Element+TypeConversion.swift
@@ -275,8 +268,7 @@ public struct Element: Equatable, Hashable, Sendable {
             let warningEnd = "This might fail or lead to unexpected behavior."
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .warning,
-                message: warningMsg + warningDetail + warningEnd
-            ))
+                message: warningMsg + warningDetail + warningEnd))
             cfValue = value as CFTypeRef // This can crash if 'value' is not CF-bridgable
         }
 
@@ -285,14 +277,12 @@ public struct Element: Equatable, Hashable, Sendable {
             let msg = "Successfully set attribute '\\(attributeName)' to '\\(value)' on "
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: msg + "\(self.briefDescription(option: .smart))"
-            ))
+                message: msg + "\(self.briefDescription(option: .smart))"))
             return true
         } else {
             axErrorLog(
                 "Failed to set attribute '\(attributeName)' to '\(value)' on " +
-                    "\(self.briefDescription(option: .smart)): \(error.stringValue)"
-            )
+                    "\(self.briefDescription(option: .smart)): \(error.stringValue)")
             return false
         }
     }
@@ -309,8 +299,7 @@ public struct Element: Equatable, Hashable, Sendable {
 
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Found '\\(attribute.rawValue)' in stored attributes."
-        ))
+            message: "Found '\\(attribute.rawValue)' in stored attributes."))
 
         // Attempt to convert AttributeValue to T
         if T.self == String.self, let strValue = attributeValue.stringValue { return strValue as? T }
@@ -320,7 +309,8 @@ public struct Element: Equatable, Hashable, Sendable {
            let elementArray = attributeValue.anyValue as? [Element] { return elementArray as? T }
         if T.self == AXUIElement.self,
            let cfValue = attributeValue.anyValue as CFTypeRef?,
-           CFGetTypeID(cfValue) == AXUIElementGetTypeID() {
+           CFGetTypeID(cfValue) == AXUIElementGetTypeID()
+        {
             return cfValue as? T
         }
 
@@ -331,8 +321,7 @@ public struct Element: Equatable, Hashable, Sendable {
                 level: .debug,
                 message: "Stored attribute '\\(attribute.rawValue)' " +
                     "(type \\(type(of: attributeValue))) " +
-                    "could not be cast to \\(String(describing: T.self))"
-            ))
+                    "could not be cast to \\(String(describing: T.self))"))
             return nil
         }
     }
@@ -341,8 +330,7 @@ public struct Element: Equatable, Hashable, Sendable {
     private func fetchAXUIElementArray<T>(_ attribute: Attribute<T>) -> T? {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Special handling for T == [AXUIElement]. Attribute: \\(attribute.rawValue)"
-        ))
+            message: "Special handling for T == [AXUIElement]. Attribute: \\(attribute.rawValue)"))
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
 
@@ -350,13 +338,11 @@ public struct Element: Equatable, Hashable, Sendable {
             if error == .noValue {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "Attribute '\\(attribute.rawValue)' has no value."
-                ))
+                    message: "Attribute '\\(attribute.rawValue)' has no value."))
             } else {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "Error fetching '\\(attribute.rawValue)': \\(error.rawValue)"
-                ))
+                    message: "Error fetching '\\(attribute.rawValue)': \\(error.rawValue)"))
             }
             return nil
         }
@@ -367,28 +353,24 @@ public struct Element: Equatable, Hashable, Sendable {
                     "for '\(attribute.rawValue)'."
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: message
-                ))
+                    message: message))
                 return axElements as? T
             } else {
                 let message = "CFArray for '\(attribute.rawValue)' failed to cast to [AXUIElement]."
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: message
-                ))
+                    message: message))
             }
         } else if let unwrappedValue = value {
             let typeDescription = String(describing: CFGetTypeID(unwrappedValue))
             let message = "Value for '\(attribute.rawValue)' was not a CFArray. TypeID: \(typeDescription)"
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: message
-            ))
+                message: message))
         } else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Value for '\(attribute.rawValue)' was nil despite .success."
-            ))
+                message: "Value for '\(attribute.rawValue)' was nil despite .success."))
         }
         return nil
     }
@@ -398,8 +380,7 @@ public struct Element: Equatable, Hashable, Sendable {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "Using basic CFTypeRef conversion for T = \\(String(describing: T.self)), " +
-                "Attribute: \\(attribute.rawValue)."
-        ))
+                "Attribute: \\(attribute.rawValue)."))
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(self.underlyingElement, attribute.rawValue as CFString, &value)
 
@@ -407,8 +388,7 @@ public struct Element: Equatable, Hashable, Sendable {
             if error != .noValue {
                 GlobalAXLogger.shared.log(AXLogEntry(
                     level: .debug,
-                    message: "Error \\(error.rawValue) fetching '\\(attribute.rawValue)' for basic conversion."
-                ))
+                    message: "Error \\(error.rawValue) fetching '\\(attribute.rawValue)' for basic conversion."))
             }
             return nil
         }
@@ -416,8 +396,7 @@ public struct Element: Equatable, Hashable, Sendable {
         guard let unwrappedCFValue = value else {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
-                message: "Value was nil for '\\(attribute.rawValue)' after fetch for basic conversion."
-            ))
+                message: "Value was nil for '\\(attribute.rawValue)' after fetch for basic conversion."))
             return nil
         }
 

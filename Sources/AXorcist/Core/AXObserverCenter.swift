@@ -30,13 +30,13 @@ public final class AXObserverCenter {
 
     /// All active observers
     public var activeObservers: [AXObserverObjAndPID] {
-        observers
+        self.observers
     }
 
     /// All registered observer keys
     public var registeredKeys: [AXNotificationSubscriptionKey] { // Updated to use new key type
         // return observerKeys // Old way
-        Array(subscriptions.keys)
+        Array(self.subscriptions.keys)
     }
 
     // MARK: - Stored State
@@ -55,26 +55,24 @@ public final class AXObserverCenter {
 // MARK: - Public API
 
 @MainActor
-public extension AXObserverCenter {
-    func subscribe(
+extension AXObserverCenter {
+    public func subscribe(
         pid: pid_t? = nil,
         element: Element? = nil,
         notification: AXNotification,
-        handler: @escaping AXNotificationSubscriptionHandler
-    ) -> Result<SubscriptionToken, AccessibilityError> {
+        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+    {
         let elementDescriptionForLog = element?.briefDescription() ?? "N/A"
         axDebugLog(
             logSegments(
                 "Subscribe request for \(describePid(pid))",
                 "Element: \(elementDescriptionForLog)",
-                "notification: \(notification.rawValue)"
-            )
-        )
+                "notification: \(notification.rawValue)"))
 
         let token = SubscriptionToken(id: UUID())
         let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
 
-        subscriptionsLock.lock()
+        self.subscriptionsLock.lock()
         defer { subscriptionsLock.unlock() }
 
         let setupError = setupUnderlyingObserver(forPid: pid, forElement: element, notification: notification)
@@ -85,26 +83,22 @@ public extension AXObserverCenter {
                 logSegments(
                     "Failed to setup underlying AXObserver for \(describePid(pid))",
                     "notification \(notification.rawValue)",
-                    "error: \(setupError.rawValue)"
-                )
-            )
+                    "error: \(setupError.rawValue)"))
             return .failure(.observerSetupFailed(details: errorMsg))
         }
 
-        subscriptions[key, default: [:]][token.id] = handler
-        subscriptionTokens[token.id] = key
+        self.subscriptions[key, default: [:]][token.id] = handler
+        self.subscriptionTokens[token.id] = key
 
         axInfoLog(
             logSegments(
                 "Successfully subscribed handler (token: \(token.id)) for \(describePid(pid))",
-                "notification: \(notification.rawValue)"
-            )
-        )
+                "notification: \(notification.rawValue)"))
         return .success(token)
     }
 
-    func unsubscribe(token: SubscriptionToken) throws {
-        subscriptionsLock.lock()
+    public func unsubscribe(token: SubscriptionToken) throws {
+        self.subscriptionsLock.lock()
         defer { subscriptionsLock.unlock() }
 
         guard let key = subscriptionTokens.removeValue(forKey: token.id) else {
@@ -117,88 +111,81 @@ public extension AXObserverCenter {
             axWarningLog(
                 logSegments(
                     "Handler for \(tokenKeyDescription) missing in subscriptions dictionary",
-                    "token existed"
-                )
-            )
+                    "token existed"))
             return
         }
         guard handlersForKey.removeValue(forKey: token.id) != nil else { return }
 
-        subscriptions[key] = handlersForKey
+        self.subscriptions[key] = handlersForKey
         axInfoLog(
             logSegments(
                 "Successfully unsubscribed handler (token: \(token.id)) for \(describePid(key.pid))",
-                "notification: \(key.notification.rawValue)"
-            )
-        )
+                "notification: \(key.notification.rawValue)"))
         if handlersForKey.isEmpty {
-            subscriptions.removeValue(forKey: key)
+            self.subscriptions.removeValue(forKey: key)
             axDebugLog(
                 logSegments(
                     "No handlers left for \(describePid(key.pid))",
-                    "notification: \(key.notification.rawValue). Key removed from subscriptions"
-                )
-            )
+                    "notification: \(key.notification.rawValue). Key removed from subscriptions"))
             if let targetPid = key.pid {
                 cleanupUnderlyingObserverNotification(forPid: targetPid, notification: key.notification)
             }
         } else {
-            subscriptions[key] = handlersForKey
+            self.subscriptions[key] = handlersForKey
         }
     }
 
-    func removeAllObservers() {
+    public func removeAllObservers() {
         axInfoLog("Removing all observers and subscriptions globally.")
-        subscriptionsLock.lock()
+        self.subscriptionsLock.lock()
         defer { subscriptionsLock.unlock() }
 
         removeAllTokens()
 
-        if !observers.isEmpty || !subscriptions.isEmpty || !subscriptionTokens.isEmpty {
+        if !self.observers.isEmpty || !self.subscriptions.isEmpty || !self.subscriptionTokens.isEmpty {
             axWarningLog(
                 "removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. " +
-                    "observers: \(observers.count), subscriptions: \(subscriptions.count), " +
-                    "tokens: \(subscriptionTokens.count)"
-            )
-            observers.removeAll()
-            subscriptions.removeAll()
-            subscriptionTokens.removeAll()
+                    "observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), " +
+                    "tokens: \(self.subscriptionTokens.count)")
+            self.observers.removeAll()
+            self.subscriptions.removeAll()
+            self.subscriptionTokens.removeAll()
         }
         axInfoLog("All observers and subscriptions have been cleared.")
     }
 
-    func removeAllObservers(for pid: pid_t) {
+    public func removeAllObservers(for pid: pid_t) {
         axInfoLog("Removing all observers and subscriptions for PID \(pid)")
-        let tokensForPid = subscriptionTokens.filter { $0.value.pid == pid }.map(\.key)
+        let tokensForPid = self.subscriptionTokens.filter { $0.value.pid == pid }.map(\.key)
         for tokenId in tokensForPid {
-            try? unsubscribe(token: SubscriptionToken(id: tokenId))
+            try? self.unsubscribe(token: SubscriptionToken(id: tokenId))
         }
     }
 
-    func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool {
+    public func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool {
         let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        return subscriptions[key]?.isEmpty == false
+        return self.subscriptions[key]?.isEmpty == false
     }
-
 }
 
 // MARK: - Private Helpers
 
 @MainActor
-private extension AXObserverCenter {
-    func removeAllTokens() {
-        for (tokenId, key) in subscriptionTokens {
+extension AXObserverCenter {
+    private func removeAllTokens() {
+        for (tokenId, key) in self.subscriptionTokens {
             guard var handlers = subscriptions[key] else { continue }
             handlers.removeValue(forKey: tokenId)
             if handlers.isEmpty {
-                subscriptions.removeValue(forKey: key)
-                cleanupUnderlyingObserverNotification(forPid: key.pid, notification: key.notification)
+                self.subscriptions.removeValue(forKey: key)
+                self.cleanupUnderlyingObserverNotification(forPid: key.pid, notification: key.notification)
             } else {
-                subscriptions[key] = handlers
+                self.subscriptions[key] = handlers
             }
         }
-        subscriptionTokens.removeAll()
+        self.subscriptionTokens.removeAll()
     }
+
     // MARK: - Internal AXObserver Management (previously addObserver / removeObserver)
 
     /// Ensures an AXObserver is created for the PID and the notification is added to it.
@@ -206,59 +193,53 @@ private extension AXObserverCenter {
     private func setupUnderlyingObserver(
         forPid pid: pid_t?,
         forElement element: Element?,
-        notification: AXNotification
-    ) -> AXError {
+        notification: AXNotification) -> AXError
+    {
         let targetPid = pid ?? 0
-        logObserverSetup(targetPid: targetPid, element: element, notification: notification)
+        self.logObserverSetup(targetPid: targetPid, element: element, notification: notification)
         guard let observer = getOrCreateObserver(for: targetPid) else {
             axErrorLog("Failed to get/create AXObserver for effective PID \(targetPid) during setup.")
             return .failure
         }
 
-        let elementToObserveAXUI = elementForObservation(
+        let elementToObserveAXUI = self.elementForObservation(
             pid: pid,
             targetPid: targetPid,
             element: element,
-            notification: notification
-        )
+            notification: notification)
 
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let error = AXObserverAddNotification(
             observer,
             elementToObserveAXUI,
             notification.rawValue as CFString,
-            selfPtr
-        )
+            selfPtr)
 
-        logObserverAddResult(targetPid: targetPid, notification: notification, error: error)
+        self.logObserverAddResult(targetPid: targetPid, notification: notification, error: error)
         return error
     }
 
-    func logObserverSetup(targetPid: pid_t, element: Element?, notification: AXNotification) {
+    private func logObserverSetup(targetPid: pid_t, element: Element?, notification: AXNotification) {
         let elementDescriptionForLog = element?.briefDescription() ?? "N/A"
         axDebugLog(
             logSegments(
                 "Setting up underlying AXObserver for effective \(describePid(targetPid))",
                 "Element: \(elementDescriptionForLog)",
-                "notification: \(notification.rawValue)"
-            )
-        )
+                "notification: \(notification.rawValue)"))
     }
 
-    func elementForObservation(
+    private func elementForObservation(
         pid: pid_t?,
         targetPid: pid_t,
         element: Element?,
-        notification: AXNotification
-    ) -> AXUIElement {
+        notification: AXNotification) -> AXUIElement
+    {
         if let specificElement = element {
             axDebugLog(
                 logSegments(
                     "Observer for \(describePid(targetPid))",
                     "using provided specific element \(specificElement.briefDescription())",
-                    "notification \(notification.rawValue)"
-                )
-            )
+                    "notification \(notification.rawValue)"))
             return specificElement.underlyingElement
         }
 
@@ -266,9 +247,7 @@ private extension AXObserverCenter {
             axDebugLog(
                 logSegments(
                     "Global observer: Using system-wide element",
-                    "notification \(notification.rawValue)"
-                )
-            )
+                    "notification \(notification.rawValue)"))
             return AXUIElementCreateSystemWide()
         }
 
@@ -276,17 +255,14 @@ private extension AXObserverCenter {
             logSegments(
                 "Application observer \(describePid(targetPid))",
                 "Using application element",
-                "notification \(notification.rawValue)"
-            )
-        )
+                "notification \(notification.rawValue)"))
         return AXUIElement.application(pid: targetPid)
     }
 
-    func logObserverAddResult(targetPid: pid_t, notification: AXNotification, error: AXError) {
+    private func logObserverAddResult(targetPid: pid_t, notification: AXNotification, error: AXError) {
         let message = logSegments(
             "AXObserver notification \(notification.rawValue) for \(describePid(targetPid))",
-            "status: \(error == .success ? "success" : "error \(error.rawValue)")"
-        )
+            "status: \(error == .success ? "success" : "error \(error.rawValue)")")
         if error == .success {
             axInfoLog(message)
         } else {
@@ -301,18 +277,14 @@ private extension AXObserverCenter {
         axDebugLog(
             logSegments(
                 "Cleanup check for underlying AXObserver notification for \(describePid(targetPid))",
-                "notification: \(notification.rawValue)"
-            )
-        )
+                "notification: \(notification.rawValue)"))
 
         let specificKey = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        guard subscriptions[specificKey]?.isEmpty ?? true else {
+        guard self.subscriptions[specificKey]?.isEmpty ?? true else {
             axDebugLog(
                 logSegments(
                     "Specific subscriptions still exist for \(describePid(pid))",
-                    "notification: \(notification.rawValue). AXObserver notification retained"
-                )
-            )
+                    "notification: \(notification.rawValue). AXObserver notification retained"))
             return
         }
 
@@ -320,9 +292,7 @@ private extension AXObserverCenter {
             axWarningLog(
                 logSegments(
                     "No AXObserver found for \(describePid(targetPid)) during cleanup",
-                    "notification: \(notification.rawValue)"
-                )
-            )
+                    "notification: \(notification.rawValue)"))
             return
         }
 
@@ -333,47 +303,43 @@ private extension AXObserverCenter {
             axInfoLog(
                 logSegments(
                     "Successfully removed notification from AXObserver for \(describePid(targetPid))",
-                    "key: \(notification.rawValue) during cleanup"
-                )
-            )
-            removeObserverIfUnused(targetPid: targetPid)
+                    "key: \(notification.rawValue) during cleanup"))
+            self.removeObserverIfUnused(targetPid: targetPid)
         } else {
             axErrorLog(
                 logSegments(
                     "Failed to remove notification from AXObserver for \(describePid(targetPid))",
                     "key: \(notification.rawValue)",
-                    "error: \(error.rawValue)"
-                )
-            )
+                    "error: \(error.rawValue)"))
         }
     }
 
-    func removeObserverIfUnused(targetPid: pid_t) {
-        let hasAnySubscription = subscriptions.contains { key, handlers in
+    private func removeObserverIfUnused(targetPid: pid_t) {
+        let hasAnySubscription = self.subscriptions.contains { key, handlers in
             let keyPid = key.pid ?? 0
             return keyPid == targetPid && !handlers.isEmpty
         }
         guard !hasAnySubscription, let observer = getObserver(for: targetPid) else { return }
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        removePidObserverInstance(pid: targetPid)
+        self.removePidObserverInstance(pid: targetPid)
     }
 
     // MARK: - Private Methods
 
     private func getObserver(for pid: pid_t) -> AXObserver? {
-        observers.first { $0.pid == pid }?.observer
+        self.observers.first { $0.pid == pid }?.observer
     }
 
     private func getOrCreateObserver(for pid: pid_t) -> AXObserver? {
         if let existing = getObserver(for: pid) {
             return existing
         }
-        return createObserver(for: pid)
+        return self.createObserver(for: pid)
     }
 
     private func createObserver(for pid: pid_t) -> AXObserver? {
         var observer: AXObserver?
-        let callback = makeObserverCallback()
+        let callback = self.makeObserverCallback()
 
         let error = AXObserverCreateWithInfoCallback(pid, callback, &observer)
 
@@ -383,7 +349,7 @@ private extension AXObserverCenter {
             axDebugLog("Added run loop source for new observer PID \(pid)")
 
             let obj = AXObserverObjAndPID(observer: newObserver, pid: pid)
-            observers.append(obj)
+            self.observers.append(obj)
             axDebugLog("Created observer for PID \(pid)")
             return newObserver
         } else {
@@ -392,23 +358,22 @@ private extension AXObserverCenter {
         }
     }
 
-    func makeObserverCallback() -> AXObserverCallbackWithInfo {
+    private func makeObserverCallback() -> AXObserverCallbackWithInfo {
         { _, element, notificationCFString, userInfo, refcon in
             guard let refcon else { return }
             let center = Unmanaged<AXObserverCenter>.fromOpaque(refcon).takeUnretainedValue()
             center.handleObserverCallback(
                 element: element,
                 notificationCFString: notificationCFString,
-                userInfo: userInfo
-            )
+                userInfo: userInfo)
         }
     }
 
-    func handleObserverCallback(
+    private func handleObserverCallback(
         element: AXUIElement,
         notificationCFString: CFString,
-        userInfo: CFDictionary?
-    ) {
+        userInfo: CFDictionary?)
+    {
         var elementPID: pid_t = 0
         AXUIElementGetPid(element, &elementPID)
 
@@ -417,25 +382,22 @@ private extension AXObserverCenter {
                 logSegments(
                     "Received unknown notification string: \(notificationCFString as String)",
                     "for \(describePid(elementPID))",
-                    "Cannot call handler"
-                )
-            )
+                    "Cannot call handler"))
             return
         }
 
-        let nsUserInfo = convertUserInfoDictionary(userInfo)
+        let nsUserInfo = self.convertUserInfoDictionary(userInfo)
         Task { @MainActor in
             self.processNotification(
                 pid: elementPID,
                 notification: axNotification,
                 rawElement: element,
-                nsUserInfo: nsUserInfo
-            )
+                nsUserInfo: nsUserInfo)
         }
     }
 
     private func removePidObserverInstance(pid: pid_t) {
-        observers.removeAll { $0.pid == pid }
+        self.observers.removeAll { $0.pid == pid }
         axDebugLog("Removed AXObserver instance for effective PID \(pid).")
     }
 
@@ -446,9 +408,9 @@ private extension AXObserverCenter {
         pid: pid_t,
         notification: AXNotification,
         rawElement: AXUIElement,
-        nsUserInfo: [String: Any]?
-    ) {
-        subscriptionsLock.lock()
+        nsUserInfo: [String: Any]?)
+    {
+        self.subscriptionsLock.lock()
         defer { subscriptionsLock.unlock() }
 
         // Construct keys for both specific PID and global (nil PID)
@@ -489,7 +451,7 @@ private extension AXObserverCenter {
         }
     }
 
-    func convertUserInfoDictionary(_ userInfo: CFDictionary?) -> [String: Any]? {
+    private func convertUserInfoDictionary(_ userInfo: CFDictionary?) -> [String: Any]? {
         guard let cfUserInfo = userInfo as CFDictionary? else { return nil }
         guard let cfDict = cfUserInfo as? [CFString: CFTypeRef] else {
             axWarningLog("Could not cast userInfo CFDictionary to Dictionary<CFString, CFTypeRef>")

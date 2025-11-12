@@ -6,35 +6,35 @@ import os.log
 private let windowLogger = Logger(subsystem: "boo.peekaboo.axorcist", category: "WindowOperations")
 
 /// Window-specific accessibility operations
-public extension Element {
-
+extension Element {
     // MARK: - Window Identification
 
     /// Whether this element is a window
-    @MainActor var isWindow: Bool {
+    @MainActor public var isWindow: Bool {
         role() == kAXWindowRole
     }
 
     /// Whether this element is the application element
-    @MainActor var isApplication: Bool {
+    @MainActor public var isApplication: Bool {
         role() == kAXApplicationRole
     }
 
     // MARK: - Window State
 
     /// Whether the window is minimized
-    @MainActor func isWindowMinimized() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func isWindowMinimized() -> Bool {
+        guard self.isWindow else { return false }
         return isMinimized() ?? false
     }
 
     /// Whether the window is hidden (its app is hidden)
-    @MainActor func isWindowHidden() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func isWindowHidden() -> Bool {
+        guard self.isWindow else { return false }
 
         // Check if the window's app is hidden by getting the PID and checking the running app
         if let pid = pid(),
-           let app = NSRunningApplication(processIdentifier: pid) {
+           let app = NSRunningApplication(processIdentifier: pid)
+        {
             return app.isHidden
         }
 
@@ -42,23 +42,23 @@ public extension Element {
     }
 
     /// Whether the window is visible on any screen
-    @MainActor func isWindowVisible() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func isWindowVisible() -> Bool {
+        guard self.isWindow else { return false }
 
         // Can't be visible if minimized or hidden
-        if isWindowMinimized() || isWindowHidden() {
+        if self.isWindowMinimized() || self.isWindowHidden() {
             return false
         }
 
         // Check if window is on any screen
-        return isOnAnyScreen()
+        return self.isOnAnyScreen()
     }
 
     // MARK: - Window Actions
 
     /// Minimize a window using the most appropriate method
-    @MainActor func minimizeWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func minimizeWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         // First try using the minimize button
         if let minimizeButton = minimizeButton() {
@@ -81,8 +81,8 @@ public extension Element {
     }
 
     /// Unminimize a window
-    @MainActor func unminimizeWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func unminimizeWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         let error = setMinimized(false)
         if error == .success {
@@ -94,8 +94,8 @@ public extension Element {
     }
 
     /// Maximize a window using the most appropriate method
-    @MainActor func maximizeWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func maximizeWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         // First try using the zoom button (green button)
         if let zoomButton = zoomButton() {
@@ -135,8 +135,8 @@ public extension Element {
     }
 
     /// Close a window using the most appropriate method
-    @MainActor func closeWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func closeWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         // First try using the close button
         if let closeButton = closeButton() {
@@ -161,8 +161,8 @@ public extension Element {
     }
 
     /// Raise window to front
-    @MainActor func raiseWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func raiseWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         do {
             try performAction(.raise)
@@ -174,29 +174,30 @@ public extension Element {
     }
 
     /// Show a window (unminimize, unhide app, and raise)
-    @MainActor func showWindow() -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func showWindow() -> Bool {
+        guard self.isWindow else { return false }
 
         // Unminimize if needed
-        if isWindowMinimized() {
-            _ = unminimizeWindow()
+        if self.isWindowMinimized() {
+            _ = self.unminimizeWindow()
         }
 
         // Unhide app if needed
         if let pid = pid(),
            let app = NSRunningApplication(processIdentifier: pid),
-           app.isHidden {
+           app.isHidden
+        {
             app.unhide()
         }
 
         // Raise to front
-        return raiseWindow()
+        return self.raiseWindow()
     }
 
     /// Focus a window (activate app and raise window)
-    @MainActor func focusWindow() -> Bool {
+    @MainActor public func focusWindow() -> Bool {
         windowLogger.debug("AXorcist focusWindow() called")
-        guard isWindow else {
+        guard self.isWindow else {
             windowLogger.error("focusWindow called on non-window element")
             windowLogger.debug("Not a window element")
             return false
@@ -245,8 +246,7 @@ public extension Element {
             let mainResult = AXUIElementSetAttributeValue(
                 underlyingElement,
                 kAXMainAttribute as CFString,
-                kCFBooleanTrue
-            )
+                kCFBooleanTrue)
 
             if mainResult == .success {
                 windowLogger.info("Window focus completed via main window fallback")
@@ -261,20 +261,20 @@ public extension Element {
     // MARK: - Window Geometry
 
     /// Move window to a new position
-    @MainActor func moveWindow(to position: CGPoint) -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func moveWindow(to position: CGPoint) -> Bool {
+        guard self.isWindow else { return false }
         return setPosition(position) == .success
     }
 
     /// Resize window to a new size
-    @MainActor func resizeWindow(to size: CGSize) -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func resizeWindow(to size: CGSize) -> Bool {
+        guard self.isWindow else { return false }
         return setSize(size) == .success
     }
 
     /// Set window bounds (position and size)
-    @MainActor func setWindowBounds(_ bounds: CGRect) -> Bool {
-        guard isWindow else { return false }
+    @MainActor public func setWindowBounds(_ bounds: CGRect) -> Bool {
+        guard self.isWindow else { return false }
         setFrame(bounds)
         return true
     }
@@ -282,8 +282,8 @@ public extension Element {
     // MARK: - Screen Detection
 
     /// Get the screen containing the window
-    @MainActor func windowScreen() -> NSScreen? {
-        guard isWindow, let frame = frame() else { return nil }
+    @MainActor public func windowScreen() -> NSScreen? {
+        guard self.isWindow, let frame = frame() else { return nil }
 
         // Find screen containing window center
         let center = CGPoint(x: frame.midX, y: frame.midY)
@@ -301,8 +301,8 @@ public extension Element {
     }
 
     /// Whether the window is on any screen
-    @MainActor func isOnAnyScreen() -> Bool {
-        guard isWindow, let frame = frame() else { return false }
+    @MainActor public func isOnAnyScreen() -> Bool {
+        guard self.isWindow, let frame = frame() else { return false }
 
         return NSScreen.screens.contains { screen in
             screen.frame.intersects(frame)
@@ -310,8 +310,8 @@ public extension Element {
     }
 
     /// Whether the window is fully on screen
-    @MainActor func isFullyOnScreen() -> Bool {
-        guard isWindow, let frame = frame() else { return false }
+    @MainActor public func isFullyOnScreen() -> Bool {
+        guard self.isWindow, let frame = frame() else { return false }
 
         return NSScreen.screens.contains { screen in
             screen.frame.contains(frame)
@@ -321,8 +321,8 @@ public extension Element {
     // MARK: - Application Actions
 
     /// Activate the application (bring to front)
-    @MainActor func activateApplication() -> Bool {
-        guard isApplication else { return false }
+    @MainActor public func activateApplication() -> Bool {
+        guard self.isApplication else { return false }
 
         // Get the application's process ID
         guard let pid = pid() else { return false }
@@ -338,22 +338,22 @@ public extension Element {
 
 // MARK: - Convenience Functions
 
-public extension Element {
+extension Element {
     /// Find all windows for this application
-    @MainActor func applicationWindows() -> [Element]? {
-        guard isApplication else { return nil }
+    @MainActor public func applicationWindows() -> [Element]? {
+        guard self.isApplication else { return nil }
         return windows()
     }
 
     /// Find the main/key window for this application
-    @MainActor func applicationMainWindow() -> Element? {
+    @MainActor public func applicationMainWindow() -> Element? {
         guard let windows = applicationWindows() else { return nil }
         return windows.first { $0.isMain() ?? false }
     }
 
     /// Find the focused window for this application
-    @MainActor func applicationFocusedWindow() -> Element? {
-        guard isApplication else { return nil }
+    @MainActor public func applicationFocusedWindow() -> Element? {
+        guard self.isApplication else { return nil }
         return focusedWindow()
     }
 }

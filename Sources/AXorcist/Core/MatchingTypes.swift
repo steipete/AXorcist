@@ -14,9 +14,9 @@ public struct Criterion: Codable, Sendable {
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        attribute = try container.decode(String.self, forKey: .attribute)
-        value = try container.decode(String.self, forKey: .value)
-        matchType = try container.decodeIfPresent(JSONPathHintComponent.MatchType.self, forKey: .matchType)
+        self.attribute = try container.decode(String.self, forKey: .attribute)
+        self.value = try container.decode(String.self, forKey: .value)
+        self.matchType = try container.decodeIfPresent(JSONPathHintComponent.MatchType.self, forKey: .matchType)
     }
 
     // MARK: Public
@@ -27,9 +27,9 @@ public struct Criterion: Codable, Sendable {
 
     public func encode(to encoder: any Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(attribute, forKey: .attribute)
-        try container.encode(value, forKey: .value)
-        try container.encodeIfPresent(matchType, forKey: .matchType)
+        try container.encode(self.attribute, forKey: .attribute)
+        try container.encode(self.value, forKey: .value)
+        try container.encodeIfPresent(self.matchType, forKey: .matchType)
     }
 
     // MARK: Internal
@@ -50,10 +50,12 @@ public struct PathStep: Codable, Sendable {
     // MARK: Lifecycle
 
     // Default initializer
-    public init(criteria: [Criterion],
-                matchType: JSONPathHintComponent.MatchType? = .exact,
-                matchAllCriteria: Bool? = true,
-                maxDepthForStep: Int? = nil) { // Added maxDepthForStep
+    public init(
+        criteria: [Criterion],
+        matchType: JSONPathHintComponent.MatchType? = .exact,
+        matchAllCriteria: Bool? = true,
+        maxDepthForStep: Int? = nil)
+    { // Added maxDepthForStep
         self.criteria = criteria
         self.matchType = matchType
         self.matchAllCriteria = matchAllCriteria
@@ -69,7 +71,7 @@ public struct PathStep: Codable, Sendable {
 
     /// Returns a string representation suitable for logging
     public func descriptionForLog() -> String {
-        let critDesc = criteria.map { criterion -> String in
+        let critDesc = self.criteria.map { criterion -> String in
             "\(criterion.attribute):\(criterion.value)(\((criterion.matchType ?? .exact).rawValue))"
         }.joined(separator: ", ")
 
@@ -108,8 +110,8 @@ public struct Locator: Codable, Sendable {
         descendantCriteria: [String: String]? = nil,
         requireAction: String? = nil,
         computedNameContains: String? = nil,
-        debugPathSearch: Bool? = false
-    ) {
+        debugPathSearch: Bool? = false)
+    {
         self.matchAll = matchAll
         self.criteria = criteria
         self.rootElementPathHint = rootElementPathHint

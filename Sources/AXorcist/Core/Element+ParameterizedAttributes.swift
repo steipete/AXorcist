@@ -11,16 +11,16 @@ extension Element {
     @MainActor
     public func parameterizedAttribute<T>(
         _ attribute: Attribute<T>,
-        forParameter parameter: Any
-    ) -> T? {
+        forParameter parameter: Any) -> T?
+    {
         guard let cfParameter = convertParameterToCFTypeRef(parameter, attribute: attribute) else {
             return nil
         }
 
         guard let resultCFValue = copyParameterizedAttributeValue(
             attribute: attribute,
-            parameter: cfParameter
-        ) else {
+            parameter: cfParameter)
+        else {
             return nil
         }
 
@@ -29,7 +29,7 @@ extension Element {
             return nil
         }
 
-        return castValueToType(finalValue, attribute: attribute)
+        return self.castValueToType(finalValue, attribute: attribute)
     }
 
     @MainActor
@@ -51,15 +51,14 @@ extension Element {
     @MainActor
     private func copyParameterizedAttributeValue(
         attribute: Attribute<some Any>,
-        parameter: CFTypeRef
-    ) -> CFTypeRef? {
+        parameter: CFTypeRef) -> CFTypeRef?
+    {
         var value: CFTypeRef?
         let error = AXUIElementCopyParameterizedAttributeValue(
             underlyingElement,
             attribute.rawValue as CFString,
             parameter,
-            &value
-        )
+            &value)
 
         if error != .success {
             axDebugLog("Error \(error.rawValue) getting parameterized attribute \(attribute.rawValue)")
@@ -81,8 +80,7 @@ extension Element {
             if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
             axDebugLog(
                 "Failed to cast unwrapped value for String attribute \(attribute.rawValue). " +
-                    "Value: \(finalValue)"
-            )
+                    "Value: \(finalValue)")
             return nil
         }
 
@@ -92,58 +90,57 @@ extension Element {
 
         axWarningLog(
             "Fallback cast attempt for parameterized attribute '\(attribute.rawValue)' " +
-                "to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)"
-        )
+                "to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)")
         return nil
     }
 }
 
 // MARK: - Specific Parameterized Attribute Accessors
 
-public extension Element {
+extension Element {
     @MainActor
-    func string(forRange range: CFRange) -> String? {
-        parameterizedAttribute(.stringForRangeParameterized, forParameter: range)
+    public func string(forRange range: CFRange) -> String? {
+        self.parameterizedAttribute(.stringForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    func range(forLine line: Int) -> CFRange? {
-        parameterizedAttribute(.rangeForLineParameterized, forParameter: NSNumber(value: line))
+    public func range(forLine line: Int) -> CFRange? {
+        self.parameterizedAttribute(.rangeForLineParameterized, forParameter: NSNumber(value: line))
     }
 
     @MainActor
-    func bounds(forRange range: CFRange) -> CGRect? {
+    public func bounds(forRange range: CFRange) -> CGRect? {
         // The underlying attribute returns AXValueRef holding CGRect
         // The generic parameterizedAttribute should handle unwrapping if T is CGRect
-        parameterizedAttribute(.boundsForRangeParameterized, forParameter: range)
+        self.parameterizedAttribute(.boundsForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    func line(forIndex index: Int) -> Int? {
-        parameterizedAttribute(.lineForIndexParameterized, forParameter: NSNumber(value: index))
+    public func line(forIndex index: Int) -> Int? {
+        self.parameterizedAttribute(.lineForIndexParameterized, forParameter: NSNumber(value: index))
     }
 
     @MainActor
-    func attributedString(forRange range: CFRange) -> NSAttributedString? {
-        parameterizedAttribute(.attributedStringForRangeParameterized, forParameter: range)
+    public func attributedString(forRange range: CFRange) -> NSAttributedString? {
+        self.parameterizedAttribute(.attributedStringForRangeParameterized, forParameter: range)
     }
 
     @MainActor
-    func cell(forColumn column: Int, row: Int) -> Element? {
+    public func cell(forColumn column: Int, row: Int) -> Element? {
         // Parameter for AXCellForColumnAndRowParameterized is an array of two NSNumbers: [col, row]
         let params = [NSNumber(value: column), NSNumber(value: row)]
         guard let axUIElement: AXUIElement = parameterizedAttribute(
             .cellForColumnAndRowParameterized,
-            forParameter: params
-        ) else {
+            forParameter: params)
+        else {
             return nil
         }
         return Element(axUIElement)
     }
 
     @MainActor
-    func actionDescription(_ actionName: String) -> String? {
+    public func actionDescription(_ actionName: String) -> String? {
         // kAXActionDescriptionAttribute is already Attribute<String>.actionDescription
-        parameterizedAttribute(.actionDescription, forParameter: actionName)
+        self.parameterizedAttribute(.actionDescription, forParameter: actionName)
     }
 }

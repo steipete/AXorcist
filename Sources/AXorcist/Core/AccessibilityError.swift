@@ -24,21 +24,28 @@ public enum AccessibilityError: Error, CustomStringConvertible {
     case tokenNotFound(tokenId: UUID) // Subscription token not found
 
     // Attribute Errors
-    case attributeUnsupported(attribute: String,
-                              elementDescription: String?) // Attribute is not supported by the element.
+    case attributeUnsupported(
+        attribute: String,
+        elementDescription: String?) // Attribute is not supported by the element.
     case attributeNotReadable(attribute: String, elementDescription: String?) // Attribute value cannot be read.
     case attributeNotSettable(attribute: String, elementDescription: String?) // Attribute is not settable.
-    case typeMismatch(expected: String, actual: String,
-                      attribute: String?) // Value type does not match attribute's expected type.
-    case valueParsingFailed(details: String,
-                            attribute: String?) // Failed to parse string into the required type for an attribute.
-    case valueNotAXValue(attribute: String,
-                         elementDescription: String?) // Value is not an AXValue type when one is expected.
+    case typeMismatch(
+        expected: String,
+        actual: String,
+        attribute: String?) // Value type does not match attribute's expected type.
+    case valueParsingFailed(
+        details: String,
+        attribute: String?) // Failed to parse string into the required type for an attribute.
+    case valueNotAXValue(
+        attribute: String,
+        elementDescription: String?) // Value is not an AXValue type when one is expected.
 
     // Action Errors
     case actionUnsupported(action: String, elementDescription: String?) // Action is not supported by the element.
-    case actionFailed(action: String, elementDescription: String?,
-                      underlyingError: AXError?) // Action failed. Optional message and AXError.
+    case actionFailed(
+        action: String,
+        elementDescription: String?,
+        underlyingError: AXError?) // Action failed. Optional message and AXError.
 
     // Generic & System Errors
     case unknownAXError(AXError) // An unknown or unexpected AXError occurred.

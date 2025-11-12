@@ -4,9 +4,9 @@ import Foundation
 // GlobalAXLogger should be available
 
 // Extension to generate a descriptive path string
-public extension Element {
+extension Element {
     @MainActor
-    func generatePathString(upTo ancestor: Element? = nil) -> String { // Removed logging params
+    public func generatePathString(upTo ancestor: Element? = nil) -> String { // Removed logging params
         var pathComponents: [String] = []
         var currentElement: Element? = self
         var depth = 0
@@ -39,7 +39,8 @@ public extension Element {
             let parentRole = parentElement?.role()
 
             if role == AXRoleNames.kAXApplicationRole ||
-                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil)
+            {
                 let locationType = role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"
                 let logMessage2 = "Stopping at \(locationType): \(briefDesc)"
                 axDebugLog(logMessage2)
@@ -67,7 +68,7 @@ public extension Element {
 
     // New function to return path components as an array
     @MainActor
-    func generatePathArray(upTo ancestor: Element? = nil) -> [String] { // Removed logging params
+    public func generatePathArray(upTo ancestor: Element? = nil) -> [String] { // Removed logging params
         var pathComponents: [String] = []
         var currentElement: Element? = self
         var depth = 0
@@ -96,7 +97,8 @@ public extension Element {
             let parentRole = parentElement?.role()
 
             if role == AXRoleNames.kAXApplicationRole ||
-                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil) {
+                (role == AXRoleNames.kAXWindowRole && parentRole == AXRoleNames.kAXApplicationRole && ancestor == nil)
+            {
                 let locationType = role == AXRoleNames.kAXApplicationRole ? "Application" : "Window under App"
                 axDebugLog("Stopping at \(locationType): \(briefDesc)")
                 break

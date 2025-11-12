@@ -17,8 +17,8 @@ func matchStringAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
-    depth: Int
-) -> Bool {
+    depth: Int) -> Bool
+{
     if let currentValue = element.attribute(Attribute<String>(key)) {
         if currentValue != expectedValueString {
             axDebugLog(
@@ -26,22 +26,21 @@ func matchStringAttribute(
                     "but found '\(currentValue)'. No match.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return false
         }
         return true
     } else {
         if expectedValueString.lowercased() == "nil" ||
             expectedValueString == AXMiscConstants.kAXNotAvailableString ||
-            expectedValueString.isEmpty {
+            expectedValueString.isEmpty
+        {
             axDebugLog(
                 "attributesMatch [D\(depth)]: Attribute '\(key)' not found, but expected value " +
                     "('\(expectedValueString)') suggests absence is OK. Match for this key.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return true
         } else {
             axDebugLog(
@@ -49,8 +48,7 @@ func matchStringAttribute(
                     "(expected '\(expectedValueString)') not found or not convertible to String. No match.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return false
         }
     }
@@ -61,8 +59,8 @@ func matchArrayAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
-    depth: Int
-) -> Bool {
+    depth: Int) -> Bool
+{
     guard let expectedArray = decodeExpectedArray(fromString: expectedValueString) else {
         logArrayAttributeWarning(
             "Could not decode expected array string '\(expectedValueString)' for attribute '\(key)'.",
@@ -82,15 +80,14 @@ func matchArrayAttribute(
             expectedValueString: expectedValueString,
             key: key,
             depth: depth)
-    case .value(let actual):
+    case let .value(actual):
         guard Set(actual) == Set(expectedArray) else {
             axDebugLog(
                 "matchArrayAttribute [D\(depth)]: Array Attribute '\(key)' expected '\(expectedArray)', " +
                     "but found '\(actual)'. Sets differ. No match.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return false
         }
         return true
@@ -124,15 +121,15 @@ private func handleMissingArrayAttribute(
     expectedArray: [String],
     expectedValueString: String,
     key: String,
-    depth: Int) -> Bool {
+    depth: Int) -> Bool
+{
     if expectedArray.isEmpty {
         axDebugLog(
             "matchArrayAttribute [D\(depth)]: Array Attribute '\(key)' not found, " +
                 "but expected array was empty. Match for this key.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
         return true
     }
     axDebugLog(
@@ -140,8 +137,7 @@ private func handleMissingArrayAttribute(
             "(expected '\(expectedValueString)') not found in element. No match.",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return false
 }
 
@@ -150,8 +146,7 @@ private func logArrayAttributeWarning(_ message: String, depth: Int) {
         "matchArrayAttribute [D\(depth)]: \(message)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
 }
 
 @MainActor
@@ -159,8 +154,8 @@ func matchBooleanAttribute(
     element: Element,
     key: String,
     expectedValueString: String,
-    depth: Int
-) -> Bool {
+    depth: Int) -> Bool
+{
     var currentBoolValue: Bool?
 
     switch key {
@@ -175,8 +170,7 @@ func matchBooleanAttribute(
             "matchBooleanAttribute [D\(depth)]: Unknown boolean key '\(key)'. This should not happen.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
         return false
     }
 
@@ -188,8 +182,7 @@ func matchBooleanAttribute(
                     "but found '\(actualBool)'. No match.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return false
         }
         return true
@@ -199,8 +192,7 @@ func matchBooleanAttribute(
                 "(expected '\(expectedValueString)') not found in element. No match.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
         return false
     }
 }
@@ -210,8 +202,8 @@ func matchComputedNameAttributes(
     element: Element,
     computedNameEquals: String?,
     computedNameContains: String?,
-    depth: Int
-) async -> Bool {
+    depth: Int) async -> Bool
+{
     if computedNameEquals == nil, computedNameContains == nil {
         return true // No computed name criteria to match, so this part passes.
     }
@@ -226,8 +218,7 @@ func matchComputedNameAttributes(
                         "!= '\(equals)'. No match.",
                     file: #file,
                     function: #function,
-                    line: #line
-                )
+                    line: #line)
                 return false
             }
         }
@@ -238,8 +229,7 @@ func matchComputedNameAttributes(
                         "does not contain '\(contains)'. No match.",
                     file: #file,
                     function: #function,
-                    line: #line
-                )
+                    line: #line)
                 return false
             }
         }
@@ -254,8 +244,7 @@ func matchComputedNameAttributes(
                     "but element has none or it's not a string. No match.",
                 file: #file,
                 function: #function,
-                line: #line
-            )
+                line: #line)
             return false
         }
         return true

@@ -6,8 +6,7 @@ import Testing
 @Suite(
     "AXorcist Query Integration Tests",
     .tags(.automation),
-    .enabled(if: AXTestEnvironment.runAutomationScenarios)
-)
+    .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct QueryIntegrationTests {
     @Test("Launch TextEdit and get focused element", .tags(.automation))
@@ -23,11 +22,11 @@ struct QueryIntegrationTests {
             ApplicationServices.kAXRoleAttribute as String,
             ApplicationServices.kAXRoleDescriptionAttribute as String,
             ApplicationServices.kAXValueAttribute as String,
-            "AXPlaceholderValue"
+            "AXPlaceholderValue",
         ]
 
         let response = try self.executeCommand(
-            envelope: createCommandEnvelope(
+            envelope: self.createCommandEnvelope(
                 commandId: commandId,
                 command: .getFocusedElement,
                 application: "com.apple.TextEdit",
@@ -54,7 +53,7 @@ struct QueryIntegrationTests {
 
         try await self.withTextEdit("getAttributes") {
             let response = try self.executeCommand(
-                envelope: createCommandEnvelope(
+                envelope: self.createCommandEnvelope(
                     commandId: commandId,
                     command: .getAttributes,
                     application: textEditBundleId,
@@ -77,12 +76,11 @@ struct QueryIntegrationTests {
         let requestedAttributes = ["AXRole", "AXValue", "AXSelectedText", "AXNumberOfCharacters"]
 
         let textAreaLocator = Locator(
-            criteria: [Criterion(attribute: "AXRole", value: textAreaRole)]
-        )
+            criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
 
         try await self.withTextEdit("query") {
             let response = try self.executeCommand(
-                envelope: createCommandEnvelope(
+                envelope: self.createCommandEnvelope(
                     commandId: commandId,
                     command: .query,
                     application: textEditBundleId,
@@ -104,12 +102,11 @@ struct QueryIntegrationTests {
         let textAreaRole = ApplicationServices.kAXTextAreaRole as String
 
         let textAreaLocator = Locator(
-            criteria: [Criterion(attribute: "AXRole", value: textAreaRole)]
-        )
+            criteria: [Criterion(attribute: "AXRole", value: textAreaRole)])
 
         try await self.withTextEdit("describeElement") {
             let response = try self.executeCommand(
-                envelope: createCommandEnvelope(
+                envelope: self.createCommandEnvelope(
                     commandId: commandId,
                     command: .describeElement,
                     application: textEditBundleId,
@@ -131,8 +128,8 @@ struct QueryIntegrationTests {
         application: String,
         attributes: [String]? = nil,
         locator: Locator? = nil,
-        debugLogging: Bool = true
-    ) -> CommandEnvelope {
+        debugLogging: Bool = true) -> CommandEnvelope
+    {
         CommandEnvelope(
             commandId: commandId,
             command: command,
@@ -140,8 +137,7 @@ struct QueryIntegrationTests {
             attributes: attributes,
             debugLogging: debugLogging,
             locator: locator,
-            payload: nil
-        )
+            payload: nil)
     }
 
     private func encodeCommandToJSON(_ commandEnvelope: CommandEnvelope) throws -> String {
@@ -175,13 +171,12 @@ struct QueryIntegrationTests {
         output: String?,
         errorOutput: String?,
         exitCode: Int32,
-        commandName: String
-    ) throws -> String {
+        commandName: String) throws -> String
+    {
         #expect(exitCode == 0, "axorc process should exit with 0 for \(commandName). Error: \(errorOutput ?? "N/A")")
         #expect(
             errorOutput?.isEmpty ?? true,
-            "STDERR should be empty on success. Got: \(errorOutput ?? "")"
-        )
+            "STDERR should be empty on success. Got: \(errorOutput ?? "")")
 
         guard let outputString = output, !outputString.isEmpty else {
             throw TestError.generic("Output string was nil or empty for \(commandName).")
@@ -195,7 +190,8 @@ struct QueryIntegrationTests {
         envelope: CommandEnvelope,
         commandName: String,
         viaStdin: Bool = false,
-        arguments: [String] = []) throws -> QueryResponse {
+        arguments: [String] = []) throws -> QueryResponse
+    {
         let jsonString = try encodeCommandToJSON(envelope)
         print("Sending \(commandName) command to axorc: \(jsonString)")
         let result: CommandResult
@@ -210,7 +206,7 @@ struct QueryIntegrationTests {
             errorOutput: result.errorOutput,
             exitCode: result.exitCode,
             commandName: commandName)
-        return try decodeQueryResponse(from: outputString, commandName: commandName)
+        return try self.decodeQueryResponse(from: outputString, commandName: commandName)
     }
 
     private func withTextEdit(_ context: String, action: () async throws -> Void) async throws {
@@ -237,31 +233,37 @@ struct QueryIntegrationTests {
         _ response: QueryResponse,
         expectedCommandId: String,
         expectedRole: String,
-        requestedAttributes: [String]) throws {
-        validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .getFocusedElement)
+        requestedAttributes: [String]) throws
+    {
+        self.validateQueryResponseBasics(
+            response,
+            expectedCommandId: expectedCommandId,
+            expectedCommand: .getFocusedElement)
         guard let elementData = response.data else {
             throw TestError.generic("QueryResponse data is nil for getFocusedElement.")
         }
         let actualRole = elementData.attributes?[ApplicationServices.kAXRoleAttribute as String]?.anyValue as? String
-        let attributeKeys = elementData.attributes?.keys.map { $0 } ?? []
+        let attributeKeys = elementData.attributes?.keys.map(\.self) ?? []
         let roleMessage = "Focused element role should be '\(expectedRole)'. " +
             "Got: '\(actualRole ?? "nil")'. Attributes: \(attributeKeys)"
         #expect(actualRole == expectedRole, Comment(roleMessage))
         #expect(
             elementData.attributes?.keys.contains(ApplicationServices.kAXValueAttribute as String) == true,
-            "Focused element attributes should contain kAXValueAttribute as it was requested."
-        )
+            "Focused element attributes should contain kAXValueAttribute as it was requested.")
         #expect(
             requestedAttributes.allSatisfy { elementData.attributes?.keys.contains($0) == true },
-            "Focused element should include all requested attributes."
-        )
+            "Focused element should include all requested attributes.")
     }
 
     private func assertApplicationAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedTitle: String) throws {
-        validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .getAttributes)
+        expectedTitle: String) throws
+    {
+        self.validateQueryResponseBasics(
+            response,
+            expectedCommandId: expectedCommandId,
+            expectedCommand: .getAttributes)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("AXElement attributes should not be nil for getAttributes.")
         }
@@ -276,8 +278,9 @@ struct QueryIntegrationTests {
     private func assertQueryAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedRole: String) throws {
-        validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .query)
+        expectedRole: String) throws
+    {
+        self.validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .query)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("AXElement attributes should not be nil for query.")
         }
@@ -293,8 +296,12 @@ struct QueryIntegrationTests {
     private func assertDescribeAttributes(
         _ response: QueryResponse,
         expectedCommandId: String,
-        expectedRole: String) throws {
-        validateQueryResponseBasics(response, expectedCommandId: expectedCommandId, expectedCommand: .describeElement)
+        expectedRole: String) throws
+    {
+        self.validateQueryResponseBasics(
+            response,
+            expectedCommandId: expectedCommandId,
+            expectedCommand: .describeElement)
         guard let attributes = response.data?.attributes else {
             throw TestError.generic("Attributes dictionary is nil in describeElement response.")
         }
@@ -315,18 +322,16 @@ struct QueryIntegrationTests {
     private func validateQueryResponseBasics(
         _ queryResponse: QueryResponse,
         expectedCommandId: String,
-        expectedCommand: CommandType
-    ) {
+        expectedCommand: CommandType)
+    {
         #expect(queryResponse.commandId == expectedCommandId)
         #expect(
             queryResponse.success,
-            "Command should succeed. Error: \(queryResponse.error?.message ?? "None")"
-        )
+            "Command should succeed. Error: \(queryResponse.error?.message ?? "None")")
         #expect(queryResponse.command == expectedCommand.rawValue)
         #expect(
             queryResponse.error == nil,
-            "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")"
-        )
+            "Error field should be nil. Got: \(queryResponse.error?.message ?? "N/A")")
         #expect(queryResponse.data != nil, "Data field should not be nil.")
     }
 }

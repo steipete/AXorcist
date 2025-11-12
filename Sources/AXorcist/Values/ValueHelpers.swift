@@ -27,8 +27,8 @@ public func copyAttributeValue(element: AXUIElement, attribute: String) -> CFTyp
 @MainActor
 public func axValue<T>(
     of element: AXUIElement,
-    attr: String
-) -> T? {
+    attr: String) -> T?
+{
     let rawCFValue = copyAttributeValue(element: element, attribute: attr)
     // ValueUnwrapper.unwrap and castValueToType are assumed to be refactored
     // to use GlobalAXLogger internally or handle their own logging if necessary.
@@ -36,10 +36,11 @@ public func axValue<T>(
 
     guard let value = unwrappedValue else {
         // Minimal log here, ValueUnwrapper might provide more detail if needed.
-        axDebugLog("axValue: ValueUnwrapper returned nil for attribute '\(attr)'.",
-                   file: #file,
-                   function: #function,
-                   line: #line)
+        axDebugLog(
+            "axValue: ValueUnwrapper returned nil for attribute '\(attr)'.",
+            file: #file,
+            function: #function,
+            line: #line)
         return nil
     }
 

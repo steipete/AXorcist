@@ -10,14 +10,13 @@ import Foundation
 /// - Focus change monitoring and reporting
 /// - Integration with application targeting
 @MainActor
-public extension AXorcist {
-    func handleGetFocusedElement(command: GetFocusedElementCommand) -> AXResponse {
+extension AXorcist {
+    public func handleGetFocusedElement(command: GetFocusedElementCommand) -> AXResponse {
         let appInfo = String(describing: command.appIdentifier)
         let attributes = command.attributesToReturn?.joined(separator: ", ") ?? "default"
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
-            message: "HandleGetFocused: App '\(appInfo)', Attributes: \(attributes)"
-        ))
+            message: "HandleGetFocused: App '\(appInfo)', Attributes: \(attributes)"))
 
         guard let appElement = getApplicationElement(for: command.appIdentifier ?? "focused") else {
             let target = String(describing: command.appIdentifier)
@@ -29,8 +28,7 @@ public extension AXorcist {
         let appDescription = appElement.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "HandleGetFocused: Got app element: \(appDescription)"
-        ))
+            message: "HandleGetFocused: Got app element: \(appDescription)"))
 
         guard let focusedElement = appElement.focusedUIElement() else {
             let target = String(describing: command.appIdentifier)
@@ -45,15 +43,13 @@ public extension AXorcist {
         let focusedDescription = focusedElement.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "HandleGetFocused: Focused element: \(focusedDescription)"
-        ))
+            message: "HandleGetFocused: Focused element: \(focusedDescription)"))
 
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
         let elementData = buildQueryResponse(
             element: focusedElement,
             attributesToFetch: attributesToFetch,
-            includeChildrenBrief: command.includeChildrenBrief ?? false
-        )
+            includeChildrenBrief: command.includeChildrenBrief ?? false)
 
         return .successResponse(payload: AnyCodable(elementData))
     }

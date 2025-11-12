@@ -167,8 +167,8 @@ public struct QueryCommand: Sendable {
         locator: Locator,
         attributesToReturn: [String]? = nil,
         maxDepthForSearch: Int = 10,
-        includeChildrenBrief: Bool? = nil
-    ) {
+        includeChildrenBrief: Bool? = nil)
+    {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.attributesToReturn = attributesToReturn
@@ -193,8 +193,8 @@ public struct PerformActionCommand: Sendable {
         locator: Locator,
         action: String,
         value: AnyCodable? = nil,
-        maxDepthForSearch: Int = 10
-    ) {
+        maxDepthForSearch: Int = 10)
+    {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.action = action
@@ -239,8 +239,8 @@ public struct DescribeElementCommand: Sendable {
         maxDepthForSearch: Int = 10,
         depth: Int = 3,
         includeIgnored: Bool = false,
-        maxSearchDepth: Int = 10
-    ) {
+        maxSearchDepth: Int = 10)
+    {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.formatOption = formatOption
@@ -269,8 +269,8 @@ public struct ExtractTextCommand: Sendable {
         locator: Locator,
         maxDepthForSearch: Int = 10,
         includeChildren: Bool? = nil,
-        maxDepth: Int? = nil
-    ) {
+        maxDepth: Int? = nil)
+    {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.maxDepthForSearch = maxDepthForSearch
@@ -313,8 +313,8 @@ public struct GetElementAtPointCommand: Sendable {
         appIdentifier: String? = nil,
         pid: Int? = nil,
         attributesToReturn: [String]? = nil,
-        includeChildrenBrief: Bool? = nil
-    ) {
+        includeChildrenBrief: Bool? = nil)
+    {
         self.point = point
         self.appIdentifier = appIdentifier
         self.pid = pid
@@ -329,8 +329,8 @@ public struct GetElementAtPointCommand: Sendable {
         x: Float,
         y: Float,
         attributesToReturn: [String]? = nil,
-        includeChildrenBrief: Bool? = nil
-    ) {
+        includeChildrenBrief: Bool? = nil)
+    {
         self.point = CGPoint(x: CGFloat(x), y: CGFloat(y))
         self.xCoordinate = x
         self.yCoordinate = y
@@ -378,8 +378,8 @@ public struct ObserveCommand: Sendable {
         watchChildren: Bool = false,
         notificationName: AXNotification,
         includeElementDetails: [String]? = nil,
-        maxDepthForSearch: Int = 10
-    ) {
+        maxDepthForSearch: Int = 10)
+    {
         self.appIdentifier = appIdentifier
         self.locator = locator
         self.notifications = notifications
@@ -411,8 +411,8 @@ public struct CollectAllCommand: Sendable {
         attributesToReturn: [String]? = nil,
         maxDepth: Int = 10,
         filterCriteria: [String: String]? = nil,
-        valueFormatOption: ValueFormatOption? = .smart
-    ) {
+        valueFormatOption: ValueFormatOption? = .smart)
+    {
         self.appIdentifier = appIdentifier
         self.attributesToReturn = attributesToReturn
         self.maxDepth = maxDepth

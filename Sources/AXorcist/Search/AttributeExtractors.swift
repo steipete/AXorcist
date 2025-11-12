@@ -10,8 +10,8 @@ import Foundation
 func extractDirectPropertyValue(
     for attributeName: String,
     from element: Element,
-    outputFormat: OutputFormat
-) -> (value: Any?, handled: Bool) {
+    outputFormat: OutputFormat) -> (value: Any?, handled: Bool)
+{
     if let extractor = AttributeDirectMapping(attributeName: attributeName) {
         return extractor.extract(from: element, format: outputFormat)
     }
@@ -23,8 +23,8 @@ func determineAttributesToFetch(
     requestedAttributes: [String]?,
     forMultiDefault: Bool,
     targetRole: String?,
-    element: Element
-) -> [String] {
+    element: Element) -> [String]
+{
     if forMultiDefault { return defaultMultiAttributes(for: targetRole) }
 
     if let requested = requestedAttributes, !requested.isEmpty {
@@ -39,15 +39,13 @@ private func fetchAllAttributeNames(from element: Element) -> [String] {
     guard let names = element.attributeNames(), !names.isEmpty else {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "determineAttributesToFetch: Falling back to defaults; unable to fetch attribute names."
-        ))
+            message: "determineAttributesToFetch: Falling back to defaults; unable to fetch attribute names."))
         return []
     }
 
     GlobalAXLogger.shared.log(AXLogEntry(
         level: .debug,
-        message: "determineAttributesToFetch: No specific attributes requested, fetched all \(names.count)"
-    ))
+        message: "determineAttributesToFetch: No specific attributes requested, fetched all \(names.count)"))
     return names
 }
 
@@ -63,13 +61,13 @@ private struct AttributeDefaultSet {
             AXAttributeNames.kAXRoleAttribute,
             AXAttributeNames.kAXValueAttribute,
             AXAttributeNames.kAXTitleAttribute,
-            AXAttributeNames.kAXIdentifierAttribute
+            AXAttributeNames.kAXIdentifierAttribute,
         ]
         guard self.role == AXRoleNames.kAXStaticTextRole else { return base }
         return [
             AXAttributeNames.kAXRoleAttribute,
             AXAttributeNames.kAXValueAttribute,
-            AXAttributeNames.kAXIdentifierAttribute
+            AXAttributeNames.kAXIdentifierAttribute,
         ]
     }
 }
@@ -82,13 +80,16 @@ func getComputedAttributes(for element: Element) async -> [String: AttributeData
     if let name = element.computedName() {
         computedAttrs[AXMiscConstants.computedNameAttributeKey] = AttributeData(
             value: .string(name),
-            source: .computed
-        )
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+            source: .computed)
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message:
             "getComputedAttributes: Computed name for element " +
                 "\(element.briefDescription(option: .raw)) is '\(name)'."))
     } else {
-        GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message:
+        GlobalAXLogger.shared.log(AXLogEntry(
+            level: .debug,
+            message:
             "getComputedAttributes: Element \(element.briefDescription(option: .raw)) " +
                 "has no computed name."))
     }
@@ -105,6 +106,7 @@ func getComputedAttributes(for element: Element) async -> [String: AttributeData
 
     return computedAttrs
 }
+
 private struct AttributeDirectMapping {
     let attributeName: String
     private let strategyProvider: ((Element, OutputFormat) -> Any?)?
@@ -127,7 +129,7 @@ private struct AttributeDirectMapping {
             guard let pid = element.pid() else { return nil }
             return Int(pid)
         },
-        AXAttributeNames.kAXElementBusyAttribute: AttributeDirectMapping.booleanFormatter { $0.isElementBusy() }
+        AXAttributeNames.kAXElementBusyAttribute: AttributeDirectMapping.booleanFormatter { $0.isElementBusy() },
     ]
 
     init?(attributeName: String) {
@@ -145,12 +147,12 @@ private struct AttributeDirectMapping {
     }
 
     private static func makeStrategy(for attributeName: String) -> ((Element, OutputFormat) -> Any?)? {
-        strategies[attributeName]
+        self.strategies[attributeName]
     }
 
     private static func booleanFormatter(
-        _ extractor: @escaping (Element) -> Bool?
-    ) -> ((Element, OutputFormat) -> Any?) {
+        _ extractor: @escaping (Element) -> Bool?) -> ((Element, OutputFormat) -> Any?)
+    {
         { element, format in
             guard let value = extractor(element) else { return nil }
             return format == .textContent ? value.description : value
@@ -158,8 +160,8 @@ private struct AttributeDirectMapping {
     }
 
     private static func numericFormatter(
-        _ extractor: @escaping (Element) -> Int?
-    ) -> ((Element, OutputFormat) -> Any?) {
+        _ extractor: @escaping (Element) -> Int?) -> ((Element, OutputFormat) -> Any?)
+    {
         { element, format in
             guard let value = extractor(element) else { return nil }
             return format == .textContent ? value.description : value

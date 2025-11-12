@@ -61,8 +61,7 @@ public struct PathHintComponent {
         elementMatchesCriteria(
             element,
             criteria: self.criteria,
-            matchType: JSONPathHintComponent.MatchType.exact
-        )
+            matchType: JSONPathHintComponent.MatchType.exact)
     }
 
     // MARK: Private

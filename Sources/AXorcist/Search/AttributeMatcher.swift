@@ -8,8 +8,8 @@ import Foundation
 func attributesMatch(
     element: Element,
     matchDetails: [String: String],
-    depth: Int
-) async -> Bool {
+    depth: Int) async -> Bool
+{
     let criteriaDesc = matchDetails.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
     let roleForLog = element.role() ?? "nil"
     let titleForLog = element.title() ?? "nil"
@@ -18,15 +18,14 @@ func attributesMatch(
             "Criteria: [\(criteriaDesc)]",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
 
     if await !matchComputedNameAttributes(
         element: element,
         computedNameEquals: matchDetails[AXMiscConstants.computedNameAttributeKey + "_equals"],
         computedNameContains: matchDetails[AXMiscConstants.computedNameAttributeKey + "_contains"],
-        depth: depth
-    ) {
+        depth: depth)
+    {
         return false
     }
 
@@ -37,8 +36,8 @@ func attributesMatch(
 private func evaluateAttributeMatches(
     element: Element,
     matchDetails: [String: String],
-    depth: Int
-) -> Bool {
+    depth: Int) -> Bool
+{
     for (key, expectedValue) in matchDetails {
         if shouldSkipComputedCheck(key) || shouldSkipRoleCheck(key) {
             continue
@@ -49,8 +48,8 @@ private func evaluateAttributeMatches(
                 element: element,
                 key: key,
                 expectedValueString: expectedValue,
-                depth: depth
-            ) {
+                depth: depth)
+            {
                 return false
             }
             continue
@@ -61,8 +60,8 @@ private func evaluateAttributeMatches(
                 element: element,
                 key: key,
                 expectedValueString: expectedValue,
-                depth: depth
-            ) {
+                depth: depth)
+            {
                 return false
             }
             continue
@@ -72,8 +71,8 @@ private func evaluateAttributeMatches(
             element: element,
             key: key,
             expectedValueString: expectedValue,
-            depth: depth
-        ) {
+            depth: depth)
+        {
             return false
         }
     }
@@ -82,8 +81,7 @@ private func evaluateAttributeMatches(
         "attributesMatch [D\(depth)]: All attributes MATCHED criteria.",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return true
 }
 
@@ -103,7 +101,7 @@ private func isBooleanAttribute(_ key: String) -> Bool {
         AXAttributeNames.kAXHiddenAttribute,
         AXAttributeNames.kAXElementBusyAttribute,
         AXMiscConstants.isIgnoredAttributeKey,
-        AXAttributeNames.kAXMainAttribute
+        AXAttributeNames.kAXMainAttribute,
     ]
     return booleanKeys.contains(key)
 }
@@ -112,7 +110,7 @@ private func isArrayAttribute(_ key: String) -> Bool {
     let arrayKeys: Set<String> = [
         AXAttributeNames.kAXActionNamesAttribute,
         AXAttributeNames.kAXAllowedValuesAttribute,
-        AXAttributeNames.kAXChildrenAttribute
+        AXAttributeNames.kAXChildrenAttribute,
     ]
     return arrayKeys.contains(key)
 }

@@ -35,17 +35,19 @@ public struct ElementSearchOptions {
 
 // MARK: - Element Search Extensions
 
-public extension Element {
-
+extension Element {
     /// Search for elements matching a query string
     /// - Parameters:
     ///   - query: The search query to match against element properties
     ///   - options: Search options to customize behavior
     /// - Returns: Array of matching elements
     @MainActor
-    func searchElements(matching query: String, options: ElementSearchOptions = ElementSearchOptions()) -> [Element] {
+    public func searchElements(
+        matching query: String,
+        options: ElementSearchOptions = ElementSearchOptions()) -> [Element]
+    {
         var results: [Element] = []
-        searchElementsRecursively(matching: query, options: options, currentDepth: 0, results: &results)
+        self.searchElementsRecursively(matching: query, options: options, currentDepth: 0, results: &results)
         return results
     }
 
@@ -55,8 +57,11 @@ public extension Element {
     ///   - options: Search options to customize behavior
     /// - Returns: First matching element, or nil if none found
     @MainActor
-    func findElement(matching query: String, options: ElementSearchOptions = ElementSearchOptions()) -> Element? {
-        return findElementRecursively(matching: query, options: options, currentDepth: 0)
+    public func findElement(
+        matching query: String,
+        options: ElementSearchOptions = ElementSearchOptions()) -> Element?
+    {
+        self.findElementRecursively(matching: query, options: options, currentDepth: 0)
     }
 
     /// Search for elements by role
@@ -65,9 +70,12 @@ public extension Element {
     ///   - options: Search options to customize behavior
     /// - Returns: Array of elements with the specified role
     @MainActor
-    func searchElements(byRole role: String, options: ElementSearchOptions = ElementSearchOptions()) -> [Element] {
+    public func searchElements(
+        byRole role: String,
+        options: ElementSearchOptions = ElementSearchOptions()) -> [Element]
+    {
         var results: [Element] = []
-        searchElementsByRoleRecursively(role: role, options: options, currentDepth: 0, results: &results)
+        self.searchElementsByRoleRecursively(role: role, options: options, currentDepth: 0, results: &results)
         return results
     }
 
@@ -77,18 +85,18 @@ public extension Element {
     ///   - options: Search options to customize matching
     /// - Returns: True if element matches the query
     @MainActor
-    func matches(query: String, options: ElementSearchOptions = ElementSearchOptions()) -> Bool {
+    public func matches(query: String, options: ElementSearchOptions = ElementSearchOptions()) -> Bool {
         // Check visibility and enabled state if required
-        if options.visibleOnly && (isHidden() == true) {
+        if options.visibleOnly, isHidden() == true {
             return false
         }
-        if options.enabledOnly && (isEnabled() == false) {
+        if options.enabledOnly, isEnabled() == false {
             return false
         }
 
         // Check role filters
         if let role = role() {
-            if !options.includeRoles.isEmpty && !options.includeRoles.contains(role) {
+            if !options.includeRoles.isEmpty, !options.includeRoles.contains(role) {
                 return false
             }
             if options.excludeRoles.contains(role) {
@@ -108,7 +116,7 @@ public extension Element {
             descriptionText(),
             roleDescription(),
             help(),
-            identifier()
+            identifier(),
         ]
 
         for property in properties {
@@ -130,15 +138,15 @@ public extension Element {
         matching query: String,
         options: ElementSearchOptions,
         currentDepth: Int,
-        results: inout [Element]
-    ) {
+        results: inout [Element])
+    {
         // Check depth limit
-        if options.maxDepth > 0 && currentDepth > options.maxDepth {
+        if options.maxDepth > 0, currentDepth > options.maxDepth {
             return
         }
 
         // Check if current element matches
-        if matches(query: query, options: options) {
+        if self.matches(query: query, options: options) {
             results.append(self)
         }
 
@@ -149,8 +157,7 @@ public extension Element {
                     matching: query,
                     options: options,
                     currentDepth: currentDepth + 1,
-                    results: &results
-                )
+                    results: &results)
             }
         }
     }
@@ -159,15 +166,15 @@ public extension Element {
     private func findElementRecursively(
         matching query: String,
         options: ElementSearchOptions,
-        currentDepth: Int
-    ) -> Element? {
+        currentDepth: Int) -> Element?
+    {
         // Check depth limit
-        if options.maxDepth > 0 && currentDepth > options.maxDepth {
+        if options.maxDepth > 0, currentDepth > options.maxDepth {
             return nil
         }
 
         // Check if current element matches
-        if matches(query: query, options: options) {
+        if self.matches(query: query, options: options) {
             return self
         }
 
@@ -177,8 +184,8 @@ public extension Element {
                 if let found = child.findElementRecursively(
                     matching: query,
                     options: options,
-                    currentDepth: currentDepth + 1
-                ) {
+                    currentDepth: currentDepth + 1)
+                {
                     return found
                 }
             }
@@ -192,18 +199,18 @@ public extension Element {
         role: String,
         options: ElementSearchOptions,
         currentDepth: Int,
-        results: inout [Element]
-    ) {
+        results: inout [Element])
+    {
         // Check depth limit
-        if options.maxDepth > 0 && currentDepth > options.maxDepth {
+        if options.maxDepth > 0, currentDepth > options.maxDepth {
             return
         }
 
         // Check visibility and enabled state if required
-        if options.visibleOnly && (isHidden() == true) {
+        if options.visibleOnly, isHidden() == true {
             return
         }
-        if options.enabledOnly && (isEnabled() == false) {
+        if options.enabledOnly, isEnabled() == false {
             return
         }
 
@@ -219,8 +226,7 @@ public extension Element {
                     role: role,
                     options: options,
                     currentDepth: currentDepth + 1,
-                    results: &results
-                )
+                    results: &results)
             }
         }
     }
@@ -228,29 +234,28 @@ public extension Element {
 
 // MARK: - Convenience Methods
 
-public extension Element {
-
+extension Element {
     /// Find all buttons in the element hierarchy
     @MainActor
-    func findAllButtons() -> [Element] {
-        return searchElements(byRole: "AXButton")
+    public func findAllButtons() -> [Element] {
+        self.searchElements(byRole: "AXButton")
     }
 
     /// Find all text fields in the element hierarchy
     @MainActor
-    func findAllTextFields() -> [Element] {
-        return searchElements(byRole: "AXTextField")
+    public func findAllTextFields() -> [Element] {
+        self.searchElements(byRole: "AXTextField")
     }
 
     /// Find all links in the element hierarchy
     @MainActor
-    func findAllLinks() -> [Element] {
-        return searchElements(byRole: "AXLink")
+    public func findAllLinks() -> [Element] {
+        self.searchElements(byRole: "AXLink")
     }
 
     /// Find element by identifier
     @MainActor
-    func findElement(byIdentifier identifier: String) -> Element? {
+    public func findElement(byIdentifier identifier: String) -> Element? {
         if self.identifier() == identifier {
             return self
         }

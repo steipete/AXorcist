@@ -3,7 +3,7 @@
 import ApplicationServices
 import Foundation
 
-public extension Element {
+extension Element {
     // Helper to set a boolean attribute value.
     // Returns true on success, false on failure.
     @MainActor
@@ -13,8 +13,7 @@ public extension Element {
         if error != AXError.success {
             axErrorLog(
                 "Failed to set attribute \(attributeName) to \(value). "
-                    + "Error: \(error.rawValue) - \(error.localizedDescription)"
-            )
+                    + "Error: \(error.rawValue) - \(error.localizedDescription)")
             return false
         }
         axDebugLog("Successfully set attribute \(attributeName) to \(value).")
@@ -25,14 +24,13 @@ public extension Element {
     /// This is typically called on an Element representing an application.
     /// - Returns: `true` if the action was successful, `false` otherwise.
     @MainActor
-    func activate() -> Bool {
+    public func activate() -> Bool {
         axDebugLog("Attempting to activate application (element: \(self.briefDescription()))")
         // Try to set kAXFrontmostAttribute. If not settable or fails, fallback to kAXRaiseAction.
         guard isAttributeSettable(named: AXAttributeNames.kAXFrontmostAttribute) else {
             axWarningLog(
                 "kAXFrontmostAttribute is not settable for element \(self.briefDescription()). "
-                    + "Falling back to .raise action."
-            )
+                    + "Falling back to .raise action.")
             // Use the throwing performAction and handle potential errors, or make it non-throwing if that's the design.
             // For now, assuming it should succeed or log internally, returning bool.
             do {
@@ -41,17 +39,15 @@ public extension Element {
             } catch {
                 axErrorLog(
                     "Fallback action .raise failed for element \(self.briefDescription()): "
-                        + error.localizedDescription
-                )
+                        + error.localizedDescription)
                 return false // If performAction failed
             }
         }
-        let success = setBooleanAttribute(AXAttributeNames.kAXFrontmostAttribute, value: true)
+        let success = self.setBooleanAttribute(AXAttributeNames.kAXFrontmostAttribute, value: true)
         if !success {
             axWarningLog(
                 "Setting kAXFrontmostAttribute failed for \(self.briefDescription()). "
-                    + "Falling back to .raise action."
-            )
+                    + "Falling back to .raise action.")
             // Similar handling for the fallback action
             do {
                 try self.performAction(.raise)
@@ -59,8 +55,7 @@ public extension Element {
             } catch {
                 axErrorLog(
                     "Fallback action .raise failed after setBooleanAttribute failed for "
-                        + "\(self.briefDescription()): \(error.localizedDescription)"
-                )
+                        + "\(self.briefDescription()): \(error.localizedDescription)")
                 return false
             }
         }
@@ -71,31 +66,29 @@ public extension Element {
     /// This is typically called on an Element representing an application.
     /// - Returns: `true` if the action was successful, `false` otherwise.
     @MainActor
-    func hideApplication() -> Bool {
+    public func hideApplication() -> Bool {
         axDebugLog("Attempting to hide application (element: \(self.briefDescription()))")
         if !isAttributeSettable(named: AXAttributeNames.kAXHiddenAttribute) {
             axWarningLog(
                 "Attribute \(AXAttributeNames.kAXHiddenAttribute) is not settable for "
-                    + "element \(self.briefDescription())."
-            )
+                    + "element \(self.briefDescription()).")
             return false
         }
-        return setBooleanAttribute(AXAttributeNames.kAXHiddenAttribute, value: true)
+        return self.setBooleanAttribute(AXAttributeNames.kAXHiddenAttribute, value: true)
     }
 
     /// Unhides the application represented by this element.
     /// This is typically called on an Element representing an application.
     /// - Returns: `true` if the action was successful, `false` otherwise.
     @MainActor
-    func unhideApplication() -> Bool {
+    public func unhideApplication() -> Bool {
         axDebugLog("Attempting to unhide application (element: \(self.briefDescription()))")
         if !isAttributeSettable(named: AXAttributeNames.kAXHiddenAttribute) {
             axWarningLog(
                 "Attribute \(AXAttributeNames.kAXHiddenAttribute) is not settable for "
-                    + "element \(self.briefDescription())."
-            )
+                    + "element \(self.briefDescription()).")
             return false
         }
-        return setBooleanAttribute(AXAttributeNames.kAXHiddenAttribute, value: false)
+        return self.setBooleanAttribute(AXAttributeNames.kAXHiddenAttribute, value: false)
     }
 }

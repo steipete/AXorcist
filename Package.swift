@@ -20,7 +20,7 @@ let package = Package(
         .executable(name: "axorc", targets: ["axorc"]), // Product 'axorc' comes from target 'axorc'
     ],
     dependencies: [
-        .package(path: "../../Commander"),
+        .package(path: "../Commander"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"),
     ],
     targets: [

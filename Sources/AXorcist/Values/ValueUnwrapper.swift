@@ -14,10 +14,9 @@ enum ValueUnwrapper {
         guard let value = cfValue else { return nil }
         let typeID = CFGetTypeID(value)
 
-        return unwrapByTypeID(
+        return self.unwrapByTypeID(
             value,
-            typeID: typeID
-        )
+            typeID: typeID)
     }
 
     // MARK: Private
@@ -25,13 +24,13 @@ enum ValueUnwrapper {
     @MainActor
     private static func unwrapByTypeID(
         _ value: CFTypeRef,
-        typeID: CFTypeID
-    ) -> Any? {
+        typeID: CFTypeID) -> Any?
+    {
         switch typeID {
         case ApplicationServices.AXUIElementGetTypeID():
             return value as! AXUIElement
         case ApplicationServices.AXValueGetTypeID():
-            return unwrapAXValue(value)
+            return self.unwrapAXValue(value)
         case CFStringGetTypeID():
             return (value as! CFString) as String
         case CFAttributedStringGetTypeID():
@@ -41,9 +40,9 @@ enum ValueUnwrapper {
         case CFNumberGetTypeID():
             return value as! NSNumber
         case CFArrayGetTypeID():
-            return unwrapCFArray(value)
+            return self.unwrapCFArray(value)
         case CFDictionaryGetTypeID():
-            return unwrapCFDictionary(value)
+            return self.unwrapCFDictionary(value)
         default:
             let typeDescription = CFCopyTypeIDDescription(typeID) as String? ?? "Unknown"
             let message = "Unhandled CFTypeID: \(typeID) - \(typeDescription). Returning raw value."
@@ -54,8 +53,8 @@ enum ValueUnwrapper {
 
     @MainActor
     private static func unwrapAXValue(
-        _ value: CFTypeRef
-    ) -> Any? {
+        _ value: CFTypeRef) -> Any?
+    {
         let axVal = value as! AXValue
         let axValueType = axVal.valueType
 
@@ -85,38 +84,36 @@ enum ValueUnwrapper {
 
     @MainActor
     private static func unwrapCFArray(
-        _ value: CFTypeRef
-    ) -> [Any?] {
+        _ value: CFTypeRef) -> [Any?]
+    {
         let cfArray = value as! CFArray
         var swiftArray: [Any?] = []
 
-        for index in 0 ..< CFArrayGetCount(cfArray) {
+        for index in 0..<CFArrayGetCount(cfArray) {
             guard let elementPtr = CFArrayGetValueAtIndex(cfArray, index) else {
                 swiftArray.append(nil)
                 continue
             }
-            swiftArray.append(unwrap( // Recursive call uses new unwrap signature
-                Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue()
-            ))
+            swiftArray.append(self.unwrap( // Recursive call uses new unwrap signature
+                Unmanaged<CFTypeRef>.fromOpaque(elementPtr).takeUnretainedValue()))
         }
         return swiftArray
     }
 
     @MainActor
     private static func unwrapCFDictionary(
-        _ value: CFTypeRef
-    ) -> [String: Any?] {
+        _ value: CFTypeRef) -> [String: Any?]
+    {
         let cfDict = value as! CFDictionary
         var swiftDict: [String: Any?] = [:]
 
         if let nsDict = cfDict as? [String: AnyObject] {
             for (key, val) in nsDict {
-                swiftDict[key] = unwrap(val) // Recursive call uses new unwrap signature
+                swiftDict[key] = self.unwrap(val) // Recursive call uses new unwrap signature
             }
         } else {
             axWarningLog(
-                "Failed to bridge CFDictionary to [String: AnyObject]. Full iteration not implemented yet."
-            )
+                "Failed to bridge CFDictionary to [String: AnyObject]. Full iteration not implemented yet.")
         }
         return swiftDict
     }

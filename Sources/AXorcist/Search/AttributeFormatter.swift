@@ -8,8 +8,8 @@ import Foundation
 func formatParentAttribute(
     _ parent: Element?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
-) -> AttributeValue {
+    valueFormatOption: ValueFormatOption) -> AttributeValue
+{
     guard let parentElement = parent else { return .null }
     if outputFormat == .textContent {
         return .string("Element: \(parentElement.role() ?? "?Role")")
@@ -23,8 +23,8 @@ func formatParentAttribute(
 func formatChildrenAttribute(
     _ children: [Element]?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
-) -> AttributeValue {
+    valueFormatOption: ValueFormatOption) -> AttributeValue
+{
     guard let actualChildren = children, !actualChildren.isEmpty else {
         return .null
     }
@@ -46,8 +46,8 @@ func formatChildrenAttribute(
 func formatFocusedUIElementAttribute(
     _ focusedElement: Element?,
     outputFormat: OutputFormat,
-    valueFormatOption: ValueFormatOption
-) -> AttributeValue {
+    valueFormatOption: ValueFormatOption) -> AttributeValue
+{
     guard let actualFocusedElement = focusedElement else { return .null }
     if outputFormat == .textContent {
         return .string("Element: \(actualFocusedElement.role() ?? "?Role")")

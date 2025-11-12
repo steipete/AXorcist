@@ -33,8 +33,8 @@ func finalizeAndEncodeResponse(
     commandType: String,
     handlerResponse: HandlerResponse,
     debugCLI: Bool,
-    commandDebugLogging: Bool
-) -> String {
+    commandDebugLogging: Bool) -> String
+{
     let responseStatus = handlerResponse.error == nil ? "success" : "error"
 
     var finalResponseObject = FinalResponse(
@@ -42,8 +42,7 @@ func finalizeAndEncodeResponse(
         commandType: commandType,
         status: responseStatus,
         data: handlerResponse.data,
-        error: handlerResponse.error
-    )
+        error: handlerResponse.error)
 
     if debugCLI || commandDebugLogging {
         let logsForResponse = axGetLogsAsStrings()
@@ -79,11 +78,11 @@ extension EncodingError {
         switch self {
         case let .invalidValue(value, context):
             let pathDescription = MainActor.assumeIsolated {
-                context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                context.codingPath.map(\.stringValue).joined(separator: ".")
             }
             return [
                 "InvalidValue: '\(value)' attempting to encode at path '\(pathDescription)'.",
-                "Debug: \(context.debugDescription)"
+                "Debug: \(context.debugDescription)",
             ].joined(separator: " ")
         @unknown default:
             return "Unknown encoding error. Localized: \(self.localizedDescription)"

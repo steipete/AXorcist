@@ -32,7 +32,7 @@ public struct AXLogEntry: Codable, Sendable, Identifiable {
         file: String? = #file,
         function: String? = #function,
         line: Int? = #line,
-        details: [String: AnyCodable]? = nil // Changed to AnyCodable
+        details: [String: AnyCodable]? = nil, // Changed to AnyCodable
     ) {
         self.id = id
         self.timestamp = timestamp
@@ -64,15 +64,15 @@ extension AXLogEntry: Equatable {
 }
 
 // Example of how it might be formatted for text output
-public extension AXLogEntry {
-    func formattedForTextLog() -> String {
+extension AXLogEntry {
+    public func formattedForTextLog() -> String {
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        let timeString = dateFormatter.string(from: timestamp)
+        let timeString = dateFormatter.string(from: self.timestamp)
 
         var logParts: [String] = [
             "[\(timeString)]",
-            "[\(level.rawValue.uppercased())]"
+            "[\(level.rawValue.uppercased())]",
         ]
 
         if let fileName = file, let lineNum = line {
@@ -85,7 +85,7 @@ public extension AXLogEntry {
             logParts.append("[\(funcName)]")
         }
 
-        logParts.append("- \(message)")
+        logParts.append("- \(self.message)")
 
         if let details, !details.isEmpty {
             // Simplified details formatting for AnyCodable

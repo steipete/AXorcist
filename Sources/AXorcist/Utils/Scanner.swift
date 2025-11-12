@@ -75,9 +75,9 @@ class Scanner {
 
     // Helper to get the remaining string
     var remainingString: String {
-        if isAtEnd { return "" }
-        let startIndex = string.index(string.startIndex, offsetBy: location)
-        return String(string[startIndex...])
+        if self.isAtEnd { return "" }
+        let startIndex = self.string.index(self.string.startIndex, offsetBy: self.location)
+        return String(self.string[startIndex...])
     }
 
     // MARK: - Character Set Scanning
@@ -136,7 +136,8 @@ class Scanner {
         guard self.location < self.string.count else { return nil }
         let characterString = String(character)
         if characterString
-            .compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame {
+            .compare(String(self.string[self.location]), options: options, range: nil, locale: nil) == .orderedSame
+        {
             self.location += 1
             return character
         }
@@ -188,7 +189,7 @@ class Scanner {
     func scanUnsignedInteger<T: UnsignedInteger>() -> T? {
         self.scanWhitespaces()
         guard let digitString = self.scanDigits() else { return nil }
-        return integerValue(from: digitString)
+        return self.integerValue(from: digitString)
     }
 
     func scanInteger<T: SignedInteger>() -> T? {
@@ -208,18 +209,18 @@ class Scanner {
         }
 
         // Calculate final value with sign applied
-        return T(sign) * integerValue(from: digitString)
+        return T(sign) * self.integerValue(from: digitString)
     }
 
     // MARK: - Floating Point Scanning
 
     // Attempt to parse Double with a compact implementation
     func scanDouble() -> Double? {
-        scanWhitespaces()
+        self.scanWhitespaces()
         let initialLocation = self.location
 
         // Parse sign
-        let sign: Double = (scan(character: "-") != nil) ? -1.0 : { _ = scan(character: "+"); return 1.0 }()
+        let sign: Double = (scan(character: "-") != nil) ? -1.0 : { _ = self.scan(character: "+"); return 1.0 }()
 
         // Buffer to build the numeric string
         var numberStr = ""
@@ -232,35 +233,35 @@ class Scanner {
         }
 
         // Parse fractional part
-        let dotLocation = location
-        if scan(character: ".") != nil {
+        let dotLocation = self.location
+        if self.scan(character: ".") != nil {
             if let fractionDigits = scanCharacters(in: .decimalDigits) {
                 numberStr += "."
                 numberStr += fractionDigits
                 hasDigits = true
             } else {
                 // Revert dot scan if not followed by digits
-                location = dotLocation
+                self.location = dotLocation
             }
         }
 
         // If no digits found in either integer or fractional part, revert and return nil
         if !hasDigits {
-            location = initialLocation
+            self.location = initialLocation
             return nil
         }
 
         // Parse exponent
         var exponent = 0
-        let expLocation = location
-        if scan(character: "e", options: .caseInsensitive) != nil {
-            let expSign: Double = (scan(character: "-") != nil) ? -1.0 : { _ = scan(character: "+"); return 1.0 }()
+        let expLocation = self.location
+        if self.scan(character: "e", options: .caseInsensitive) != nil {
+            let expSign: Double = (scan(character: "-") != nil) ? -1.0 : { _ = self.scan(character: "+"); return 1.0 }()
 
             if let expDigits = scanCharacters(in: .decimalDigits), let expValue = Int(expDigits) {
                 exponent = Int(expSign) * expValue
             } else {
                 // Revert exponent scan if not followed by valid digits
-                location = expLocation
+                self.location = expLocation
             }
         }
 
@@ -274,25 +275,26 @@ class Scanner {
         }
 
         // If conversion fails, revert everything
-        location = initialLocation
+        self.location = initialLocation
         return nil
     }
 
     func scanHexadecimalInteger<T: UnsignedInteger>() -> T? {
-        let initialLoc = location
+        let initialLoc = self.location
         let hexCharSet = CustomCharacterSet(charactersInString: Self.characterSets.hexDigits)
 
         var value: T = 0
         var digitCount = 0
 
         while let char: Character = scan(characterSet: hexCharSet),
-              let digit = Self.hexValues[char] {
+              let digit = Self.hexValues[char]
+        {
             value = value * 16 + T(digit)
             digitCount += 1
         }
 
         if digitCount == 0 {
-            location = initialLoc // Revert if nothing was scanned
+            self.location = initialLoc // Revert if nothing was scanned
             return nil
         }
 
@@ -300,12 +302,12 @@ class Scanner {
     }
 
     func scanIdentifier() -> String? {
-        scanWhitespaces()
-        let savepoint = location
+        self.scanWhitespaces()
+        let savepoint = self.location
 
         // Scan first character (must be letter or underscore)
         guard let firstChar: Character = scan(characterSet: Self.identifierFirstCharSet) else {
-            location = savepoint
+            self.location = savepoint
             return nil
         }
 
@@ -342,7 +344,7 @@ class Scanner {
     private static let hexValues: [Character: Int] = [
         "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,
         "a": 10, "b": 11, "c": 12, "d": 13, "e": 14, "f": 15,
-        "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15
+        "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 15,
     ]
 
     // MARK: - Identifier Scanning
@@ -352,8 +354,7 @@ class Scanner {
         lowercaseLetters: "abcdefghijklmnopqrstuvwxyz",
         uppercaseLetters: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         digits: "0123456789",
-        hexDigits: "0123456789abcdefABCDEF"
-    )
+        hexDigits: "0123456789abcdefABCDEF")
 
     // Private helper that scans and returns a string of digits
     private func scanDigits() -> String? {
@@ -370,9 +371,9 @@ class Scanner {
     // Helper function for power calculation with FloatingPoint types
     private func scannerPower<T: FloatingPoint>(base: T, exponent: Int) -> T {
         if exponent == 0 { return T(1) }
-        if exponent < 0 { return T(1) / scannerPower(base: base, exponent: -exponent) }
+        if exponent < 0 { return T(1) / self.scannerPower(base: base, exponent: -exponent) }
         var result = T(1)
-        for _ in 0 ..< exponent {
+        for _ in 0..<exponent {
             result *= base
         }
         return result

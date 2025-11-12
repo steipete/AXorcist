@@ -89,8 +89,8 @@ public nonisolated struct AXElementData: Codable, HandlerDataRepresentable, Equa
         textualContent: String? = nil,
         childrenBriefDescriptions: [String]? = nil,
         fullAXDescription: String? = nil,
-        path: [String]? = nil
-    ) {
+        path: [String]? = nil)
+    {
         self.briefDescription = briefDescription
         self.role = role
         self.attributes = attributes
@@ -129,8 +129,8 @@ public struct QueryResponse: Codable {
         data: AXElement? = nil,
         attributes: ElementAttributes? = nil,
         error: String? = nil,
-        debugLogs: [String]? = nil
-    ) {
+        debugLogs: [String]? = nil)
+    {
         self.commandId = commandId
         self.success = success
         self.command = command
@@ -146,14 +146,15 @@ public struct QueryResponse: Codable {
         success: Bool,
         command: String,
         handlerResponse: HandlerResponse,
-        debugLogs: [String]?
-    ) {
+        debugLogs: [String]?)
+    {
         self.commandId = commandId
         self.success = success
         self.command = command
         // Extract AXElement from AnyCodable if present
         if let anyCodableData = handlerResponse.data,
-           let axElement = anyCodableData.value as? AXElement {
+           let axElement = anyCodableData.value as? AXElement
+        {
             self.data = axElement
             self.attributes = axElement.attributes
         } else {
@@ -188,8 +189,8 @@ public struct QueryResponse: Codable {
 }
 
 // Extension to add JSON encoding functionality to QueryResponse
-public extension QueryResponse {
-    func jsonString() throws -> String {
+extension QueryResponse {
+    public func jsonString() throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let data = try encoder.encode(self)
@@ -206,8 +207,8 @@ public struct MultiQueryResponse: Codable {
         elements: [ElementAttributes]? = nil,
         count: Int? = nil,
         error: String? = nil,
-        debugLogs: [String]? = nil
-    ) {
+        debugLogs: [String]? = nil)
+    {
         self.commandId = commandId
         self.elements = elements
         self.count = count ?? elements?.count
@@ -345,11 +346,13 @@ public struct ErrorDetail: Codable, Equatable {
 public struct SimpleSuccessResponse: Codable, Equatable {
     // MARK: Lifecycle
 
-    public init(commandId: String,
-                status: String,
-                message: String,
-                details: String? = nil,
-                debugLogs: [String]? = nil) {
+    public init(
+        commandId: String,
+        status: String,
+        message: String,
+        details: String? = nil,
+        debugLogs: [String]? = nil)
+    {
         self.commandId = commandId
         self.success = true
         self.status = status
@@ -389,8 +392,8 @@ public struct BatchResponse: Codable {
         success: Bool,
         results: [HandlerResponse],
         error: String? = nil,
-        debugLogs: [String]? = nil
-    ) {
+        debugLogs: [String]? = nil)
+    {
         self.commandId = commandId
         self.success = success
         self.results = results
@@ -470,8 +473,8 @@ public struct AXElementDescription: Codable, Sendable {
         briefDescription: String?,
         role: String?,
         attributes: [String: AXValueWrapper]?,
-        children: [AXElementDescription]? = nil
-    ) {
+        children: [AXElementDescription]? = nil)
+    {
         self.briefDescription = briefDescription
         self.role = role
         self.attributes = attributes
@@ -494,13 +497,15 @@ public struct CollectAllOutput: Codable {
     // Assuming the default memberwise initializer will now work with these changes,
     // or one will be synthesized. If a custom one exists, it will need updating.
     // For safety, let's add one that matches the typical usage pattern.
-    public init(commandId: String,
-                success: Bool,
-                command: String,
-                collectedElements: [AXElementData]?,
-                appIdentifier: String?,
-                debugLogs: [String]?,
-                message: String?) {
+    public init(
+        commandId: String,
+        success: Bool,
+        command: String,
+        collectedElements: [AXElementData]?,
+        appIdentifier: String?,
+        debugLogs: [String]?,
+        message: String?)
+    {
         self.commandId = commandId
         self.success = success
         self.command = command

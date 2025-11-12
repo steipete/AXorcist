@@ -5,8 +5,7 @@ import Testing
 @Suite(
     "AXorcist Element Search Tests",
     .tags(.automation),
-    .enabled(if: AXTestEnvironment.runAutomationScenarios)
-)
+    .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ElementSearchTests {
     @Test("Search elements by role", .tags(.automation))
@@ -29,8 +28,7 @@ struct ElementSearchTests {
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXButton")]),
-            outputFormat: .verbose
-        )
+            outputFormat: .verbose)
 
         let encoder = JSONEncoder()
         let jsonData = try encoder.encode(command)
@@ -79,8 +77,7 @@ struct ElementSearchTests {
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")]),
             maxElements: 3,
-            outputFormat: .verbose
-        )
+            outputFormat: .verbose)
 
         let encoder = JSONEncoder()
         let jsonData = try encoder.encode(command)
@@ -116,7 +113,8 @@ struct ElementSearchTests {
             let response = try await self.queryTextArea(encoder: encoder)
             #expect(response.success)
             if let data = response.data,
-               let value = data.attributes?["AXValue"]?.anyValue as? String {
+               let value = data.attributes?["AXValue"]?.anyValue as? String
+            {
                 #expect(value.contains("Hello from AXorcist tests!"), "Should find the text we set")
             }
         }
@@ -127,8 +125,7 @@ struct ElementSearchTests {
         try await withFreshTextEdit { encoder in
             try await self.setText(
                 "This is test content.\nIt has multiple lines.\nExtract this text.",
-                encoder: encoder
-            )
+                encoder: encoder)
             let response = try await self.extractWindowText(encoder: encoder)
             #expect(response.success)
             self.assertExtractedText(response)
@@ -161,8 +158,7 @@ extension ElementSearchTests {
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
             actionName: "AXSetValue",
-            actionValue: .string(text)
-        )
+            actionValue: .string(text))
 
         try await execute(command: command, encoder: encoder)
     }
@@ -174,9 +170,8 @@ extension ElementSearchTests {
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXTextArea")]),
-            outputFormat: .verbose
-        )
-        return try await runQuery(command: command, encoder: encoder)
+            outputFormat: .verbose)
+        return try await self.runQuery(command: command, encoder: encoder)
     }
 
     private func extractWindowText(encoder: JSONEncoder) async throws -> QueryResponse {
@@ -186,9 +181,8 @@ extension ElementSearchTests {
             application: "TextEdit",
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]),
-            outputFormat: .textContent
-        )
-        return try await runQuery(command: command, encoder: encoder)
+            outputFormat: .textContent)
+        return try await self.runQuery(command: command, encoder: encoder)
     }
 
     private func execute(command: CommandEnvelope, encoder: JSONEncoder) async throws {

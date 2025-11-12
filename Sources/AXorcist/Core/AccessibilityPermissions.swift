@@ -19,11 +19,11 @@ public struct AXPermissionsStatus {
     public var overallErrorMessages: [String] = []
 
     public var canUseAccessibility: Bool {
-        isAccessibilityApiEnabled && isProcessTrustedForAccessibility
+        self.isAccessibilityApiEnabled && self.isProcessTrustedForAccessibility
     }
 
     public func canAutomate(bundleID: String) -> Bool? {
-        automationStatus[bundleID]
+        self.automationStatus[bundleID]
     }
 }
 
@@ -37,27 +37,30 @@ public func checkAccessibilityPermissions(promptIfNeeded: Bool = true) throws {
         let parentName = getParentProcessName()
         let errorDetail = parentName != nil ? "Hint: Grant accessibility permissions to \(parentName!)." :
             "Hint: Ensure the application running this tool has Accessibility permissions."
-        axErrorLog("Accessibility check failed. Details: \(errorDetail)",
-                   file: #file,
-                   function: #function,
-                   line: #line)
+        axErrorLog(
+            "Accessibility check failed. Details: \(errorDetail)",
+            file: #file,
+            function: #function,
+            line: #line)
         throw AccessibilityError.notAuthorized(errorDetail)
     } else {
-        axDebugLog("Accessibility permissions are granted.",
-                   file: #file,
-                   function: #function,
-                   line: #line)
+        axDebugLog(
+            "Accessibility permissions are granted.",
+            file: #file,
+            function: #function,
+            line: #line)
     }
 }
 
 @MainActor
 public func getPermissionsStatus(
-    checkAutomationFor bundleIDs: [String] = []
-) -> AXPermissionsStatus {
-    axDebugLog("Starting full permission status check.",
-               file: #file,
-               function: #function,
-               line: #line)
+    checkAutomationFor bundleIDs: [String] = []) -> AXPermissionsStatus
+{
+    axDebugLog(
+        "Starting full permission status check.",
+        file: #file,
+        function: #function,
+        line: #line)
 
     let isProcessTrusted = AXPermissionHelpers.hasAccessibilityPermissions()
     let isSandboxed = AXPermissionHelpers.isSandboxed()
@@ -81,52 +84,52 @@ public func getPermissionsStatus(
                 "(isProcessTrusted: \(isProcessTrusted)) is not met.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
     }
 
     let finalStatus = AXPermissionsStatus(
         isAccessibilityApiEnabled: isProcessTrusted,
         isProcessTrustedForAccessibility: isProcessTrusted,
         automationStatus: automationStatus,
-        overallErrorMessages: collectedErrorMessages
-    )
+        overallErrorMessages: collectedErrorMessages)
     axDebugLog(
         "Finished permission status check. isAccessibilityApiEnabled: \(finalStatus.isAccessibilityApiEnabled), " +
             "isProcessTrusted: \(finalStatus.isProcessTrustedForAccessibility)",
         file: #file,
         function: #function,
-        line: #line
-    )
+        line: #line)
     return finalStatus
 }
 
 private func logProcessTrustStatus(_ isProcessTrusted: Bool) {
-    axDebugLog("AXIsProcessTrusted() returned: \(isProcessTrusted)",
-               file: #file,
-               function: #function,
-               line: #line)
+    axDebugLog(
+        "AXIsProcessTrusted() returned: \(isProcessTrusted)",
+        file: #file,
+        function: #function,
+        line: #line)
     if !isProcessTrusted {
         let parentName = getParentProcessName()
         let hint = parentName != nil ? "Hint: Grant accessibility permissions to \(parentName!)." :
             "Hint: Ensure the application running this tool has Accessibility permissions."
-        axWarningLog("Process is not trusted for Accessibility. \(hint)",
-                     file: #file,
-                     function: #function,
-                     line: #line)
+        axWarningLog(
+            "Process is not trusted for Accessibility. \(hint)",
+            file: #file,
+            function: #function,
+            line: #line)
     }
 }
 
 private func checkAutomationPermissions(
-    for bundleIDs: [String]
-) -> (automationStatus: [String: Bool], errorMessages: [String]) {
+    for bundleIDs: [String]) -> (automationStatus: [String: Bool], errorMessages: [String])
+{
     var automationStatus: [String: Bool] = [:]
     var collectedErrorMessages: [String] = []
 
-    axDebugLog("Checking automation permissions for bundle IDs: \(bundleIDs.joined(separator: ", "))",
-               file: #file,
-               function: #function,
-               line: #line)
+    axDebugLog(
+        "Checking automation permissions for bundle IDs: \(bundleIDs.joined(separator: ", "))",
+        file: #file,
+        function: #function,
+        line: #line)
 
     for bundleID in bundleIDs {
         let result = checkSingleBundleAutomation(bundleID)
@@ -147,8 +150,7 @@ private func checkSingleBundleAutomation(_ bundleID: String) -> (status: Bool?, 
             "Application with bundle ID '\(bundleID)' is not running. Cannot check automation status.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
         return (nil, nil)
     }
 
@@ -158,10 +160,11 @@ private func checkSingleBundleAutomation(_ bundleID: String) -> (status: Bool?, 
 
     guard let script = NSAppleScript(source: scriptSource) else {
         let errNoScript = "Could not initialize AppleScript for bundle ID '\(bundleID)'."
-        axErrorLog(errNoScript,
-                   file: #file,
-                   function: #function,
-                   line: #line)
+        axErrorLog(
+            errNoScript,
+            file: #file,
+            function: #function,
+            line: #line)
         return (nil, errNoScript)
     }
 
@@ -170,14 +173,15 @@ private func checkSingleBundleAutomation(_ bundleID: String) -> (status: Bool?, 
 
 private func executeAppleScriptCheck(
     _ script: NSAppleScript,
-    for bundleID: String
-) -> (status: Bool?, errorMessage: String?) {
+    for bundleID: String) -> (status: Bool?, errorMessage: String?)
+{
     var errorDict: NSDictionary?
 
-    axDebugLog("Executing AppleScript against \(bundleID) to check automation status.",
-               file: #file,
-               function: #function,
-               line: #line)
+    axDebugLog(
+        "Executing AppleScript against \(bundleID) to check automation status.",
+        file: #file,
+        function: #function,
+        line: #line)
 
     let descriptor = script.executeAndReturnError(&errorDict)
 
@@ -188,8 +192,7 @@ private func executeAppleScriptCheck(
                 "Automation permitted.",
             file: #file,
             function: #function,
-            line: #line
-        )
+            line: #line)
         return (true, nil)
     } else {
         let errorCode = errorDict?[NSAppleScript.errorNumber] as? Int ?? 0
@@ -198,10 +201,11 @@ private func executeAppleScriptCheck(
             "Descriptor was typeNull (type: \(descriptor.descriptorType.description)) but no errorDict." : ""
         let logMessage = "AppleScript execution against \(bundleID) failed. " +
             "Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
-        axWarningLog(logMessage,
-                     file: #file,
-                     function: #function,
-                     line: #line)
+        axWarningLog(
+            logMessage,
+            file: #file,
+            function: #function,
+            line: #line)
         return (false, "Automation denied for \(bundleID): \(errorMessage) (Code: \(errorCode))")
     }
 }

@@ -25,7 +25,7 @@ extension CommandType {
         .setFocusedValue: Self.createSetFocusedValueCommand,
         .getElementAtPoint: Self.createGetElementAtPointCommand,
         .getFocusedElement: Self.createGetFocusedElementCommand,
-        .observe: Self.createObserveCommand
+        .observe: Self.createObserveCommand,
     ]
 
     private static func createQueryCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -39,12 +39,10 @@ extension CommandType {
                 descendantCriteria: effectiveLocator.descendantCriteria,
                 requireAction: effectiveLocator.requireAction,
                 computedNameContains: effectiveLocator.computedNameContains,
-                debugPathSearch: commandEnvelope.locator?.debugPathSearch
-            ),
+                debugPathSearch: commandEnvelope.locator?.debugPathSearch),
             attributesToReturn: commandEnvelope.attributes,
             maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
-            includeChildrenBrief: commandEnvelope.includeChildrenBrief
-        ))
+            includeChildrenBrief: commandEnvelope.includeChildrenBrief))
     }
 
     private static func createPerformActionCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -54,8 +52,7 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             action: actionName,
             value: commandEnvelope.actionValue,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10
-        ))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
     }
 
     private static func createGetAttributesCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -63,8 +60,7 @@ extension CommandType {
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             attributes: commandEnvelope.attributes ?? [],
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10
-        ))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
     }
 
     private static func createDescribeElementCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -73,8 +69,7 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             depth: commandEnvelope.maxDepth ?? 3,
             includeIgnored: commandEnvelope.includeIgnoredElements ?? false,
-            maxSearchDepth: commandEnvelope.maxDepth ?? 10
-        ))
+            maxSearchDepth: commandEnvelope.maxDepth ?? 10))
     }
 
     private static func createExtractTextCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -83,8 +78,7 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
             includeChildren: commandEnvelope.includeChildrenInText ?? false,
-            maxDepth: commandEnvelope.maxDepth
-        ))
+            maxDepth: commandEnvelope.maxDepth))
     }
 
     private static func createCollectAllCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -93,8 +87,7 @@ extension CommandType {
             attributesToReturn: commandEnvelope.attributes,
             maxDepth: commandEnvelope.maxDepth ?? 10,
             filterCriteria: commandEnvelope.filterCriteria,
-            valueFormatOption: ValueFormatOption.smart
-        ))
+            valueFormatOption: ValueFormatOption.smart))
     }
 
     private static func createBatchCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -114,8 +107,7 @@ extension CommandType {
         if axSubCommands.count != batchSubCommands.count {
             axErrorLog(
                 "toAXCommand: Some subCommands in batch failed. Original: \(batchSubCommands.count), " +
-                    "Converted: \(axSubCommands.count)"
-            )
+                    "Converted: \(axSubCommands.count)")
         }
         return .batch(AXBatchCommand(commands: axSubCommands))
     }
@@ -129,8 +121,7 @@ extension CommandType {
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             value: value,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10
-        ))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
     }
 
     private static func createGetElementAtPointCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -143,16 +134,14 @@ extension CommandType {
             appIdentifier: commandEnvelope.application,
             pid: commandEnvelope.pid,
             attributesToReturn: commandEnvelope.attributes,
-            includeChildrenBrief: commandEnvelope.includeChildrenBrief
-        ))
+            includeChildrenBrief: commandEnvelope.includeChildrenBrief))
     }
 
     private static func createGetFocusedElementCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
         .getFocusedElement(GetFocusedElementCommand(
             appIdentifier: commandEnvelope.application,
             attributesToReturn: commandEnvelope.attributes,
-            includeChildrenBrief: commandEnvelope.includeChildrenBrief
-        ))
+            includeChildrenBrief: commandEnvelope.includeChildrenBrief))
     }
 
     private static func createObserveCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -176,7 +165,6 @@ extension CommandType {
             watchChildren: commandEnvelope.watchChildren ?? false,
             notificationName: axNotification,
             includeElementDetails: commandEnvelope.includeElementDetails,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10
-        ))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
     }
 }

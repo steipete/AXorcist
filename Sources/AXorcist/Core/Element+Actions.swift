@@ -6,11 +6,11 @@ import Foundation
 // GlobalAXLogger should be available
 
 // Action-related extension for Element
-public extension Element {
+extension Element {
     // MARK: - Actions
 
     @MainActor
-    func isActionSupported(_ actionName: String) -> Bool { // Removed logging params
+    public func isActionSupported(_ actionName: String) -> Bool { // Removed logging params
         // self.supportedActions() is refactored and uses GlobalAXLogger internally
         // Assumes self.supportedActions() is refactored in Element+Properties.swift
         if let actions = self.supportedActions() {
@@ -21,7 +21,7 @@ public extension Element {
 
     @MainActor
     @discardableResult
-    func performAction(_ actionName: Attribute<String>) throws -> Element { // Removed logging params
+    public func performAction(_ actionName: Attribute<String>) throws -> Element { // Removed logging params
         // self.briefDescription() is refactored and uses GlobalAXLogger internally
         // Assumes self.briefDescription() is refactored in Element+Description.swift
         let descForLog = self.briefDescription(option: .smart)
@@ -38,7 +38,7 @@ public extension Element {
 
     @MainActor
     @discardableResult
-    func performAction(_ actionName: String) throws -> Element { // Removed logging params
+    public func performAction(_ actionName: String) throws -> Element { // Removed logging params
         let descForLog = self.briefDescription(option: .smart)
         axDebugLog("Attempting to perform action '\(actionName)' on element: \(descForLog)")
 
@@ -55,7 +55,7 @@ public extension Element {
     /// Example: try element.performAction(.raise)
     @MainActor
     @discardableResult
-    func performAction(_ action: AXAction) throws -> Element {
-        try performAction(action.rawValue)
+    public func performAction(_ action: AXAction) throws -> Element {
+        try self.performAction(action.rawValue)
     }
 }

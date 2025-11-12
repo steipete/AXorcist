@@ -9,11 +9,11 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-public extension AXValue {
+extension AXValue {
     // MARK: - Value Extraction
 
     /// Extract CGSize from AXValue
-    func cgSize() -> CGSize? {
+    public func cgSize() -> CGSize? {
         guard AXValueGetType(self) == .cgSize else { return nil }
         var size = CGSize.zero
         let success = AXValueGetValue(self, .cgSize, &size)
@@ -21,7 +21,7 @@ public extension AXValue {
     }
 
     /// Extract CGPoint from AXValue
-    func cgPoint() -> CGPoint? {
+    public func cgPoint() -> CGPoint? {
         guard AXValueGetType(self) == .cgPoint else { return nil }
         var point = CGPoint.zero
         let success = AXValueGetValue(self, .cgPoint, &point)
@@ -29,7 +29,7 @@ public extension AXValue {
     }
 
     /// Extract CGRect from AXValue
-    func cgRect() -> CGRect? {
+    public func cgRect() -> CGRect? {
         guard AXValueGetType(self) == .cgRect else { return nil }
         var rect = CGRect.zero
         let success = AXValueGetValue(self, .cgRect, &rect)
@@ -37,7 +37,7 @@ public extension AXValue {
     }
 
     /// Extract CFRange from AXValue
-    func cfRange() -> CFRange? {
+    public func cfRange() -> CFRange? {
         guard AXValueGetType(self) == .cfRange else { return nil }
         var range = CFRange()
         let success = AXValueGetValue(self, .cfRange, &range)
@@ -45,7 +45,7 @@ public extension AXValue {
     }
 
     /// Extract AXError from AXValue
-    func axError() -> AXError? {
+    public func axError() -> AXError? {
         guard AXValueGetType(self) == .axError else { return nil }
         var error: AXError = .failure
         let success = AXValueGetValue(self, .axError, &error)
@@ -53,25 +53,25 @@ public extension AXValue {
     }
 
     /// Get the type of this AXValue
-    var valueType: AXValueType {
+    public var valueType: AXValueType {
         AXValueGetType(self)
     }
 
     /// Extract value as Any?, automatically determining the type
-    func value() -> Any? {
+    public func value() -> Any? {
         let type = self.valueType
 
         switch type {
         case .axError:
-            return axError()
+            return self.axError()
         case .cgSize:
-            return cgSize()
+            return self.cgSize()
         case .cgPoint:
-            return cgPoint()
+            return self.cgPoint()
         case .cgRect:
-            return cgRect()
+            return self.cgRect()
         case .cfRange:
-            return cfRange()
+            return self.cfRange()
         case .illegal:
             return nil
         @unknown default:
@@ -82,31 +82,31 @@ public extension AXValue {
     // MARK: - Static Factory Methods
 
     /// Create AXValue from CGPoint
-    static func create(point: CGPoint) -> AXValue? {
+    public static func create(point: CGPoint) -> AXValue? {
         var point = point
         return AXValueCreate(.cgPoint, &point)
     }
 
     /// Create AXValue from CGSize
-    static func create(size: CGSize) -> AXValue? {
+    public static func create(size: CGSize) -> AXValue? {
         var size = size
         return AXValueCreate(.cgSize, &size)
     }
 
     /// Create AXValue from CGRect
-    static func create(rect: CGRect) -> AXValue? {
+    public static func create(rect: CGRect) -> AXValue? {
         var rect = rect
         return AXValueCreate(.cgRect, &rect)
     }
 
     /// Create AXValue from CFRange
-    static func create(range: CFRange) -> AXValue? {
+    public static func create(range: CFRange) -> AXValue? {
         var range = range
         return AXValueCreate(.cfRange, &range)
     }
 
     /// Create AXValue from AXError
-    static func create(error: AXError) -> AXValue? {
+    public static func create(error: AXError) -> AXValue? {
         var error = error
         return AXValueCreate(.axError, &error)
     }

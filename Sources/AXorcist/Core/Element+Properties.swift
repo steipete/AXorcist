@@ -5,103 +5,103 @@ import Foundation
 
 // MARK: - Element Common Attribute Getters & Status Properties
 
-public extension Element {
+extension Element {
     // Common Attribute Getters - now simplified
-    @MainActor func role() -> String? {
+    @MainActor public func role() -> String? {
         attribute(Attribute<String>.role)
     }
 
-    @MainActor func subrole() -> String? {
+    @MainActor public func subrole() -> String? {
         attribute(Attribute<String>.subrole)
     }
 
-    @MainActor func title() -> String? {
+    @MainActor public func title() -> String? {
         attribute(Attribute<String>.title)
     }
 
     // Renamed from 'description' to 'descriptionText'
-    @MainActor func descriptionText() -> String? {
+    @MainActor public func descriptionText() -> String? {
         attribute(Attribute<String>.description)
     }
 
-    @MainActor func isEnabled() -> Bool? {
+    @MainActor public func isEnabled() -> Bool? {
         attribute(Attribute<Bool>.enabled)
     }
 
-    @MainActor func value() -> Any? {
+    @MainActor public func value() -> Any? {
         attribute(Attribute<Any>(AXAttributeNames.kAXValueAttribute))
     }
 
-    @MainActor func roleDescription() -> String? {
+    @MainActor public func roleDescription() -> String? {
         attribute(Attribute<String>.roleDescription)
     }
 
-    @MainActor func help() -> String? {
+    @MainActor public func help() -> String? {
         attribute(Attribute<String>.help)
     }
 
-    @MainActor func identifier() -> String? {
+    @MainActor public func identifier() -> String? {
         attribute(Attribute<String>.identifier)
     }
 
     // Status Properties - simplified
-    @MainActor func isFocused() -> Bool? {
+    @MainActor public func isFocused() -> Bool? {
         attribute(Attribute<Bool>.focused)
     }
 
-    @MainActor func isHidden() -> Bool? {
+    @MainActor public func isHidden() -> Bool? {
         attribute(Attribute<Bool>.hidden)
     }
 
-    @MainActor func isElementBusy() -> Bool? {
+    @MainActor public func isElementBusy() -> Bool? {
         attribute(Attribute<Bool>.busy)
     }
 
-    @MainActor func isIgnored() -> Bool {
+    @MainActor public func isIgnored() -> Bool {
         attribute(Attribute<Bool>.hidden) == true
     }
 
-    @MainActor func pid() -> pid_t? {
+    @MainActor public func pid() -> pid_t? {
         var pidRef: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(
             self.underlyingElement,
             AXAttributeNames.kAXPIDAttribute as CFString,
-            &pidRef
-        )
+            &pidRef)
         if error == .success, let pidNum = pidRef as? NSNumber {
             return pid_t(pidNum.intValue)
         } else {
             // Use the global axDebugLog helper function for simplicity and correctness
-            axDebugLog("Failed to get PID for element: \(error.rawValue)",
-                       details: ["element": AnyCodable(String(describing: self.underlyingElement))])
+            axDebugLog(
+                "Failed to get PID for element: \(error.rawValue)",
+                details: ["element": AnyCodable(String(describing: self.underlyingElement))])
         }
         return nil
     }
 
     // Hierarchy and Relationship Getters - simplified
-    @MainActor func parent() -> Element? {
+    @MainActor public func parent() -> Element? {
         guard let parentElementUI: AXUIElement = attribute(.parent) else { return nil }
         return Element(parentElementUI)
     }
 
-    @MainActor func windows() -> [Element]? {
+    @MainActor public func windows() -> [Element]? {
         guard let windowElementsUI: [AXUIElement] = attribute(.windows) else { return nil }
         return windowElementsUI.map { Element($0) }
     }
 
-    @MainActor func mainWindow() -> Element? {
+    @MainActor public func mainWindow() -> Element? {
         guard let windowElementUI = attribute(.mainWindow) else { return nil }
         return Element(windowElementUI)
     }
 
-    @MainActor func focusedWindow() -> Element? {
+    @MainActor public func focusedWindow() -> Element? {
         guard let windowElementUI = attribute(.focusedWindow) else { return nil }
         return Element(windowElementUI)
     }
 
     // Attempts to get the focused UI element within this element (e.g., a focused text field in a window).
     @MainActor
-    func focusedUIElement() -> Element? {
+    public func focusedUIElement() -> Element? {
         // Use the specific type for the attribute, non-optional generic
         guard let elementUI: AXUIElement = attribute(Attribute<AXUIElement>.focusedUIElement) else { return nil }
         return Element(elementUI)
@@ -109,75 +109,75 @@ public extension Element {
 
     // Action-related - simplified
     @MainActor
-    func supportedActions() -> [String]? {
+    public func supportedActions() -> [String]? {
         attribute(Attribute<[String]>.actionNames)
     }
 
     // domIdentifier - simplified to a single method, was previously a computed property and a method.
-    @MainActor func domIdentifier() -> String? {
+    @MainActor public func domIdentifier() -> String? {
         attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute))
     }
 
-    @MainActor func defaultButton() -> Element? {
+    @MainActor public func defaultButton() -> Element? {
         guard let buttonAXUIElement = attribute(.defaultButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor func cancelButton() -> Element? {
+    @MainActor public func cancelButton() -> Element? {
         guard let buttonAXUIElement = attribute(.cancelButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
     // Specific UI Buttons in a Window
-    @MainActor func closeButton() -> Element? {
+    @MainActor public func closeButton() -> Element? {
         guard let buttonAXUIElement = attribute(.closeButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor func zoomButton() -> Element? {
+    @MainActor public func zoomButton() -> Element? {
         guard let buttonAXUIElement = attribute(.zoomButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor func minimizeButton() -> Element? {
+    @MainActor public func minimizeButton() -> Element? {
         guard let buttonAXUIElement = attribute(.minimizeButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor func toolbarButton() -> Element? {
+    @MainActor public func toolbarButton() -> Element? {
         guard let buttonAXUIElement = attribute(.toolbarButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
-    @MainActor func fullScreenButton() -> Element? {
+    @MainActor public func fullScreenButton() -> Element? {
         guard let buttonAXUIElement = attribute(.fullScreenButton) else { return nil }
         return Element(buttonAXUIElement)
     }
 
     // Proxy (e.g. for web content)
-    @MainActor func proxy() -> Element? {
+    @MainActor public func proxy() -> Element? {
         guard let proxyAXUIElement = attribute(.proxy) else { return nil }
         return Element(proxyAXUIElement)
     }
 
     // Grow Area (e.g. for resizing window)
-    @MainActor func growArea() -> Element? {
+    @MainActor public func growArea() -> Element? {
         guard let growAreaAXUIElement = attribute(.growArea) else { return nil }
         return Element(growAreaAXUIElement)
     }
 
-    @MainActor func header() -> Element? {
+    @MainActor public func header() -> Element? {
         guard let headerAXUIElement = attribute(.header) else { return nil }
         return Element(headerAXUIElement)
     }
 
     // Scroll Area properties
-    @MainActor func horizontalScrollBar() -> Element? {
+    @MainActor public func horizontalScrollBar() -> Element? {
         guard let scrollBarAXUIElement = attribute(.horizontalScrollBar) else { return nil }
         return Element(scrollBarAXUIElement)
     }
 
-    @MainActor func verticalScrollBar() -> Element? {
+    @MainActor public func verticalScrollBar() -> Element? {
         guard let scrollBarAXUIElement = attribute(.verticalScrollBar) else { return nil }
         return Element(scrollBarAXUIElement)
     }
@@ -187,7 +187,7 @@ public extension Element {
 
     // MARK: - Attribute Names
 
-    @MainActor func attributeNames() -> [String]? {
+    @MainActor public func attributeNames() -> [String]? {
         var attrNames: CFArray?
         let error = AXUIElementCopyAttributeNames(self.underlyingElement, &attrNames)
         if error == .success, let names = attrNames as? [String] {
@@ -195,15 +195,14 @@ public extension Element {
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
-            message: "Failed to get attribute names for element: \(error.rawValue)"
-        ))
+            message: "Failed to get attribute names for element: \(error.rawValue)"))
         return nil
     }
 
     // MARK: - AX Property Dumping
 
     @MainActor
-    func dump() -> String {
+    public func dump() -> String {
         var builder = AXPropertyDumpBuilder(root: self.underlyingElement, description: self.briefDescription())
         return builder.build()
     }
@@ -328,8 +327,7 @@ private struct AXPropertyDumpBuilder {
             element,
             name as CFString,
             parameter,
-            &value
-        )
+            &value)
         guard result == .success else { return nil }
         return String(describing: value ?? "nil" as Any)
     }
