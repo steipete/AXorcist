@@ -55,18 +55,9 @@ extension Element {
 
     private func convertToString(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> String? {
         if cfTypeID == CFStringGetTypeID() {
-            guard let cfString = cfValue as? CFString else {
-                GlobalAXLogger.shared.log(
-                    AXLogEntry(level: .warning, message: "Failed to cast CFTypeRef to CFString"))
-                return nil
-            }
-            return cfString as String
+            return (cfValue as! CFString) as String
         } else if cfTypeID == CFAttributedStringGetTypeID() {
-            guard let attrString = cfValue as? NSAttributedString else {
-                GlobalAXLogger.shared.log(
-                    AXLogEntry(level: .warning, message: "Failed to cast CFTypeRef to NSAttributedString"))
-                return nil
-            }
+            let attrString = cfValue as! NSAttributedString
             return attrString.string
         }
         return nil
@@ -74,11 +65,7 @@ extension Element {
 
     private func convertToBool(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> Bool? {
         if cfTypeID == CFBooleanGetTypeID() {
-            guard let cfBool = cfValue as? CFBoolean else {
-                GlobalAXLogger.shared.log(
-                    AXLogEntry(level: .warning, message: "Failed to cast CFTypeRef to CFBoolean"))
-                return nil
-            }
+            let cfBool = unsafeDowncast(cfValue, to: CFBoolean.self)
             return CFBooleanGetValue(cfBool)
         }
         return nil
@@ -86,14 +73,10 @@ extension Element {
 
     private func convertToInt(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> Int? {
         if cfTypeID == CFNumberGetTypeID() {
-            guard let cfNumber = cfValue as? CFNumber else {
-                GlobalAXLogger.shared.log(
-                    AXLogEntry(level: .warning, message: "Failed to cast CFTypeRef to CFNumber"))
-                return nil
-            }
-            var intValue = 0
+            let cfNumber = unsafeDowncast(cfValue, to: CFNumber.self)
+            var intValue = Int64(0)
             if CFNumberGetValue(cfNumber, .sInt64Type, &intValue) {
-                return intValue
+                return Int(intValue)
             }
         }
         return nil
@@ -101,12 +84,7 @@ extension Element {
 
     private func convertToAXUIElement(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> AXUIElement? {
         if cfTypeID == AXUIElementGetTypeID() {
-            guard let element = cfValue as? AXUIElement else {
-                GlobalAXLogger.shared.log(
-                    AXLogEntry(level: .warning, message: "Failed to cast CFTypeRef to AXUIElement"))
-                return nil
-            }
-            return element
+            return unsafeDowncast(cfValue, to: AXUIElement.self)
         }
         return nil
     }

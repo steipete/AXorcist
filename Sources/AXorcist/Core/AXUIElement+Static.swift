@@ -34,15 +34,14 @@ extension AXUIElement {
             AXAttributeNames.kAXFocusedApplicationAttribute as CFString,
             &focusedApp)
 
-        guard error == .success, let app = focusedApp, CFGetTypeID(app) == AXUIElementGetTypeID(),
-              let axApp = app as? AXUIElement else {
+        guard error == .success, let app = focusedApp, CFGetTypeID(app) == AXUIElementGetTypeID() else {
             let errorDetails = "AXError: \(error.rawValue) - \(error.localizedDescription)"
             axErrorLog("Failed to get focused application: \(errorDetails)")
             throw AccessibilityError.attributeNotReadable(
                 attribute: AXAttributeNames.kAXFocusedApplicationAttribute,
                 elementDescription: "SystemWideElement")
         }
-        return axApp
+        return unsafeDowncast(app, to: AXUIElement.self)
     }
 
     /// Returns the frontmost application using NSWorkspace
@@ -103,12 +102,11 @@ extension AXUIElement {
 
         guard error == .success,
               let window = focusedWindow,
-              CFGetTypeID(window) == AXUIElementGetTypeID(),
-              let axWindow = window as? AXUIElement else {
+              CFGetTypeID(window) == AXUIElementGetTypeID() else {
             return nil
         }
 
-        return axWindow
+        return unsafeDowncast(window, to: AXUIElement.self)
     }
 
     /// Returns the main window in the frontmost application
@@ -126,12 +124,11 @@ extension AXUIElement {
 
         guard error == .success,
               let window = mainWindow,
-              CFGetTypeID(window) == AXUIElementGetTypeID(),
-              let axWindow = window as? AXUIElement else {
+              CFGetTypeID(window) == AXUIElementGetTypeID() else {
             return nil
         }
 
-        return axWindow
+        return unsafeDowncast(window, to: AXUIElement.self)
     }
 
     /// Returns all windows for the specified application

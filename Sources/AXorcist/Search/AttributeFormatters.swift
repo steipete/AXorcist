@@ -10,29 +10,18 @@ func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
     if typeID == CFStringGetTypeID() {
-        guard let stringValue = value as? String else {
-            return AXMiscConstants.kAXNotAvailableString
-        }
-        return stringValue
+        return value as! String
     } else if typeID == CFAttributedStringGetTypeID() {
-        guard let attributedString = value as? NSAttributedString else {
-            return AXMiscConstants.kAXNotAvailableString
-        }
+        let attributedString = value as! NSAttributedString
         return attributedString.string
     } else if typeID == AXValueGetTypeID() {
-        guard let axValue = value as? AXValue else {
-            return AXMiscConstants.kAXNotAvailableString
-        }
+        let axValue = unsafeDowncast(value, to: AXValue.self)
         return formatAXValue(axValue, option: ValueFormatOption.smart)
     } else if typeID == CFNumberGetTypeID() {
-        guard let number = value as? NSNumber else {
-            return AXMiscConstants.kAXNotAvailableString
-        }
+        let number = value as! NSNumber
         return number.stringValue
     } else if typeID == CFBooleanGetTypeID() {
-        guard let boolValue = value as? CFBoolean else {
-            return AXMiscConstants.kAXNotAvailableString
-        }
+        let boolValue = unsafeDowncast(value, to: CFBoolean.self)
         return CFBooleanGetValue(boolValue) ? "true" : "false"
     } else {
         let typeDesc = CFCopyTypeIDDescription(typeID) as String? ?? "ComplexType"

@@ -243,11 +243,13 @@ extension Element {
             underlyingElement,
             AXAttributeNames.kAXURLAttribute as CFString,
             &value)
-        guard error == .success,
-              let cfURL = value as? CFURL else {
+        guard error == .success, let cfValue = value else {
             return nil
         }
-        return cfURL as URL
+        guard CFGetTypeID(cfValue) == CFURLGetTypeID() else {
+            return nil
+        }
+        return (cfValue as! CFURL) as URL
     }
 
     // MARK: - System-Wide Element Attributes

@@ -43,10 +43,7 @@ public func getAXValueTypeForAttribute(element: Element, attributeName: String) 
         return nil
     }
 
-    guard let axValue = rawValue as? AXValue else {
-        axWarningLog("getAXValueTypeForAttribute: Expected AXValue but received \(rawValue).")
-        return nil
-    }
+    let axValue = unsafeDowncast(rawValue, to: AXValue.self)
     return AXValueGetType(axValue)
 }
 
@@ -85,13 +82,7 @@ private func convertStringValue(
 
     switch typeID {
     case AXValueGetTypeID():
-        guard let axValue = currentValue as? AXValue else {
-            let detail = "Attribute '\(attributeName)' reported AXValue type but casting failed."
-            axErrorLog(detail, file: #file, function: #function, line: #line)
-            throw AccessibilityError.attributeUnsupported(
-                attribute: detail,
-                elementDescription: element.briefDescription())
-        }
+        let axValue = unsafeDowncast(currentValue, to: AXValue.self)
         let axValueType = AXValueGetType(axValue)
         axDebugLog(
             "Attribute '\(attributeName)' is AXValue of type: \(stringFromAXValueType(axValueType))",
