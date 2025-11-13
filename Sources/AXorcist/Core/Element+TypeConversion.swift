@@ -55,11 +55,15 @@ extension Element {
 
     private func convertToString(_ cfValue: CFTypeRef, cfTypeID: CFTypeID) -> String? {
         if cfTypeID == CFStringGetTypeID() {
-            return (cfValue as! CFString) as String
-        } else if cfTypeID == CFAttributedStringGetTypeID() {
-            let attrString = cfValue as! NSAttributedString
+            let cfString = unsafeDowncast(cfValue, to: CFString.self)
+            return cfString as String
+        }
+
+        if cfTypeID == CFAttributedStringGetTypeID() {
+            let attrString = unsafeDowncast(cfValue, to: NSAttributedString.self)
             return attrString.string
         }
+
         return nil
     }
 

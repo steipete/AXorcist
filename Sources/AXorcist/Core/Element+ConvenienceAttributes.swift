@@ -246,10 +246,11 @@ extension Element {
         guard error == .success, let cfValue = value else {
             return nil
         }
-        guard CFGetTypeID(cfValue) == CFURLGetTypeID() else {
+        guard CFGetTypeID(cfValue) == CFURLGetTypeID(),
+              let cfURL = cfValue as? NSURL else {
             return nil
         }
-        return (cfValue as! CFURL) as URL
+        return cfURL as URL
     }
 
     // MARK: - System-Wide Element Attributes

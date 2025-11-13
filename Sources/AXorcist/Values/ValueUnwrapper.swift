@@ -32,15 +32,16 @@ enum ValueUnwrapper {
         case ApplicationServices.AXValueGetTypeID():
             return self.unwrapAXValue(value)
         case CFStringGetTypeID():
-            return (value as! CFString) as String
+            let cfString = unsafeDowncast(value, to: CFString.self)
+            return cfString as String
         case CFAttributedStringGetTypeID():
-            let attributedString = value as! NSAttributedString
+            let attributedString = unsafeDowncast(value, to: NSAttributedString.self)
             return attributedString.string
         case CFBooleanGetTypeID():
-            let cfBool = value as! CFBoolean
+            let cfBool = unsafeDowncast(value, to: CFBoolean.self)
             return CFBooleanGetValue(cfBool)
         case CFNumberGetTypeID():
-            return value as! NSNumber
+            return unsafeDowncast(value, to: NSNumber.self)
         case CFArrayGetTypeID():
             return self.unwrapCFArray(value)
         case CFDictionaryGetTypeID():

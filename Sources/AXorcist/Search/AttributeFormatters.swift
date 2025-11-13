@@ -10,15 +10,16 @@ func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }
     let typeID = CFGetTypeID(value)
     if typeID == CFStringGetTypeID() {
-        return value as! String
+        let cfString = unsafeDowncast(value, to: CFString.self)
+        return cfString as String
     } else if typeID == CFAttributedStringGetTypeID() {
-        let attributedString = value as! NSAttributedString
+        let attributedString = unsafeDowncast(value, to: NSAttributedString.self)
         return attributedString.string
     } else if typeID == AXValueGetTypeID() {
         let axValue = unsafeDowncast(value, to: AXValue.self)
         return formatAXValue(axValue, option: ValueFormatOption.smart)
     } else if typeID == CFNumberGetTypeID() {
-        let number = value as! NSNumber
+        let number = unsafeDowncast(value, to: NSNumber.self)
         return number.stringValue
     } else if typeID == CFBooleanGetTypeID() {
         let boolValue = unsafeDowncast(value, to: CFBoolean.self)

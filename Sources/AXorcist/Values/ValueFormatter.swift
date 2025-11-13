@@ -42,16 +42,22 @@ private func formatCFTypeByID(
         let axValue = unsafeDowncast(value, to: AXValue.self)
         return formatAXValue(axValue, option: option)
     case CFStringGetTypeID():
-        let stringValue = value as! String
+        guard let stringValue = value as? String else {
+            return "<Invalid CFString>"
+        }
         return "\"\(escapeStringForDisplay(stringValue))\""
     case CFAttributedStringGetTypeID():
-        let attributedString = value as! NSAttributedString
+        guard let attributedString = value as? NSAttributedString else {
+            return "<Invalid CFAttributedString>"
+        }
         return "\"\(escapeStringForDisplay(attributedString.string))\""
     case CFBooleanGetTypeID():
         let boolValue = unsafeDowncast(value, to: CFBoolean.self)
         return CFBooleanGetValue(boolValue) ? "true" : "false"
     case CFNumberGetTypeID():
-        let number = value as! NSNumber
+        guard let number = value as? NSNumber else {
+            return "<Invalid CFNumber>"
+        }
         return number.stringValue
     case CFArrayGetTypeID():
         return formatCFArray(value, option: option)

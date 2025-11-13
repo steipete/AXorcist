@@ -10,6 +10,8 @@
 
 ---
 
+> **Platform target:** macOS 14.0 and later. AXorcist sits on top of the Accessibility APIs that only ship on macOS, so CI and releases intentionally stay macOS-only.
+
 **AXorcist** harnesses the supernatural powers of macOS Accessibility APIs to give you mystical control over any application's interface. Whether you're automating workflows, testing applications, or building assistive technologies, AXorcist provides the incantations you need to make UI elements bend to your will.
 
 ## Overview
@@ -674,6 +676,7 @@ Please follow the main Peekaboo contributing guidelines and open pull requests a
 
 | Date       | Command                                                                                           | Scope                            | Line Coverage |
 | ---------- | ------------------------------------------------------------------------------------------------- | -------------------------------- | ------------- |
+| 2025-11-13 | `./runner swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
 | 2025-11-12 | `./runner swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
 
 > Only the `PingIntegrationTests` subset currently runs in this headless environment; the automation-tagged suites require interactive UI access. Coverage is produced with `xcrun llvm-cov report AXorcist/.build/debug/axPackagePackageTests.xctest/Contents/MacOS/axPackagePackageTests -instr-profile AXorcist/.build/debug/codecov/default.profdata`.

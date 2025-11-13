@@ -102,7 +102,8 @@ extension AXUIElement {
 
         guard error == .success,
               let window = focusedWindow,
-              CFGetTypeID(window) == AXUIElementGetTypeID() else {
+              CFGetTypeID(window) == AXUIElementGetTypeID()
+        else {
             return nil
         }
 
@@ -124,7 +125,8 @@ extension AXUIElement {
 
         guard error == .success,
               let window = mainWindow,
-              CFGetTypeID(window) == AXUIElementGetTypeID() else {
+              CFGetTypeID(window) == AXUIElementGetTypeID()
+        else {
             return nil
         }
 
