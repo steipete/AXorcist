@@ -247,7 +247,8 @@ extension Element {
             return nil
         }
         guard CFGetTypeID(cfValue) == CFURLGetTypeID(),
-              let cfURL = cfValue as? NSURL else {
+              let cfURL = cfValue as? NSURL
+        else {
             return nil
         }
         return cfURL as URL
