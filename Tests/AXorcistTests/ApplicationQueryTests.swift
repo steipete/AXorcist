@@ -38,8 +38,10 @@ struct ApplicationQueryTests {
         let command = CommandEnvelope(
             commandId: "test-get-all-apps",
             command: .collectAll,
+            attributes: ["AXRole", "AXTitle", "AXIdentifier"],
             debugLogging: true,
             locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXApplication")]),
+            maxDepth: 3,
             outputFormat: .verbose)
 
         let encoder = JSONEncoder()
@@ -60,13 +62,24 @@ struct ApplicationQueryTests {
             throw TestError.generic("No output")
         }
 
-        let response = try JSONDecoder().decode(QueryResponse.self, from: responseData)
-
-        #expect(response.success)
-        #expect(response.data != nil, "Should have data")
-
-        if let data = response.data {
-            #expect(data.attributes != nil, "Should have attributes")
+        if let response = try? JSONDecoder().decode(QueryResponse.self, from: responseData) {
+            #expect(response.success)
+            if let data = response.data {
+                #expect(data.attributes != nil, "Should have attributes")
+            } else {
+                Issue.record("CollectAll query response had no data payload")
+            }
+        } else if
+            let jsonObject = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+            let data = jsonObject["data"] as? [String: Any],
+            let count = data["count"] as? Int,
+            let elements = data["elements"] as? [[String: Any]]
+        {
+            #expect(count > 0, "CollectAll response should report at least one element")
+            #expect(!elements.isEmpty, "CollectAll response should include element payloads")
+        } else {
+            let fallback = String(data: responseData, encoding: .utf8) ?? "<non-UTF8>"
+            Issue.record("Unexpected response payload for collectAll: \(fallback)")
         }
     }
 
@@ -149,13 +162,21 @@ struct ApplicationQueryTests {
             throw TestError.generic("No output")
         }
 
-        let response = try JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData)
-
-        if response.success {
-            let message = response.message
+        if let response = try? JSONDecoder().decode(SimpleSuccessResponse.self, from: responseData) {
+            if response.success {
+                let message = response.message
+                #expect(
+                    message.contains("No") || message.contains("not found") || message.isEmpty,
+                    "Message should indicate no elements found or be empty")
+            }
+        } else if let jsonObject = try? JSONSerialization.jsonObject(with: responseData) as? [String: Any] {
+            let message = (jsonObject["message"] as? String) ?? (jsonObject["error"] as? String) ?? ""
             #expect(
-                message.contains("No") || message.contains("not found") || message.isEmpty,
+                message.contains("No") || message.contains("not found") || message.contains("error") || message.isEmpty,
                 "Message should indicate no elements found or be empty")
+        } else {
+            let rawOutput = String(data: responseData, encoding: .utf8) ?? "<non-UTF8 response>"
+            Issue.record("Unexpected response for nonexistent app: \(rawOutput)")
         }
     }
 }

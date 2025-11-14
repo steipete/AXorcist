@@ -121,6 +121,7 @@ public class AXorcist {
 
         // Collect all elements recursively
         var collectedElements: [AXElementData] = []
+        var visitedElements: Set<UInt> = []
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
         let collectionContext = ElementCollectionContext(
             maxDepth: command.maxDepth,
@@ -131,6 +132,7 @@ public class AXorcist {
             element: rootElement,
             currentDepth: 0,
             context: collectionContext,
+            visited: &visitedElements,
             collectedElements: &collectedElements)
 
         self.logger.log(AXLogEntry(
@@ -204,10 +206,15 @@ public class AXorcist {
         element: Element,
         currentDepth: Int,
         context: ElementCollectionContext,
+        visited: inout Set<UInt>,
         collectedElements: inout [AXElementData])
     {
         // Check depth limit
         guard currentDepth <= context.maxDepth else { return }
+
+        // Prevent infinite loops caused by cyclic AX hierarchies (Window → App → Window …)
+        let hashValue = CFHash(element.underlyingElement)
+        guard visited.insert(hashValue).inserted else { return }
 
         // Apply filter criteria if provided
         if let criteria = context.filterCriteria {
@@ -228,6 +235,7 @@ public class AXorcist {
                     element: child,
                     currentDepth: currentDepth + 1,
                     context: context,
+                    visited: &visited,
                     collectedElements: &collectedElements)
             }
         }

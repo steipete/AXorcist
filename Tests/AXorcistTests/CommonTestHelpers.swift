@@ -183,11 +183,14 @@ func runAXORCCommand(arguments: [String]) throws -> CommandResult {
     process.standardOutput = outputPipe
     process.standardError = errorPipe
 
+    let readStdout = startStreaming(pipe: outputPipe)
+    let readStderr = startStreaming(pipe: errorPipe)
+
     try process.run()
     process.waitUntilExit()
 
-    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+    let outputData = readStdout()
+    let errorData = readStderr()
 
     let output = String(data: outputData, encoding: String.Encoding.utf8)?
         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -235,6 +238,9 @@ func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> 
     process.standardError = errorPipe
     process.standardInput = inputPipe
 
+    let readStdout = startStreaming(pipe: outputPipe)
+    let readStderr = startStreaming(pipe: errorPipe)
+
     try process.run()
 
     if let inputData = inputJSON.data(using: String.Encoding.utf8) {
@@ -247,8 +253,8 @@ func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> 
 
     process.waitUntilExit()
 
-    let outputData = outputPipe.fileHandleForReading.readDataToEndOfFile()
-    let errorData = errorPipe.fileHandleForReading.readDataToEndOfFile()
+    let outputData = readStdout()
+    let errorData = readStderr()
 
     let output = String(data: outputData, encoding: String.Encoding.utf8)?
         .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -280,6 +286,7 @@ struct CommandEnvelope: Codable {
         locator: Locator? = nil,
         pathHint: [String]? = nil,
         maxElements: Int? = nil,
+        maxDepth: Int? = nil,
         outputFormat: OutputFormat? = nil,
         actionName: String? = nil,
         actionValue: AttributeValue? = nil,
@@ -294,6 +301,7 @@ struct CommandEnvelope: Codable {
         self.locator = locator
         self.pathHint = pathHint
         self.maxElements = maxElements
+        self.maxDepth = maxDepth
         self.outputFormat = outputFormat
         self.actionName = actionName
         self.actionValue = actionValue
@@ -312,6 +320,7 @@ struct CommandEnvelope: Codable {
         case locator
         case pathHint = "path_hint"
         case maxElements = "max_elements"
+        case maxDepth = "max_depth"
         case outputFormat = "output_format"
         case actionName = "action_name"
         case actionValue = "action_value"
@@ -327,6 +336,7 @@ struct CommandEnvelope: Codable {
     let locator: Locator?
     let pathHint: [String]?
     let maxElements: Int?
+    let maxDepth: Int?
     let outputFormat: OutputFormat?
     let actionName: String?
     let actionValue: AttributeValue?
