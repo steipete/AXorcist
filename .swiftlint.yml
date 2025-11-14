@@ -102,7 +102,6 @@ disabled_rules:
 # NOTE: force_cast and force_unwrapping are warnings (acceptable for low-level accessibility APIs)
 force_cast: warning
 force_try: warning
-force_unwrapping: warning
 
 type_name:
   min_length:
