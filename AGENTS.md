@@ -17,6 +17,7 @@ Shared guardrails distilled from the various `~/Projects/*/AGENTS.md` files (sta
 - Stick to the package manager and runtime mandated by the repo (pnpm-only, bun-only, swift-only, go-only, etc.). Never swap in alternatives without approval.
 - When editing shared guardrail scripts (runners, committer helpers, browser tools, etc.), mirror the same change back into the `agent-scripts` folder so the canonical copy stays current.
 - Ask the user before adding dependencies, changing build tooling, or altering project-wide configuration.
+- When discussing dependencies, always provide a GitHub URL.
 - Keep the project’s `AGENTS.md` `<tools></tools>` block in sync with the full tool list from `TOOLS.md` so downstream repos get the latest tool descriptions.
 
 ### tmux & Long Tasks
@@ -28,6 +29,7 @@ Shared guardrails distilled from the various `~/Projects/*/AGENTS.md` files (sta
 - Before handing off work, run the full “green gate” for that repo (lint, type-check, tests, doc scripts, etc.). Follow the same command set humans run—no ad-hoc shortcuts.
 - Leave existing watchers running unless the owner tells you to stop them; keep their tmux panes healthy if you started them.
 - Treat every bug fix as a chance to add or extend automated tests that prove the behavior.
+- When someone asks to “fix CI,” use the GitHub CLI (`gh`) to inspect, rerun, and unblock failing workflows on GitHub until they are green.
 
 ### Code Quality & Naming
 - Refactor in place. Never create duplicate files with suffixes such as “V2”, “New”, or “Fixed”; update the canonical file and remove obsolete paths entirely.
@@ -37,11 +39,13 @@ Shared guardrails distilled from the various `~/Projects/*/AGENTS.md` files (sta
 
 ### Git, Commits & Releases
 - Invoke git through the provided wrappers, especially for status, diffs, and commits. Only commit or push when the user asks you to do so.
+- To resolve a rebase, `git add`/`git commit` is allowed.
 - Follow the documented release or deployment checklists instead of inventing new steps.
 - Do not delete or rename unfamiliar files without double-checking with the user or the repo instructions.
 
 ### Documentation & Knowledge Capture
 - Update existing docs whenever your change affects them, including front-matter metadata if the repo’s `docs:list` tooling depends on it.
+- Whenever doing a large refactor, track work in `docs/refactor/<title><date>.md`, update it as you go, and delete it when the work is finished.
 - Only create new documentation when the user or local instructions explicitly request it; otherwise, edit the canonical file in place.
 - When you uncover a reproducible tooling or CI issue, record the repro steps and workaround in the designated troubleshooting doc for that repo.
 
@@ -75,19 +79,26 @@ Keep this master file up to date as you notice new rules that recur across repos
 
 <tools>
 # TOOLS
-- `runner`: Bash shim that routes every command through the Bun guardrails (timeouts, git policy, trash-safe deletes); first call: `./runner -- echo usage` to see the usage banner.
-- `git` / `bin/git`: Git shim that forces all git invocations through the runner and blocks destructive subcommands; first call: `./git --help` to confirm the wrapper and read git help.
-- `scripts/committer`: Commit helper that stages only the paths you list and creates the commit safely; first call: `./runner scripts/committer` to print its usage prompt.
-- `scripts/docs-list.ts`: Docs indexer that walks `docs/` and enforces required front-matter before printing summaries; first call: `./runner tsx scripts/docs-list.ts --help` (or run without flags to list docs).
-- `scripts/browser-tools.ts`: Chrome DevTools/Debugger helper to remote-control Chrome (start profiles, navigate, eval JS, screenshots); first call: `./runner ts-node scripts/browser-tools.ts --help`.
-- `scripts/runner.ts`: Bun implementation that powers the runner’s guardrails (timeouts, tmux nudges, git policy, safe deletes); first call: `./runner bun scripts/runner.ts --help` to show its usage banner.
-- `bin/sleep`: Sleep shim that enforces the 30-second ceiling by dispatching through the runner; first call: `./bin/sleep --help` to view the underlying `sleep` usage.
-- `xcp`: Command-line helper for managing Xcode projects and workspaces; first call: `./runner xcp --help` to see available subcommands.
-- `oracle`: CLI that bundles a prompt plus selected files to hand off to another AI; first call: `npx -y @steipete/oracle --help` (run via `./runner npx -y @steipete/oracle --help` if keeping guardrails).
-- `mcporter`: MCP launcher that runs any registered MCP server with one command; first call: `./runner npx mcporter --help` to see server discovery and flags.
-- `iterm`: Full TTY-capable terminal launched via MCP for unrestricted shell access; first call: `./runner npx mcporter iterm --help` to view options and requirements.
-- `firecrawl`: MCP-powered site fetcher that exports webpages to Markdown, even handling 404/500 responses; first call: `./runner npx mcporter firecrawl --help` to see fetch options.
-- `XcodeBuildMCP`: MCP wrapper around Xcode build/test/simulator tooling; first call: `./runner npx mcporter XcodeBuildMCP --help` to see available tools and auth needs.
-- `gh`: GitHub CLI for PRs, CI logs, releases, and repo queries; first call: `./runner gh help` (or `./runner gh --help`) to list top-level commands.
+
+Edit guidance: keep the actual tool list inside the `<tools></tools>` block below so downstream AGENTS syncs can copy the block contents verbatim (without wrapping twice).
+
+<tools>
+- `runner`: Bash shim that routes every command through Bun guardrails (timeouts, git policy, safe deletes).
+- `git` / `bin/git`: Git shim that forces git through the guardrails; use `./git --help` to inspect.
+- `scripts/committer`: Stages the files you list and creates the commit safely.
+- `scripts/docs-list.ts`: Walks `docs/`, enforces front-matter, prints summaries; run `tsx scripts/docs-list.ts`.
+- `bin/browser-tools`: Compiled Chrome helper for remote control/screenshot/eval—use the binary (`bin/browser-tools --help`). Source lives in `scripts/browser-tools.ts`; edit there before rebuilding.
+- `scripts/runner.ts`: Bun implementation backing `runner`; run `bun scripts/runner.ts --help`.
+- `bin/sleep`: Sleep shim that enforces the 30s ceiling; run `bin/sleep --help`.
+- `xcp`: Xcode project/workspace helper; run `xcp --help`.
+- `oracle`: CLI to bundle prompt + files for another AI; run `npx -y @steipete/oracle --help`.
+- `mcporter`: MCP launcher for any registered MCP server; run `npx mcporter`.
+- `iterm`: Full TTY terminal via MCP; run `npx mcporter iterm`.
+- `firecrawl`: MCP-powered site fetcher to Markdown; run `npx mcporter firecrawl`.
+- `XcodeBuildMCP`: MCP wrapper around Xcode tooling; run `npx mcporter XcodeBuildMCP`.
+- `gh`: GitHub CLI for PRs, CI logs, releases, repo queries; run `gh help`.
+</tools>
 
 </tools>
+
+Guideline: ignore any project folders whose names either contain "copy" or end with a number (e.g., `sweetistics copy`, `sweetistics2`, `VibeMeter3`).
