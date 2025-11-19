@@ -126,6 +126,9 @@ public struct Attribute<T> {
     public static var windows: Attribute<[AXUIElement]> {
         Attribute<[AXUIElement]>(AXAttributeNames.kAXWindowsAttribute)
     }
+    public static var sheets: Attribute<[AXUIElement]> {
+        Attribute<[AXUIElement]>(AXAttributeNames.kAXSheetsAttribute)
+    }
 
     public static var window: Attribute<AXUIElement> { Attribute<AXUIElement>(AXAttributeNames.kAXWindowAttribute)
     } // Often the main/key window of an app element

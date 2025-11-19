@@ -95,6 +95,7 @@ public enum AXAttributeNames {
     public static let kAXFocusedWindowAttribute = "AXFocusedWindow" // AXUIElement
     public static let kAXFocusedUIElementAttribute = "AXFocusedUIElement" // AXUIElement (within an app)
     public static let kAXWindowsAttribute = "AXWindows" // [AXUIElement] (app's windows)
+    public static let kAXSheetsAttribute = "AXSheets" // [AXUIElement] (modal sheets attached to windows)
     public static let kAXMenuBarAttribute = "AXMenuBar" // AXUIElement
     public static let kAXFrontmostAttribute = "AXFrontmost" // Bool (is app frontmost?)
     public static let kAXHiddenAttribute = "AXHidden" // Bool (is app hidden?)

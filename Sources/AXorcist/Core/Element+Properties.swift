@@ -89,6 +89,11 @@ extension Element {
         return windowElementsUI.map { Element($0) }
     }
 
+    @MainActor public func sheets() -> [Element]? {
+        guard let sheetElements: [AXUIElement] = attribute(.sheets) else { return nil }
+        return sheetElements.map { Element($0) }
+    }
+
     @MainActor public func mainWindow() -> Element? {
         guard let windowElementUI = attribute(.mainWindow) else { return nil }
         return Element(windowElementUI)
