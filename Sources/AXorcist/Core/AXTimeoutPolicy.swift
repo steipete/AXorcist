@@ -94,3 +94,42 @@ public struct AXTimeoutWrapper {
         return nil
     }
 }
+
+public enum AXTimeoutHelper {
+    /// Async timeout helper reused by downstreams (e.g., ScreenCaptureService)
+    /// to keep timeout logic in one place.
+    @MainActor
+    public static func withTimeout<T: Sendable>(
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async throws -> T) async throws -> T
+    {
+        try await withThrowingTaskGroup(of: T.self) { group in
+            group.addTask {
+                try await operation()
+            }
+
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw AXTimeoutError.operationTimedOut(duration: seconds)
+            }
+
+            guard let result = try await group.next() else {
+                throw AXTimeoutError.operationTimedOut(duration: seconds)
+            }
+
+            group.cancelAll()
+            return result
+        }
+    }
+}
+
+public enum AXTimeoutError: Error, Sendable, CustomStringConvertible {
+    case operationTimedOut(duration: TimeInterval)
+
+    public var description: String {
+        switch self {
+        case let .operationTimedOut(duration):
+            return "Operation timed out after \(duration)s"
+        }
+    }
+}
