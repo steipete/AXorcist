@@ -17,18 +17,18 @@ public struct AXApp: Sendable {
         self.init(app)
     }
 
-    public var pid: pid_t { application.processIdentifier }
-    public var bundleIdentifier: String? { application.bundleIdentifier }
-    public var localizedName: String? { application.localizedName }
+    public var pid: pid_t { self.application.processIdentifier }
+    public var bundleIdentifier: String? { self.application.bundleIdentifier }
+    public var localizedName: String? { self.application.localizedName }
 
     /// Windows exposed via AX for this application.
     public func windows() -> [Element]? {
-        element.windows()
+        self.element.windows()
     }
 
     /// Focused window if available.
     public func focusedWindow() -> Element? {
-        element.focusedWindow()
+        self.element.focusedWindow()
     }
 }
 
@@ -42,12 +42,12 @@ public struct AXWindowHandle: Sendable {
         self.element = element
     }
 
-    public var title: String? { element.title() }
-    public var frame: CGRect? { element.frame() }
-    public var role: String? { element.role() }
+    public var title: String? { self.element.title() }
+    public var frame: CGRect? { self.element.frame() }
+    public var role: String? { self.element.role() }
 
     /// CGWindowID for this AX window, if resolvable.
     public var windowID: CGWindowID? {
-        AXWindowResolver().windowID(from: element)
+        AXWindowResolver().windowID(from: self.element)
     }
 }

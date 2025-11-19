@@ -126,6 +126,7 @@ public struct Attribute<T> {
     public static var windows: Attribute<[AXUIElement]> {
         Attribute<[AXUIElement]>(AXAttributeNames.kAXWindowsAttribute)
     }
+
     public static var sheets: Attribute<[AXUIElement]> {
         Attribute<[AXUIElement]>(AXAttributeNames.kAXSheetsAttribute)
     }

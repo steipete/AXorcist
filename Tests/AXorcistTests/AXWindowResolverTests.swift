@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
-@testable import AXorcist
 import Testing
+@testable import AXorcist
 
 @Suite("AXWindowResolver")
 struct AXWindowResolverTests {

@@ -1,6 +1,6 @@
 import Foundation
-@testable import AXorcist
 import Testing
+@testable import AXorcist
 
 @Suite("AXTimeoutHelper")
 struct AXTimeoutHelperTests {

@@ -1,7 +1,7 @@
 import AppKit
 import CoreGraphics
-@testable import AXorcist
 import Testing
+@testable import AXorcist
 
 @Suite("AppLocator")
 struct AppLocatorTests {
@@ -23,7 +23,7 @@ struct AppLocatorTests {
     func fallbackToFrontmost() async throws {
         guard let front = NSWorkspace.shared.frontmostApplication else { return }
         // Pick an off-screen point unlikely to hit a window.
-        let offscreen = CGPoint(x: -10_000, y: -10_000)
+        let offscreen = CGPoint(x: -10000, y: -10000)
         let app = AppLocator.app(at: offscreen)
         #expect(app?.processIdentifier == front.processIdentifier)
     }

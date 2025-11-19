@@ -15,7 +15,8 @@ public enum AppLocator {
 
         // Prefer frontmost app first (cheap).
         if let front = NSWorkspace.shared.frontmostApplication,
-           Self.point(mouseLocation, isInsideWindowOf: front) {
+           Self.point(mouseLocation, isInsideWindowOf: front)
+        {
             return front
         }
 

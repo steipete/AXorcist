@@ -80,7 +80,8 @@ public struct AXTimeoutWrapper {
             } catch {
                 lastError = error
                 Logger(subsystem: "boo.peekaboo.axorcist", category: "AXTimeout")
-                    .debug("AX operation failed (attempt \(attempt + 1)/\(self.maxRetries)): \(String(describing: error))")
+                    .debug(
+                        "AX operation failed (attempt \(attempt + 1)/\(self.maxRetries)): \(String(describing: error))")
 
                 if attempt < self.maxRetries - 1 {
                     try await Task.sleep(nanoseconds: UInt64(self.retryDelay * 1_000_000_000))
@@ -129,7 +130,7 @@ public enum AXTimeoutError: Error, Sendable, CustomStringConvertible {
     public var description: String {
         switch self {
         case let .operationTimedOut(duration):
-            return "Operation timed out after \(duration)s"
+            "Operation timed out after \(duration)s"
         }
     }
 }
