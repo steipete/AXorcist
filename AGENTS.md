@@ -1,9 +1,8 @@
-<shared>
 # AGENTS.md
 
-Shared guardrails distilled from the various `~/Projects/*/AGENTS.md` files (state as of **November 15, 2025**). This document highlights the rules that show up again and again; still read the repo-local instructions before making changes.
+READ ~/Projects/agent-scripts/{AGENTS.MD,TOOLS.MD} BEFORE ANYTHING (skip if files missing).
 
-Usage: In repo copies, the shared content lives inside `<shared>…</shared>` and the tool list inside `<tools>…</tools>`. Keep those tagged blocks identical across repos; anything outside them is repo-local and can be customized freely.
+` and the tool list inside ``. Keep those tagged blocks identical across repos; anything outside them is repo-local and can be customized freely.
 
 ## Codex Global Instructions
 - Keep the system-wide Codex guidance at `~/.codex/AGENTS.md` (the Codex home; override via `CODEX_HOME` if needed) so every task inherits these rules by default.
@@ -20,7 +19,7 @@ Usage: In repo copies, the shared content lives inside `<shared>…</shared>` an
 - When editing shared guardrail scripts (runners, committer helpers, browser tools, etc.), mirror the same change back into the `agent-scripts` folder so the canonical copy stays current.
 - Ask the user before adding dependencies, changing build tooling, or altering project-wide configuration.
 - When discussing dependencies, always provide a GitHub URL.
-- Keep the project’s `AGENTS.md` `<tools></tools>` block in sync with the full tool list from `TOOLS.md` so downstream repos get the latest tool descriptions.
+- Keep the project’s `AGENTS.md` `` block in sync with the full tool list from `TOOLS.md` so downstream repos get the latest tool descriptions.
 
 ### tmux & Long Tasks
 - Run any command that could hang (tests, servers, log streams, browser automation) inside tmux using the repository’s preferred entry point.
@@ -79,10 +78,7 @@ Keep this master file up to date as you notice new rules that recur across repos
 
 </shared>
 
-<tools>
-# TOOLS
-
-Edit guidance: keep the actual tool list inside this `<tools></tools>` block so downstream AGENTS syncs can copy it verbatim.
+` block so downstream AGENTS syncs can copy it verbatim.
 
 - `runner`: Bash shim that routes every command through Bun guardrails (timeouts, git policy, safe deletes).
 - `git` / `bin/git`: Git shim that forces git through the guardrails; use `./git --help` to inspect.
