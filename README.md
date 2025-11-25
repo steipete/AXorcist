@@ -1,4 +1,4 @@
-# AXorcist: The power of Swift compels your UI to obey! 🧙‍♂️
+# AXorcist 🧙‍♂️ - The power of Swift compels your UI to obey!
 
 <p align="center">
   <img src="assets/logo.png" alt="AXorcist Logo">
