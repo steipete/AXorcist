@@ -13,7 +13,7 @@ struct InputDriverTests {
 
     @Test("cachedLocation populates cache when empty")
     func cachedLocationPopulatesCache() {
-        var cache: CGPoint? = nil
+        var cache: CGPoint?
         _ = InputDriver.cachedLocation(using: &cache)
         // If running in CI without UI, location may be nil; just assert cache mirrors result.
         #expect(cache == InputDriver.currentLocation())

@@ -25,10 +25,8 @@ public enum AppLocator {
             $0.activationPolicy == .regular && !$0.isHidden && $0.bundleIdentifier != nil
         }
 
-        for app in visibleApps {
-            if Self.point(mouseLocation, isInsideWindowOf: app) {
-                return app
-            }
+        for app in visibleApps where Self.point(mouseLocation, isInsideWindowOf: app) {
+            return app
         }
 
         // Fallback.
