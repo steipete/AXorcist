@@ -7,10 +7,22 @@ import Foundation
 
 extension Element {
     @MainActor
+    private func axVerboseDebug(
+        _ message: @autoclosure () -> String,
+        details: [String: AnyCodable]? = nil,
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line)
+    {
+        guard GlobalAXLogger.shared.isLoggingEnabled, GlobalAXLogger.shared.detailLevel == .verbose else { return }
+        axDebugLog(message(), details: details, file: file, function: function, line: line)
+    }
+
+    @MainActor
     public func children(strict: Bool = false) -> [Element]? { // Added strict parameter
         // Logging for this top-level call
         // self.briefDescription() is assumed to be refactored and available
-        axDebugLog("Getting children for element: \(self.briefDescription(option: .smart)), strict: \(strict)")
+        self.axVerboseDebug("Getting children for element: \(self.briefDescription(option: .smart)), strict: \(strict)")
 
         var childCollector = ChildCollector() // ChildCollector will use GlobalAXLogger internally
 
@@ -38,7 +50,7 @@ extension Element {
         // discover the focused textarea without requiring special path hinting.
         if self.role() == AXRoleNames.kAXApplicationRole {
             if let focusedUI: AXUIElement = attribute(Attribute(AXAttributeNames.kAXFocusedUIElementAttribute)) {
-                axDebugLog("Added AXFocusedUIElement to children list for application root.")
+                self.axVerboseDebug("Added AXFocusedUIElement to children list for application root.")
                 childCollector.addChildren(from: [focusedUI])
             }
         }
@@ -46,13 +58,13 @@ extension Element {
         // print("[PRINT Element.children] Before finalizeResults, collector has:
         // \(childCollector.collectedChildrenCount()) unique children.")
         let result = childCollector.finalizeResults()
-        axDebugLog("Final children count: \(result?.count ?? 0)")
+        self.axVerboseDebug("Final children count: \(result?.count ?? 0)")
         return result
     }
 
     @MainActor
     private func collectDirectChildren(collector: inout ChildCollector) {
-        axDebugLog("Attempting to fetch kAXChildrenAttribute directly.")
+        self.axVerboseDebug("Attempting to fetch kAXChildrenAttribute directly.")
 
         var value: CFTypeRef?
         let error = AXUIElementCopyAttributeValue(
@@ -60,32 +72,33 @@ extension Element {
             AXAttributeNames.kAXChildrenAttribute as CFString,
             &value)
 
-        // self.briefDescription() is assumed to be refactored
-        let selfDescForLog = self.briefDescription(option: .smart)
-
         if error == .success {
             if let childrenCFArray = value, CFGetTypeID(childrenCFArray) == CFArrayGetTypeID() {
                 if let directChildrenUI = childrenCFArray as? [AXUIElement] {
-                    axDebugLog(
-                        "[\(selfDescForLog)]: Successfully fetched and cast " +
+                    self.axVerboseDebug(
+                        "[\(self.briefDescription(option: .smart))]: Successfully fetched and cast " +
                             "\(directChildrenUI.count) direct children.")
                     collector.addChildren(from: directChildrenUI)
                 } else {
-                    axDebugLog(
-                        "[\(selfDescForLog)]: kAXChildrenAttribute was a CFArray but failed to cast " +
+                    self.axVerboseDebug(
+                        "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was a CFArray but failed to cast " +
                             "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))")
                 }
             } else if let nonArrayValue = value {
-                axDebugLog(
-                    "[\(selfDescForLog)]: kAXChildrenAttribute was not a CFArray. " +
+                self.axVerboseDebug(
+                    "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was not a CFArray. " +
                         "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))")
             } else {
-                axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute was nil despite .success error code.")
+                self
+                    .axVerboseDebug(
+                        "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was nil despite .success error code.")
             }
         } else if error == .noValue {
-            axDebugLog("[\(selfDescForLog)]: kAXChildrenAttribute has no value.")
+            self.axVerboseDebug("[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute has no value.")
         } else {
-            axDebugLog("[\(selfDescForLog)]: Error fetching kAXChildrenAttribute: \(error.rawValue)")
+            self
+                .axVerboseDebug(
+                    "[\(self.briefDescription(option: .smart))]: Error fetching kAXChildrenAttribute: \(error.rawValue)")
         }
     }
 
@@ -100,7 +113,7 @@ extension Element {
             AXAttributeNames.kAXSelectedChildrenAttribute, AXAttributeNames.kAXRowsAttribute,
             AXAttributeNames.kAXColumnsAttribute, AXAttributeNames.kAXTabsAttribute,
         ]
-        axDebugLog(
+        self.axVerboseDebug(
             "Using pruned attribute list (\(alternativeAttributes.count) items) " +
                 "to avoid heavy payloads for alternative children.")
 
@@ -111,18 +124,18 @@ extension Element {
 
     @MainActor
     private func collectChildrenFromAttribute(attributeName: String, collector: inout ChildCollector) {
-        axDebugLog("Trying alternative child attribute: '\(attributeName)'.")
+        self.axVerboseDebug("Trying alternative child attribute: '\(attributeName)'.")
         // self.attribute() now uses GlobalAXLogger and returns T?
         if let childrenUI: [AXUIElement] = attribute(Attribute(attributeName)) {
             if !childrenUI.isEmpty {
-                axDebugLog("Successfully fetched \(childrenUI.count) children from '\(attributeName)'.")
+                self.axVerboseDebug("Successfully fetched \(childrenUI.count) children from '\(attributeName)'.")
                 collector.addChildren(from: childrenUI)
             } else {
-                axDebugLog("Fetched EMPTY array from '\(attributeName)'.")
+                self.axVerboseDebug("Fetched EMPTY array from '\(attributeName)'.")
             }
         } else {
             // attribute() logs its own failures/nil results
-            axDebugLog("Attribute '\(attributeName)' returned nil or was not [AXUIElement].")
+            self.axVerboseDebug("Attribute '\(attributeName)' returned nil or was not [AXUIElement].")
         }
     }
 
@@ -130,17 +143,17 @@ extension Element {
     private func collectApplicationWindows(collector: inout ChildCollector) {
         // self.role() now uses GlobalAXLogger and is assumed refactored
         if self.role() == AXRoleNames.kAXApplicationRole {
-            axDebugLog("Element is AXApplication. Trying kAXWindowsAttribute.")
+            self.axVerboseDebug("Element is AXApplication. Trying kAXWindowsAttribute.")
             // self.attribute() for .windows, assumed refactored
             if let windowElementsUI: [AXUIElement] = attribute(.windows) {
                 if !windowElementsUI.isEmpty {
-                    axDebugLog("Successfully fetched \(windowElementsUI.count) windows.")
+                    self.axVerboseDebug("Successfully fetched \(windowElementsUI.count) windows.")
                     collector.addChildren(from: windowElementsUI)
                 } else {
-                    axDebugLog("Fetched EMPTY array from kAXWindowsAttribute.")
+                    self.axVerboseDebug("Fetched EMPTY array from kAXWindowsAttribute.")
                 }
             } else {
-                axDebugLog("Attribute kAXWindowsAttribute returned nil for Application element.")
+                self.axVerboseDebug("Attribute kAXWindowsAttribute returned nil for Application element.")
             }
         }
     }
