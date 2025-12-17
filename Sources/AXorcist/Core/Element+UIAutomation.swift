@@ -312,6 +312,18 @@ public enum SpecialKey: String {
     case y
     case z
 
+    // Digit keys
+    case zero = "0"
+    case one = "1"
+    case two = "2"
+    case three = "3"
+    case four = "4"
+    case five = "5"
+    case six = "6"
+    case seven = "7"
+    case eight = "8"
+    case nine = "9"
+
     init?(character: Character) {
         if let special = SpecialKey(rawValue: String(character).lowercased()) {
             self = special
@@ -374,6 +386,16 @@ public enum SpecialKey: String {
         case .x: 7
         case .y: 16
         case .z: 6
+        case .zero: 29
+        case .one: 18
+        case .two: 19
+        case .three: 20
+        case .four: 21
+        case .five: 23
+        case .six: 22
+        case .seven: 26
+        case .eight: 28
+        case .nine: 25
         }
     }
 }
