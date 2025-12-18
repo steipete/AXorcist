@@ -32,42 +32,67 @@ extension Element {
 
     /// Click at a specific point on screen
     @MainActor public static func clickAt(_ point: CGPoint, button: MouseButton = .left, clickCount: Int = 1) throws {
-        // Create mouse down event
-        guard let mouseDown = CGEvent(
-            mouseEventSource: nil,
-            mouseType: button == .left ? .leftMouseDown : .rightMouseDown,
-            mouseCursorPosition: point,
-            mouseButton: button == .left ? .left : .right)
-        else {
-            throw UIAutomationError.failedToCreateEvent
+        let clickPairs = try self.buildClickEventPairs(at: point, button: button, clickCount: clickCount)
+
+        for (index, pair) in clickPairs.enumerated() {
+            pair.down.post(tap: .cghidEventTap)
+
+            // Small delay between down and up
+            Thread.sleep(forTimeInterval: 0.01)
+
+            pair.up.post(tap: .cghidEventTap)
+
+            // Small delay between successive clicks (stay within the system double-click interval)
+            if index < clickPairs.count - 1 {
+                Thread.sleep(forTimeInterval: 0.03)
+            }
+        }
+    }
+
+    @MainActor
+    internal static func buildClickEventPairs(
+        at point: CGPoint,
+        button: MouseButton,
+        clickCount: Int) throws -> [(down: CGEvent, up: CGEvent)]
+    {
+        let clampedCount = max(1, clickCount)
+
+        let downType: CGEventType = (button == .left ? .leftMouseDown : .rightMouseDown)
+        let upType: CGEventType = (button == .left ? .leftMouseUp : .rightMouseUp)
+        let mouseButton: CGMouseButton = (button == .left ? .left : .right)
+
+        var pairs: [(down: CGEvent, up: CGEvent)] = []
+        pairs.reserveCapacity(clampedCount)
+
+        for clickIndex in 1...clampedCount {
+            guard let mouseDown = CGEvent(
+                mouseEventSource: nil,
+                mouseType: downType,
+                mouseCursorPosition: point,
+                mouseButton: mouseButton)
+            else {
+                throw UIAutomationError.failedToCreateEvent
+            }
+
+            guard let mouseUp = CGEvent(
+                mouseEventSource: nil,
+                mouseType: upType,
+                mouseCursorPosition: point,
+                mouseButton: mouseButton)
+            else {
+                throw UIAutomationError.failedToCreateEvent
+            }
+
+            // For a double click, the system expects a sequence of click states:
+            // (1) down/up with clickState=1, then (2) down/up with clickState=2.
+            let clickState = Int64(clickIndex)
+            mouseDown.setIntegerValueField(.mouseEventClickState, value: clickState)
+            mouseUp.setIntegerValueField(.mouseEventClickState, value: clickState)
+
+            pairs.append((down: mouseDown, up: mouseUp))
         }
 
-        // Set click count
-        mouseDown.setIntegerValueField(.mouseEventClickState, value: Int64(clickCount))
-
-        // Create mouse up event
-        guard let mouseUp = CGEvent(
-            mouseEventSource: nil,
-            mouseType: button == .left ? .leftMouseUp : .rightMouseUp,
-            mouseCursorPosition: point,
-            mouseButton: button == .left ? .left : .right)
-        else {
-            throw UIAutomationError.failedToCreateEvent
-        }
-
-        // Set click count
-        mouseUp.setIntegerValueField(.mouseEventClickState, value: Int64(clickCount))
-
-        // Post events
-        mouseDown.post(tap: .cghidEventTap)
-
-        // Small delay between down and up
-        Thread.sleep(forTimeInterval: 0.01)
-
-        mouseUp.post(tap: .cghidEventTap)
-
-        // Note: clickCount=2 events are automatically handled by the system
-        // No need to post additional events for double clicks
+        return pairs
     }
 
     /// Wait for this element to become actionable
