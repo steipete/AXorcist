@@ -676,7 +676,7 @@ Please follow the main Peekaboo contributing guidelines and open pull requests a
 
 | Date       | Command                                                                                           | Scope                            | Line Coverage |
 | ---------- | ------------------------------------------------------------------------------------------------- | -------------------------------- | ------------- |
-| 2025-11-13 | `./runner swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
-| 2025-11-12 | `./runner swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
+| 2025-11-13 | `swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
+| 2025-11-12 | `swift test --package-path AXorcist --enable-code-coverage --filter AXorcistTests.PingIntegrationTests` | Ping integration suite only      | 2.39 %        |
 
 > Only the `PingIntegrationTests` subset currently runs in this headless environment; the automation-tagged suites require interactive UI access. Coverage is produced with `xcrun llvm-cov report AXorcist/.build/debug/axPackagePackageTests.xctest/Contents/MacOS/axPackagePackageTests -instr-profile AXorcist/.build/debug/codecov/default.profdata`.
