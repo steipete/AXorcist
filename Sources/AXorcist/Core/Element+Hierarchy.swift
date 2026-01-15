@@ -81,24 +81,25 @@ extension Element {
                     collector.addChildren(from: directChildrenUI)
                 } else {
                     self.axVerboseDebug(
-                        "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was a CFArray but failed to cast " +
-                            "to [AXUIElement]. TypeID: \(CFGetTypeID(childrenCFArray))")
+                        "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was a CFArray but " +
+                            "failed to cast to [AXUIElement]. TypeID: " +
+                            "\(CFGetTypeID(childrenCFArray))")
                 }
             } else if let nonArrayValue = value {
                 self.axVerboseDebug(
                     "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was not a CFArray. " +
                         "TypeID: \(CFGetTypeID(nonArrayValue)). Value: \(String(describing: nonArrayValue))")
             } else {
-                self
-                    .axVerboseDebug(
-                        "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was nil despite .success error code.")
+                self.axVerboseDebug(
+                    "[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute was nil " +
+                        "despite .success error code.")
             }
         } else if error == .noValue {
             self.axVerboseDebug("[\(self.briefDescription(option: .smart))]: kAXChildrenAttribute has no value.")
         } else {
-            self
-                .axVerboseDebug(
-                    "[\(self.briefDescription(option: .smart))]: Error fetching kAXChildrenAttribute: \(error.rawValue)")
+            self.axVerboseDebug(
+                "[\(self.briefDescription(option: .smart))]: Error fetching kAXChildrenAttribute: " +
+                    "\(error.rawValue)")
         }
     }
 
