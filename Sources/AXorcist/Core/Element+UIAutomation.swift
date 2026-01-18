@@ -50,7 +50,7 @@ extension Element {
     }
 
     @MainActor
-    internal static func buildClickEventPairs(
+    static func buildClickEventPairs(
         at point: CGPoint,
         button: MouseButton,
         clickCount: Int) throws -> [(down: CGEvent, up: CGEvent)]

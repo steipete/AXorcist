@@ -39,4 +39,3 @@ struct ClickEventGenerationTests {
         #expect(pairs[1].up.getIntegerValueField(.mouseEventClickState) == 2)
     }
 }
-
