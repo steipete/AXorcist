@@ -2,6 +2,12 @@
 
 All notable changes to AXorcist will be documented in this file.
 
+## [0.1.1] - 2026-04-28
+
+### Changed
+- Prefer a vendored local Commander checkout when present, while keeping the external release dependency exact.
+- Refresh SwiftLog dependency pins.
+
 ## [0.1.0] - 2026-01-18
 
 ### Added

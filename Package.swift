@@ -17,7 +17,7 @@ let commanderDependency: Package.Dependency =
     if FileManager.default.fileExists(atPath: localCommanderPath) {
         .package(path: "../Commander")
     } else {
-        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.1")
+        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.2")
     }
 
 let package = Package(

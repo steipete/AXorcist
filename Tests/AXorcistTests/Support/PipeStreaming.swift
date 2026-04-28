@@ -1,9 +1,25 @@
 import Foundation
 
+private final class PipeStreamBuffer: @unchecked Sendable {
+    private let queue = DispatchQueue(
+        label: "axorcist.tests.pipe-stream.\(UUID().uuidString)",
+        qos: .userInitiated)
+    nonisolated(unsafe) private var data = Data()
+
+    nonisolated func append(_ chunk: Data) {
+        self.queue.async {
+            self.data.append(chunk)
+        }
+    }
+
+    nonisolated func snapshot() -> Data {
+        self.queue.sync { self.data }
+    }
+}
+
 @discardableResult
 func startStreaming(pipe: Pipe) -> () -> Data {
-    let queue = DispatchQueue(label: "axorcist.tests.pipe-stream.\(UUID().uuidString)", qos: .userInitiated)
-    var collected = Data()
+    let buffer = PipeStreamBuffer()
     let group = DispatchGroup()
 
     group.enter()
@@ -14,13 +30,11 @@ func startStreaming(pipe: Pipe) -> () -> Data {
             group.leave()
             return
         }
-        queue.async {
-            collected.append(chunk)
-        }
+        buffer.append(chunk)
     }
 
     return {
         group.wait()
-        return queue.sync { collected }
+        return buffer.snapshot()
     }
 }
