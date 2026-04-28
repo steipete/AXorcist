@@ -13,8 +13,9 @@ let approachableConcurrencySettings: [SwiftSetting] = [
 
 let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 let localCommanderPath = packageDirectory.deletingLastPathComponent().appendingPathComponent("Commander").path
+let isSwiftPMCheckout = packageDirectory.path.contains("/.build/checkouts/")
 let commanderDependency: Package.Dependency =
-    if FileManager.default.fileExists(atPath: localCommanderPath) {
+    if !isSwiftPMCheckout, FileManager.default.fileExists(atPath: localCommanderPath) {
         .package(path: "../Commander")
     } else {
         .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.2")

@@ -2,6 +2,11 @@
 
 All notable changes to AXorcist will be documented in this file.
 
+## [0.1.2] - 2026-04-28
+
+### Fixed
+- Avoid treating SwiftPM's `.build/checkouts` cache as a vendored workspace when resolving Commander.
+
 ## [0.1.1] - 2026-04-28
 
 ### Changed
