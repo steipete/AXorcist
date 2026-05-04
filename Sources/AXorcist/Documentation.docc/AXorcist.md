@@ -1,4 +1,4 @@
-# ``AXorcist``
+# `AXorcist`
 
 A powerful Swift framework for macOS accessibility automation.
 
@@ -32,31 +32,31 @@ if hasPermissions {
 
 ### Essentials
 
-- ``AXorcist``
-- ``AXPermissionHelpers``
-- ``AXCommandEnvelope``
-- ``AXResponse``
+- `AXorcist`
+- `AXPermissionHelpers`
+- `AXCommandEnvelope`
+- `AXResponse`
 
 ### Commands
 
-- ``AXCommand``
-- ``AXQueryCommand``
-- ``AXActionCommand``
-- ``AXGetAttributesCommand``
+- `AXCommand`
+- `AXQueryCommand`
+- `AXActionCommand`
+- `AXGetAttributesCommand`
 
 ### Elements
 
-- ``Element``
-- ``ElementSearch``
-- ``SearchCriteria``
+- `Element`
+- `ElementSearch`
+- `SearchCriteria`
 
 ### Utilities
 
-- ``GlobalAXLogger``
-- ``AXLogEntry``
-- ``ProcessUtils``
+- `GlobalAXLogger`
+- `AXLogEntry`
+- `ProcessUtils`
 
 ### Error Handling
 
-- ``AccessibilityError``
-- ``AXError``
+- `AccessibilityError`
+- `AXError`
