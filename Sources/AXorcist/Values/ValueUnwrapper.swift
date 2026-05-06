@@ -68,15 +68,8 @@ enum ValueUnwrapper {
         """.trimmingCharacters(in: .whitespacesAndNewlines)
         axDebugLog(message)
 
-        // Handle special boolean type
-        if axValueType.rawValue == 4 { // kAXValueBooleanType (private)
-            var boolResult: DarwinBoolean = false
-            if AXValueGetValue(axVal, axValueType, &boolResult) {
-                return boolResult.boolValue
-            }
-        }
-
-        // Use new AXValue extensions for cleaner unwrapping
+        // AXValueType.cfRange also uses raw value 4, so raw-value guesses can corrupt
+        // range-based attributes like selectedTextRange into booleans.
         let unwrappedExtensionValue = axVal.value()
         let valueDescription = String(describing: unwrappedExtensionValue)
         let returnMessage = "ValueUnwrapper.unwrapAXValue: axVal.value() returned: \(valueDescription) " +
