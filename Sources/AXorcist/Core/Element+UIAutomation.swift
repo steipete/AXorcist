@@ -175,9 +175,7 @@ extension Element {
                 try self.typeCharacter(character)
             }
 
-            if delay > 0 {
-                Thread.sleep(forTimeInterval: delay)
-            }
+            Thread.sleep(forTimeInterval: delay > 0 ? delay : 0.001)
         }
     }
 
@@ -236,22 +234,22 @@ extension Element {
 
     /// Perform a hotkey combination
     @MainActor public static func performHotkey(keys: [String], holdDuration: TimeInterval = 0.1) throws {
-        var modifiers: CGEventFlags = []
+        var modifiers: [(keyCode: CGKeyCode?, flag: CGEventFlags)] = []
         var mainKey: SpecialKey?
 
         // Parse keys
         for key in keys {
             switch key.lowercased() {
             case "cmd", "command":
-                modifiers.insert(.maskCommand)
+                modifiers.append((keyCode: 0x37, flag: .maskCommand))
             case "shift":
-                modifiers.insert(.maskShift)
+                modifiers.append((keyCode: 0x38, flag: .maskShift))
             case "option", "opt", "alt":
-                modifiers.insert(.maskAlternate)
+                modifiers.append((keyCode: 0x3A, flag: .maskAlternate))
             case "ctrl", "control":
-                modifiers.insert(.maskControl)
+                modifiers.append((keyCode: 0x3B, flag: .maskControl))
             case "fn", "function":
-                modifiers.insert(.maskSecondaryFn)
+                modifiers.append((keyCode: nil, flag: .maskSecondaryFn))
             default:
                 // Try to parse as special key
                 if let special = SpecialKey(rawValue: key.lowercased()) {
@@ -269,11 +267,42 @@ extension Element {
             throw UIAutomationError.invalidHotkey(keys.joined(separator: "+"))
         }
 
-        // Type the key with modifiers
-        try self.typeKey(key, modifiers: modifiers)
+        guard let mainKeyCode = key.keyCode else {
+            throw UIAutomationError.unsupportedKey(key.rawValue)
+        }
 
-        // Hold for specified duration
-        Thread.sleep(forTimeInterval: holdDuration)
+        func makeKeyboardEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) throws -> CGEvent {
+            guard let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: keyDown) else {
+                throw UIAutomationError.failedToCreateEvent
+            }
+            event.flags = flags
+            return event
+        }
+
+        func postKeyboardEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) throws {
+            try makeKeyboardEvent(keyCode: keyCode, keyDown: keyDown, flags: flags).post(tap: .cghidEventTap)
+        }
+
+        var activeFlags: CGEventFlags = []
+        for modifier in modifiers {
+            activeFlags.insert(modifier.flag)
+            if let keyCode = modifier.keyCode {
+                try postKeyboardEvent(keyCode: keyCode, keyDown: true, flags: activeFlags)
+            }
+        }
+
+        try postKeyboardEvent(keyCode: mainKeyCode, keyDown: true, flags: activeFlags)
+        if holdDuration > 0 {
+            Thread.sleep(forTimeInterval: holdDuration)
+        }
+        try postKeyboardEvent(keyCode: mainKeyCode, keyDown: false, flags: activeFlags)
+
+        for modifier in modifiers.reversed() {
+            activeFlags.remove(modifier.flag)
+            if let keyCode = modifier.keyCode {
+                try postKeyboardEvent(keyCode: keyCode, keyDown: false, flags: activeFlags)
+            }
+        }
     }
 }
 
