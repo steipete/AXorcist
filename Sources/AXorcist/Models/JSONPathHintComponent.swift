@@ -67,13 +67,7 @@ public struct JSONPathHintComponent: Codable, Sendable {
 
     /// Converts this component to a simple criteria dictionary for use with existing matching logic.
     public var simpleCriteria: [String: String]? {
-        guard let resolvedAttributeName = axAttributeName else {
-            // Log a warning here if this component is used, as it means an invalid attribute type was provided.
-            // GlobalAXLogger.shared.log(...) or axWarningLog(...) - Requires importing/access
-            // For now, just return nil. The calling code should handle this.
-            print("WARNING: JSONPathHintComponent has unrecognized attribute type: \(self.attribute)")
-            return nil
-        }
+        guard let resolvedAttributeName = axAttributeName else { return nil }
         return [resolvedAttributeName: self.value]
     }
 

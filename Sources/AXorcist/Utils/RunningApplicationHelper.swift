@@ -6,10 +6,8 @@
 //
 
 import ApplicationServices
-import Foundation
-#if canImport(AppKit)
 import AppKit
-#endif
+import Foundation
 #if canImport(CoreGraphics)
 import CoreGraphics // Added for CGWindowListCopyWindowInfo
 #endif
@@ -49,12 +47,7 @@ public struct RunningApplicationHelper {
 
     /// Get the current application
     public static var currentApplication: NSRunningApplication {
-        #if canImport(AppKit)
-        return NSRunningApplication.current
-        #else
-        // Fallback - create a minimal implementation
-        fatalError("NSRunningApplication.current not available on this platform")
-        #endif
+        NSRunningApplication.current
     }
 
     /// Get the current application's process info

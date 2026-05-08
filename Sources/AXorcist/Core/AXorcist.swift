@@ -198,7 +198,9 @@ public class AXorcist {
         case let .observe(observeCommand):
             handleObserve(command: observeCommand)
         default:
-            fatalError("Unsupported command type: \(envelope.command)")
+            .errorResponse(
+                message: "Unsupported command type: \(envelope.command.type)",
+                code: .unknownCommand)
         }
     }
 
