@@ -5,6 +5,7 @@ All notable changes to AXorcist will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- Printable ASCII typing now uses physical key events before falling back to Unicode events, improving reliability in VM and headless launch paths.
 - Unsupported command dispatch now returns an `unknown_command` error instead of trapping, and JSON path hint parsing no longer writes warnings to stdout for unknown attributes.
 - Preserve CFRange-backed AXValue attributes such as selected text ranges instead of misclassifying raw value 4 as a boolean. Thanks @WinnCook.
 

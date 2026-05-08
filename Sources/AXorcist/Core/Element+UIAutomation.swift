@@ -181,6 +181,104 @@ extension Element {
 
     /// Type a single character
     @MainActor public static func typeCharacter(_ character: Character) throws {
+        // Physical key events survive VM/headless launch paths that can silently drop Unicode-only events.
+        if let stroke = self.keyboardStroke(for: character) {
+            try self.postKeyboardStroke(stroke)
+            return
+        }
+
+        try self.postUnicodeCharacter(character)
+    }
+
+    static func keyboardStroke(for character: Character) -> (keyCode: CGKeyCode, flags: CGEventFlags)? {
+        let string = String(character)
+        guard string.count == 1 else { return nil }
+
+        if let scalar = string.unicodeScalars.first,
+           CharacterSet.lowercaseLetters.contains(scalar),
+           let key = SpecialKey(rawValue: string),
+           let keyCode = key.keyCode
+        {
+            return (keyCode, [])
+        }
+
+        if let scalar = string.unicodeScalars.first,
+           CharacterSet.uppercaseLetters.contains(scalar),
+           let key = SpecialKey(rawValue: string.lowercased()),
+           let keyCode = key.keyCode
+        {
+            return (keyCode, .maskShift)
+        }
+
+        if let key = SpecialKey(rawValue: string),
+           let keyCode = key.keyCode
+        {
+            return (keyCode, [])
+        }
+
+        let shiftedSymbols: [Character: CGKeyCode] = [
+            "!": 18,
+            "@": 19,
+            "#": 20,
+            "$": 21,
+            "%": 23,
+            "^": 22,
+            "&": 26,
+            "*": 28,
+            "(": 25,
+            ")": 29,
+            "_": 27,
+            "+": 24,
+            "{": 33,
+            "}": 30,
+            "|": 42,
+            ":": 41,
+            "\"": 39,
+            "<": 43,
+            ">": 47,
+            "?": 44,
+            "~": 50,
+        ]
+        if let keyCode = shiftedSymbols[character] {
+            return (keyCode, .maskShift)
+        }
+
+        let symbols: [Character: CGKeyCode] = [
+            " ": 49,
+            "-": 27,
+            "=": 24,
+            "[": 33,
+            "]": 30,
+            "\\": 42,
+            ";": 41,
+            "'": 39,
+            ",": 43,
+            ".": 47,
+            "/": 44,
+            "`": 50,
+        ]
+        if let keyCode = symbols[character] {
+            return (keyCode, [])
+        }
+
+        return nil
+    }
+
+    private static func postKeyboardStroke(_ stroke: (keyCode: CGKeyCode, flags: CGEventFlags)) throws {
+        guard let keyDown = CGEvent(keyboardEventSource: nil, virtualKey: stroke.keyCode, keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: nil, virtualKey: stroke.keyCode, keyDown: false)
+        else {
+            throw UIAutomationError.failedToCreateEvent
+        }
+
+        keyDown.flags = stroke.flags
+        keyUp.flags = stroke.flags
+        keyDown.post(tap: .cghidEventTap)
+        Thread.sleep(forTimeInterval: 0.001)
+        keyUp.post(tap: .cghidEventTap)
+    }
+
+    private static func postUnicodeCharacter(_ character: Character) throws {
         let string = String(character)
 
         // Create keyboard event
