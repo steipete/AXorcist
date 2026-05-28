@@ -1,3 +1,5 @@
+![AXorcist banner](docs/assets/readme-banner.jpg)
+
 # AXorcist 🧙‍♂️ - The power of Swift compels your UI to obey!
 
 <p align="center">
