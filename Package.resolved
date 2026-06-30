@@ -1,13 +1,22 @@
 {
-  "originHash" : "903d57ca4ce1a2cffdc42cc8f73c40c751397fa74948f20679efc3176edb4196",
+  "originHash" : "8891c4f7d3c812f09d539461c10fc1582f9c2f64ffe1351b9d1fab7f701ee73c",
   "pins" : [
+    {
+      "identity" : "commander",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/steipete/Commander.git",
+      "state" : {
+        "revision" : "ae2ce746b386ff94b26648cfe5625cfa8d02639b",
+        "version" : "0.2.2"
+      }
+    },
     {
       "identity" : "swift-log",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-log.git",
       "state" : {
-        "revision" : "5073617dac96330a486245e4c0179cb0a6fd2256",
-        "version" : "1.12.0"
+        "revision" : "a878e7f8f46cfc0e1125e565b5c08e7d5272dc9a",
+        "version" : "1.14.0"
       }
     }
   ],
