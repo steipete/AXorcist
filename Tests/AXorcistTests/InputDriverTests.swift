@@ -4,53 +4,144 @@ import Testing
 
 @Suite("InputDriver cursor helpers")
 struct InputDriverTests {
-    @Test("cachedLocation returns cached value when present")
-    func cachedLocationUsesCache() {
+    @Test
+    func `cachedLocation returns cached value when present`() {
         var cache: CGPoint? = CGPoint(x: 10, y: 20)
         let result = InputDriver.cachedLocation(using: &cache)
         #expect(result == CGPoint(x: 10, y: 20))
     }
 
-    @Test("cachedLocation populates cache when empty")
-    func cachedLocationPopulatesCache() {
+    @Test
+    func `cachedLocation populates cache when empty`() {
         var cache: CGPoint?
         _ = InputDriver.cachedLocation(using: &cache)
         // If running in CI without UI, location may be nil; just assert cache mirrors result.
         #expect(cache == InputDriver.currentLocation())
     }
 
-    @Test("keyboardStroke maps printable ASCII to physical key events")
+    @Test
     @MainActor
-    func keyboardStrokeMapsPrintableASCII() throws {
-        let lower = try #require(Element.keyboardStroke(for: "a"))
+    func `keyboardStroke maps printable ASCII to physical key events`() throws {
+        let translateUSLayout: (CGKeyCode, CGEventFlags) -> Element.KeyboardTranslation? = { keyCode, flags in
+            let text: String? = switch (keyCode, flags) {
+            case (0, []): "a"
+            case (0, .maskShift): "A"
+            case (18, []): "1"
+            case (18, .maskShift): "!"
+            case (27, []): "-"
+            case (27, .maskShift): "_"
+            default: nil
+            }
+            return text.map { Element.KeyboardTranslation(text: $0, deadKeyState: 0) }
+        }
+
+        let lower = try #require(Element.keyboardStroke(for: "a", translatingWith: translateUSLayout))
         #expect(lower.keyCode == 0)
         #expect(!lower.flags.contains(.maskShift))
 
-        let upper = try #require(Element.keyboardStroke(for: "A"))
+        let upper = try #require(Element.keyboardStroke(for: "A", translatingWith: translateUSLayout))
         #expect(upper.keyCode == 0)
         #expect(upper.flags.contains(.maskShift))
 
-        let digit = try #require(Element.keyboardStroke(for: "1"))
+        let digit = try #require(Element.keyboardStroke(for: "1", translatingWith: translateUSLayout))
         #expect(digit.keyCode == 18)
         #expect(!digit.flags.contains(.maskShift))
 
-        let symbol = try #require(Element.keyboardStroke(for: "!"))
+        let symbol = try #require(Element.keyboardStroke(for: "!", translatingWith: translateUSLayout))
         #expect(symbol.keyCode == 18)
         #expect(symbol.flags.contains(.maskShift))
 
-        let hyphen = try #require(Element.keyboardStroke(for: "-"))
+        let hyphen = try #require(Element.keyboardStroke(for: "-", translatingWith: translateUSLayout))
         #expect(hyphen.keyCode == 27)
         #expect(!hyphen.flags.contains(.maskShift))
 
-        let underscore = try #require(Element.keyboardStroke(for: "_"))
+        let underscore = try #require(Element.keyboardStroke(for: "_", translatingWith: translateUSLayout))
         #expect(underscore.keyCode == 27)
         #expect(underscore.flags.contains(.maskShift))
     }
 
-    @Test("keyboardStroke leaves non-ASCII for Unicode fallback")
+    @Test
     @MainActor
-    func keyboardStrokeLeavesNonASCIIForUnicodeFallback() {
-        #expect(Element.keyboardStroke(for: "é") == nil)
-        #expect(Element.keyboardStroke(for: "🙂") == nil)
+    func `keyboardStroke follows the active keyboard layout`() throws {
+        let translateQWERTZLayout: (CGKeyCode, CGEventFlags) -> Element.KeyboardTranslation? = { keyCode, flags in
+            let text: String? = if keyCode == 6, flags.isEmpty {
+                "y"
+            } else if keyCode == 16, flags.isEmpty {
+                "z"
+            } else if keyCode == 37, flags == .maskAlternate {
+                "@"
+            } else {
+                nil
+            }
+            return text.map { Element.KeyboardTranslation(text: $0, deadKeyState: 0) }
+        }
+
+        let z = try #require(Element.keyboardStroke(for: "z", translatingWith: translateQWERTZLayout))
+        #expect(z.keyCode == 16)
+        #expect(z.flags.isEmpty)
+
+        let at = try #require(Element.keyboardStroke(for: "@", translatingWith: translateQWERTZLayout))
+        #expect(at.keyCode == 37)
+        #expect(at.flags == .maskAlternate)
+    }
+
+    @Test
+    @MainActor
+    func `keyboardStroke rejects dead key candidates`() throws {
+        let translateDeadKeyLayout: (CGKeyCode, CGEventFlags) -> Element.KeyboardTranslation? = { keyCode, flags in
+            guard flags.isEmpty else { return nil }
+            if keyCode == 10 {
+                return Element.KeyboardTranslation(text: "^", deadKeyState: 1)
+            }
+            if keyCode == 11 {
+                return Element.KeyboardTranslation(text: "^", deadKeyState: 0)
+            }
+            return nil
+        }
+
+        let caret = try #require(Element.keyboardStroke(for: "^", translatingWith: translateDeadKeyLayout))
+        #expect(caret.keyCode == 11)
+    }
+
+    @Test
+    @MainActor
+    func `keyboardStroke leaves non-ASCII for Unicode fallback`() {
+        let translate: (CGKeyCode, CGEventFlags) -> Element.KeyboardTranslation? = { _, _ in
+            Element.KeyboardTranslation(text: "é", deadKeyState: 0)
+        }
+        #expect(Element.keyboardStroke(for: "é", translatingWith: translate) == nil)
+        #expect(Element.keyboardStroke(for: "🙂", translatingWith: translate) == nil)
+    }
+
+    @Test
+    @MainActor
+    func `hotkey events are fully built before posting`() throws {
+        let descriptors = Element.hotkeyEventDescriptors(
+            modifiers: [Element.HotkeyModifier(keyCode: 0x37, flag: .maskCommand)],
+            mainKeyCode: 0)
+        #expect(descriptors == [
+            Element.KeyboardEventDescriptor(keyCode: 0x37, keyDown: true, flags: .maskCommand),
+            Element.KeyboardEventDescriptor(keyCode: 0, keyDown: true, flags: .maskCommand),
+            Element.KeyboardEventDescriptor(keyCode: 0, keyDown: false, flags: .maskCommand),
+            Element.KeyboardEventDescriptor(keyCode: 0x37, keyDown: false, flags: []),
+        ])
+
+        var creationCount = 0
+        do {
+            _ = try Element.keyboardEvents(for: descriptors) { descriptor in
+                creationCount += 1
+                guard creationCount < 3 else { return nil }
+                return CGEvent(
+                    keyboardEventSource: nil,
+                    virtualKey: descriptor.keyCode,
+                    keyDown: descriptor.keyDown)
+            }
+            Issue.record("Expected event creation to fail")
+        } catch UIAutomationError.failedToCreateEvent {
+            // Expected: no caller can post this incomplete event array.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(creationCount == 3)
     }
 }

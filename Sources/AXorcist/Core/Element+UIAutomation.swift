@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Carbon.HIToolbox
 
 // MARK: - Mouse Button Types
 
@@ -182,6 +183,7 @@ extension Element {
     /// Type a single character
     @MainActor public static func typeCharacter(_ character: Character) throws {
         // Physical key events survive VM/headless launch paths that can silently drop Unicode-only events.
+        // Resolve them through the active layout so the resulting text remains layout-independent.
         if let stroke = self.keyboardStroke(for: character) {
             try self.postKeyboardStroke(stroke)
             return
@@ -191,77 +193,95 @@ extension Element {
     }
 
     static func keyboardStroke(for character: Character) -> (keyCode: CGKeyCode, flags: CGEventFlags)? {
-        let string = String(character)
-        guard string.count == 1 else { return nil }
-
-        if let scalar = string.unicodeScalars.first,
-           CharacterSet.lowercaseLetters.contains(scalar),
-           let key = SpecialKey(rawValue: string),
-           let keyCode = key.keyCode
-        {
-            return (keyCode, [])
+        guard
+            let inputSource = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+            let rawLayoutData = TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData)
+        else {
+            return nil
         }
 
-        if let scalar = string.unicodeScalars.first,
-           CharacterSet.uppercaseLetters.contains(scalar),
-           let key = SpecialKey(rawValue: string.lowercased()),
-           let keyCode = key.keyCode
-        {
-            return (keyCode, .maskShift)
+        let layoutData = Unmanaged<CFData>.fromOpaque(rawLayoutData).takeUnretainedValue()
+        guard let layoutBytes = CFDataGetBytePtr(layoutData) else { return nil }
+        let layout = UnsafeRawPointer(layoutBytes).assumingMemoryBound(to: UCKeyboardLayout.self)
+
+        return self.keyboardStroke(for: character) { keyCode, flags in
+            self.translatedString(for: keyCode, flags: flags, layout: layout)
+        }
+    }
+
+    static func keyboardStroke(
+        for character: Character,
+        translatingWith translate: (CGKeyCode, CGEventFlags) -> KeyboardTranslation?)
+        -> (keyCode: CGKeyCode, flags: CGEventFlags)?
+    {
+        let expected = String(character)
+        guard expected.unicodeScalars.count == 1,
+              let scalar = expected.unicodeScalars.first,
+              scalar.isASCII,
+              (0x20...0x7E).contains(scalar.value)
+        else {
+            return nil
         }
 
-        if let key = SpecialKey(rawValue: string),
-           let keyCode = key.keyCode
-        {
-            return (keyCode, [])
-        }
-
-        let shiftedSymbols: [Character: CGKeyCode] = [
-            "!": 18,
-            "@": 19,
-            "#": 20,
-            "$": 21,
-            "%": 23,
-            "^": 22,
-            "&": 26,
-            "*": 28,
-            "(": 25,
-            ")": 29,
-            "_": 27,
-            "+": 24,
-            "{": 33,
-            "}": 30,
-            "|": 42,
-            ":": 41,
-            "\"": 39,
-            "<": 43,
-            ">": 47,
-            "?": 44,
-            "~": 50,
+        let modifierOptions: [CGEventFlags] = [
+            [],
+            .maskShift,
+            .maskAlternate,
+            .maskShift.union(.maskAlternate),
         ]
-        if let keyCode = shiftedSymbols[character] {
-            return (keyCode, .maskShift)
-        }
 
-        let symbols: [Character: CGKeyCode] = [
-            " ": 49,
-            "-": 27,
-            "=": 24,
-            "[": 33,
-            "]": 30,
-            "\\": 42,
-            ";": 41,
-            "'": 39,
-            ",": 43,
-            ".": 47,
-            "/": 44,
-            "`": 50,
-        ]
-        if let keyCode = symbols[character] {
-            return (keyCode, [])
+        for flags in modifierOptions {
+            for keyCode in CGKeyCode(0)...CGKeyCode(127) {
+                guard let translation = translate(keyCode, flags),
+                      translation.deadKeyState == 0,
+                      translation.text == expected
+                else {
+                    continue
+                }
+                return (keyCode, flags)
+            }
         }
 
         return nil
+    }
+
+    private static func translatedString(
+        for keyCode: CGKeyCode,
+        flags: CGEventFlags,
+        layout: UnsafePointer<UCKeyboardLayout>) -> KeyboardTranslation?
+    {
+        var carbonModifiers: UInt32 = 0
+        if flags.contains(.maskShift) {
+            carbonModifiers |= UInt32(shiftKey)
+        }
+        if flags.contains(.maskAlternate) {
+            carbonModifiers |= UInt32(optionKey)
+        }
+
+        var deadKeyState: UInt32 = 0
+        var actualLength = 0
+        var codeUnits = [UniChar](repeating: 0, count: 8)
+        let status = UCKeyTranslate(
+            layout,
+            keyCode,
+            UInt16(kUCKeyActionDown),
+            (carbonModifiers >> 8) & 0xFF,
+            UInt32(LMGetKbdType()),
+            OptionBits(0),
+            &deadKeyState,
+            codeUnits.count,
+            &actualLength,
+            &codeUnits)
+
+        guard status == noErr else { return nil }
+        return KeyboardTranslation(
+            text: String(utf16CodeUnits: codeUnits, count: actualLength),
+            deadKeyState: deadKeyState)
+    }
+
+    struct KeyboardTranslation {
+        let text: String
+        let deadKeyState: UInt32
     }
 
     private static func postKeyboardStroke(_ stroke: (keyCode: CGKeyCode, flags: CGEventFlags)) throws {
@@ -332,22 +352,22 @@ extension Element {
 
     /// Perform a hotkey combination
     @MainActor public static func performHotkey(keys: [String], holdDuration: TimeInterval = 0.1) throws {
-        var modifiers: [(keyCode: CGKeyCode?, flag: CGEventFlags)] = []
+        var modifiers: [HotkeyModifier] = []
         var mainKey: SpecialKey?
 
         // Parse keys
         for key in keys {
             switch key.lowercased() {
             case "cmd", "command":
-                modifiers.append((keyCode: 0x37, flag: .maskCommand))
+                modifiers.append(HotkeyModifier(keyCode: 0x37, flag: .maskCommand))
             case "shift":
-                modifiers.append((keyCode: 0x38, flag: .maskShift))
+                modifiers.append(HotkeyModifier(keyCode: 0x38, flag: .maskShift))
             case "option", "opt", "alt":
-                modifiers.append((keyCode: 0x3A, flag: .maskAlternate))
+                modifiers.append(HotkeyModifier(keyCode: 0x3A, flag: .maskAlternate))
             case "ctrl", "control":
-                modifiers.append((keyCode: 0x3B, flag: .maskControl))
+                modifiers.append(HotkeyModifier(keyCode: 0x3B, flag: .maskControl))
             case "fn", "function":
-                modifiers.append((keyCode: nil, flag: .maskSecondaryFn))
+                modifiers.append(HotkeyModifier(keyCode: nil, flag: .maskSecondaryFn))
             default:
                 // Try to parse as special key
                 if let special = SpecialKey(rawValue: key.lowercased()) {
@@ -369,37 +389,71 @@ extension Element {
             throw UIAutomationError.unsupportedKey(key.rawValue)
         }
 
-        func makeKeyboardEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) throws -> CGEvent {
-            guard let event = CGEvent(keyboardEventSource: nil, virtualKey: keyCode, keyDown: keyDown) else {
-                throw UIAutomationError.failedToCreateEvent
+        let descriptors = self.hotkeyEventDescriptors(modifiers: modifiers, mainKeyCode: mainKeyCode)
+        // Build the complete sequence before posting anything. Event creation can fail; posting cannot.
+        let events = try self.keyboardEvents(for: descriptors) { descriptor in
+            CGEvent(
+                keyboardEventSource: nil,
+                virtualKey: descriptor.keyCode,
+                keyDown: descriptor.keyDown)
+        }
+
+        for (descriptor, event) in zip(descriptors, events) {
+            event.post(tap: .cghidEventTap)
+            if descriptor.keyCode == mainKeyCode, descriptor.keyDown, holdDuration > 0 {
+                Thread.sleep(forTimeInterval: holdDuration)
             }
-            event.flags = flags
-            return event
         }
+    }
 
-        func postKeyboardEvent(keyCode: CGKeyCode, keyDown: Bool, flags: CGEventFlags) throws {
-            try makeKeyboardEvent(keyCode: keyCode, keyDown: keyDown, flags: flags).post(tap: .cghidEventTap)
-        }
+    struct HotkeyModifier {
+        let keyCode: CGKeyCode?
+        let flag: CGEventFlags
+    }
 
+    struct KeyboardEventDescriptor: Equatable {
+        let keyCode: CGKeyCode
+        let keyDown: Bool
+        let flags: CGEventFlags
+    }
+
+    static func hotkeyEventDescriptors(
+        modifiers: [HotkeyModifier],
+        mainKeyCode: CGKeyCode) -> [KeyboardEventDescriptor]
+    {
+        var descriptors: [KeyboardEventDescriptor] = []
         var activeFlags: CGEventFlags = []
+
         for modifier in modifiers {
             activeFlags.insert(modifier.flag)
             if let keyCode = modifier.keyCode {
-                try postKeyboardEvent(keyCode: keyCode, keyDown: true, flags: activeFlags)
+                descriptors.append(KeyboardEventDescriptor(keyCode: keyCode, keyDown: true, flags: activeFlags))
             }
         }
 
-        try postKeyboardEvent(keyCode: mainKeyCode, keyDown: true, flags: activeFlags)
-        if holdDuration > 0 {
-            Thread.sleep(forTimeInterval: holdDuration)
-        }
-        try postKeyboardEvent(keyCode: mainKeyCode, keyDown: false, flags: activeFlags)
+        descriptors.append(KeyboardEventDescriptor(keyCode: mainKeyCode, keyDown: true, flags: activeFlags))
+        descriptors.append(KeyboardEventDescriptor(keyCode: mainKeyCode, keyDown: false, flags: activeFlags))
 
         for modifier in modifiers.reversed() {
             activeFlags.remove(modifier.flag)
             if let keyCode = modifier.keyCode {
-                try postKeyboardEvent(keyCode: keyCode, keyDown: false, flags: activeFlags)
+                descriptors.append(KeyboardEventDescriptor(keyCode: keyCode, keyDown: false, flags: activeFlags))
             }
+        }
+
+        return descriptors
+    }
+
+    static func keyboardEvents(
+        for descriptors: [KeyboardEventDescriptor],
+        factory: (KeyboardEventDescriptor) -> CGEvent?) throws -> [CGEvent]
+    {
+        try descriptors.map { descriptor in
+            guard let event = factory(descriptor) else {
+                throw UIAutomationError.failedToCreateEvent
+            }
+            event.flags = descriptor.flags
+            return event
         }
     }
 }
