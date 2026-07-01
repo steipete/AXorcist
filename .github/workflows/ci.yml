@@ -77,7 +77,5 @@ jobs:
         fi
         echo "::endgroup::"
     
-    - name: Run Tests (would require accessibility permissions)
-      run: |
-        echo "⚠️  Tests require accessibility permissions and cannot run on CI"
-        echo "📝 Run 'make test' locally after granting accessibility permissions"
+    - name: Run safe tests
+      run: swift test

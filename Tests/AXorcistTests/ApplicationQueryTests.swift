@@ -33,8 +33,11 @@ struct AnyDecodable: Decodable {
 
 @Suite("AXorcist Application Query Tests", .tags(.safe))
 struct ApplicationQueryTests {
-    @Test("Collect all running applications", .tags(.safe))
-    func getAllApplications() async throws {
+    @Test(
+        "Collect all elements in the frontmost application",
+        .tags(.automation),
+        .enabled(if: AXTestEnvironment.runAutomationScenarios))
+    func collectAllFromFrontmostApplication() async throws {
         let command = CommandEnvelope(
             commandId: "test-get-all-apps",
             command: .collectAll,
