@@ -2,7 +2,7 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [Unreleased]
+## [0.1.3] - 2026-07-14
 
 ### Fixed
 - Keep `AXError.localizedDescription` callable from nonisolated code when clients enable Swift 6.2 strict concurrency.
