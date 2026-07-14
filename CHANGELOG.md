@@ -5,6 +5,7 @@ All notable changes to AXorcist will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- Keep `AXError.localizedDescription` callable from nonisolated code when clients enable Swift 6.2 strict concurrency.
 - Printable ASCII typing now derives physical key events from the active macOS keyboard layout before falling back to Unicode events, improving VM and headless reliability without producing incorrect text on non-US layouts.
 - Hotkey automation now builds complete event sequences before emitting and releasing physical modifier key events, preventing modifiers from remaining stuck after shortcuts or event-creation failures.
 - Unsupported command dispatch now returns an `unknown_command` error instead of trapping, and JSON path hint parsing no longer writes warnings to stdout for unknown attributes.
