@@ -58,6 +58,7 @@ let package = Package(
             name: "AXorcistTests",
             dependencies: [
                 "AXorcist", // Dependency restored to AXorcist
+                .product(name: "Logging", package: "swift-log"),
             ],
             path: "Tests/AXorcistTests", // Explicit path
             swiftSettings: approachableConcurrencySettings
