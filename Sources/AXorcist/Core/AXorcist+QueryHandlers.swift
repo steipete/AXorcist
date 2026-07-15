@@ -89,14 +89,9 @@ extension AXorcist {
             .debug,
             "HandleGetAttrs: Found element: \(element.briefDescription(option: ValueFormatOption.smart))")
 
-        var attributesDict: [String: AXValueWrapper] = [:]
-        for attrName in command.attributes {
-            if let value: Any = element.attribute(Attribute<Any>(attrName)) {
-                attributesDict[attrName] = AXValueWrapper(value: value)
-            } else {
-                attributesDict[attrName] = AXValueWrapper(value: nil) // Explicitly store nil for missing attributes
-            }
-        }
+        let attributesDict = self.fetchInstanceElementAttributes(
+            element: element,
+            attributeNames: command.attributes)
 
         let briefDesc = element.briefDescription(option: ValueFormatOption.smart)
         self.logQuery(
@@ -225,7 +220,9 @@ extension AXorcist {
                         includeIgnored: includeIgnored,
                         currentDepth: currentDepth + 1))
                 }
-                if childrenDescriptions?.isEmpty ?? true { childrenDescriptions = nil }
+                if childrenDescriptions?.isEmpty ?? true {
+                    childrenDescriptions = nil
+                }
             }
         }
 
@@ -242,13 +239,8 @@ extension AXorcist {
     {
         var attributesDict: [String: AXValueWrapper] = [:]
         for name in attributeNames {
-            if let value: Any = element.attribute(Attribute<Any>(name)) {
-                attributesDict[name] = AXValueWrapper(value: value)
-            } else {
-                // For attributes explicitly requested but not found, we might represent them as nil
-                // or simply omit them. Current AXValueWrapper handles nils.
-                attributesDict[name] = AXValueWrapper(value: nil)
-            }
+            let value = ValueUnwrapper.unwrap(element.rawAttributeValue(named: name))
+            attributesDict[name] = AXValueWrapper(value: value)
         }
         return attributesDict
     }

@@ -8,7 +8,7 @@ import Foundation
 
 // MARK: - Version and Configuration
 
-let axorcVersion = "0.1.3"
+nonisolated let axorcVersion = "0.1.6"
 
 /// Returns a human-readable build stamp (yyMMddHHmm) evaluated at runtime.
 /// Good enough for confirming we're on the binary we just built.
@@ -20,7 +20,7 @@ var axorcBuildStamp: String {
 
 // MARK: - Shared Error Detail
 
-// Moved ErrorDetail to be a top-level struct
+/// Moved ErrorDetail to be a top-level struct
 struct ErrorDetail: Codable {
     let message: String
 }
@@ -94,7 +94,7 @@ struct AXElementForEncoding: Codable {
 struct QueryResponse: Codable {
     // MARK: Lifecycle
 
-    // Custom initializer to bridge from HandlerResponse (from AXorcist module)
+    /// Custom initializer to bridge from HandlerResponse (from AXorcist module)
     init(commandId: String, success: Bool, command: String, handlerResponse: HandlerResponse, debugLogs: [String]?) {
         self.commandId = commandId
         self.success = success
@@ -114,7 +114,7 @@ struct QueryResponse: Codable {
         self.debugLogs = debugLogs
     }
 
-    // Legacy initializer for compatibility
+    /// Legacy initializer for compatibility
     init(
         success: Bool = true,
         commandId: String? = nil,
@@ -169,7 +169,7 @@ struct BatchResponse: Codable {
     let debugLogs: [String]?
 }
 
-// For batch operations that may have mixed results
+/// For batch operations that may have mixed results
 struct BatchQueryResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case commandId
@@ -188,7 +188,7 @@ struct BatchQueryResponse: Codable {
     var debugLogs: [String]?
 }
 
-// Generic query response for commands (renamed to avoid conflict)
+/// Generic query response for commands (renamed to avoid conflict)
 struct GenericQueryResponse: Codable {
     enum CodingKeys: String, CodingKey {
         case commandId
@@ -207,7 +207,7 @@ struct GenericQueryResponse: Codable {
     var debugLogs: [String]?
 }
 
-// Helper for DecodingError display
+/// Helper for DecodingError display
 extension DecodingError {
     var humanReadableDescription: String {
         switch self {

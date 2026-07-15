@@ -23,8 +23,8 @@ import Foundation
 /// - ``actions``
 ///
 /// ### Element Operations
-/// - ``getAttribute(_:)``
-/// - ``setAttribute(_:value:)``
+/// - ``attribute(_:)``
+/// - ``setValue(_:forAttribute:)``
 /// - ``performAction(_:)``
 ///
 /// ## Usage
@@ -34,8 +34,8 @@ import Foundation
 /// let element = Element(axElement)
 ///
 /// // Get element properties
-/// let role = element.role
-/// let title = element.title
+/// let role = element.role()
+/// let title = element.title()
 ///
 /// // Perform actions
 /// try element.performAction(.press)
@@ -104,17 +104,17 @@ public struct Element: Equatable, Hashable, Sendable {
     /// this element (e.g., "AXPress", "AXShowMenu").
     public var actions: [String]?
 
-    // Implement Equatable
+    /// Implement Equatable
     public static func == (lhs: Element, rhs: Element) -> Bool {
         CFEqual(lhs.underlyingElement, rhs.underlyingElement)
     }
 
-    // Implement Hashable
+    /// Implement Hashable
     public func hash(into hasher: inout Hasher) {
         hasher.combine(CFHash(self.underlyingElement))
     }
 
-    // Generic method to get an attribute's value (converted to Swift type T)
+    /// Generic method to get an attribute's value (converted to Swift type T)
     @MainActor
     public func attribute<T>(_ attribute: Attribute<T>) -> T? {
         // Try to get from pre-fetched attributes first
@@ -300,11 +300,20 @@ public struct Element: Equatable, Hashable, Sendable {
             message: "Found '\\(attribute.rawValue)' in stored attributes."))
 
         // Attempt to convert AttributeValue to T
-        if T.self == String.self, let strValue = attributeValue.stringValue { return strValue as? T }
-        if T.self == Bool.self, let boolValue = attributeValue.boolValue { return boolValue as? T }
-        if T.self == Int.self, let intValue = attributeValue.intValue { return intValue as? T }
+        if T.self == String.self, let strValue = attributeValue.stringValue {
+            return strValue as? T
+        }
+        if T.self == Bool.self, let boolValue = attributeValue.boolValue {
+            return boolValue as? T
+        }
+        if T.self == Int.self, let intValue = attributeValue.intValue {
+            return intValue as? T
+        }
         if T.self == [Element].self,
-           let elementArray = attributeValue.anyValue as? [Element] { return elementArray as? T }
+           let elementArray = attributeValue.anyValue as? [Element]
+        {
+            return elementArray as? T
+        }
         if T.self == AXUIElement.self,
            let cfValue = attributeValue.anyValue as CFTypeRef?,
            CFGetTypeID(cfValue) == AXUIElementGetTypeID()
@@ -403,7 +412,7 @@ public struct Element: Equatable, Hashable, Sendable {
     }
 }
 
-// Path structure to represent element path
+/// Path structure to represent element path
 public struct Path {
     // MARK: Lifecycle
 

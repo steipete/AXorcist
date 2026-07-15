@@ -35,6 +35,14 @@ clean:
 	rm -f $(UNIVERSAL_BINARY_PATH)
 	@echo "Clean complete."
 
+release-artifact:
+	@test -n "$(VERSION)" || (echo "VERSION is required" >&2; exit 2)
+	@if test "$(ADHOC)" = "1"; then \
+		./scripts/build-release-artifact.sh "$(VERSION)" --adhoc; \
+	else \
+		./scripts/build-release-artifact.sh "$(VERSION)"; \
+	fi
+
 # Format code with SwiftFormat
 format:
 	@echo "Formatting code with SwiftFormat..."

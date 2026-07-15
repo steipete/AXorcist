@@ -39,7 +39,9 @@ import Foundation
 ///
 /// ```swift
 /// // Create a query command
-/// let queryCmd = QueryCommand(appName: "Safari", searchCriteria: [.role(.button)])
+/// let queryCmd = QueryCommand(
+///     appIdentifier: "Safari",
+///     locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXButton")]))
 /// let command = AXCommand.query(queryCmd)
 ///
 /// // Execute through AXorcist
@@ -121,7 +123,9 @@ public enum AXCommand: Sendable {
 /// ## Usage
 ///
 /// ```swift
-/// let queryCommand = QueryCommand(appName: "TextEdit", searchCriteria: [.role(.window)])
+/// let queryCommand = QueryCommand(
+///     appIdentifier: "TextEdit",
+///     locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]))
 /// let envelope = AXCommandEnvelope(
 ///     commandID: "find-window",
 ///     command: .query(queryCommand)
@@ -156,7 +160,7 @@ public struct AXCommandEnvelope: Sendable {
     public let command: AXCommand
 }
 
-// Individual command structs
+/// Individual command structs
 public struct QueryCommand: Sendable {
     // MARK: Lifecycle
 
@@ -400,7 +404,7 @@ public struct ObserveCommand: Sendable {
     public let maxDepthForSearch: Int
 }
 
-// Command struct for collectAll
+/// Command struct for collectAll
 public struct CollectAllCommand: Sendable {
     // MARK: Lifecycle
 
@@ -427,7 +431,7 @@ public struct CollectAllCommand: Sendable {
     public let valueFormatOption: ValueFormatOption?
 }
 
-// Batch command structures
+/// Batch command structures
 /// Command for executing multiple accessibility operations in a single batch.
 ///
 /// AXBatchCommand allows you to group multiple accessibility commands together

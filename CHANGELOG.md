@@ -4,6 +4,12 @@ All notable changes to AXorcist will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Add discoverable `permissions`, `find`, `tree`, and `raw` CLI commands with help, version, stable JSON output, signed universal artifact tooling, and a Homebrew formula template.
+
+### Fixed
+- Return nonzero exit codes for failed raw commands, keep routine CLI output free of library logs, resolve applications by name, PID, bundle ID, or focus, return real requested attribute values, repair documented examples, and let `collectAll` filters match descendants below nonmatching parents.
+
 ## [0.1.5] - 2026-07-15
 
 ### Changed
