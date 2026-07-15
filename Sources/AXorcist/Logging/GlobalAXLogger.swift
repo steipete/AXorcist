@@ -171,22 +171,22 @@ public class GlobalAXLogger {
 
 extension Logging.Logger {
     @inlinable
-    public func debug(_ message: @autoclosure () -> String) {
+    public nonisolated func debug(_ message: @autoclosure () -> String) {
         self.log(level: .debug, "\(message())")
     }
 
     @inlinable
-    public func info(_ message: @autoclosure () -> String) {
+    public nonisolated func info(_ message: @autoclosure () -> String) {
         self.log(level: .info, "\(message())")
     }
 
     @inlinable
-    public func warning(_ message: @autoclosure () -> String) {
+    public nonisolated func warning(_ message: @autoclosure () -> String) {
         self.log(level: .warning, "\(message())")
     }
 
     @inlinable
-    public func error(_ message: @autoclosure () -> String) {
+    public nonisolated func error(_ message: @autoclosure () -> String) {
         self.log(level: .error, "\(message())")
     }
 }
