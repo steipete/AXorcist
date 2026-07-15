@@ -18,7 +18,7 @@ let commanderDependency: Package.Dependency =
     if !isSwiftPMCheckout, FileManager.default.fileExists(atPath: localCommanderPath) {
         .package(path: "../Commander")
     } else {
-        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.3")
+        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.4")
     }
 
 let package = Package(

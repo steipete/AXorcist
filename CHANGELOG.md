@@ -2,7 +2,10 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [Unreleased]
+## [0.1.5] - 2026-07-15
+
+### Changed
+- Update the released Commander dependency to 0.2.4.
 
 ## [0.1.4] - 2026-07-14
 
