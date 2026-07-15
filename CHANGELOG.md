@@ -2,7 +2,7 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [Unreleased]
+## [0.1.6] - 2026-07-15
 
 ### Added
 - Add discoverable `permissions`, `find`, `tree`, and `raw` CLI commands with help, version, stable JSON output, signed universal artifact tooling, and a Homebrew formula template.
