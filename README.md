@@ -176,13 +176,19 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/openclaw/AXorcist.git", from: "0.1.5")
+    .package(url: "https://github.com/openclaw/AXorcist.git", from: "0.1.6")
 ]
 ```
 
 ### Command Line Tool
 
-Until the prebuilt Homebrew formula is published, build and install the CLI tool from source:
+Install the signed, notarized universal CLI with Homebrew:
+
+```bash
+brew install openclaw/tap/axorc
+```
+
+Or build and install it from source:
 
 ```bash
 swift build -c release --product axorc
@@ -191,7 +197,7 @@ install -m 755 .build/release/axorc /usr/local/bin/axorc
 
 Run `axorc permissions` after installation. macOS will need Accessibility permission for inspection and automation.
 
-Prebuilt Homebrew distribution is prepared for the next signed release. Maintainers: see [docs/releasing.md](docs/releasing.md) for the artifact and tap workflow.
+Maintainers: see [docs/releasing.md](docs/releasing.md) for the artifact and tap workflow.
 
 ## Quick Start
 
