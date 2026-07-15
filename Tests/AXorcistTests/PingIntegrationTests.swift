@@ -4,8 +4,8 @@ import Testing
 
 @Suite("AXorcist Ping Integration Tests", .tags(.safe))
 struct PingIntegrationTests {
-    @Test("Ping via stdin", .tags(.safe))
-    func pingViaStdin() async throws {
+    @Test(.tags(.safe))
+    func `Ping via stdin`() throws {
         let inputJSON = """
         {
             "command_id": "test_ping_stdin",
@@ -45,8 +45,8 @@ struct PingIntegrationTests {
         #expect(decodedResponse.details == "Hello from testPingViaStdin")
     }
 
-    @Test("Ping via file input", .tags(.safe))
-    func pingViaFile() async throws {
+    @Test(.tags(.safe))
+    func `Ping via file input`() throws {
         let payloadMessage = "Hello from testPingViaFile"
         let inputJSON = """
         {
@@ -84,8 +84,8 @@ struct PingIntegrationTests {
         #expect(decodedResponse.details == payloadMessage)
     }
 
-    @Test("Ping via direct payload argument", .tags(.safe))
-    func pingViaDirectPayload() async throws {
+    @Test(.tags(.safe))
+    func `Ping via direct payload argument`() throws {
         let payloadMessage = "Hello from testPingViaDirectPayload"
         let inputJSON = """
         {"command_id":"test_ping_direct","command":"ping","payload":{"message":"\(payloadMessage)"}}
@@ -117,8 +117,8 @@ struct PingIntegrationTests {
         #expect(decodedResponse.details == payloadMessage)
     }
 
-    @Test("Reject multiple input sources", .tags(.safe))
-    func errorMultipleInputMethods() async throws {
+    @Test(.tags(.safe))
+    func `Reject multiple input sources`() throws {
         let inputJSON = """
         {
             "command_id": "test_error_multiple_inputs",
@@ -134,11 +134,11 @@ struct PingIntegrationTests {
             arguments: ["--file", tempFilePath])
 
         let multiInputMessage = """
-        axorc command should return 0 with error on stdout.
+        axorc command should return 1 with error JSON on stdout.
         Status: \(result.exitCode). Error STDOUT: \(result.output ?? "nil").
         Error STDERR: \(result.errorOutput ?? "nil")
         """
-        #expect(result.exitCode == 0, Comment(multiInputMessage))
+        #expect(result.exitCode == 1, Comment(multiInputMessage))
 
         guard let outputString = result.output, !outputString.isEmpty else {
             Issue.record("Output was nil or empty for multiple input methods error test")
@@ -155,27 +155,13 @@ struct PingIntegrationTests {
             "Unexpected error message: \(errorResponse.error.message)")
     }
 
-    @Test("Reject ping without input", .tags(.safe))
-    func errorNoInputProvidedForPing() async throws {
+    @Test(.tags(.safe))
+    func `Show help without arguments`() throws {
         let result = try runAXORCCommand(arguments: [])
 
-        let noInputMessage = """
-        axorc should return 0 with error on stdout. Status: \(result.exitCode).
-        Error STDOUT: \(result.output ?? "nil"). Error STDERR: \(result.errorOutput ?? "nil")
-        """
-        #expect(result.exitCode == 0, Comment(noInputMessage))
-
-        guard let outputString = result.output, !outputString.isEmpty else {
-            Issue.record("Output was nil or empty for no input test.")
-            return
-        }
-        guard let responseData = outputString.data(using: .utf8) else {
-            Issue.record("Failed to convert output to Data for no input error. Output: \(outputString)")
-            return
-        }
-        let errorResponse = try JSONDecoder().decode(ErrorResponse.self, from: responseData)
-        #expect(errorResponse.success == false)
-        let commandIdMessage = "Expected commandId to be input_error, got \(errorResponse.commandId)"
-        #expect(errorResponse.commandId == "input_error", Comment(commandIdMessage))
+        #expect(result.exitCode == 0)
+        #expect(result.output?.contains("USAGE:") == true)
+        #expect(result.output?.contains("axorc tree") == true)
+        #expect(result.errorOutput?.isEmpty ?? true)
     }
 }

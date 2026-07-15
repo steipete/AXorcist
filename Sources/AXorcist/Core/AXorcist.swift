@@ -51,10 +51,9 @@ public class AXorcist {
     /// ## Example
     ///
     /// ```swift
-    /// let queryCommand = AXQueryCommand(
-    ///     appName: "Finder",
-    ///     searchCriteria: [.role(.window)]
-    /// )
+    /// let queryCommand = QueryCommand(
+    ///     appIdentifier: "Finder",
+    ///     locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXWindow")]))
     /// let envelope = AXCommandEnvelope(
     ///     commandID: "find-window",
     ///     command: .query(queryCommand)
@@ -218,17 +217,18 @@ public class AXorcist {
         let hashValue = CFHash(element.underlyingElement)
         guard visited.insert(hashValue).inserted else { return }
 
-        // Apply filter criteria if provided
-        if let criteria = context.filterCriteria {
-            guard elementMatchesCriteria(element, criteria: criteria) else { return }
+        // A filter controls which elements are returned, not which branches are traversed.
+        // Descendants can match even when their parent does not.
+        let shouldInclude = context.filterCriteria.map { criteria in
+            elementMatchesCriteria(element, criteria: criteria)
+        } ?? true
+        if shouldInclude {
+            let elementData = buildQueryResponse(
+                element: element,
+                attributesToFetch: context.attributesToFetch,
+                includeChildrenBrief: false)
+            collectedElements.append(elementData)
         }
-
-        // Build element data
-        let elementData = buildQueryResponse(
-            element: element,
-            attributesToFetch: context.attributesToFetch,
-            includeChildrenBrief: false)
-        collectedElements.append(elementData)
 
         // Recursively collect children
         if let children = element.children() {

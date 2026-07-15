@@ -40,9 +40,9 @@ if hasPermissions {
 ### Commands
 
 - `AXCommand`
-- `AXQueryCommand`
-- `AXActionCommand`
-- `AXGetAttributesCommand`
+- `QueryCommand`
+- `PerformActionCommand`
+- `GetAttributesCommand`
 
 ### Elements
 

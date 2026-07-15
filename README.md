@@ -55,9 +55,12 @@ public class AXorcist {
 import AXorcist
 
 let axorcist = AXorcist.shared
+let query = QueryCommand(
+    appIdentifier: "Safari",
+    locator: Locator(criteria: [Criterion(attribute: "AXRole", value: "AXButton")]))
 let command = AXCommandEnvelope(
     commandID: "find-button",
-    command: .query(QueryCommand(appName: "Safari", searchCriteria: [.role(.button)]))
+    command: .query(query)
 )
 let response = axorcist.runCommand(command)
 ```
@@ -69,7 +72,7 @@ Swift wrapper around `AXUIElement` providing modern API patterns.
 ```swift
 public struct Element: Equatable, Hashable {
     public let underlyingElement: AXUIElement
-    public var attributes: [String: AnyCodable]?
+    public var attributes: [String: AttributeValue]?
     public var prefetchedChildren: [Element]?
     public var actions: [String]?
 }
@@ -88,13 +91,13 @@ public struct Element: Equatable, Hashable {
 let element = Element(axUIElement)
 
 // Access properties safely
-let title = element.title
-let role = element.role
-let isEnabled = element.isEnabled
+let title = element.title()
+let role = element.role()
+let isEnabled = element.isEnabled()
 
 // Perform actions
 try element.performAction(.press)
-try element.setValue("Hello World")
+_ = element.setValue("Hello World", forAttribute: "AXValue")
 
 // Navigate hierarchy
 let children = element.children()
@@ -173,18 +176,22 @@ Add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/openclaw/AXorcist.git", from: "0.1.2")
+    .package(url: "https://github.com/openclaw/AXorcist.git", from: "0.1.5")
 ]
 ```
 
 ### Command Line Tool
 
-Build and install the CLI tool:
+Until the prebuilt Homebrew formula is published, build and install the CLI tool from source:
 
 ```bash
-swift build -c release
-cp .build/release/axorc /usr/local/bin/
+swift build -c release --product axorc
+install -m 755 .build/release/axorc /usr/local/bin/axorc
 ```
+
+Run `axorc permissions` after installation. macOS will need Accessibility permission for inspection and automation.
+
+Prebuilt Homebrew distribution is prepared for the next signed release. Maintainers: see [docs/releasing.md](docs/releasing.md) for the artifact and tap workflow.
 
 ## Quick Start
 
@@ -199,8 +206,8 @@ let axorcist = AXorcist()
 // Create a query command
 let query = QueryCommand(
     appIdentifier: "com.apple.TextEdit",
-    locator: AXLocator(criteria: [
-        AXCriterion(attribute: "AXRole", value: "AXTextArea")
+    locator: Locator(criteria: [
+        Criterion(attribute: "AXRole", value: "AXTextArea")
     ]),
     attributesToReturn: ["AXValue", "AXRole"]
 )
@@ -215,11 +222,14 @@ let response = axorcist.runCommand(AXCommandEnvelope(
 ### Command Line
 
 ```bash
-# Find all buttons in Safari
-echo '{"command": "query", "application": "com.apple.Safari", "locator": {"criteria": [{"attribute": "AXRole", "value": "AXButton"}]}}' | axorc --stdin
+# Print a shallow accessibility tree
+axorc tree --app Safari --depth 3
 
-# Click the Back button
-echo '{"command": "performAction", "application": "Safari", "locator": {"criteria": [{"attribute": "AXTitle", "value": "Back"}]}, "action": "AXPress"}' | axorc --stdin
+# Find the Back button
+axorc find --app Safari --role AXButton --title Back
+
+# Use the full JSON protocol for actions and advanced queries
+echo '{"command_id":"back","command":"performAction","application":"Safari","locator":{"criteria":[{"attribute":"AXTitle","value":"Back"}]},"action_name":"AXPress"}' | axorc raw --stdin
 ```
 
 ## Element Search and Matching
@@ -329,13 +339,14 @@ Find elements and retrieve their attributes.
 
 ```json
 {
+  "command_id": "find-text-area",
   "command": "query",
   "application": "com.apple.TextEdit",
   "locator": {
     "criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]
   },
   "attributes": ["AXValue", "AXRole", "AXTitle"],
-  "maxDepthForSearch": 10
+  "max_depth": 10
 }
 ```
 
@@ -344,12 +355,13 @@ Execute actions on elements.
 
 ```json
 {
+  "command_id": "press-back",
   "command": "performAction",
   "application": "Safari",
   "locator": {
     "criteria": [{"attribute": "AXTitle", "value": "Back"}]
   },
-  "action": "AXPress"
+  "action_name": "AXPress"
 }
 ```
 
@@ -358,8 +370,8 @@ Retrieve the currently focused element.
 
 ```json
 {
+  "command_id": "focused-element",
   "command": "getFocusedElement",
-  "application": "focused",
   "attributes": ["AXRole", "AXTitle", "AXValue"]
 }
 ```
@@ -369,9 +381,9 @@ Find element at specific screen coordinates.
 
 ```json
 {
+  "command_id": "element-at-point",
   "command": "getElementAtPoint",
-  "xCoordinate": 500,
-  "yCoordinate": 300,
+  "point": [500, 300],
   "attributes": ["AXRole", "AXTitle"]
 }
 ```
@@ -381,19 +393,22 @@ Execute multiple commands in sequence.
 
 ```json
 {
+  "command_id": "inspect-and-fill",
   "command": "batch",
-  "commands": [
+  "sub_commands": [
     {
+      "command_id": "find-text-area",
       "command": "query",
       "application": "TextEdit",
       "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]}
     },
     {
+      "command_id": "fill-text-area",
       "command": "performAction",
       "application": "TextEdit",
       "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]},
-      "action": "AXSetValue",
-      "actionValue": "Hello, World!"
+      "action_name": "AXSetValue",
+      "action_value": "Hello, World!"
     }
   ]
 }
@@ -404,11 +419,12 @@ Monitor UI changes in real-time.
 
 ```json
 {
+  "command_id": "watch-text-edit",
   "command": "observe",
   "application": "com.apple.TextEdit",
   "notifications": ["AXValueChanged", "AXFocusedUIElementChanged"],
-  "includeDetails": true,
-  "watchChildren": false
+  "include_element_details": ["AXRole", "AXTitle", "AXValue"],
+  "watch_children": false
 }
 ```
 
@@ -417,11 +433,12 @@ Recursively collect all elements.
 
 ```json
 {
+  "command_id": "collect-buttons",
   "command": "collectAll",
   "application": "Safari",
   "attributes": ["AXRole", "AXTitle"],
-  "maxDepth": 5,
-  "filterCriteria": [{"attribute": "AXRole", "value": "AXButton"}]
+  "max_depth": 5,
+  "filter_criteria": {"AXRole": "AXButton"}
 }
 ```
 
@@ -443,11 +460,12 @@ Available actions to perform on elements:
 
 ```json
 {
+  "command_id": "replace-text",
   "command": "performAction",
   "application": "TextEdit",
   "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]},
-  "action": "AXSetValue",
-  "actionValue": "New text content"
+  "action_name": "AXSetValue",
+  "action_value": "New text content"
 }
 ```
 
@@ -468,37 +486,48 @@ Monitor UI changes with these notifications:
 
 ```json
 {
+  "command_id": "watch-text",
   "command": "observe",
   "application": "TextEdit",
   "notifications": ["AXValueChanged", "AXFocusedUIElementChanged"],
   "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]},
-  "includeDetails": true
+  "include_element_details": ["AXRole", "AXTitle", "AXValue"]
 }
 ```
 
 ## Command-Line Usage
 
-### Basic Usage
+`axorc` has human-readable inspection commands and a stable JSON mode for scripts and advanced automation.
+
+### Inspect Applications
 
 ```bash
-# Run command from file
-axorc --file command.json
+# Check permission and recovery instructions
+axorc permissions
 
-# Run command from stdin
-echo '{"command": "ping"}' | axorc --stdin
+# Print a hierarchy; use a bundle identifier when names are ambiguous
+axorc tree --app com.apple.dock --depth 3
 
-# Pretty print output
-axorc --file command.json --pretty
+# Limit a tree to one role and emit JSON for scripts
+axorc tree --app com.apple.dock --role AXDockItem --json
 
-# Include debug logging
-axorc --file command.json --debug
+# Find one element with exact matching
+axorc find --app Safari --role AXButton --title Back
+
+# Use case-insensitive substring matching
+axorc find --app Safari --title address --contains
 ```
 
-### Advanced CLI Examples
+Run `axorc --help` or `axorc help find` for the complete terminal reference. Human-readable output goes to stdout, diagnostics go to stderr, and failures return nonzero exit codes.
+
+### JSON Protocol
+
+Every JSON command requires `command_id` and `command`. Input can come from standard input, a file, an argument, or the legacy root-level syntax:
 
 ```bash
-# Find all enabled buttons
+# Standard input
 echo '{
+  "command_id": "enabled-button",
   "command": "query",
   "application": "Safari",
   "locator": {
@@ -507,10 +536,17 @@ echo '{
       {"attribute": "AXEnabled", "value": "true"}
     ]
   }
-}' | axorc --stdin --pretty
+}' | axorc raw --stdin
 
-# Click button using path navigation
+# File
+axorc raw --file command.json
+
+# Argument
+axorc raw --json '{"command_id":"health","command":"ping"}'
+
+# Action using path navigation
 echo '{
+  "command_id": "press-back",
   "command": "performAction",
   "application": "com.apple.Safari",
   "locator": {
@@ -520,9 +556,11 @@ echo '{
     ],
     "criteria": [{"attribute": "AXTitle", "value": "Back"}]
   },
-  "action": "AXPress"
-}' | axorc --stdin
+  "action_name": "AXPress"
+}' | axorc raw --stdin
 ```
+
+Existing invocations such as `axorc --stdin` and `axorc '{...}'` remain supported. Prefer the explicit `raw` subcommand in new scripts.
 
 ## Advanced Examples
 
@@ -530,6 +568,7 @@ echo '{
 
 ```json
 {
+  "command_id": "find-submit",
   "command": "query",
   "application": "com.apple.Safari",
   "locator": {
@@ -550,9 +589,11 @@ echo '{
 
 ```json
 {
+  "command_id": "fill-form",
   "command": "batch",
-  "commands": [
+  "sub_commands": [
     {
+      "command_id": "fill-email",
       "command": "performAction",
       "application": "Safari",
       "locator": {
@@ -561,10 +602,11 @@ echo '{
           {"attribute": "AXPlaceholderValue", "value": "Email", "match_type": "contains"}
         ]
       },
-      "action": "AXSetValue",
-      "actionValue": "user@example.com"
+      "action_name": "AXSetValue",
+      "action_value": "user@example.com"
     },
     {
+      "command_id": "fill-password",
       "command": "performAction",
       "application": "Safari",
       "locator": {
@@ -573,10 +615,11 @@ echo '{
           {"attribute": "AXPlaceholderValue", "value": "Password", "match_type": "contains"}
         ]
       },
-      "action": "AXSetValue",
-      "actionValue": "secretpassword"
+      "action_name": "AXSetValue",
+      "action_value": "example-value"
     },
     {
+      "command_id": "submit-form",
       "command": "performAction",
       "application": "Safari",
       "locator": {
@@ -585,7 +628,7 @@ echo '{
           {"attribute": "AXTitle", "value": "Sign In", "match_type": "contains"}
         ]
       },
-      "action": "AXPress"
+      "action_name": "AXPress"
     }
   ]
 }
@@ -595,14 +638,15 @@ echo '{
 
 ```json
 {
+  "command_id": "watch-text",
   "command": "observe",
   "application": "com.apple.TextEdit",
   "notifications": ["AXValueChanged", "AXSelectedTextChanged"],
   "locator": {
     "criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]
   },
-  "includeDetails": true,
-  "watchChildren": true
+  "include_element_details": ["AXRole", "AXTitle", "AXValue"],
+  "watch_children": true
 }
 ```
 
@@ -632,12 +676,10 @@ All operations are MainActor-isolated for thread safety when interacting with th
 
 ### Permission Issues
 
-Ensure your app has accessibility permissions:
+Check Accessibility permission and print recovery instructions:
 
-```json
-{
-  "command": "isProcessTrusted"
-}
+```bash
+axorc permissions
 ```
 
 ### Finding Elements
@@ -645,7 +687,7 @@ Ensure your app has accessibility permissions:
 Use the debug flag to see detailed search logs:
 
 ```bash
-axorc --file command.json --debug
+axorc raw --file command.json --debug
 ```
 
 ### Common Issues
@@ -660,15 +702,16 @@ Enable debug logging in commands:
 
 ```json
 {
+  "command_id": "debug-query",
   "command": "query",
-  "debugLogging": true,
+  "debug_logging": true,
   ...
 }
 ```
 
 ## License
 
-AXorcist is released under the MIT License. See [../LICENSE](../LICENSE) for details.
+AXorcist is released under the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Contributing
 

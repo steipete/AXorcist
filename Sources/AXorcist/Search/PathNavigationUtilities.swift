@@ -16,23 +16,20 @@ private func logPathNavigation(_ level: AXLogLevel, _ message: String) {
 // MARK: - Application Element Utilities
 
 @MainActor
-public func getApplicationElement(for bundleIdentifier: String) -> Element? {
-    let attemptMessage = "PN/AppEl: Attempting to get application element for bundle identifier '"
-        + "\(bundleIdentifier)'."
+public func getApplicationElement(for appIdentifier: String) -> Element? {
+    let attemptMessage = "PN/AppEl: Attempting to get application element for identifier '"
+        + "\(appIdentifier)'."
     logPathNavigation(.debug, attemptMessage)
 
-    guard let runningApp = NSWorkspace.shared.runningApplications.first(where: {
-        $0.bundleIdentifier == bundleIdentifier
-    }) else {
+    guard let processId = pid(forAppIdentifier: appIdentifier) else {
         let failureMessage =
-            "PN/AppEl: Could not find running application with bundle identifier '\(bundleIdentifier)'."
+            "PN/AppEl: Could not find running application for identifier '\(appIdentifier)'."
         logPathNavigation(.warning, failureMessage)
         return nil
     }
-    let pid = runningApp.processIdentifier
-    let appElement = Element(AXUIElementCreateApplication(pid))
+    let appElement = Element(AXUIElementCreateApplication(processId))
     let description = appElement.briefDescription(option: smartValueFormat)
-    let successMessage = "PN/AppEl: Obtained application element for '\(bundleIdentifier)' (PID: \(pid)): "
+    let successMessage = "PN/AppEl: Obtained application element for '\(appIdentifier)' (PID: \(processId)): "
         + "[\(description)]"
     logPathNavigation(.info, successMessage)
     return appElement

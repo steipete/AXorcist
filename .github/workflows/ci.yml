@@ -51,9 +51,9 @@ jobs:
       with:
         swift-version: ${{ env.SWIFT_VERSION }}
     
-    - name: Install SwiftLint and SwiftFormat
+    - name: Install validation tools
       run: |
-        brew install swiftlint swiftformat
+        brew install shellcheck swiftlint swiftformat
     
     - name: Build
       run: |
@@ -79,3 +79,17 @@ jobs:
     
     - name: Run safe tests
       run: swift test
+
+    - name: Verify CLI release packaging
+      shell: bash
+      run: |
+        shellcheck scripts/*.sh
+        version="$(sed -n 's/.*axorcVersion = "\([^"]*\)".*/\1/p' Sources/axorc/Models/AXORCModels.swift)"
+        scripts/build-release-artifact.sh "$version" --adhoc
+        archive="dist/axorc-$version-macos-universal.zip"
+        test "$(unzip -Z1 "$archive")" = "axorc"
+        (cd dist && shasum -a 256 -c "$(basename "$archive").sha256")
+        sha256="$(shasum -a 256 "$archive" | awk '{print $1}')"
+        scripts/render-homebrew-formula.sh "$version" "$sha256" > /tmp/axorc.rb
+        grep -Fq 'skip_clean "bin/axorc"' /tmp/axorc.rb
+        ruby -c /tmp/axorc.rb

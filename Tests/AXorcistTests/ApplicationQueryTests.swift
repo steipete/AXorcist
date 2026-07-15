@@ -2,7 +2,7 @@ import AppKit
 import Testing
 @testable import AXorcist
 
-// Helper type for decoding arbitrary JSON values
+/// Helper type for decoding arbitrary JSON values
 struct AnyDecodable: Decodable {
     let value: Any
 
@@ -34,10 +34,9 @@ struct AnyDecodable: Decodable {
 @Suite("AXorcist Application Query Tests", .tags(.safe))
 struct ApplicationQueryTests {
     @Test(
-        "Collect all elements in the frontmost application",
         .tags(.automation),
         .enabled(if: AXTestEnvironment.runAutomationScenarios))
-    func collectAllFromFrontmostApplication() async throws {
+    func `Collect all elements in the frontmost application`() throws {
         let command = CommandEnvelope(
             commandId: "test-get-all-apps",
             command: .collectAll,
@@ -87,11 +86,57 @@ struct ApplicationQueryTests {
     }
 
     @Test(
-        "List TextEdit windows",
+        .tags(.automation),
+        .enabled(if: AXTestEnvironment.runAutomationScenarios))
+    func `CollectAll filters descendants without pruning their parents`() throws {
+        let json = """
+        {
+          "command_id": "test-filter-descendants",
+          "command": "collectAll",
+          "application": "com.apple.dock",
+          "attributes": ["AXRole", "AXTitle"],
+          "max_depth": 3,
+          "filter_criteria": {"AXRole": "AXDockItem"}
+        }
+        """
+        let result = try runAXORCCommand(arguments: [json])
+
+        #expect(result.exitCode == 0)
+        let outputData = try #require(result.output?.data(using: String.Encoding.utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: outputData) as? [String: Any])
+        let responseData = try #require(object["data"] as? [String: Any])
+        let elements = try #require(responseData["elements"] as? [[String: Any]])
+        #expect(!elements.isEmpty)
+        #expect(elements.allSatisfy { $0["role"] as? String == "AXDockItem" })
+    }
+
+    @Test(
+        .tags(.automation),
+        .enabled(if: AXTestEnvironment.runAutomationScenarios))
+    func `Human CLI resolves app names and returns requested attributes`() throws {
+        let result = try runAXORCCommand(arguments: [
+            "find",
+            "--app", "Dock",
+            "--role", "AXApplication",
+            "--attribute", "AXRole",
+            "--json",
+        ])
+
+        #expect(result.exitCode == 0)
+        #expect(result.errorOutput?.isEmpty ?? true)
+        let outputData = try #require(result.output?.data(using: String.Encoding.utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: outputData) as? [String: Any])
+        let responseData = try #require(object["data"] as? [String: Any])
+        let attributes = try #require(responseData["attributes"] as? [String: Any])
+        let role = try #require(attributes["AXRole"] as? [String: Any])
+        #expect(role["any_value"] as? String == "AXApplication")
+    }
+
+    @Test(
         .tags(.automation),
         .enabled(if: AXTestEnvironment.runAutomationScenarios))
     @MainActor
-    func getWindowsOfApplication() async throws {
+    func `List TextEdit windows`() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -140,8 +185,8 @@ struct ApplicationQueryTests {
         }
     }
 
-    @Test("Query non-existent application", .tags(.safe))
-    func queryNonExistentApp() async throws {
+    @Test(.tags(.safe))
+    func `Query non-existent application`() throws {
         let command = CommandEnvelope(
             commandId: "test-nonexistent",
             command: .query,
@@ -157,7 +202,7 @@ struct ApplicationQueryTests {
 
         let result = try runAXORCCommand(arguments: [jsonString])
 
-        #expect(result.exitCode == 0, "Command should succeed even when no elements found")
+        #expect(result.exitCode == 1, "Missing applications should return a failure exit status")
 
         guard let output = result.output,
               let responseData = output.data(using: String.Encoding.utf8)
