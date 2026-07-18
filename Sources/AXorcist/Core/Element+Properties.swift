@@ -115,7 +115,15 @@ extension Element {
     // Action-related - simplified
     @MainActor
     public func supportedActions() -> [String]? {
-        attribute(Attribute<[String]>.actionNames)
+        // AXActionNames is not reliably readable via AXUIElementCopyAttributeValue —
+        // SwiftUI apps return nothing there, which made every AXPress support check fail.
+        // Use the dedicated API first and keep the attribute read as a fallback.
+        var names: CFArray?
+        if AXUIElementCopyActionNames(underlyingElement, &names) == .success,
+           let actions = names as? [String] {
+            return actions
+        }
+        return attribute(Attribute<[String]>.actionNames)
     }
 
     // domIdentifier - simplified to a single method, was previously a computed property and a method.
