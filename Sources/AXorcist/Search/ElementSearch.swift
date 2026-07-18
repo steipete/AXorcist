@@ -531,6 +531,7 @@ private let containerRoles: Set<String> = [
     AXRoleNames.kAXOutlineRole,
     AXRoleNames.kAXUnknownRole,
     "AXGeneric", "AXSection", "AXArticle", "AXSplitter", "AXScrollBar", "AXPane",
+    AXRoleNames.kAXMenuBarRole,
 ]
 
 // MARK: - Search Timeout Handling
