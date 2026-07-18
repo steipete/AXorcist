@@ -196,7 +196,10 @@ private func performGenericAttributeMatch(
     matchType: JSONPathHintComponent.MatchType,
     elementDescriptionForLog: String) -> Bool
 {
-    guard let actualValueAny: Any = element.attribute(Attribute(key)) else {
+    // Generic criteria need the same CF-to-Swift normalization as attribute extraction.
+    let fetched: Any? = ValueUnwrapper.unwrap(element.rawAttributeValue(named: key))
+        ?? element.attribute(Attribute(key))
+    guard let actualValueAny: Any = fetched else {
         GlobalAXLogger.shared.log(
             AXLogEntry(
                 level: .debug,

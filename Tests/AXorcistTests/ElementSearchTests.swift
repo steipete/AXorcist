@@ -8,6 +8,31 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ElementSearchTests {
+    @Test("Search a window by its generic AXTitle criterion", .tags(.automation))
+    func searchWindowByExactTitle() async throws {
+        let (_, appElement) = try await setupTextEditAndGetInfo()
+        defer { Task { await closeTextEdit() } }
+
+        guard let appElement,
+              let title = Element(appElement).mainWindow()?.title()
+        else {
+            throw TestError.generic("Could not read TextEdit's main window title.")
+        }
+
+        let command = CommandEnvelope(
+            commandId: "query-window-by-title",
+            command: .query,
+            application: "com.apple.TextEdit",
+            locator: Locator(criteria: [
+                Criterion(attribute: "AXRole", value: "AXWindow"),
+                Criterion(attribute: "AXTitle", value: title),
+            ]))
+
+        let response = try await self.runQuery(command: command, encoder: JSONEncoder())
+        #expect(response.success)
+        #expect(response.data?.attributes?["AXTitle"]?.stringValue == title)
+    }
+
     @Test("Search elements by role", .tags(.automation))
     func searchElementsByRole() async throws {
         await closeTextEdit()
