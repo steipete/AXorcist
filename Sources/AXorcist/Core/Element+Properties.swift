@@ -115,9 +115,7 @@ extension Element {
     // Action-related - simplified
     @MainActor
     public func supportedActions() -> [String]? {
-        // AXActionNames is not reliably readable via AXUIElementCopyAttributeValue —
-        // SwiftUI apps return nothing there, which made every AXPress support check fail.
-        // Use the dedicated API first and keep the attribute read as a fallback.
+        // Action names have a dedicated Accessibility API; they are not a standard attribute.
         var names: CFArray?
         if AXUIElementCopyActionNames(underlyingElement, &names) == .success,
            let actions = names as? [String] {
