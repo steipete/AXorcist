@@ -115,7 +115,13 @@ extension Element {
     // Action-related - simplified
     @MainActor
     public func supportedActions() -> [String]? {
-        attribute(Attribute<[String]>.actionNames)
+        // Action names have a dedicated Accessibility API; they are not a standard attribute.
+        var names: CFArray?
+        if AXUIElementCopyActionNames(underlyingElement, &names) == .success,
+           let actions = names as? [String] {
+            return actions
+        }
+        return attribute(Attribute<[String]>.actionNames)
     }
 
     // domIdentifier - simplified to a single method, was previously a computed property and a method.
