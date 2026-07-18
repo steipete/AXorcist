@@ -4,6 +4,9 @@ All notable changes to AXorcist will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Traverse menu bars during default searches so their items remain discoverable without `--scan-all`. Thanks @dalsoop.
+
 ## [0.1.6] - 2026-07-15
 
 ### Added

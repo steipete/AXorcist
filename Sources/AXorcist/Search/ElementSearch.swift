@@ -531,11 +531,7 @@ private let containerRoles: Set<String> = [
     AXRoleNames.kAXOutlineRole,
     AXRoleNames.kAXUnknownRole,
     "AXGeneric", "AXSection", "AXArticle", "AXSplitter", "AXScrollBar", "AXPane",
-    // Menus, toolbars and sheets are containers too. Without these, traversal
-    // pruned the (second) AXMenuBar holding status items, so menu-bar extras
-    // and toolbar content were unreachable unless --scan-all was passed.
-    "AXMenuBar", "AXMenuBarItem", "AXMenu", "AXMenuItem",
-    "AXToolbar", "AXTabGroup", "AXRadioGroup", "AXSheet", "AXDrawer", "AXPopover",
+    AXRoleNames.kAXMenuBarRole,
 ]
 
 // MARK: - Search Timeout Handling

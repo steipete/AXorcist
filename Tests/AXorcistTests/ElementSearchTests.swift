@@ -8,6 +8,24 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ElementSearchTests {
+    @Test("Search through a menu bar container", .tags(.automation))
+    func searchMenuBarItem() async throws {
+        _ = try await setupTextEditAndGetInfo()
+        defer { Task { await closeTextEdit() } }
+
+        let command = CommandEnvelope(
+            commandId: "query-menu-bar-item",
+            command: .query,
+            application: "com.apple.TextEdit",
+            locator: Locator(criteria: [
+                Criterion(attribute: "AXRole", value: AXRoleNames.kAXMenuBarItemRole),
+            ]))
+
+        let response = try await self.runQuery(command: command, encoder: JSONEncoder())
+        #expect(response.success)
+        #expect(response.data?.attributes?["AXRole"]?.stringValue == AXRoleNames.kAXMenuBarItemRole)
+    }
+
     @Test("Search elements by role", .tags(.automation))
     func searchElementsByRole() async throws {
         await closeTextEdit()
