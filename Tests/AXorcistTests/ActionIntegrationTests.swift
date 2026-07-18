@@ -9,6 +9,21 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ActionIntegrationTests {
+    @Test("Discover AXPress on a native window button", .tags(.automation))
+    func discoverPressActionOnWindowButton() async throws {
+        let (_, appElement) = try await setupTextEditAndGetInfo()
+        defer { Task { await closeTextEdit() } }
+
+        guard let appElement,
+              let button = Element(appElement).mainWindow()?.closeButton()
+        else {
+            throw TestError.generic("Could not find TextEdit's close button.")
+        }
+
+        #expect(button.supportedActions()?.contains(AXActionNames.kAXPressAction) == true)
+        #expect(button.isActionSupported(AXActionNames.kAXPressAction))
+    }
+
     @Test("Perform AXSetValue on TextEdit", .tags(.automation))
     func performActionSetTextEditTextAreaValue() async throws {
         let actionCommandId = "performaction-setvalue-\(UUID().uuidString)"
