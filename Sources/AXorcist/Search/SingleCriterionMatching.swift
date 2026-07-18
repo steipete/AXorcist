@@ -196,10 +196,8 @@ private func performGenericAttributeMatch(
     matchType: JSONPathHintComponent.MatchType,
     elementDescriptionForLog: String) -> Bool
 {
-    // Reading through attribute(Attribute<Any>) returns nil for CF-typed values,
-    // which silently broke every generic criterion (AXTitle, AXValue, ...).
-    // Prefer the raw attribute read and keep the generic path as a fallback.
-    let fetched: Any? = element.rawAttributeValue(named: key).map { $0 as Any }
+    // Generic criteria need the same CF-to-Swift normalization as attribute extraction.
+    let fetched: Any? = ValueUnwrapper.unwrap(element.rawAttributeValue(named: key))
         ?? element.attribute(Attribute(key))
     guard let actualValueAny: Any = fetched else {
         GlobalAXLogger.shared.log(

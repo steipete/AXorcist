@@ -4,6 +4,9 @@ All notable changes to AXorcist will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- Match generic accessibility criteria such as `AXTitle` against their real Core Foundation values. Thanks @dalsoop.
+
 ## [0.1.6] - 2026-07-15
 
 ### Added
