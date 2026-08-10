@@ -4,6 +4,9 @@ All notable changes to AXorcist will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Add a typed native setter for accessibility selected-text ranges.
+
 ### Fixed
 - Traverse menu bars during default searches so their items remain discoverable without `--scan-all`. Thanks @dalsoop.
 - Match generic accessibility criteria such as `AXTitle` against their real Core Foundation values. Thanks @dalsoop.

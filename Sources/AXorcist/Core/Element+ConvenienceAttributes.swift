@@ -116,6 +116,18 @@ extension Element {
         attribute(Attribute<CFRange>.selectedTextRange)
     }
 
+    /// Set the selected text range
+    @MainActor
+    public func setSelectedTextRange(_ range: CFRange) -> AXError {
+        guard let axValue = AXValue.create(range: range) else {
+            return .failure
+        }
+        return AXUIElementSetAttributeValue(
+            underlyingElement,
+            AXAttributeNames.kAXSelectedTextRangeAttribute as CFString,
+            axValue)
+    }
+
     /// Get visible character range
     @MainActor
     public func visibleCharacterRange() -> CFRange? {
