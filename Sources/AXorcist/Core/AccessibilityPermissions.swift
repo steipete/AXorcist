@@ -1,6 +1,6 @@
 // AccessibilityPermissions.swift - Utility for checking and managing accessibility permissions.
 
-import AppKit // For NSRunningApplication, NSAppleScript
+import AppKit // For NSRunningApplication
 import ApplicationServices // For AXIsProcessTrusted(), AXUIElementCreateSystemWide(), etc.
 import Foundation
 
@@ -154,58 +154,58 @@ private func checkSingleBundleAutomation(_ bundleID: String) -> (status: Bool?, 
         return (nil, nil)
     }
 
-    let scriptSource = """
-    tell application id \"\(bundleID)\" to count windows
-    """
-
-    guard let script = NSAppleScript(source: scriptSource) else {
-        let errNoScript = "Could not initialize AppleScript for bundle ID '\(bundleID)'."
-        axErrorLog(
-            errNoScript,
-            file: #file,
-            function: #function,
-            line: #line)
-        return (nil, errNoScript)
+    guard var target = makeAutomationTarget(bundleID: bundleID) else {
+        let message = "Could not create an Apple Event target for bundle ID '\(bundleID)'."
+        axErrorLog(message, file: #file, function: #function, line: #line)
+        return (nil, message)
     }
+    defer { AEDisposeDesc(&target) }
 
-    return executeAppleScriptCheck(script, for: bundleID)
+    let nativeStatus = AEDeterminePermissionToAutomateTarget(
+        &target,
+        typeWildCard,
+        typeWildCard,
+        false)
+    return automationPermissionResult(for: nativeStatus, bundleID: bundleID)
 }
 
-private func executeAppleScriptCheck(
-    _ script: NSAppleScript,
-    for bundleID: String) -> (status: Bool?, errorMessage: String?)
+private func makeAutomationTarget(bundleID: String) -> AEDesc? {
+    let bundleIDData = Data(bundleID.utf8)
+    guard !bundleIDData.isEmpty else { return nil }
+
+    var target = AEDesc()
+    let status = bundleIDData.withUnsafeBytes { bytes in
+        AECreateDesc(
+            typeApplicationBundleID,
+            bytes.baseAddress,
+            bundleIDData.count,
+            &target)
+    }
+    guard status == noErr else { return nil }
+    return target
+}
+
+func automationPermissionResult(
+    for nativeStatus: OSStatus,
+    bundleID: String) -> (status: Bool?, errorMessage: String?)
 {
-    var errorDict: NSDictionary?
-
-    axDebugLog(
-        "Executing AppleScript against \(bundleID) to check automation status.",
-        file: #file,
-        function: #function,
-        line: #line)
-
-    let descriptor = script.executeAndReturnError(&errorDict)
-
-    if errorDict == nil, descriptor.descriptorType != typeNull {
-        axDebugLog(
-            "AppleScript execution against \(bundleID) succeeded " +
-                "(no errorDict, descriptor type: \(descriptor.descriptorType.description)). " +
-                "Automation permitted.",
-            file: #file,
-            function: #function,
-            line: #line)
+    switch nativeStatus {
+    case noErr:
+        axDebugLog("Native automation permission check for \(bundleID) succeeded.")
         return (true, nil)
-    } else {
-        let errorCode = errorDict?[NSAppleScript.errorNumber] as? Int ?? 0
-        let errorMessage = errorDict?[NSAppleScript.errorMessage] as? String ?? "Unknown AppleScript error"
-        let descriptorDetails = errorDict == nil ?
-            "Descriptor was typeNull (type: \(descriptor.descriptorType.description)) but no errorDict." : ""
-        let logMessage = "AppleScript execution against \(bundleID) failed. " +
-            "Automation likely denied. Code: \(errorCode), Msg: \(errorMessage). \(descriptorDetails)"
-        axWarningLog(
-            logMessage,
-            file: #file,
-            function: #function,
-            line: #line)
-        return (false, "Automation denied for \(bundleID): \(errorMessage) (Code: \(errorCode))")
+    case OSStatus(procNotFound):
+        return (nil, nil)
+    case OSStatus(errAEEventWouldRequireUserConsent):
+        let message = "Automation permission for \(bundleID) has not been determined."
+        axWarningLog(message)
+        return (false, message)
+    case OSStatus(errAEEventNotPermitted), OSStatus(errAETargetAddressNotPermitted):
+        let message = "Automation denied for \(bundleID) (Code: \(nativeStatus))."
+        axWarningLog(message)
+        return (false, message)
+    default:
+        let message = "Automation permission check failed for \(bundleID) (Code: \(nativeStatus))."
+        axWarningLog(message)
+        return (false, message)
     }
 }

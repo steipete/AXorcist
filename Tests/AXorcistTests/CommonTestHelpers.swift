@@ -120,22 +120,12 @@ private func axWindowCount(for appElement: AXUIElement) async throws -> Int {
 
 @MainActor
 private func createNewDocument() async throws {
-    let appleScript = """
-    tell application "System Events"
-        tell process "TextEdit"
-            set frontmost to true
-            keystroke "n" using command down
-        end tell
-    end tell
-    """
-    var errorDict: NSDictionary?
-    if let scriptObject = NSAppleScript(source: appleScript) {
-        scriptObject.executeAndReturnError(&errorDict)
-        if let error = errorDict {
-            throw TestError.appleScriptError("Failed to create new document in TextEdit: \(error)")
-        }
-        try await Task.sleep(for: .seconds(2))
+    do {
+        try InputDriver.hotkey(keys: ["cmd", "n"])
+    } catch {
+        throw TestError.inputError("Failed to create a new TextEdit document: \(error)")
     }
+    try await Task.sleep(for: .seconds(2))
 }
 
 @MainActor
@@ -463,7 +453,7 @@ struct BatchOperationResponse: Codable {
 enum TestError: Error, CustomStringConvertible {
     case appNotRunning(String)
     case axError(String)
-    case appleScriptError(String)
+    case inputError(String)
     case generic(String)
 
     // MARK: Internal
@@ -472,7 +462,7 @@ enum TestError: Error, CustomStringConvertible {
         switch self {
         case let .appNotRunning(string): "AppNotRunning: \(string)"
         case let .axError(string): "AXError: \(string)"
-        case let .appleScriptError(string): "AppleScriptError: \(string)"
+        case let .inputError(string): "InputError: \(string)"
         case let .generic(string): "GenericTestError: \(string)"
         }
     }
