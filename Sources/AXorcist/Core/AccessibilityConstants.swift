@@ -176,7 +176,7 @@ public enum AXAttributeNames {
     // Cell-specific Attributes
     // swiftlint:disable identifier_name
     public static let kAXCellForColumnAndRowParameterizedAttribute =
-        "AXCellForColumnAndRowParameterized" // AXUIElement (params: col, row)
+        "AXCellForColumnAndRow" // AXUIElement (params: col, row)
     // swiftlint:enable identifier_name
     public static let kAXRowIndexRangeAttribute = "AXRowIndexRange" // AXValue (CFRange)
     public static let kAXColumnIndexRangeAttribute = "AXColumnIndexRange" // AXValue (CFRange)
@@ -192,16 +192,26 @@ public enum AXAttributeNames {
 
     // Parameterized Attributes (Set for easy checking)
     // These require parameters when being accessed via AXUIElementCopyParameterizedAttributeValue
+    public static let kAXLineForIndexParameterizedAttribute = "AXLineForIndex"
+    public static let kAXRangeForLineParameterizedAttribute = "AXRangeForLine"
+    public static let kAXStringForRangeParameterizedAttribute = "AXStringForRange"
+    public static let kAXRangeForPositionParameterizedAttribute = "AXRangeForPosition"
+    public static let kAXRangeForIndexParameterizedAttribute = "AXRangeForIndex"
+    public static let kAXBoundsForRangeParameterizedAttribute = "AXBoundsForRange"
+    public static let kAXRTFForRangeParameterizedAttribute = "AXRTFForRange"
+    public static let kAXAttributedStringForRangeParameterizedAttribute = "AXAttributedStringForRange"
+    public static let kAXStyleRangeForIndexParameterizedAttribute = "AXStyleRangeForIndex"
+
     public static let parameterizedAttributes: Set<String> = [
-        "AXStringForRangeParameterized", // Param: AXValue (CFRange) -> String
-        "AXRangeForLineParameterized", // Param: Int (line number) -> AXValue (CFRange)
-        "AXRangeForPositionParameterized", // Param: AXValue (CGPoint) -> AXValue (CFRange)
-        "AXRangeForIndexParameterized", // Param: Int (char index) -> AXValue (CFRange)
-        "AXBoundsForRangeParameterized", // Param: AXValue (CFRange) -> AXValue (CGRect)
-        "AXRTFForRangeParameterized", // Param: AXValue (CFRange) -> Data
-        "AXAttributedStringForRangeParameterized", // Param: AXValue (CFRange) -> AttributedString
-        "AXStyleRangeForIndexParameterized", // Param: Int (char index) -> AXValue (CFRange)
-        "AXLineForIndexParameterized", // Param: Int (char index) -> Int (line number)
+        kAXStringForRangeParameterizedAttribute, // Param: AXValue (CFRange) -> String
+        kAXRangeForLineParameterizedAttribute, // Param: Int (line number) -> AXValue (CFRange)
+        kAXRangeForPositionParameterizedAttribute, // Param: AXValue (CGPoint) -> AXValue (CFRange)
+        kAXRangeForIndexParameterizedAttribute, // Param: Int (char index) -> AXValue (CFRange)
+        kAXBoundsForRangeParameterizedAttribute, // Param: AXValue (CFRange) -> AXValue (CGRect)
+        kAXRTFForRangeParameterizedAttribute, // Param: AXValue (CFRange) -> Data
+        kAXAttributedStringForRangeParameterizedAttribute, // Param: AXValue (CFRange) -> AttributedString
+        kAXStyleRangeForIndexParameterizedAttribute, // Param: Int (char index) -> AXValue (CFRange)
+        kAXLineForIndexParameterizedAttribute, // Param: Int (char index) -> Int (line number)
         kAXCellForColumnAndRowParameterizedAttribute, // Already defined above
         kAXActionDescriptionAttribute, // Param: String (action name) -> String
         // AXLayoutPointForScreenPointParameterized, AXLayoutSizeForScreenSizeParameterized, etc. for layout areas

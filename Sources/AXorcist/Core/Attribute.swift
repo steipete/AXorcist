@@ -248,19 +248,22 @@ public struct Attribute<T> {
     // MARK: - Parameterized Text Attributes (Raw strings from AXAttributeConstants.h / common usage)
 
     public static var stringForRangeParameterized: Attribute<String> {
-        Attribute<String>("AXStringForRangeParameterized")
+        Attribute<String>(AXAttributeNames.kAXStringForRangeParameterizedAttribute)
     }
 
-    public static var rangeForLineParameterized: Attribute<CFRange> { Attribute<CFRange>("AXRangeForLineParameterized")
+    public static var rangeForLineParameterized: Attribute<CFRange> {
+        Attribute<CFRange>(AXAttributeNames.kAXRangeForLineParameterizedAttribute)
     }
 
     public static var boundsForRangeParameterized: Attribute<CGRect> {
-        Attribute<CGRect>("AXBoundsForRangeParameterized")
+        Attribute<CGRect>(AXAttributeNames.kAXBoundsForRangeParameterizedAttribute)
     }
 
-    public static var lineForIndexParameterized: Attribute<Int> { Attribute<Int>("AXLineForIndexParameterized") }
+    public static var lineForIndexParameterized: Attribute<Int> {
+        Attribute<Int>(AXAttributeNames.kAXLineForIndexParameterizedAttribute)
+    }
     public static var attributedStringForRangeParameterized: Attribute<NSAttributedString> {
-        Attribute<NSAttributedString>("AXAttributedStringForRangeParameterized")
+        Attribute<NSAttributedString>(AXAttributeNames.kAXAttributedStringForRangeParameterizedAttribute)
     }
 
     // MARK: - Parameterized Table/Cell Attributes
