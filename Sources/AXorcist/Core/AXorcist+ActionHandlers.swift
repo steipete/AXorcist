@@ -6,7 +6,7 @@ import Foundation
 ///
 /// This extension handles:
 /// - Performing accessibility actions on UI elements
-/// - Action validation and error handling
+/// - Action error handling
 /// - Setting element values (text, numeric, selection)
 /// - Complex action coordination and validation
 /// - Integration with element discovery and targeting
@@ -33,10 +33,7 @@ extension AXorcist {
             return .errorResponse(message: message, code: .elementNotFound)
         }
 
-        if let errorResponse = self.validateActionSupport(command.action, for: element) {
-            return errorResponse
-        }
-        return self.execute(action: command.action, on: element, value: command.value)
+        return self.executeAction(action: command.action, on: element, value: command.value)
     }
 
     // MARK: - Set Focused Value Handler
@@ -128,19 +125,17 @@ extension AXorcist {
                 "Locator: \(command.locator), Value: '\(command.value)'"))
     }
 
-    private func validateActionSupport(_ action: String, for element: Element) -> AXResponse? {
-        guard element.isActionSupported(action) else {
-            let description = element.briefDescription(option: ValueFormatOption.smart)
-            let errorMessage = "HandlePerformAction: Action '\(action)' is NOT supported by element \(description)."
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: errorMessage))
-            let availableActions = element.supportedActions() ?? []
-            let message = "\(errorMessage) Available actions: [\(availableActions.joined(separator: ", "))]"
-            return .errorResponse(message: message, code: .actionNotSupported)
-        }
-        return nil
-    }
-
-    private func execute(action: String, on element: Element, value: AnyCodable?) -> AXResponse {
+    func executeAction(
+        action: String,
+        on element: Element,
+        value: AnyCodable?,
+        performer: (Element, String) throws -> Void = { element, action in
+            try element.performAction(action)
+        },
+        supportedActions: (Element) -> [String]? = { element in
+            element.supportedActions()
+        }) -> AXResponse
+    {
         if let actionValue = value?.value {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .warning,
@@ -148,19 +143,43 @@ extension AXorcist {
         }
 
         do {
-            try element.performAction(action)
+            try performer(element, action)
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "HandlePerformAction: Successfully performed action '\(action)' on " +
-                    "\(element.briefDescription(option: ValueFormatOption.smart))."))
+                message: "HandlePerformAction: Successfully performed action '\(action)'."))
             return .successResponse(
                 payload: AnyCodable(["message": "Action '\(action)' performed successfully."]))
+        } catch let error as AccessibilitySystemError {
+            // The platform can return cannotComplete after dispatch, so classify once and never retry here.
+            return self.actionFailureResponse(
+                action: action,
+                element: element,
+                error: error,
+                supportedActions: supportedActions)
         } catch {
-            let errorMessage = "HandlePerformAction: Failed to perform action '\(action)' on " +
-                "\(element.briefDescription(option: ValueFormatOption.smart)). Error: \(error)"
+            let errorMessage = "HandlePerformAction: Failed to perform action '\(action)'. Error: \(error)"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .actionFailed)
         }
+    }
+
+    private func actionFailureResponse(
+        action: String,
+        element: Element,
+        error: AccessibilitySystemError,
+        supportedActions: (Element) -> [String]?) -> AXResponse
+    {
+        let summary = error.axError == .actionUnsupported
+            ? "Action '\(action)' is not supported."
+            : "Failed to perform action '\(action)'."
+        var errorMessage = "HandlePerformAction: \(summary) " +
+            "Error: \(error.localizedDescription) (AXError \(error.axError.rawValue))."
+        if error.axError == .actionUnsupported {
+            let availableActions = supportedActions(element) ?? []
+            errorMessage += " Available actions: [\(availableActions.joined(separator: ", "))]"
+        }
+        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
+        return .errorResponse(message: errorMessage, code: error.axError.actionResponseCode)
     }
 
     private func ensureFocusCapability(for element: Element) -> Bool {
@@ -168,29 +187,35 @@ extension AXorcist {
             return true
         }
 
-        let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
-        guard element.isActionSupported(AXActionNames.kAXPressAction) else {
-            let focusError = [
-                "HandleSetFocusedValue: Element \(elementDescription) is not focusable",
-                "(kAXFocusedAttribute not settable and kAXPressAction not supported).",
-            ].joined(separator: " ")
-            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: focusError))
-            return false
-        }
-
+        let elementDescription = GlobalAXLogger.shared.isLoggingEnabled
+            ? element.briefDescription(option: .smart)
+            : nil
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "HandleSetFocusedValue: Element not directly focusable by kAXFocusedAttribute, " +
-                "but supports kAXPressAction. Attempting press."))
+                "attempting kAXPressAction."))
         do {
             try element.performAction(.press)
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .debug,
                 message: "HandleSetFocusedValue: Successfully pressed element to potentially gain focus."))
+        } catch let error as AccessibilitySystemError where error.axError == .actionUnsupported {
+            let focusError = [
+                "HandleSetFocusedValue: Element \(elementDescription ?? "target") is not focusable",
+                "(kAXFocusedAttribute not settable and kAXPressAction not supported).",
+            ].joined(separator: " ")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: focusError))
+        } catch let error as AccessibilitySystemError {
+            let pressError = [
+                "HandleSetFocusedValue: Element \(elementDescription ?? "target") could not be pressed",
+                "to potentially gain focus. Error: \(error.localizedDescription)",
+                "(AXError \(error.axError.rawValue)).",
+            ].joined(separator: " ")
+            GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: pressError))
         } catch {
             let pressError = [
-                "HandleSetFocusedValue: Element \(elementDescription) could not be pressed",
-                "to potentially gain focus.",
+                "HandleSetFocusedValue: Element \(elementDescription ?? "target") could not be pressed",
+                "to potentially gain focus. Error: \(error)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .warning, message: pressError))
         }

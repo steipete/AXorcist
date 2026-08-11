@@ -10,44 +10,40 @@ extension Element {
     // MARK: - Actions
 
     @MainActor
-    public func isActionSupported(_ actionName: String) -> Bool { // Removed logging params
-        // self.supportedActions() is refactored and uses GlobalAXLogger internally
-        // Assumes self.supportedActions() is refactored in Element+Properties.swift
-        if let actions = self.supportedActions() {
-            return actions.contains(actionName)
+    public func isActionSupported(_ actionName: String) -> Bool {
+        self.supportedActions()?.contains(actionName) ?? false
+    }
+
+    @MainActor
+    @discardableResult
+    public func performAction(_ actionName: Attribute<String>) throws -> Element {
+        try self.performAction(actionName.rawValue)
+    }
+
+    @MainActor
+    @discardableResult
+    public func performAction(_ actionName: String) throws -> Element {
+        try self.performAction(actionName, using: AXUIElementPerformAction)
+    }
+
+    @MainActor
+    @discardableResult
+    func performAction(
+        _ actionName: String,
+        using performer: (AXUIElement, CFString) -> AXError) throws -> Element
+    {
+        let description = GlobalAXLogger.shared.isLoggingEnabled
+            ? self.briefDescription(option: .smart)
+            : nil
+        if let description {
+            axDebugLog("Attempting to perform action '\(actionName)' on element: \(description)")
         }
-        return false
-    }
 
-    @MainActor
-    @discardableResult
-    public func performAction(_ actionName: Attribute<String>) throws -> Element { // Removed logging params
-        // self.briefDescription() is refactored and uses GlobalAXLogger internally
-        // Assumes self.briefDescription() is refactored in Element+Description.swift
-        let descForLog = self.briefDescription(option: .smart)
-        axDebugLog("Attempting to perform action '\(actionName.rawValue)' on element: \(descForLog)")
+        try performer(self.underlyingElement, actionName as CFString).throwIfError()
 
-        let error = AXUIElementPerformAction(self.underlyingElement, actionName.rawValue as CFString)
-
-        // Use new error extension
-        try error.throwIfError()
-
-        axInfoLog("Successfully performed action '\(actionName.rawValue)' on element: \(descForLog)")
-        return self
-    }
-
-    @MainActor
-    @discardableResult
-    public func performAction(_ actionName: String) throws -> Element { // Removed logging params
-        let descForLog = self.briefDescription(option: .smart)
-        axDebugLog("Attempting to perform action '\(actionName)' on element: \(descForLog)")
-
-        let error = AXUIElementPerformAction(self.underlyingElement, actionName as CFString)
-
-        // Use new error extension
-        try error.throwIfError()
-
-        axInfoLog("Successfully performed action '\(actionName)' on element: \(descForLog)")
+        if let description {
+            axInfoLog("Successfully performed action '\(actionName)' on element: \(description)")
+        }
         return self
     }
 

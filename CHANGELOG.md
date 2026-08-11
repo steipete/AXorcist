@@ -8,6 +8,7 @@ All notable changes to AXorcist will be documented in this file.
 - Add a typed native setter for accessibility selected-text ranges.
 
 ### Fixed
+- Execute accessibility actions directly through one system-call owner, preserving native AX failures without redundant action-discovery round trips.
 - Use the native macOS names for parameterized accessibility attributes instead of non-existent `Parameterized`-suffixed raw values.
 - Traverse menu bars during default searches so their items remain discoverable without `--scan-all`. Thanks @dalsoop.
 - Match generic accessibility criteria such as `AXTitle` against their real Core Foundation values. Thanks @dalsoop.

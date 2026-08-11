@@ -90,4 +90,19 @@ extension AXError {
     public nonisolated var localizedDescription: String {
         AccessibilitySystemError(self).errorDescription ?? "Unknown AXError: \(self.rawValue)"
     }
+
+    var actionResponseCode: AXErrorCode {
+        switch self {
+        case .apiDisabled:
+            .permissionDenied
+        case .invalidUIElement:
+            .elementNotFound
+        case .actionUnsupported:
+            .actionNotSupported
+        case .illegalArgument:
+            .invalidParameter
+        default:
+            .actionFailed
+        }
+    }
 }

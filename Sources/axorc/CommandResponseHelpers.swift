@@ -11,6 +11,7 @@ struct FinalResponse: Codable {
     let status: String
     let data: AnyCodable?
     let error: String?
+    let errorCode: AXErrorCode?
     var debugLogs: [String]?
 }
 
@@ -42,7 +43,8 @@ func finalizeAndEncodeResponse(
         commandType: commandType,
         status: responseStatus,
         data: handlerResponse.data,
-        error: handlerResponse.error)
+        error: handlerResponse.error,
+        errorCode: handlerResponse.errorCode)
 
     if debugCLI || commandDebugLogging {
         let logsForResponse = axGetLogsAsStrings()

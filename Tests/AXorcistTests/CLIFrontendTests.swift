@@ -103,6 +103,25 @@ struct CLIFrontendTests {
     }
 
     @Test
+    func `raw responses preserve machine readable AX error codes`() throws {
+        let handlerResponse = HandlerResponse(from: .errorResponse(
+            message: "Action is not supported",
+            code: .actionNotSupported))
+        let json = finalizeAndEncodeResponse(
+            commandId: "unsupported-action",
+            commandType: "performAction",
+            handlerResponse: handlerResponse,
+            debugCLI: false,
+            commandDebugLogging: false)
+
+        let data = try #require(json.data(using: .utf8))
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["status"] as? String == "error")
+        #expect(object["error"] as? String == "Action is not supported")
+        #expect(object["error_code"] as? String == "action_not_supported")
+    }
+
+    @Test
     func `Raw argument failures remain structured JSON`() throws {
         let result = try runAXORCCommand(arguments: ["raw", "--file"])
 
