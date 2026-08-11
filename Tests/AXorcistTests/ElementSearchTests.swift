@@ -8,8 +8,8 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ElementSearchTests {
-    @Test("Search through a menu bar container", .tags(.automation))
-    func searchMenuBarItem() async throws {
+    @Test(.tags(.automation))
+    func `Search through a menu bar container`() async throws {
         _ = try await setupTextEditAndGetInfo()
         defer { Task { await closeTextEdit() } }
 
@@ -26,8 +26,8 @@ struct ElementSearchTests {
         #expect(response.data?.attributes?["AXRole"]?.stringValue == AXRoleNames.kAXMenuBarItemRole)
     }
 
-    @Test("Search a window by its generic AXTitle criterion", .tags(.automation))
-    func searchWindowByExactTitle() async throws {
+    @Test(.tags(.automation))
+    func `Search a window by its generic AXTitle criterion`() async throws {
         let (_, appElement) = try await setupTextEditAndGetInfo()
         defer { Task { await closeTextEdit() } }
 
@@ -51,8 +51,8 @@ struct ElementSearchTests {
         #expect(response.data?.attributes?["AXTitle"]?.stringValue == title)
     }
 
-    @Test("Search elements by role", .tags(.automation))
-    func searchElementsByRole() async throws {
+    @Test(.tags(.automation))
+    func `Search elements by role`() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -99,8 +99,8 @@ struct ElementSearchTests {
         }
     }
 
-    @Test("Describe element hierarchy", .tags(.automation))
-    func describeElementHierarchy() async throws {
+    @Test(.tags(.automation))
+    func `Describe element hierarchy`() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -149,8 +149,8 @@ struct ElementSearchTests {
         }
     }
 
-    @Test("Set and verify text in TextEdit", .tags(.automation))
-    func setAndVerifyText() async throws {
+    @Test(.tags(.automation))
+    func `Set and verify text in TextEdit`() async throws {
         try await withFreshTextEdit { encoder in
             try await self.setText("Hello from AXorcist tests!", encoder: encoder)
             let response = try await self.queryTextArea(encoder: encoder)
@@ -163,8 +163,8 @@ struct ElementSearchTests {
         }
     }
 
-    @Test("Extract text from TextEdit window", .tags(.automation))
-    func extractText() async throws {
+    @Test(.tags(.automation))
+    func `Extract text from TextEdit window`() async throws {
         try await withFreshTextEdit { encoder in
             try await self.setText(
                 "This is test content.\nIt has multiple lines.\nExtract this text.",

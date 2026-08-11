@@ -1,6 +1,6 @@
 import Foundation
 
-// String extension from Scanner
+/// String extension from Scanner
 extension String {
     subscript(offset: Int) -> Character {
         self[index(startIndex, offsetBy: offset)]

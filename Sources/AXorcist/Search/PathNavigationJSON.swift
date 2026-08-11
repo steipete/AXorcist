@@ -4,7 +4,7 @@ import ApplicationServices
 import Foundation
 import Logging
 
-// Define logger for this file
+/// Define logger for this file
 private let logger = Logger(label: "AXorcist.PathNavigationJSON")
 
 // MARK: - JSON PathHint Navigation

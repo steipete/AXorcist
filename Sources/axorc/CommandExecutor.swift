@@ -31,14 +31,12 @@ struct CommandExecutor {
             "Executing command: \(command.command) (ID: \(command.commandId)), "
                 + "cmdDebug: \(command.debugLogging), cliDebug: \(debugCLI)")
 
-        let responseString = self.processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
-
-        return responseString
+        return self.processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
     }
 
     // MARK: Private
 
-    // Simplified to only adjust detail level based on command specific flag, if CLI debug is on.
+    /// Simplified to only adjust detail level based on command specific flag, if CLI debug is on.
     private static func setupDetailLevelForCommand(commandDebugLogging: Bool, cliDebug: Bool) -> AXLogDetailLevel? {
         var previousDetailLevel: AXLogDetailLevel?
         if cliDebug { // Only adjust if CLI debugging is already enabled

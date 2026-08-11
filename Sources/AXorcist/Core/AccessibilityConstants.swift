@@ -20,7 +20,7 @@ public enum AXActionNames {
     // public static let kAXShowDefaultUIAction = "AXShowDefaultUI"     // Shows the default UI for the element
     // public static let kAXDeleteAction = "AXDelete" // Action to delete content or an element
 
-    // Internal/Custom action name for setting a value via performAction handler
+    /// Internal/Custom action name for setting a value via performAction handler
     public static let kAXSetValueAction = "AXSetValue"
 }
 
@@ -101,7 +101,7 @@ public enum AXAttributeNames {
     public static let kAXHiddenAttribute = "AXHidden" // Bool (is app hidden?)
     // public static let kAXEnhancedUserInterfaceAttribute = "AXEnhancedUserInterface" // Bool (private)
 
-    // System-wide Attributes (available on SystemWide element)
+    /// System-wide Attributes (available on SystemWide element)
     public static let kAXFocusedApplicationAttribute =
         "AXFocusedApplication" // AXUIElement (the currently focused application)
 
@@ -182,7 +182,7 @@ public enum AXAttributeNames {
     public static let kAXColumnIndexRangeAttribute = "AXColumnIndexRange" // AXValue (CFRange)
     public static let kAXSelectedCellsAttribute = "AXSelectedCells" // [AXUIElement]
 
-    // Tabs
+    /// Tabs
     public static let kAXTabsAttribute = "AXTabs" // [AXUIElement]
 
     // Linking Attributes
@@ -230,17 +230,17 @@ public enum AXAttributeNames {
     public static let kAXLayoutAreaChildrenAttribute = "AXLayoutAreaChildren" // Children of AXLayoutArea
     public static let kAXGroupChildrenAttribute = "AXGroupChildren" // Often just kAXChildren on AXGroup
 
-    // Action related
+    /// Action related
     public static let kAXActionsAttribute = "AXActions" // Standard attribute for available actions.
 
-    // Hierarchy and Path related
+    /// Hierarchy and Path related
     public static let kAXPathHintAttribute = "AXPathHint" // Custom attribute for path hints, if used
 
     // Web content related
     // public static let kAXDOMIdentifierAttribute = "AXDOMIdentifier" // Used in web views for DOM element IDs.
 
-    // macOS 13 additions (example)
-    // public static let kAXCustomActionsAttribute = "AXCustomActions" // This is a guess, verify actual name
+    /// macOS 13 additions (example)
+    /// public static let kAXCustomActionsAttribute = "AXCustomActions" // This is a guess, verify actual name
     public static let kAXValueWrapsAttribute = "AXValueWraps" // Added based on error
 
     // Attributes related to windows and applications (These were duplicated, ensure only one set exists)
@@ -402,7 +402,7 @@ public enum AXNotification: String, Sendable {
 public enum AXMiscConstants {
     public static let axBinaryVersion = "0.8.0" // AXorcist version for this constants file
 
-    // Default attributes to fetch when none are specified
+    /// Default attributes to fetch when none are specified
     public static let defaultAttributesToFetch: [String] = [
         AXAttributeNames.kAXRoleAttribute,
         AXAttributeNames.kAXSubroleAttribute,
@@ -428,12 +428,12 @@ public enum AXMiscConstants {
     public static let defaultMaxElementsToCollect = 1000 // New constant for element collection limit
     public static let defaultTimeoutPerElementCollectAll: TimeInterval = 2.0 // seconds
 
-    // String Constants (for default/fallback values)
+    /// String Constants (for default/fallback values)
     public static let kAXNotAvailableString = "n/a" // Placeholder for unavailable attribute values
 
-    // Keys for userInfo dictionaries or internal use
+    /// Keys for userInfo dictionaries or internal use
     public static let focusedApplicationKey = "focusedApplication" // Key to signify the focused application
-    // focusedWindowKey was here, but seems unused, can be re-added if needed
+    /// focusedWindowKey was here, but seems unused, can be re-added if needed
     public static let focusedUIElementKey =
         "focusedUIElement" // Key for focused UI element in userInfo (used in AXObserverCenter)
 
@@ -443,7 +443,7 @@ public enum AXMiscConstants {
     public static let isClickableAttributeKey = "IsClickable" // Key for computed clickability
     public static let isIgnoredAttributeKey = "IsIgnored" // Key for computed ignored status
 
-    // Path generation constants
+    /// Path generation constants
     public static let maxPathSegments = 20 // Limit for path segment generation to avoid infinite loops
     // pathHintAttributeKey was for Element.swift's pathHint property, which is different from
     // AXAttributeNames.kAXPathHintAttribute

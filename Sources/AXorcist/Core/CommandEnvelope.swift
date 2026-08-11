@@ -222,7 +222,7 @@ public struct CommandEnvelope: Codable {
     /// When true, notifications from child elements will also be captured.
     public let watchChildren: Bool?
 
-    // New field for collectAll filtering
+    /// New field for collectAll filtering
     public let filterCriteria: [String: String]?
 
     // Additional fields for various commands

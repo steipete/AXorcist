@@ -2,7 +2,7 @@
 
 import Foundation
 
-// This function demonstrates the requested pattern for trimming whitespace before splitting
+/// This function demonstrates the requested pattern for trimming whitespace before splitting
 @MainActor
 public func navigateToElementWithTrimming(
     pathComponents: [String]) -> [(String, String)]

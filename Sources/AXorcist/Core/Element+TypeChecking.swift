@@ -309,7 +309,9 @@ extension Element {
     /// Check if element is scrollable (has scroll bars or is a scroll area)
     @MainActor
     public func isScrollable() -> Bool {
-        if self.isScrollArea() { return true }
+        if self.isScrollArea() {
+            return true
+        }
 
         // Check if it has scroll bars
         if horizontalScrollBar() != nil || verticalScrollBar() != nil {

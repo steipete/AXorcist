@@ -27,6 +27,7 @@ permissions:
 env:
   SWIFT_VERSION: "6.2.1"
   XCODE_VERSION: "16.4"
+  VALIDATION_TOOLS_DIR: ${{ runner.temp }}/axorcist-validation-tools
 
 jobs:
   build-and-lint:
@@ -53,29 +54,16 @@ jobs:
     
     - name: Install validation tools
       run: |
-        brew install shellcheck swiftlint swiftformat
+        brew install shellcheck
+        scripts/install-validation-tools.sh "$VALIDATION_TOOLS_DIR"
+        echo "$VALIDATION_TOOLS_DIR" >> "$GITHUB_PATH"
     
     - name: Build
       run: |
         swift build
     
-    - name: Run SwiftFormat (check only)
-      continue-on-error: true
-      run: |
-        echo "::group::SwiftFormat Check"
-        if ! swiftformat --lint .; then
-          echo "::warning::SwiftFormat found formatting issues"
-        fi
-        echo "::endgroup::"
-    
-    - name: Run SwiftLint
-      continue-on-error: true
-      run: |
-        echo "::group::SwiftLint Check"
-        if ! swiftlint lint; then
-          echo "::warning::SwiftLint found linting issues"
-        fi
-        echo "::endgroup::"
+    - name: Run formatting and linting checks
+      run: make check
     
     - name: Run safe tests
       run: swift test

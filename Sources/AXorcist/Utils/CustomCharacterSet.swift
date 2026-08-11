@@ -1,6 +1,6 @@
 import Foundation
 
-// CustomCharacterSet struct from Scanner
+/// CustomCharacterSet struct from Scanner
 public struct CustomCharacterSet {
     // MARK: Lifecycle
 
@@ -14,7 +14,7 @@ public struct CustomCharacterSet {
 
     // MARK: Public
 
-    // Add some common character sets that might be useful, similar to Foundation.CharacterSet
+    /// Add some common character sets that might be useful, similar to Foundation.CharacterSet
     public static var whitespacesAndNewlines: CustomCharacterSet {
         CustomCharacterSet(charactersInString: " \t\n\r")
     }

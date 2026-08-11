@@ -269,11 +269,11 @@ public func collectAllElements(
 
 // MARK: - Generic Tree Traversal with Visitor
 
-// Protocol for visitors used in tree traversal
+/// Protocol for visitors used in tree traversal
 @MainActor
 public protocol ElementVisitor {
-    // If visit returns .stop, traversal stops. If .skipChildren, children of current element are not visited.
-    // Otherwise, traversal continues (.continue).
+    /// If visit returns .stop, traversal stops. If .skipChildren, children of current element are not visited.
+    /// Otherwise, traversal continues (.continue).
     func visit(element: Element, depth: Int) -> TreeVisitorResult
 }
 
@@ -384,7 +384,9 @@ public class SearchVisitor: ElementVisitor {
     private var currentMaxDepthReachedByVisitor: Int = 0
     private let matchType: JSONPathHintComponent.MatchType
     private let matchAllCriteriaBool: Bool
-    public var deepestDepthReached: Int { self.currentMaxDepthReachedByVisitor }
+    public var deepestDepthReached: Int {
+        self.currentMaxDepthReachedByVisitor
+    }
 
     init(
         criteria: [Criterion],
@@ -451,7 +453,7 @@ public class SearchVisitor: ElementVisitor {
         return .continue
     }
 
-    // Resets the visitor state for reuse, e.g., when searching different branches of a tree.
+    /// Resets the visitor state for reuse, e.g., when searching different branches of a tree.
     public func reset() {
         self.foundElement = nil
         self.allFoundElements.removeAll()
@@ -517,7 +519,7 @@ private func describeCriteria(_ criteria: [Criterion]) -> String {
     return description.isEmpty ? "none" : description
 }
 
-// Container roles that can have meaningful descendants. Non-container roles are treated as leaves.
+/// Container roles that can have meaningful descendants. Non-container roles are treated as leaves.
 private let containerRoles: Set<String> = [
     AXRoleNames.kAXApplicationRole,
     AXRoleNames.kAXWindowRole,

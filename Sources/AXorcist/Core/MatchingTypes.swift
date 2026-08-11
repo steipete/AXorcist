@@ -2,7 +2,7 @@
 
 import Foundation
 
-// Represents a single criterion for element matching
+/// Represents a single criterion for element matching
 public struct Criterion: Codable, Sendable {
     // MARK: Lifecycle
 
@@ -34,12 +34,12 @@ public struct Criterion: Codable, Sendable {
 
     // MARK: Internal
 
-    // With `JSONDecoder.keyDecodingStrategy = .convertFromSnakeCase`,
-    // we can simply rely on automatic snake-case → camel-case conversion.
-    // Using a custom raw value here would *break* that feature because the
-    // strategy is applied **after** the raw value is resolved, resulting in
-    // the decoder searching for a non-existent key ("matchType").
-    // Therefore we keep the raw key identical to the Swift property name.
+    /// With `JSONDecoder.keyDecodingStrategy = .convertFromSnakeCase`,
+    /// we can simply rely on automatic snake-case → camel-case conversion.
+    /// Using a custom raw value here would *break* that feature because the
+    /// strategy is applied **after** the raw value is resolved, resulting in
+    /// the decoder searching for a non-existent key ("matchType").
+    /// Therefore we keep the raw key identical to the Swift property name.
     enum CodingKeys: String, CodingKey {
         case attribute, value, matchType
     }
@@ -49,7 +49,7 @@ public struct Criterion: Codable, Sendable {
 public struct PathStep: Codable, Sendable {
     // MARK: Lifecycle
 
-    // Default initializer
+    /// Default initializer
     public init(
         criteria: [Criterion],
         matchType: JSONPathHintComponent.MatchType? = .exact,
@@ -90,7 +90,7 @@ public struct PathStep: Codable, Sendable {
 
     // MARK: Internal
 
-    // CodingKeys to map JSON keys to Swift properties
+    /// CodingKeys to map JSON keys to Swift properties
     enum CodingKeys: String, CodingKey {
         case criteria
         case matchType
@@ -99,7 +99,7 @@ public struct PathStep: Codable, Sendable {
     }
 }
 
-// Locator for finding elements
+/// Locator for finding elements
 public struct Locator: Codable, Sendable {
     // MARK: Lifecycle
 

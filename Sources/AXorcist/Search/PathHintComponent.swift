@@ -4,8 +4,8 @@ import Foundation
 
 // MARK: - PathHintComponent Definition
 
-// This PathHintComponent is simpler and used for basic string path hints if ever needed again.
-// For new functionality, JSONPathHintComponent is preferred.
+/// This PathHintComponent is simpler and used for basic string path hints if ever needed again.
+/// For new functionality, JSONPathHintComponent is preferred.
 @MainActor
 public struct PathHintComponent {
     // MARK: Lifecycle
@@ -56,7 +56,7 @@ public struct PathHintComponent {
 
     // MARK: Internal
 
-    // PathHintComponent uses exact matching by default when calling elementMatchesCriteria
+    /// PathHintComponent uses exact matching by default when calling elementMatchesCriteria
     func matches(element: Element) -> Bool {
         elementMatchesCriteria(
             element,

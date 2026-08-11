@@ -9,8 +9,8 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct ActionIntegrationTests {
-    @Test("Discover AXPress on a native window button", .tags(.automation))
-    func discoverPressActionOnWindowButton() async throws {
+    @Test(.tags(.automation))
+    func `Discover AXPress on a native window button`() async throws {
         let (_, appElement) = try await setupTextEditAndGetInfo()
         defer { Task { await closeTextEdit() } }
 
@@ -24,8 +24,8 @@ struct ActionIntegrationTests {
         #expect(button.isActionSupported(AXActionNames.kAXPressAction))
     }
 
-    @Test("Perform AXSetValue on TextEdit", .tags(.automation))
-    func performActionSetTextEditTextAreaValue() async throws {
+    @Test(.tags(.automation))
+    func `Perform AXSetValue on TextEdit`() async throws {
         let actionCommandId = "performaction-setvalue-\(UUID().uuidString)"
         let queryCommandId = "query-verify-setvalue-\(UUID().uuidString)"
         let textEditBundleId = "com.apple.TextEdit"
@@ -50,8 +50,8 @@ struct ActionIntegrationTests {
             expectedText: textToSet)
     }
 
-    @Test("Extract text after setting value", .tags(.automation))
-    func extractTextFromTextEditTextArea() async throws {
+    @Test(.tags(.automation))
+    func `Extract text after setting value`() async throws {
         let setValueCommandId = "setvalue-for-extract-\(UUID().uuidString)"
         let extractTextCommandId = "extracttext-textedit-textarea-\(UUID().uuidString)"
         let textEditBundleId = "com.apple.TextEdit"

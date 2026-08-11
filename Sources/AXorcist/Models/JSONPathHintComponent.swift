@@ -14,8 +14,8 @@ public struct JSONPathHintComponent: Codable, Sendable {
         self.matchType = matchType
     }
 
-    // If you need custom Codable implementation because of the new optional field
-    // and want to maintain existing JSON compatibility (if matchType is often absent):
+    /// If you need custom Codable implementation because of the new optional field
+    /// and want to maintain existing JSON compatibility (if matchType is often absent):
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.attribute = try container.decode(String.self, forKey: .attribute)
@@ -86,7 +86,7 @@ public struct JSONPathHintComponent: Codable, Sendable {
 
     // MARK: Internal
 
-    // Default depth if not specified in JSON
+    /// Default depth if not specified in JSON
     static let defaultDepthForSegment = 3
 
     // MARK: Private

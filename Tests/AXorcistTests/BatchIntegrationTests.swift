@@ -9,8 +9,8 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct BatchIntegrationTests {
-    @Test("Get focused element and query textarea", .tags(.automation))
-    func batchCommandGetFocusedElementAndQuery() async throws {
+    @Test(.tags(.automation))
+    func `Get focused element and query textarea`() async throws {
         let batchCommandId = "batch-textedit-\(UUID().uuidString)"
         let focusedElementSubCmdId = "batch-sub-getfocused-\(UUID().uuidString)"
         let querySubCmdId = "batch-sub-querytextarea-\(UUID().uuidString)"

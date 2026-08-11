@@ -9,8 +9,8 @@ import Testing
     .enabled(if: AXTestEnvironment.runAutomationScenarios))
 @MainActor
 struct QueryIntegrationTests {
-    @Test("Launch TextEdit and get focused element", .tags(.automation))
-    func launchAndQueryTextEdit() async throws {
+    @Test(.tags(.automation))
+    func `Launch TextEdit and get focused element`() async throws {
         await closeTextEdit()
         try await Task.sleep(for: .milliseconds(500))
 
@@ -44,8 +44,8 @@ struct QueryIntegrationTests {
         await closeTextEdit()
     }
 
-    @Test("Get application attributes", .tags(.automation))
-    func getAttributesForTextEditApplication() async throws {
+    @Test(.tags(.automation))
+    func `Get application attributes`() async throws {
         let commandId = "getattributes-textedit-app-\(UUID().uuidString)"
         let textEditBundleId = "com.apple.TextEdit"
         let requestedAttributes = ["AXRole", "AXTitle", "AXWindows", "AXFocusedWindow", "AXMainWindow", "AXIdentifier"]
@@ -68,8 +68,8 @@ struct QueryIntegrationTests {
         }
     }
 
-    @Test("Query TextEdit text area", .tags(.automation))
-    func queryForTextEditTextArea() async throws {
+    @Test(.tags(.automation))
+    func `Query TextEdit text area`() async throws {
         let commandId = "query-textedit-textarea-\(UUID().uuidString)"
         let textEditBundleId = "com.apple.TextEdit"
         let textAreaRole = ApplicationServices.kAXTextAreaRole as String
@@ -95,8 +95,8 @@ struct QueryIntegrationTests {
         }
     }
 
-    @Test("Describe TextEdit text area", .tags(.automation))
-    func describeTextEditTextArea() async throws {
+    @Test(.tags(.automation))
+    func `Describe TextEdit text area`() async throws {
         let commandId = "describe-textedit-textarea-\(UUID().uuidString)"
         let textEditBundleId = "com.apple.TextEdit"
         let textAreaRole = ApplicationServices.kAXTextAreaRole as String

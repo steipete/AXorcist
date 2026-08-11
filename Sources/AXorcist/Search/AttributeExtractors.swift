@@ -5,7 +5,7 @@ import Foundation
 
 // MARK: - Internal Fetch Logic Helpers
 
-// Approach using direct property access within a switch statement
+/// Approach using direct property access within a switch statement
 @MainActor
 func extractDirectPropertyValue(
     for attributeName: String,
@@ -25,7 +25,9 @@ func determineAttributesToFetch(
     targetRole: String?,
     element: Element) -> [String]
 {
-    if forMultiDefault { return defaultMultiAttributes(for: targetRole) }
+    if forMultiDefault {
+        return defaultMultiAttributes(for: targetRole)
+    }
 
     if let requested = requestedAttributes, !requested.isEmpty {
         return requested
@@ -72,7 +74,7 @@ private struct AttributeDefaultSet {
     }
 }
 
-// Function to get specifically computed attributes for an element
+/// Function to get specifically computed attributes for an element
 @MainActor
 func getComputedAttributes(for element: Element) async -> [String: AttributeData] {
     var computedAttrs: [String: AttributeData] = [:]

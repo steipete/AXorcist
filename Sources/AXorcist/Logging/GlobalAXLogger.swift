@@ -31,12 +31,14 @@ public class GlobalAXLogger {
 
     // MARK: - Logging Core
 
-    // Assumes this method is always called on the main thread.
+    /// Assumes this method is always called on the main thread.
     public func log(_ entry: AXLogEntry) {
         guard self.shouldLog(entry) else { return }
 
         let condensedMessage = self.condensedMessage(for: entry.message)
-        if self.shouldSkipDueToDuplicate(message: condensedMessage, entry: entry) { return }
+        if self.shouldSkipDueToDuplicate(message: condensedMessage, entry: entry) {
+            return
+        }
 
         let processedEntry = entry.withMessage(condensedMessage)
         self.logEntries.append(processedEntry)
@@ -45,7 +47,7 @@ public class GlobalAXLogger {
 
     // MARK: - Log Retrieval
 
-    // Assumes these methods are always called on the main thread.
+    /// Assumes these methods are always called on the main thread.
     public func getEntries() -> [AXLogEntry] {
         self.logEntries
     }

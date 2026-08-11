@@ -5,9 +5,9 @@ import Testing
 
 @Suite("AppLocator")
 struct AppLocatorTests {
-    @Test("returns frontmost when point is nil and front app has window under mouse")
+    @Test
     @MainActor
-    func frontmostPreferred() async throws {
+    func `returns frontmost when point is nil and front app has window under mouse`() {
         // Skip on headless CI where NSEvent.mouseLocation is (0,0) and no frontmost app.
         guard NSWorkspace.shared.frontmostApplication != nil else { return }
 
@@ -18,9 +18,9 @@ struct AppLocatorTests {
         // above is sufficient coverage and avoids flaking on PID mismatches.
     }
 
-    @Test("falls back to frontmost when no window matches point")
+    @Test
     @MainActor
-    func fallbackToFrontmost() async throws {
+    func `falls back to frontmost when no window matches point`() {
         guard let front = NSWorkspace.shared.frontmostApplication else { return }
         // Pick an off-screen point unlikely to hit a window.
         let offscreen = CGPoint(x: -10000, y: -10000)

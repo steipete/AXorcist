@@ -5,7 +5,7 @@ import Foundation
 
 // GlobalAXLogger should be available
 
-// Action-related extension for Element
+/// Action-related extension for Element
 extension Element {
     // MARK: - Actions
 

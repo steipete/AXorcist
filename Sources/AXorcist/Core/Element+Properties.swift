@@ -6,7 +6,7 @@ import Foundation
 // MARK: - Element Common Attribute Getters & Status Properties
 
 extension Element {
-    // Common Attribute Getters - now simplified
+    /// Common Attribute Getters - now simplified
     @MainActor public func role() -> String? {
         attribute(Attribute<String>.role)
     }
@@ -19,7 +19,7 @@ extension Element {
         attribute(Attribute<String>.title)
     }
 
-    // Renamed from 'description' to 'descriptionText'
+    /// Renamed from 'description' to 'descriptionText'
     @MainActor public func descriptionText() -> String? {
         attribute(Attribute<String>.description)
     }
@@ -44,7 +44,7 @@ extension Element {
         attribute(Attribute<String>.identifier)
     }
 
-    // Status Properties - simplified
+    /// Status Properties - simplified
     @MainActor public func isFocused() -> Bool? {
         attribute(Attribute<Bool>.focused)
     }
@@ -78,7 +78,7 @@ extension Element {
         return nil
     }
 
-    // Hierarchy and Relationship Getters - simplified
+    /// Hierarchy and Relationship Getters - simplified
     @MainActor public func parent() -> Element? {
         guard let parentElementUI: AXUIElement = attribute(.parent) else { return nil }
         return Element(parentElementUI)
@@ -104,7 +104,7 @@ extension Element {
         return Element(windowElementUI)
     }
 
-    // Attempts to get the focused UI element within this element (e.g., a focused text field in a window).
+    /// Attempts to get the focused UI element within this element (e.g., a focused text field in a window).
     @MainActor
     public func focusedUIElement() -> Element? {
         // Use the specific type for the attribute, non-optional generic
@@ -112,19 +112,20 @@ extension Element {
         return Element(elementUI)
     }
 
-    // Action-related - simplified
+    /// Action-related - simplified
     @MainActor
     public func supportedActions() -> [String]? {
         // Action names have a dedicated Accessibility API; they are not a standard attribute.
         var names: CFArray?
         if AXUIElementCopyActionNames(underlyingElement, &names) == .success,
-           let actions = names as? [String] {
+           let actions = names as? [String]
+        {
             return actions
         }
         return attribute(Attribute<[String]>.actionNames)
     }
 
-    // domIdentifier - simplified to a single method, was previously a computed property and a method.
+    /// domIdentifier - simplified to a single method, was previously a computed property and a method.
     @MainActor public func domIdentifier() -> String? {
         attribute(Attribute<String>(AXAttributeNames.kAXDOMIdentifierAttribute))
     }
@@ -139,7 +140,7 @@ extension Element {
         return Element(buttonAXUIElement)
     }
 
-    // Specific UI Buttons in a Window
+    /// Specific UI Buttons in a Window
     @MainActor public func closeButton() -> Element? {
         guard let buttonAXUIElement = attribute(.closeButton) else { return nil }
         return Element(buttonAXUIElement)
@@ -165,13 +166,13 @@ extension Element {
         return Element(buttonAXUIElement)
     }
 
-    // Proxy (e.g. for web content)
+    /// Proxy (e.g. for web content)
     @MainActor public func proxy() -> Element? {
         guard let proxyAXUIElement = attribute(.proxy) else { return nil }
         return Element(proxyAXUIElement)
     }
 
-    // Grow Area (e.g. for resizing window)
+    /// Grow Area (e.g. for resizing window)
     @MainActor public func growArea() -> Element? {
         guard let growAreaAXUIElement = attribute(.growArea) else { return nil }
         return Element(growAreaAXUIElement)
@@ -182,7 +183,7 @@ extension Element {
         return Element(headerAXUIElement)
     }
 
-    // Scroll Area properties
+    /// Scroll Area properties
     @MainActor public func horizontalScrollBar() -> Element? {
         guard let scrollBarAXUIElement = attribute(.horizontalScrollBar) else { return nil }
         return Element(scrollBarAXUIElement)

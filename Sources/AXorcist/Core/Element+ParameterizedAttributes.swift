@@ -76,8 +76,12 @@ extension Element {
     @MainActor
     private func castValueToType<T>(_ finalValue: Any, attribute: Attribute<T>) -> T? {
         if T.self == String.self {
-            if let str = finalValue as? String { return str as? T }
-            if let attrStr = finalValue as? NSAttributedString { return attrStr.string as? T }
+            if let str = finalValue as? String {
+                return str as? T
+            }
+            if let attrStr = finalValue as? NSAttributedString {
+                return attrStr.string as? T
+            }
             axDebugLog(
                 "Failed to cast unwrapped value for String attribute \(attribute.rawValue). " +
                     "Value: \(finalValue)")

@@ -8,14 +8,14 @@ public enum AXLogLevel: String, Codable, Sendable, CaseIterable {
     case critical // For errors that might lead to a crash or critical malfunction
 }
 
-// Added AXLogDetailLevel
+/// Added AXLogDetailLevel
 public enum AXLogDetailLevel: String, Codable, Sendable, CaseIterable {
     case minimal // Only critical/error messages
     case normal // Info, warning, error, critical
     case verbose // Debug, info, warning, error, critical (all messages)
 }
 
-// Added AXLogOutputFormat
+/// Added AXLogOutputFormat
 public enum AXLogOutputFormat: String, Codable, Sendable, CaseIterable {
     case text
     case json
@@ -56,14 +56,14 @@ public struct AXLogEntry: Codable, Sendable, Identifiable {
     public let details: [String: AnyCodable]? // Changed to AnyCodable
 }
 
-// Add Equatable conformance
+/// Add Equatable conformance
 extension AXLogEntry: Equatable {
     public static func == (lhs: AXLogEntry, rhs: AXLogEntry) -> Bool {
         lhs.id == rhs.id
     }
 }
 
-// Example of how it might be formatted for text output
+/// Example of how it might be formatted for text output
 extension AXLogEntry {
     public func formattedForTextLog() -> String {
         let dateFormatter = ISO8601DateFormatter()

@@ -56,13 +56,13 @@ public struct AXValueWrapper: Codable, Sendable, Equatable {
 
     // MARK: Private
 
-    // Static helper to sanitize individual items, called recursively by init for collections
+    /// Static helper to sanitize individual items, called recursively by init for collections
     @MainActor
     private static func recursivelySanitize(_ item: Any?) -> Any {
         self.recursivelySanitizeWithDepth(item, depth: 0, visited: Set<ObjectIdentifier>())
     }
 
-    // Convert sanitized Any value to AttributeValue
+    /// Convert sanitized Any value to AttributeValue
     private static func convertToAttributeValue(_ value: Any) -> AttributeValue? {
         switch value {
         case let string as String:
@@ -106,9 +106,15 @@ public struct AXValueWrapper: Codable, Sendable, Equatable {
         }
 
         let cfItem = anItem as CFTypeRef
-        if CFGetTypeID(cfItem) == CFNullGetTypeID() { return () } // NSNull to null marker
-        if CFGetTypeID(cfItem) == AXUIElementGetTypeID() { return "<AXUIElement_RS>" }
-        if let element = anItem as? Element { return "<Element_RS: \(element.briefDescription(option: .raw))>" }
+        if CFGetTypeID(cfItem) == CFNullGetTypeID() {
+            return ()
+        } // NSNull to null marker
+        if CFGetTypeID(cfItem) == AXUIElementGetTypeID() {
+            return "<AXUIElement_RS>"
+        }
+        if let element = anItem as? Element {
+            return "<Element_RS: \(element.briefDescription(option: .raw))>"
+        }
 
         // If it's a collection, recurse with cycle detection
         if let array = anItem as? [Any?] {
@@ -147,7 +153,7 @@ public nonisolated struct AXElement: Codable, HandlerDataRepresentable {
 public struct SearchLogEntry: Codable {
     // MARK: Lifecycle
 
-    // Public initializer
+    /// Public initializer
     public init(
         depth: Int,
         elementRole: String?,

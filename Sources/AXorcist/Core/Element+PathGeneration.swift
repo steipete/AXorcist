@@ -3,7 +3,7 @@ import Foundation
 
 // GlobalAXLogger should be available
 
-// Extension to generate a descriptive path string
+/// Extension to generate a descriptive path string
 extension Element {
     @MainActor
     public func generatePathString(upTo ancestor: Element? = nil) -> String { // Removed logging params
@@ -66,7 +66,7 @@ extension Element {
         return finalPath
     }
 
-    // New function to return path components as an array
+    /// New function to return path components as an array
     @MainActor
     public func generatePathArray(upTo ancestor: Element? = nil) -> [String] { // Removed logging params
         var pathComponents: [String] = []

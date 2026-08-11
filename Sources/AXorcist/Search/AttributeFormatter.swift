@@ -3,7 +3,7 @@
 import ApplicationServices
 import Foundation
 
-// Helper function to format the parent attribute
+/// Helper function to format the parent attribute
 @MainActor
 func formatParentAttribute(
     _ parent: Element?,
@@ -18,7 +18,7 @@ func formatParentAttribute(
     }
 }
 
-// Helper function to format the children attribute
+/// Helper function to format the children attribute
 @MainActor
 func formatChildrenAttribute(
     _ children: [Element]?,
@@ -41,7 +41,7 @@ func formatChildrenAttribute(
     }
 }
 
-// Helper function to format the focused UI element attribute
+/// Helper function to format the focused UI element attribute
 @MainActor
 func formatFocusedUIElementAttribute(
     _ focusedElement: Element?,
