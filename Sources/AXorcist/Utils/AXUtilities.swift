@@ -8,33 +8,23 @@ import Foundation
 @MainActor
 public enum AXUtilities {
     public static func performAXAction(_ actionName: String, on element: Element) -> AXError {
-        let description = element.briefDescription()
-        axDebugLog(
-            "AXUtilities: Attempting to perform action '\(actionName)' " +
-                "on element: \(description)")
-        if element.isActionSupported(actionName) {
-            do {
-                // Assuming actionName is a raw string for a known AXAction
-                try element.performAction(Attribute<String>(actionName))
-                axDebugLog(
-                    "AXUtilities: Action '\(actionName)' performed successfully on \(description)")
-                return .success
-            } catch let error as AccessibilityError {
+        do {
+            try element.performAction(actionName)
+            return .success
+        } catch {
+            if let systemError = error as? AccessibilitySystemError {
                 axErrorLog(
-                    "AXUtilities: Action failed for '\(actionName)' on \(description). " +
-                        "Error: \(error)")
-                return .failure
-            } catch {
-                axErrorLog(
-                    "AXUtilities: Unexpected error performing action '\(actionName)' on \(description). " +
-                        "Error: \(error)")
-                return .failure // Generic failure for unexpected errors
+                    "AXUtilities: Action '\(actionName)' failed: \(systemError.localizedDescription) " +
+                        "(AXError \(systemError.axError.rawValue))")
+            } else {
+                axErrorLog("AXUtilities: Action '\(actionName)' failed with an unexpected error: \(error)")
             }
-        } else {
-            axWarningLog(
-                "AXUtilities: Action '\(actionName)' is not supported by element \(description)")
-            return .actionUnsupported
+            return Self.axError(forActionError: error)
         }
+    }
+
+    static func axError(forActionError error: any Error) -> AXError {
+        (error as? AccessibilitySystemError)?.axError ?? .failure
     }
 
     public static func performSetValueAction(

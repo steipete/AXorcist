@@ -189,6 +189,7 @@ struct CommandExecutor {
             status: "success",
             data: AnyCodable("All observations stopped"),
             error: nil,
+            errorCode: nil,
             debugLogs: debugCLI || command.debugLogging ? axGetLogsAsStrings() : nil)
         return encodeToJson(stopResponse) ??
             "{\"error\": \"Encoding stopObservation response failed\", \"commandId\": \"\(command.commandId)\"}"

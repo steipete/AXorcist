@@ -10,9 +10,11 @@ public struct HandlerResponse: Codable, Sendable {
     /// - Parameters:
     ///   - data: The data payload.
     ///   - error: An optional error message.
-    public init(data: AnyCodable? = nil, error: String? = nil) {
+    ///   - errorCode: An optional machine-readable error code.
+    public init(data: AnyCodable? = nil, error: String? = nil, errorCode: AXErrorCode? = nil) {
         self.data = data
         self.error = error
+        self.errorCode = errorCode
     }
 
     // MARK: Public
@@ -23,6 +25,9 @@ public struct HandlerResponse: Codable, Sendable {
 
     /// An optional error message. If present, indicates that the handler encountered an issue.
     public var error: String?
+
+    /// A stable error category when the underlying handler provides one.
+    public var errorCode: AXErrorCode?
 }
 
 // MARK: - Convenience Initializers & Properties
@@ -61,8 +66,8 @@ extension HandlerResponse {
         switch axResponse {
         case let .success(payload, _):
             self.init(data: payload, error: nil)
-        case let .error(message, _, _):
-            self.init(data: nil, error: message)
+        case let .error(message, code, _):
+            self.init(data: nil, error: message, errorCode: code)
         }
     }
 }
