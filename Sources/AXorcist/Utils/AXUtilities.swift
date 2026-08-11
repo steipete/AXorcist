@@ -31,44 +31,24 @@ public enum AXUtilities {
         forElement element: Element,
         valueToSet: Any?) -> (error: AXError, errorMessage: String?)
     {
-        let description = element.briefDescription()
-        axDebugLog(
-            "AXUtilities: Attempting to set value for element: \(description) " +
-                "with value: \(String(describing: valueToSet))")
-
-        let attributeName = AXAttributeNames.kAXValueAttribute
-
-        var cfValue: CFTypeRef?
-        if let nsValue = valueToSet as? NSObject {
-            cfValue = nsValue
-        } else if let strValue = valueToSet as? String {
-            cfValue = strValue as CFString
-        } else if valueToSet == nil {
-            axDebugLog("AXUtilities: valueToSet is nil. Attempting to set attribute to nil/empty.")
-        } else {
-            let errorMsg =
-                "AXUtilities: Value type for attribute '\(attributeName)' is not directly " +
-                "convertible to CFTypeRef: \(String(describing: valueToSet)). " +
-                "Type: \(type(of: valueToSet))"
-            axErrorLog(errorMsg)
-            return (.apiDisabled, errorMsg)
+        guard let valueToSet else {
+            let message = "AXUtilities: AXValue requires a non-nil value."
+            axErrorLog(message)
+            return (.illegalArgument, message)
         }
 
-        let error = AXUIElementSetAttributeValue(
-            element.underlyingElement,
-            attributeName as CFString,
-            cfValue ?? CFConstants.cfBooleanFalse!)
-
-        if error == .success {
-            axDebugLog(
-                "AXUtilities: Successfully set attribute '\(attributeName)' on \(description)")
+        do {
+            try element.setAttributeValue(valueToSet, forAttribute: AXAttributeNames.kAXValueAttribute)
             return (.success, nil)
-        } else {
-            let errorMsg =
-                "AXUtilities: Failed to set attribute '\(attributeName)' on \(description). " +
-                "Error: \(error)"
-            axErrorLog(errorMsg)
-            return (error, errorMsg)
+        } catch let error as AccessibilitySystemError {
+            let message = "AXUtilities: Failed to set AXValue: \(error.localizedDescription) " +
+                "(AXError \(error.axError.rawValue))."
+            axErrorLog(message)
+            return (error.axError, message)
+        } catch {
+            let message = "AXUtilities: Failed to set AXValue: \(error.localizedDescription)"
+            axErrorLog(message)
+            return (.failure, message)
         }
     }
 }

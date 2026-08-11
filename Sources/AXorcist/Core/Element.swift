@@ -245,46 +245,6 @@ public struct Element: Equatable, Hashable, Sendable {
         }
     }
 
-    @MainActor
-    public func setValue(_ value: Any, forAttribute attributeName: String) -> Bool {
-        // Bridge the Swift value to CFTypeRef
-        // Note: This bridging is basic. For complex types or specific CF types, more handling may be needed.
-        let cfValue: CFTypeRef
-        if let strValue = value as? String {
-            cfValue = strValue as CFString
-        } else if let boolValue = value as? Bool {
-            cfValue = CFConstants.cfBoolean(from: boolValue) as CFBoolean
-        } else if let numValue = value as? NSNumber { // Handles Int, Double, etc. that bridge to NSNumber
-            cfValue = numValue
-        } else if let elementValue = value as? Element {
-            cfValue = elementValue.underlyingElement
-        } else {
-            // Attempt direct bridging for other types; may fail if not directly bridgable.
-            // Consider logging a warning or throwing an error for unhandled types.
-            let warningMsg = "Attempting to set attribute '\\(attributeName)' with potentially "
-            let warningDetail = "non-CF-bridgable Swift type: \\(type(of: value)). "
-            let warningEnd = "This might fail or lead to unexpected behavior."
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .warning,
-                message: warningMsg + warningDetail + warningEnd))
-            cfValue = value as CFTypeRef // This can crash if 'value' is not CF-bridgable
-        }
-
-        let error = AXUIElementSetAttributeValue(self.underlyingElement, attributeName as CFString, cfValue)
-        if error == .success {
-            let msg = "Successfully set attribute '\\(attributeName)' to '\\(value)' on "
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .debug,
-                message: msg + "\(self.briefDescription(option: .smart))"))
-            return true
-        } else {
-            axErrorLog(
-                "Failed to set attribute '\(attributeName)' to '\(value)' on " +
-                    "\(self.briefDescription(option: .smart)): \(error.stringValue)")
-            return false
-        }
-    }
-
     // MARK: Private
 
     @MainActor

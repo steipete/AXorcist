@@ -134,10 +134,13 @@ func exampleModernActions() {
         // All available actions:
         let availableActions: [AXAction] = [
             .press, .increment, .decrement, .confirm, .cancel,
-            .showMenu, .pick, .raise, .setValue,
+            .showMenu, .pick, .raise,
         ]
 
         print("Available actions: \(availableActions.map(\.rawValue).joined(separator: ", "))")
+
+        // AXValue is an attribute mutation rather than an action:
+        // try textField.setValue("New value")
 
     } catch {
         print("❌ Action failed: \(error)")
