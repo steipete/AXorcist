@@ -3,7 +3,7 @@
 import ApplicationServices // Import to make AXError visible
 import Foundation
 
-// Main error enum for the accessibility tool, incorporating parsing and operational errors.
+/// Main error enum for the accessibility tool, incorporating parsing and operational errors.
 public enum AccessibilityError: Error, CustomStringConvertible {
     // Authorization & Setup Errors
     case apiDisabled // Accessibility API is disabled.
@@ -23,7 +23,7 @@ public enum AccessibilityError: Error, CustomStringConvertible {
     case observerSetupFailed(details: String) // Failed to setup AXObserver
     case tokenNotFound(tokenId: UUID) // Subscription token not found
 
-    // Attribute Errors
+    /// Attribute Errors
     case attributeUnsupported(
         attribute: String,
         elementDescription: String?) // Attribute is not supported by the element.
@@ -61,12 +61,16 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case .apiDisabled: return "Accessibility API is disabled. Please enable it in System Settings."
         case let .notAuthorized(axErr):
             let base = "Accessibility permissions are not granted for this process."
-            if let error = axErr { return "\(base) AXError: \(error)" }
+            if let error = axErr {
+                return "\(base) AXError: \(error)"
+            }
             return base
         // Command & Input
         case let .invalidCommand(msg):
             let base = "Invalid command specified."
-            if let message = msg { return "\(base) \(message)" }
+            if let message = msg {
+                return "\(base) \(message)"
+            }
             return base
         case let .missingArgument(name): return "Missing required argument: \(name)."
         case let .invalidArgument(details): return "Invalid argument: \(details)."
@@ -74,7 +78,9 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         case let .appNotFound(app): return "Application '\(app)' not found or not running."
         case let .elementNotFound(msg):
             let base = "No element matches the locator criteria or path."
-            if let message = msg { return "\(base) \(message)" }
+            if let message = msg {
+                return "\(base) \(message)"
+            }
             return base
         case .invalidElement: return "The specified UI element is invalid (possibly stale)."
         // Observer Errors
@@ -83,54 +89,76 @@ public enum AccessibilityError: Error, CustomStringConvertible {
         // Attribute Errors
         case let .attributeUnsupported(attr, elDesc):
             let base = "Attribute '\(attr)' is not supported"
-            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            if let desc = elDesc {
+                return "\(base) on element '\(desc)'."
+            }
             return "\(base)."
         case let .attributeNotReadable(attr, elDesc):
             let base = "Attribute '\(attr)' is not readable"
-            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            if let desc = elDesc {
+                return "\(base) on element '\(desc)'."
+            }
             return "\(base)."
         case let .attributeNotSettable(attr, elDesc):
             let base = "Attribute '\(attr)' is not settable"
-            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            if let desc = elDesc {
+                return "\(base) on element '\(desc)'."
+            }
             return "\(base)."
         case let .typeMismatch(expected, actual, attribute):
             var msg = "Type mismatch: Expected '\(expected)', got '\(actual)'"
-            if let attr = attribute { msg += " for attribute '\(attr)'" }
+            if let attr = attribute {
+                msg += " for attribute '\(attr)'"
+            }
             return msg + "."
         case let .valueParsingFailed(details, attribute):
             var msg = "Value parsing failed: \(details)"
-            if let attr = attribute { msg += " for attribute '\(attr)'" }
+            if let attr = attribute {
+                msg += " for attribute '\(attr)'"
+            }
             return msg + "."
         case let .valueNotAXValue(attr, elDesc):
             let base = "Value for attribute '\(attr)' is not an AXValue type as expected"
-            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            if let desc = elDesc {
+                return "\(base) on element '\(desc)'."
+            }
             return "\(base)."
         // Action Errors
         case let .actionUnsupported(action, elDesc):
             let base = "Action '\(action)' is not supported"
-            if let desc = elDesc { return "\(base) on element '\(desc)'." }
+            if let desc = elDesc {
+                return "\(base) on element '\(desc)'."
+            }
             return "\(base)."
         case let .actionFailed(action, elDesc, axErr):
             var parts = ["Action '\(action)' failed."]
-            if let desc = elDesc { parts.append("On element: '\(desc)'.") }
-            if let error = axErr { parts.append("AXError: \(error).") }
+            if let desc = elDesc {
+                parts.append("On element: '\(desc)'.")
+            }
+            if let error = axErr {
+                parts.append("AXError: \(error).")
+            }
             return parts.joined(separator: " ")
         // Generic & System
         case let .unknownAXError(error): return "An unexpected Accessibility Framework error occurred: \(error)."
         case let .jsonEncodingFailed(err):
             let base = "Failed to encode the response to JSON."
-            if let error = err { return "\(base) Error: \(error.localizedDescription)" }
+            if let error = err {
+                return "\(base) Error: \(error.localizedDescription)"
+            }
             return base
         case let .jsonDecodingFailed(err):
             let base = "Failed to decode the JSON command input."
-            if let error = err { return "\(base) Error: \(error.localizedDescription)" }
+            if let error = err {
+                return "\(base) Error: \(error.localizedDescription)"
+            }
             return base
         case let .genericError(msg): return msg
         }
     }
 
-    // Helper to get a more specific exit code if needed, or a general one.
-    // This is just an example; actual exit codes might vary.
+    /// Helper to get a more specific exit code if needed, or a general one.
+    /// This is just an example; actual exit codes might vary.
     public var exitCode: Int32 {
         switch self {
         case .apiDisabled, .notAuthorized: 10

@@ -4,7 +4,7 @@ import AppKit
 import AXorcist
 import Foundation
 
-// Global variable to track input source for ping responses
+/// Global variable to track input source for ping responses
 @MainActor var axorcInputSource: String = "STDIN"
 
 // MARK: - Command Handlers

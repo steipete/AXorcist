@@ -4,8 +4,8 @@ import ApplicationServices
 import Foundation
 
 extension Element {
-    // Helper to set a boolean attribute value.
-    // Returns true on success, false on failure.
+    /// Helper to set a boolean attribute value.
+    /// Returns true on success, false on failure.
     @MainActor
     private func setBooleanAttribute(_ attributeName: String, value: Bool) -> Bool {
         let cfValue: CFBoolean = CFConstants.cfBoolean(from: value)

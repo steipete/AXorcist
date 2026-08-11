@@ -20,7 +20,7 @@ public final class AXWindowResolver {
     @MainActor
     public func windowID(from axElement: AXUIElement) -> CGWindowID? {
         var windowID: CGWindowID = 0
-        let result = _AXUIElementGetWindow(axElement, &windowID)
+        let result = self._AXUIElementGetWindow(axElement, &windowID)
         guard result == .success else {
             self.logger.error("Failed to get window ID from AXUIElement, error: \(result.rawValue)")
             return nil

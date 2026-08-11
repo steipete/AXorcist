@@ -73,23 +73,27 @@ class Scanner {
         self.location >= self.string.count
     }
 
-    // Helper to get the remaining string
+    /// Helper to get the remaining string
     var remainingString: String {
-        if self.isAtEnd { return "" }
+        if self.isAtEnd {
+            return ""
+        }
         let startIndex = self.string.index(self.string.startIndex, offsetBy: self.location)
         return String(self.string[startIndex...])
     }
 
     // MARK: - Character Set Scanning
 
-    // A more conventional scanUpTo (scans until a character in the set is found)
+    /// A more conventional scanUpTo (scans until a character in the set is found)
     @discardableResult func scanUpToCharacters(in charSet: CustomCharacterSet) -> String? {
         let initialLocation = self.location
         var scannedCharacters = String()
 
         while self.location < self.string.count {
             let currentChar = self.string[self.location]
-            if charSet.contains(currentChar) { break }
+            if charSet.contains(currentChar) {
+                break
+            }
             scannedCharacters.append(currentChar)
             self.location += 1
         }
@@ -97,7 +101,7 @@ class Scanner {
         return scannedCharacters.isEmpty && self.location == initialLocation ? nil : scannedCharacters
     }
 
-    // Scans characters that ARE in the provided set (like original Scanner's scanUpTo/scan(characterSet:))
+    /// Scans characters that ARE in the provided set (like original Scanner's scanUpTo/scan(characterSet:))
     @discardableResult func scanCharacters(in charSet: CustomCharacterSet) -> String? {
         let initialLocation = self.location
         var characters = String()
@@ -214,7 +218,7 @@ class Scanner {
 
     // MARK: - Floating Point Scanning
 
-    // Attempt to parse Double with a compact implementation
+    /// Attempt to parse Double with a compact implementation
     func scanDouble() -> Double? {
         self.scanWhitespaces()
         let initialLocation = self.location
@@ -340,7 +344,7 @@ class Scanner {
 
     // MARK: Private
 
-    // Mapping hex characters to their integer values
+    /// Mapping hex characters to their integer values
     private static let hexValues: [Character: Int] = [
         "0": 0, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9,
         "a": 10, "b": 11, "c": 12, "d": 13, "e": 14, "f": 15,
@@ -349,29 +353,33 @@ class Scanner {
 
     // MARK: - Identifier Scanning
 
-    // Character sets for identifier scanning
+    /// Character sets for identifier scanning
     private static let characterSets = (
         lowercaseLetters: "abcdefghijklmnopqrstuvwxyz",
         uppercaseLetters: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
         digits: "0123456789",
         hexDigits: "0123456789abcdefABCDEF")
 
-    // Private helper that scans and returns a string of digits
+    /// Private helper that scans and returns a string of digits
     private func scanDigits() -> String? {
         self.scanCharacters(in: .decimalDigits)
     }
 
-    // Calculate integer value from digit string with given base
+    /// Calculate integer value from digit string with given base
     private func integerValue<T: BinaryInteger>(from digitString: String, base: T = 10) -> T {
         digitString.reduce(T(0)) { result, char in
             result * base + T(Int(String(char))!)
         }
     }
 
-    // Helper function for power calculation with FloatingPoint types
+    /// Helper function for power calculation with FloatingPoint types
     private func scannerPower<T: FloatingPoint>(base: T, exponent: Int) -> T {
-        if exponent == 0 { return T(1) }
-        if exponent < 0 { return T(1) / self.scannerPower(base: base, exponent: -exponent) }
+        if exponent == 0 {
+            return T(1)
+        }
+        if exponent < 0 {
+            return T(1) / self.scannerPower(base: base, exponent: -exponent)
+        }
         var result = T(1)
         for _ in 0..<exponent {
             result *= base

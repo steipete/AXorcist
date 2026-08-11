@@ -4,12 +4,12 @@ import Testing
 
 @Suite("AXError extensions")
 struct AXErrorExtensionsTests {
-    @Test("localized descriptions are available outside the main actor")
-    func localizedDescriptionIsNonisolated() {
+    @Test
+    func `localized descriptions are available outside the main actor`() {
         #expect(Self.describe(.actionUnsupported) == "Action is not supported")
     }
 
-    nonisolated private static func describe(_ error: AXError) -> String {
+    private nonisolated static func describe(_ error: AXError) -> String {
         error.localizedDescription
     }
 }

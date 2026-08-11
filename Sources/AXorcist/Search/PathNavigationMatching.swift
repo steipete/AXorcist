@@ -11,7 +11,7 @@ private func logPathNavigation(_ level: AXLogLevel, _ message: String) {
 
 // MARK: - Element Matching
 
-// New helper to check if an element matches all given criteria
+/// New helper to check if an element matches all given criteria
 @MainActor
 func elementMatchesAllCriteria(
     _ element: Element,

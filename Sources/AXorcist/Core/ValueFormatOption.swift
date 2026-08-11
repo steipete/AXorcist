@@ -2,7 +2,7 @@
 
 import Foundation
 
-// Enum for specifying how values, especially for descriptions, should be formatted.
+/// Enum for specifying how values, especially for descriptions, should be formatted.
 public enum ValueFormatOption: String, Codable, Sendable {
     case smart // Tries to provide the most useful, possibly summarized, representation.
     case raw // Provides the raw or complete value, potentially verbose.

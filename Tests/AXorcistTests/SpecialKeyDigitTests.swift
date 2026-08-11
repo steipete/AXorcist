@@ -4,8 +4,8 @@ import Testing
 
 @Suite("Hotkey digit keys")
 struct SpecialKeyDigitTests {
-    @Test("SpecialKey parses digit keys 0-9")
-    func digitKeysParse() {
+    @Test
+    func `SpecialKey parses digit keys 0-9`() {
         let cases: [(String, CGKeyCode)] = [
             ("0", 29),
             ("1", 18),

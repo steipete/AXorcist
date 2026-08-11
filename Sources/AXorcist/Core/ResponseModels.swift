@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - AXErrorCode
 
-// Error codes for AXorcist operations
+/// Error codes for AXorcist operations
 public enum AXErrorCode: String, Codable, Sendable {
     case elementNotFound = "element_not_found"
     case actionFailed = "action_failed"
@@ -23,14 +23,14 @@ public enum AXErrorCode: String, Codable, Sendable {
 
 // MARK: - AXResponse
 
-// Main response enum for AXorcist operations
+/// Main response enum for AXorcist operations
 public enum AXResponse: Sendable {
     case success(payload: AnyCodable?, logs: [String]?)
     case error(message: String, code: AXErrorCode, logs: [String]?)
 
     // MARK: Public
 
-    // Computed property for status
+    /// Computed property for status
     public var status: String {
         switch self {
         case .success: "success"
@@ -38,7 +38,7 @@ public enum AXResponse: Sendable {
         }
     }
 
-    // Computed property for payload
+    /// Computed property for payload
     public var payload: AnyCodable? {
         switch self {
         case let .success(payload, _): payload
@@ -46,7 +46,7 @@ public enum AXResponse: Sendable {
         }
     }
 
-    // Computed property for error
+    /// Computed property for error
     public var error: (message: String, code: AXErrorCode)? {
         switch self {
         case .success: nil
@@ -54,7 +54,7 @@ public enum AXResponse: Sendable {
         }
     }
 
-    // Computed property for logs
+    /// Computed property for logs
     public var logs: [String]? {
         switch self {
         case let .success(_, logs): logs
@@ -62,7 +62,7 @@ public enum AXResponse: Sendable {
         }
     }
 
-    // Static factory methods
+    /// Static factory methods
     public static func successResponse(payload: AnyCodable?, logs: [String]? = nil) -> AXResponse {
         .success(payload: payload, logs: logs)
     }
@@ -72,10 +72,10 @@ public enum AXResponse: Sendable {
     }
 }
 
-// New protocol for generic data in HandlerResponse
+/// New protocol for generic data in HandlerResponse
 public protocol HandlerDataRepresentable: Codable {}
 
-// Definition for AXElementData based on usage in AXorcist+QueryHandlers.swift
+/// Definition for AXElementData based on usage in AXorcist+QueryHandlers.swift
 public nonisolated struct AXElementData: Codable, HandlerDataRepresentable, Equatable {
     // MARK: Lifecycle
 
@@ -108,7 +108,7 @@ public nonisolated struct AXElementData: Codable, HandlerDataRepresentable, Equa
     public var textualContent: String?
     public var childrenBriefDescriptions: [String]?
     public var fullAXDescription: String?
-    // Add path here as it's often part of element data
+    /// Add path here as it's often part of element data
     public var path: [String]?
 }
 
@@ -116,7 +116,7 @@ public nonisolated struct AXElementData: Codable, HandlerDataRepresentable, Equa
 // AXElement is defined in DataModels.swift, so we'll make it conform there later.
 // For now, assume it will.
 
-// Response for query command (single element)
+/// Response for query command (single element)
 public struct QueryResponse: Codable {
     // MARK: Lifecycle
 
@@ -138,7 +138,7 @@ public struct QueryResponse: Codable {
         self.debugLogs = debugLogs
     }
 
-    // Custom init for HandlerResponse integration
+    /// Custom init for HandlerResponse integration
     public init(
         commandId: String,
         success: Bool,
@@ -186,7 +186,7 @@ public struct QueryResponse: Codable {
     }
 }
 
-// Extension to add JSON encoding functionality to QueryResponse
+/// Extension to add JSON encoding functionality to QueryResponse
 extension QueryResponse {
     public func jsonString() throws -> String {
         let encoder = JSONEncoder()
@@ -196,7 +196,7 @@ extension QueryResponse {
     }
 }
 
-// Response for collect_all command (multiple elements)
+/// Response for collect_all command (multiple elements)
 public struct MultiQueryResponse: Codable {
     // MARK: Lifecycle
 
@@ -233,7 +233,7 @@ public struct MultiQueryResponse: Codable {
     }
 }
 
-// Response for perform_action command
+/// Response for perform_action command
 public nonisolated struct PerformResponse: Codable, HandlerDataRepresentable {
     // MARK: Lifecycle
 
@@ -261,7 +261,7 @@ public nonisolated struct PerformResponse: Codable, HandlerDataRepresentable {
     }
 }
 
-// New response for extract_text command
+/// New response for extract_text command
 public nonisolated struct TextExtractionResponse: Codable, HandlerDataRepresentable {
     // MARK: Lifecycle
 
@@ -300,7 +300,7 @@ public nonisolated struct TextExtractionResponse: Codable, HandlerDataRepresenta
  }
  */
 
-// Generic error response
+/// Generic error response
 public struct ErrorResponse: Codable {
     // MARK: Lifecycle
 
@@ -340,7 +340,7 @@ public struct ErrorDetail: Codable, Equatable {
     public var message: String
 }
 
-// Simple success response, e.g. for ping
+/// Simple success response, e.g. for ping
 public struct SimpleSuccessResponse: Codable, Equatable {
     // MARK: Lifecycle
 
@@ -420,7 +420,7 @@ public struct BatchResponse: Codable {
 
 // MARK: - Additional Payload Structs
 
-// NoFocusPayload for when no focused element is found
+/// NoFocusPayload for when no focused element is found
 public nonisolated struct NoFocusPayload: Codable, HandlerDataRepresentable {
     // MARK: Lifecycle
 
@@ -433,7 +433,7 @@ public nonisolated struct NoFocusPayload: Codable, HandlerDataRepresentable {
     public let message: String
 }
 
-// TextPayload for text extraction
+/// TextPayload for text extraction
 public nonisolated struct TextPayload: Codable, HandlerDataRepresentable {
     // MARK: Lifecycle
 
@@ -446,7 +446,7 @@ public nonisolated struct TextPayload: Codable, HandlerDataRepresentable {
     public let text: String
 }
 
-// BatchResponsePayload for batch operations
+/// BatchResponsePayload for batch operations
 public nonisolated struct BatchResponsePayload: Codable, HandlerDataRepresentable {
     // MARK: Lifecycle
 
@@ -463,7 +463,7 @@ public nonisolated struct BatchResponsePayload: Codable, HandlerDataRepresentabl
 
 // MARK: - AXElementDescription
 
-// Structure for element tree descriptions
+/// Structure for element tree descriptions
 public struct AXElementDescription: Codable, Sendable {
     // MARK: Lifecycle
 
@@ -487,14 +487,14 @@ public struct AXElementDescription: Codable, Sendable {
     public let children: [AXElementDescription]?
 }
 
-// Structure for custom JSON output of handleCollectAll
+/// Structure for custom JSON output of handleCollectAll
 public struct CollectAllOutput: Codable {
     // MARK: Lifecycle
 
-    // Add a new initializer or ensure the existing one matches these fields.
-    // Assuming the default memberwise initializer will now work with these changes,
-    // or one will be synthesized. If a custom one exists, it will need updating.
-    // For safety, let's add one that matches the typical usage pattern.
+    /// Add a new initializer or ensure the existing one matches these fields.
+    /// Assuming the default memberwise initializer will now work with these changes,
+    /// or one will be synthesized. If a custom one exists, it will need updating.
+    /// For safety, let's add one that matches the typical usage pattern.
     public init(
         commandId: String,
         success: Bool,

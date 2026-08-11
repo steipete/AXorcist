@@ -4,7 +4,7 @@ import Foundation
 
 // MARK: - AXNotificationName enum
 
-// Define AXNotificationName as a String-based enum for notification names
+/// Define AXNotificationName as a String-based enum for notification names
 public enum AXNotificationName: String, Codable, Sendable {
     case focusedUIElementChanged = "AXFocusedUIElementChanged"
     case valueChanged = "AXValueChanged"

@@ -5,7 +5,7 @@ import Foundation
 // Consider if AXNotification needs to be accessible here, or if its rawValue is sufficient.
 // If AXorcist/Models/DataModels.swift defines AXNotification, that might be a better import.
 
-// Recursively sanitize value into JSON-encodable form
+/// Recursively sanitize value into JSON-encodable form
 func sanitizeValue(_ val: Any) -> Any {
     if let specialValue = sanitizeSpecialValue(val) {
         return specialValue
@@ -54,8 +54,8 @@ private func isPrimitiveJSONValue(_ value: Any) -> Bool {
     value is String || value is Int || value is Double || value is Bool || value is NSNull
 }
 
-// Ensure all nested values are JSON-serialisable (NSString/NSNumber/NSNull/Array/Dict)
-// This function is crucial for preparing the payload for JSONSerialization.
+/// Ensure all nested values are JSON-serialisable (NSString/NSNumber/NSNull/Array/Dict)
+/// This function is crucial for preparing the payload for JSONSerialization.
 func makeJSONCompatible(_ value: Any) -> Any {
     switch value {
     case let str as String:

@@ -202,7 +202,9 @@ extension AXorcist {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
             message: "HandleSetFocusedValue: Attempting to set kAXFocusedAttribute to true for \(elementDescription)"))
-        if element.setValue(true, forAttribute: AXAttributeNames.kAXFocusedAttribute) { return }
+        if element.setValue(true, forAttribute: AXAttributeNames.kAXFocusedAttribute) {
+            return
+        }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .warning,
             message: [

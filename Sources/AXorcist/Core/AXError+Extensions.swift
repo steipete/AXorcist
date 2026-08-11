@@ -8,8 +8,8 @@
 import ApplicationServices
 import Foundation
 
-// Create a custom error type that wraps AXError
-nonisolated public struct AccessibilitySystemError: Error, LocalizedError {
+/// Create a custom error type that wraps AXError
+public nonisolated struct AccessibilitySystemError: Error, LocalizedError {
     public let axError: AXError
 
     public init(_ axError: AXError) {
@@ -87,7 +87,7 @@ extension AXError {
     }
 
     /// Provides a localized description for AXError
-    nonisolated public var localizedDescription: String {
+    public nonisolated var localizedDescription: String {
         AccessibilitySystemError(self).errorDescription ?? "Unknown AXError: \(self.rawValue)"
     }
 }

@@ -39,7 +39,9 @@ public enum InputDriver {
 
     /// Cached current location provider to avoid repeated CGEvent creation in tight loops.
     public static func cachedLocation(using cache: inout CGPoint?) -> CGPoint? {
-        if let cached = cache { return cached }
+        if let cached = cache {
+            return cached
+        }
         let loc = self.currentLocation()
         cache = loc
         return loc
@@ -110,7 +112,9 @@ public enum InputDriver {
                 mouseButton: buttonType)
             else { continue }
             move.post(tap: .cghidEventTap)
-            if interStepDelay > 0 { Thread.sleep(forTimeInterval: interStepDelay) }
+            if interStepDelay > 0 {
+                Thread.sleep(forTimeInterval: interStepDelay)
+            }
         }
 
         guard let up = CGEvent(

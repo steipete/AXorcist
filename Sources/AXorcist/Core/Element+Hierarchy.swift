@@ -170,7 +170,7 @@ private let maxChildrenPerElement = 50000
 private struct ChildCollector {
     // MARK: Public
 
-    // New public method to get the count of unique children
+    /// New public method to get the count of unique children
     func collectedChildrenCount() -> Int {
         self.uniqueChildrenSet.count
     }
@@ -178,7 +178,9 @@ private struct ChildCollector {
     // MARK: Internal
 
     mutating func addChildren(from childrenUI: [AXUIElement]) { // Removed dLog param
-        if self.limitReached { return }
+        if self.limitReached {
+            return
+        }
 
         for childUI in childrenUI {
             if self.collectedChildren.count >= maxChildrenPerElement {

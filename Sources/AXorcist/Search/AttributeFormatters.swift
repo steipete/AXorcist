@@ -4,7 +4,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-// Helper for formatting raw CFTypeRef values for .textContent output
+/// Helper for formatting raw CFTypeRef values for .textContent output
 @MainActor
 func formatRawCFValueForTextContent(_ rawValue: CFTypeRef?) async -> String {
     guard let value = rawValue else { return AXMiscConstants.kAXNotAvailableString }

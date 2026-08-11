@@ -25,7 +25,7 @@ enum AXTestEnvironment {
     }
 }
 
-// Result struct for AXORC commands
+/// Result struct for AXORC commands
 struct CommandResult {
     let output: String?
     let errorOutput: String?
@@ -151,7 +151,9 @@ func closeTextEdit() async {
 
     textEdit.terminate()
     for _ in 0..<5 {
-        if textEdit.isTerminated { break }
+        if textEdit.isTerminated {
+            break
+        }
         try? await Task.sleep(for: .milliseconds(500))
     }
 

@@ -14,10 +14,18 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
     }
 
     // Attempt to get text from common attributes
-    if let title = element.title(), !title.isEmpty { return title }
-    if let value = element.value() as? String, !value.isEmpty { return value }
-    if let description = element.descriptionText(), !description.isEmpty { return description }
-    if let help = element.help(), !help.isEmpty { return help }
+    if let title = element.title(), !title.isEmpty {
+        return title
+    }
+    if let value = element.value() as? String, !value.isEmpty {
+        return value
+    }
+    if let description = element.descriptionText(), !description.isEmpty {
+        return description
+    }
+    if let help = element.help(), !help.isEmpty {
+        return help
+    }
 
     // If no direct text, try children
     var childrenText: [String] = []
@@ -44,13 +52,23 @@ public func extractTextFromElement(_ element: Element, maxDepth: Int = 5, curren
 @MainActor
 public func extractTextFromElementNonRecursive(_ element: Element) -> String? {
     // Try attributes that often hold primary text
-    if let title = element.title(), !title.isEmpty { return title }
-    if let value = element.value() as? String, !value.isEmpty { return value }
-    if let description = element.descriptionText(), !description.isEmpty { return description }
+    if let title = element.title(), !title.isEmpty {
+        return title
+    }
+    if let value = element.value() as? String, !value.isEmpty {
+        return value
+    }
+    if let description = element.descriptionText(), !description.isEmpty {
+        return description
+    }
 
     // Fallback to a broader set if primary ones fail
-    if let placeholder = element.placeholderValue(), !placeholder.isEmpty { return placeholder }
-    if let help = element.help(), !help.isEmpty { return help }
+    if let placeholder = element.placeholderValue(), !placeholder.isEmpty {
+        return placeholder
+    }
+    if let help = element.help(), !help.isEmpty {
+        return help
+    }
 
     // Consider role description as a last resort if it's textual and meaningful
     // This might be too generic in many cases, so it's lower priority.
@@ -64,7 +82,7 @@ public func extractTextFromElementNonRecursive(_ element: Element) -> String? {
     return nil
 }
 
-// More focused text extraction, typically used by handlers.
+/// More focused text extraction, typically used by handlers.
 @MainActor
 func getElementTextualContent(
     element: Element,
@@ -91,7 +109,9 @@ func getElementTextualContent(
 @MainActor
 private func collectDirectText(from element: Element) -> [String] {
     var pieces: [String] = []
-    if let title: String = element.attribute(Attribute<String>.title), !title.isEmpty { pieces.append(title) }
+    if let title: String = element.attribute(Attribute<String>.title), !title.isEmpty {
+        pieces.append(title)
+    }
     if let value: String = element.attribute(Attribute<String>(AXAttributeNames.kAXValueAttribute)), !value.isEmpty {
         pieces.append(value)
     }
@@ -132,8 +152,12 @@ private func joinedText(from pieces: [String]) -> String? {
 private func mergeText(directText: String?, childText: String?) -> String? {
     switch (directText, childText) {
     case let (direct?, child?):
-        if direct.isEmpty { return child }
-        if child.isEmpty { return direct }
+        if direct.isEmpty {
+            return child
+        }
+        if child.isEmpty {
+            return direct
+        }
         return "\(direct) \(child)"
     case let (direct?, nil):
         return direct

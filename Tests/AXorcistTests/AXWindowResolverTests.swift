@@ -7,16 +7,16 @@ import Testing
 struct AXWindowResolverTests {
     private let resolver = AXWindowResolver()
 
-    @Test("windowID returns nil for non-window element")
+    @Test
     @MainActor
-    func windowIdNilForNonWindow() async {
+    func `windowID returns nil for non-window element`() {
         let systemWide = AXUIElementCreateSystemWide()
         let element = Element(systemWide)
         #expect(self.resolver.windowID(from: element) == nil)
     }
 
-    @Test("windowExists false for random ID")
-    func windowExistsFalse() {
+    @Test
+    func `windowExists false for random ID`() {
         #expect(self.resolver.windowExists(windowID: 999_999_999) == false)
     }
 }

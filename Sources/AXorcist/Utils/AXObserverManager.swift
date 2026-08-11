@@ -42,20 +42,20 @@ public class AXObserverManager {
 
     // MARK: Public
 
-    // Typealias for notification callback - matches AXObserverCallbackWithInfo but without refcon
+    /// Typealias for notification callback - matches AXObserverCallbackWithInfo but without refcon
     public typealias AXNotificationCallback = (AXObserver, AXUIElement, CFString, CFDictionary?) -> Void
 
-    // Error types
+    /// Error types
     public enum ObserverError: Error {
         case couldNotCreateObserver
         case addNotificationFailed(AXError)
         case other(String)
     }
 
-    // Singleton instance
+    /// Singleton instance
     public static let shared = AXObserverManager()
 
-    // Add observer for an element and notification
+    /// Add observer for an element and notification
     public func addObserver(
         for element: Element,
         notification: AXNotification,
@@ -82,7 +82,7 @@ public class AXObserverManager {
             callback: callback)
     }
 
-    // Remove observer for an element and notification
+    /// Remove observer for an element and notification
     public func removeObserver(for element: Element, notification: AXNotification) throws {
         let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
 
@@ -125,7 +125,7 @@ public class AXObserverManager {
         }
     }
 
-    // Remove all observers
+    /// Remove all observers
     public func removeAllObservers() {
         self.observerLock.lock()
         defer { observerLock.unlock() }
@@ -144,7 +144,7 @@ public class AXObserverManager {
 
     // MARK: Private
 
-    // Private storage for observers and callbacks
+    /// Private storage for observers and callbacks
     private struct ObserverInfo {
         let observer: AXObserver
         let runLoopSource: CFRunLoopSource
@@ -158,7 +158,7 @@ public class AXObserverManager {
     private var observers: [ObjectIdentifier: ObserverInfo] = [:]
     private let observerLock = NSLock()
 
-    // Handle incoming notifications
+    /// Handle incoming notifications
     private func handleNotification(
         observer: AXObserver,
         element: AXUIElement,

@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 import os.log
 
-// Create a logger for window operations
+/// Create a logger for window operations
 private let windowLogger = Logger(subsystem: "boo.peekaboo.axorcist", category: "WindowOperations")
 
 /// Window-specific accessibility operations

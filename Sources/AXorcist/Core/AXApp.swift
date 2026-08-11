@@ -17,9 +17,17 @@ public struct AXApp: Sendable {
         self.init(app)
     }
 
-    public var pid: pid_t { self.application.processIdentifier }
-    public var bundleIdentifier: String? { self.application.bundleIdentifier }
-    public var localizedName: String? { self.application.localizedName }
+    public var pid: pid_t {
+        self.application.processIdentifier
+    }
+
+    public var bundleIdentifier: String? {
+        self.application.bundleIdentifier
+    }
+
+    public var localizedName: String? {
+        self.application.localizedName
+    }
 
     /// Windows exposed via AX for this application.
     public func windows() -> [Element]? {
@@ -42,9 +50,17 @@ public struct AXWindowHandle: Sendable {
         self.element = element
     }
 
-    public var title: String? { self.element.title() }
-    public var frame: CGRect? { self.element.frame() }
-    public var role: String? { self.element.role() }
+    public var title: String? {
+        self.element.title()
+    }
+
+    public var frame: CGRect? {
+        self.element.frame()
+    }
+
+    public var role: String? {
+        self.element.role()
+    }
 
     /// CGWindowID for this AX window, if resolvable.
     public var windowID: CGWindowID? {

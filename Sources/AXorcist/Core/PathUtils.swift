@@ -1,7 +1,7 @@
 import Foundation
 
 public enum PathUtils {
-    // Mapping of common attribute shortcuts to their full AX attribute names
+    /// Mapping of common attribute shortcuts to their full AX attribute names
     public static let attributeKeyMappings: [String: String] = [
         "role": AXAttributeNames.kAXRoleAttribute,
         "subrole": AXAttributeNames.kAXSubroleAttribute,

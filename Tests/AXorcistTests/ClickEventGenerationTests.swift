@@ -4,9 +4,9 @@ import Testing
 
 @Suite("Click event generation")
 struct ClickEventGenerationTests {
-    @Test("Single click uses clickState=1")
+    @Test
     @MainActor
-    func singleClickUsesClickStateOne() throws {
+    func `Single click uses clickState=1`() throws {
         let pairs = try Element.buildClickEventPairs(
             at: CGPoint(x: 10, y: 20),
             button: .left,
@@ -19,9 +19,9 @@ struct ClickEventGenerationTests {
         #expect(pairs[0].up.getIntegerValueField(.mouseEventClickState) == 1)
     }
 
-    @Test("Double click emits clickState sequence 1 then 2")
+    @Test
     @MainActor
-    func doubleClickUsesSequentialClickStates() throws {
+    func `Double click emits clickState sequence 1 then 2`() throws {
         let pairs = try Element.buildClickEventPairs(
             at: CGPoint(x: 10, y: 20),
             button: .left,

@@ -134,14 +134,13 @@ func castToArrayType<T>(_ value: Any, expectedType: T.Type, attr: String) -> T? 
 @MainActor
 func castToAXUIElementArray(_ value: Any, attr: String) -> [AXUIElement]? {
     if let anyArray = value as? [Any?] {
-        let result = anyArray.compactMap { item -> AXUIElement? in
+        return anyArray.compactMap { item -> AXUIElement? in
             guard let cfItem = item else { return nil }
             if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() {
                 return unsafeDowncast(cfItem as AnyObject, to: AXUIElement.self)
             }
             return nil
         }
-        return result
     }
     axDebugLog(
         "axValue: Expected [AXUIElement] for attribute '\(attr)', but got \(type(of: value)): \(value)",
@@ -154,7 +153,7 @@ func castToAXUIElementArray(_ value: Any, attr: String) -> [AXUIElement]? {
 @MainActor
 func castToElementArray(_ value: Any, attr: String) -> [Element]? {
     if let anyArray = value as? [Any?] {
-        let result = anyArray.compactMap { item -> Element? in
+        return anyArray.compactMap { item -> Element? in
             guard let cfItem = item else { return nil }
             if CFGetTypeID(cfItem as CFTypeRef) == AXUIElementGetTypeID() {
                 let axElement = unsafeDowncast(cfItem as AnyObject, to: AXUIElement.self)
@@ -162,7 +161,6 @@ func castToElementArray(_ value: Any, attr: String) -> [Element]? {
             }
             return nil
         }
-        return result
     }
     axDebugLog(
         "axValue: Expected [Element] for attribute '\(attr)', but got \(type(of: value)): \(value)",

@@ -78,43 +78,57 @@ public enum AttributeValue: Codable, Sendable, Equatable {
 extension AttributeValue {
     /// Extracts the string value if this is a string, otherwise returns nil
     public var stringValue: String? {
-        if case let .string(value) = self { return value }
+        if case let .string(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Extracts the boolean value if this is a bool, otherwise returns nil
     public var boolValue: Bool? {
-        if case let .bool(value) = self { return value }
+        if case let .bool(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Extracts the integer value if this is an int, otherwise returns nil
     public var intValue: Int? {
-        if case let .int(value) = self { return value }
+        if case let .int(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Extracts the double value if this is a double, otherwise returns nil
     public var doubleValue: Double? {
-        if case let .double(value) = self { return value }
+        if case let .double(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Extracts the array value if this is an array, otherwise returns nil
     public var arrayValue: [AttributeValue]? {
-        if case let .array(value) = self { return value }
+        if case let .array(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Extracts the dictionary value if this is a dictionary, otherwise returns nil
     public var dictionaryValue: [String: AttributeValue]? {
-        if case let .dictionary(value) = self { return value }
+        if case let .dictionary(value) = self {
+            return value
+        }
         return nil
     }
 
     /// Returns true if this is a null value
     public var isNull: Bool {
-        if case .null = self { return true }
+        if case .null = self {
+            return true
+        }
         return false
     }
 }

@@ -5,8 +5,8 @@
 //  Helper utilities for discovering and working with running applications
 //
 
-import ApplicationServices
 import AppKit
+import ApplicationServices
 import Foundation
 #if canImport(CoreGraphics)
 import CoreGraphics // Added for CGWindowListCopyWindowInfo
