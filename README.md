@@ -95,9 +95,11 @@ let title = element.title()
 let role = element.role()
 let isEnabled = element.isEnabled()
 
-// Perform actions
+// Perform a native action
 try element.performAction(.press)
-_ = element.setValue("Hello World", forAttribute: "AXValue")
+
+// Set the native value attribute
+try element.setValue("Hello World")
 
 // Navigate hierarchy
 let children = element.children()
@@ -410,10 +412,9 @@ Execute multiple commands in sequence.
     },
     {
       "command_id": "fill-text-area",
-      "command": "performAction",
+      "command": "setFocusedValue",
       "application": "TextEdit",
       "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]},
-      "action_name": "AXSetValue",
       "action_value": "Hello, World!"
     }
   ]
@@ -460,20 +461,24 @@ Available actions to perform on elements:
 - **AXShowMenu** - Show context menu
 - **AXPick** - Pick/select element
 - **AXRaise** - Bring element to front
-- **AXSetValue** - Set value (for text fields)
 
 ### Setting Text Values
+
+Setting `AXValue` is an attribute mutation, not a native accessibility action. Use `setFocusedValue` when the target
+may need focus:
 
 ```json
 {
   "command_id": "replace-text",
-  "command": "performAction",
+  "command": "setFocusedValue",
   "application": "TextEdit",
   "locator": {"criteria": [{"attribute": "AXRole", "value": "AXTextArea"}]},
-  "action_name": "AXSetValue",
   "action_value": "New text content"
 }
 ```
+
+The published `performAction` spelling with `"action_name": "AXSetValue"` remains a compatibility alias. It requires
+a string `action_value` and writes `AXValue` directly without invoking an accessibility action or changing focus.
 
 ## Notifications and Observing
 
@@ -600,7 +605,7 @@ Existing invocations such as `axorc --stdin` and `axorc '{...}'` remain supporte
   "sub_commands": [
     {
       "command_id": "fill-email",
-      "command": "performAction",
+      "command": "setFocusedValue",
       "application": "Safari",
       "locator": {
         "criteria": [
@@ -608,12 +613,11 @@ Existing invocations such as `axorc --stdin` and `axorc '{...}'` remain supporte
           {"attribute": "AXPlaceholderValue", "value": "Email", "match_type": "contains"}
         ]
       },
-      "action_name": "AXSetValue",
       "action_value": "user@example.com"
     },
     {
       "command_id": "fill-password",
-      "command": "performAction",
+      "command": "setFocusedValue",
       "application": "Safari",
       "locator": {
         "criteria": [
@@ -621,7 +625,6 @@ Existing invocations such as `axorc --stdin` and `axorc '{...}'` remain supporte
           {"attribute": "AXPlaceholderValue", "value": "Password", "match_type": "contains"}
         ]
       },
-      "action_name": "AXSetValue",
       "action_value": "example-value"
     },
     {

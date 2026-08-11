@@ -105,4 +105,19 @@ extension AXError {
             .actionFailed
         }
     }
+
+    var valueResponseCode: AXErrorCode {
+        switch self {
+        case .apiDisabled:
+            .permissionDenied
+        case .invalidUIElement:
+            .elementNotFound
+        case .attributeUnsupported:
+            .attributeNotFound
+        case .illegalArgument:
+            .invalidParameter
+        default:
+            .actionFailed
+        }
+    }
 }

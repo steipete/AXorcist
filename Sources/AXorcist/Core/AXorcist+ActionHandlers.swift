@@ -33,7 +33,7 @@ extension AXorcist {
             return .errorResponse(message: message, code: .elementNotFound)
         }
 
-        return self.executeAction(action: command.action, on: element, value: command.value)
+        return self.executeResolvedAction(command: command, on: element)
     }
 
     // MARK: - Set Focused Value Handler
@@ -60,7 +60,7 @@ extension AXorcist {
         if self.ensureFocusCapability(for: element) {
             self.setFocus(on: element)
         }
-        return self.setValue(command.value, on: element)
+        return self.executeSetValue(value: command.value, on: element)
     }
 
     // MARK: - Extract Text Handler
@@ -125,6 +125,37 @@ extension AXorcist {
                 "Locator: \(command.locator), Value: '\(command.value)'"))
     }
 
+    func executeResolvedAction(
+        command: PerformActionCommand,
+        on element: Element,
+        performer: (Element, String) throws -> Void = { element, action in
+            try element.performAction(action)
+        },
+        valueSetter: (Element, String) throws -> Void = { element, value in
+            try element.setValue(value)
+        },
+        supportedActions: (Element) -> [String]? = { element in
+            element.supportedActions()
+        }) -> AXResponse
+    {
+        guard command.action == AXActionNames.kAXSetValueAction else {
+            return self.executeAction(
+                action: command.action,
+                on: element,
+                value: command.value,
+                performer: performer,
+                supportedActions: supportedActions)
+        }
+
+        guard let value = command.value?.value as? String else {
+            let message = "HandlePerformAction: AXSetValue requires a string action_value. No value was dispatched."
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
+            return .errorResponse(message: message, code: .invalidParameter)
+        }
+
+        return self.executeSetValue(value: value, on: element, setter: valueSetter)
+    }
+
     func executeAction(
         action: String,
         on element: Element,
@@ -160,6 +191,31 @@ extension AXorcist {
             let errorMessage = "HandlePerformAction: Failed to perform action '\(action)'. Error: \(error)"
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
             return .errorResponse(message: errorMessage, code: .actionFailed)
+        }
+    }
+
+    func executeSetValue(
+        value: String,
+        on element: Element,
+        setter: (Element, String) throws -> Void = { element, value in
+            try element.setValue(value)
+        }) -> AXResponse
+    {
+        do {
+            try setter(element, value)
+            GlobalAXLogger.shared.log(AXLogEntry(
+                level: .info,
+                message: "Successfully set the element's AXValue attribute."))
+            return .successResponse(payload: AnyCodable(["message": "Value set successfully."]))
+        } catch let error as AccessibilitySystemError {
+            let message = "Failed to set AXValue. Error: \(error.localizedDescription) " +
+                "(AXError \(error.axError.rawValue))."
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
+            return .errorResponse(message: message, code: error.axError.valueResponseCode)
+        } catch {
+            let message = "Failed to set AXValue. Error: \(error.localizedDescription)"
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
+            return .errorResponse(message: message, code: .actionFailed)
         }
     }
 
@@ -236,25 +292,6 @@ extension AXorcist {
                 "HandleSetFocusedValue: Failed to set kAXFocusedAttribute for \(elementDescription),",
                 "but proceeding to set value.",
             ].joined(separator: " ")))
-    }
-
-    private func setValue(_ value: String, on element: Element) -> AXResponse {
-        let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
-        GlobalAXLogger.shared.log(AXLogEntry(
-            level: .debug,
-            message: "HandleSetFocusedValue: Attempting to set kAXValueAttribute to '\(value)' " +
-                "for \(elementDescription)"))
-        if element.setValue(value, forAttribute: AXAttributeNames.kAXValueAttribute) {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .info,
-                message: "HandleSetFocusedValue: Successfully set value for \(elementDescription)."))
-            return .successResponse(
-                payload: AnyCodable(["message": "Value '\(value)' set successfully on focused element."]))
-        }
-
-        let setError = "HandleSetFocusedValue: Failed to set kAXValueAttribute for \(elementDescription)."
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: setError))
-        return .errorResponse(message: setError, code: .actionFailed)
     }
 
     private func missingElementMessage(prefix: String, appIdentifier: String, locatorDescription: String) -> String {

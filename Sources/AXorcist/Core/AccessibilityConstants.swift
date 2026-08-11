@@ -20,7 +20,7 @@ public enum AXActionNames {
     // public static let kAXShowDefaultUIAction = "AXShowDefaultUI"     // Shows the default UI for the element
     // public static let kAXDeleteAction = "AXDelete" // Action to delete content or an element
 
-    /// Internal/Custom action name for setting a value via performAction handler
+    /// Compatibility command and receipt token. This is not a native macOS accessibility action.
     public static let kAXSetValueAction = "AXSetValue"
 }
 
@@ -36,6 +36,7 @@ public enum AXAction {
     case showMenu
     case pick
     case raise
+    @available(*, deprecated, message: "AXSetValue is not a native action; use Element.setValue(_:) instead.")
     case setValue
 
     // MARK: Public
