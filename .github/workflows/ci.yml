@@ -27,7 +27,6 @@ permissions:
 env:
   SWIFT_VERSION: "6.2.1"
   XCODE_VERSION: "16.4"
-  VALIDATION_TOOLS_DIR: ${{ runner.temp }}/axorcist-validation-tools
 
 jobs:
   build-and-lint:
@@ -55,8 +54,9 @@ jobs:
     - name: Install validation tools
       run: |
         brew install shellcheck
-        scripts/install-validation-tools.sh "$VALIDATION_TOOLS_DIR"
-        echo "$VALIDATION_TOOLS_DIR" >> "$GITHUB_PATH"
+        validation_tools_dir="${{ runner.temp }}/axorcist-validation-tools"
+        scripts/install-validation-tools.sh "$validation_tools_dir"
+        echo "$validation_tools_dir" >> "$GITHUB_PATH"
     
     - name: Build
       run: |
