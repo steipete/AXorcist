@@ -24,18 +24,15 @@ extension Element {
             return nil
         }
 
-        guard let finalValue = ValueUnwrapper.unwrap(resultCFValue) else {
-            axDebugLog("Unwrapping CFValue for parameterized attribute \(attribute.rawValue) resulted in nil.")
-            return nil
-        }
-
-        return self.castValueToType(finalValue, attribute: attribute)
+        return self.convertCFTypeToSwiftType(resultCFValue, attribute: attribute)
     }
 
     @MainActor
-    private func convertParameterToCFTypeRef(_ parameter: Any, attribute: Attribute<some Any>) -> CFTypeRef? {
+    func convertParameterToCFTypeRef(_ parameter: Any, attribute: Attribute<some Any>) -> CFTypeRef? {
         if var range = parameter as? CFRange {
             return AXValueCreate(.cfRange, &range)
+        } else if let element = parameter as? Element {
+            return element.underlyingElement
         } else if let string = parameter as? String {
             return string as CFString
         } else if let number = parameter as? NSNumber {
@@ -71,31 +68,6 @@ extension Element {
         }
 
         return resultCFValue
-    }
-
-    @MainActor
-    private func castValueToType<T>(_ finalValue: Any, attribute: Attribute<T>) -> T? {
-        if T.self == String.self {
-            if let str = finalValue as? String {
-                return str as? T
-            }
-            if let attrStr = finalValue as? NSAttributedString {
-                return attrStr.string as? T
-            }
-            axDebugLog(
-                "Failed to cast unwrapped value for String attribute \(attribute.rawValue). " +
-                    "Value: \(finalValue)")
-            return nil
-        }
-
-        if let castedValue = finalValue as? T {
-            return castedValue
-        }
-
-        axWarningLog(
-            "Fallback cast attempt for parameterized attribute '\(attribute.rawValue)' " +
-                "to type \(T.self) FAILED. Unwrapped value was \(type(of: finalValue)): \(finalValue)")
-        return nil
     }
 }
 

@@ -168,51 +168,7 @@ public struct Element: Equatable, Hashable, Sendable {
 
     @MainActor
     public func parameterizedAttribute<T>(_ attribute: Attribute<T>, parameter: Any) -> T? {
-        var value: CFTypeRef?
-        let error: AXError
-
-        // Need to bridge the parameter to CFTypeRef
-        let cfParameter: CFTypeRef
-        if let num = parameter as? NSNumber {
-            cfParameter = num
-        } else if let str = parameter as? String {
-            cfParameter = str as CFString
-        } else if let element = parameter as? Element {
-            cfParameter = element.underlyingElement
-        } else {
-            // Fallback for other types or if bridging is complex; might need more specific handling
-            // For now, attempt to bridge directly, or log error if not possible
-            if CFGetTypeID(parameter as CFTypeRef) == 0 { // Heuristic: Check if it's already a CFTypeRef or bridgable
-                GlobalAXLogger.shared.log(AXLogEntry(
-                    level: .debug,
-                    message: "Parameterized attribute '\(attribute.rawValue)' called with " +
-                        "non-CF bridgable Swift type: \(type(of: parameter)). This might fail."))
-            }
-            cfParameter = parameter as CFTypeRef // This can crash if parameter is not CF-bridgable
-        }
-
-        error = AXUIElementCopyParameterizedAttributeValue(
-            self.underlyingElement,
-            attribute.rawValue as CFString,
-            cfParameter,
-            &value)
-
-        if error != .success {
-            if error != .noValue {
-                GlobalAXLogger.shared.log(AXLogEntry(
-                    level: .debug,
-                    message: "Error \(error.rawValue) fetching parameterized attribute '\(attribute.rawValue)'."))
-            }
-            return nil
-        }
-        guard let unwrappedCFValue = value else {
-            GlobalAXLogger.shared.log(AXLogEntry(
-                level: .debug,
-                message: "Parameterized attribute '\(attribute.rawValue)' value was nil after fetch."))
-            return nil
-        }
-        // Use the type conversion functionality from Element+TypeConversion.swift
-        return convertCFTypeToSwiftType(unwrappedCFValue, attribute: attribute)
+        self.parameterizedAttribute(attribute, forParameter: parameter)
     }
 
     @MainActor
