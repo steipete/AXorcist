@@ -1,29 +1,24 @@
-import ApplicationServices
 import Testing
 @testable import AXorcist
 
 @MainActor
 struct AccessibilityPermissionsTests {
     @Test
-    func `Native automation permission mapping is noninteractive and truthful`() {
-        let granted = automationPermissionResult(for: noErr, bundleID: "com.example.Test")
-        #expect(granted.status == true)
-        #expect(granted.errorMessage == nil)
+    func `Permission status reports Accessibility without legacy automation probes`() {
+        let status = getPermissionsStatus()
 
-        let undecided = automationPermissionResult(
-            for: OSStatus(errAEEventWouldRequireUserConsent),
-            bundleID: "com.example.Test")
-        #expect(undecided.status == false)
-        #expect(undecided.errorMessage?.contains("not been determined") == true)
+        #expect(status.canUseAccessibility == (
+            status.isAccessibilityApiEnabled && status.isProcessTrustedForAccessibility))
+        #expect(status.overallErrorMessages.isEmpty)
+    }
 
-        let denied = automationPermissionResult(
-            for: OSStatus(errAEEventNotPermitted),
-            bundleID: "com.example.Test")
-        #expect(denied.status == false)
-        #expect(denied.errorMessage?.contains("denied") == true)
+    @available(*, deprecated, message: "Exercises the retained legacy compatibility surface.")
+    @Test
+    func `Legacy automation targets remain source compatible but unknown`() {
+        let status = getPermissionsStatus(checkAutomationFor: ["com.example.Test"])
 
-        let missing = automationPermissionResult(for: OSStatus(procNotFound), bundleID: "com.example.Test")
-        #expect(missing.status == nil)
-        #expect(missing.errorMessage == nil)
+        #expect(status.automationStatus.isEmpty)
+        #expect(status.canAutomate(bundleID: "com.example.Test") == nil)
+        #expect(status.overallErrorMessages.isEmpty)
     }
 }
