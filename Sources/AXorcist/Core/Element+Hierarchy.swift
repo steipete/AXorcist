@@ -20,6 +20,10 @@ extension Element {
 
     @MainActor
     public func children(strict: Bool = false) -> [Element]? { // Added strict parameter
+        if let prefetchedChildren {
+            return prefetchedChildren
+        }
+
         // Logging for this top-level call
         // self.briefDescription() is assumed to be refactored and available
         self.axVerboseDebug("Getting children for element: \(self.briefDescription(option: .smart)), strict: \(strict)")

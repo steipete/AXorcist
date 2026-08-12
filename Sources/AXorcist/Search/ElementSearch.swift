@@ -65,9 +65,6 @@ public func findTargetElement(
         locator: locator,
         maxDepth: maxDepthForSearch)
     let pathHintDebugString = locatorDebug.pathHint
-    resetTraversalState()
-    defer { traversalDeadline = nil }
-
     guard let appElement = getApplicationElement(for: appIdentifier) else {
         logger.error("FTE: No app element for \(appIdentifier)")
         return (nil, "Application not found or not accessible: \(appIdentifier)")
@@ -193,7 +190,7 @@ private func applyCriteriaSearch(
         stopAtFirstMatch: axorcStopAtFirstMatch,
         maxDepth: maxDepthForSearch)
 
-    traverseAndSearch(
+    let nodesVisited = runTraversal(
         element: startElement,
         visitor: searchVisitor,
         currentDepth: 0,
@@ -204,7 +201,7 @@ private func applyCriteriaSearch(
         logger.info(
             logSegments(
                 "FindTargetEl: Found final descendant matching criteria: \(foundDescription)",
-                "Nodes visited = \(traversalNodeCounter)"))
+                "Nodes visited = \(nodesVisited)"))
         return (foundMatch, nil)
     }
 
@@ -212,7 +209,7 @@ private func applyCriteriaSearch(
     let finalSearchError = logSegments(
         "FTE: Not found C=[\(criteriaDesc)] from \(searchStartingPointDescription)",
         "Max depth visited = \(searchVisitor.deepestDepthReached) of \(maxDepthForSearch)",
-        "Nodes visited = \(traversalNodeCounter)")
+        "Nodes visited = \(nodesVisited)")
     logger.warning(finalSearchError)
     return (nil, finalSearchError)
 }
@@ -233,11 +230,6 @@ private func logFindTargetSetup(
             "C=\(criteria)",
             "PH=\(locator.rootElementPathHint?.count ?? 0)"))
     return (pathHint, criteria)
-}
-
-private func resetTraversalState() {
-    traversalNodeCounter = 0
-    traversalDeadline = Date().addingTimeInterval(axorcTraversalTimeout)
 }
 
 // MARK: - Element Collection Logic
@@ -290,23 +282,78 @@ public func traverseAndSearch(
     currentDepth: Int,
     maxDepth: Int)
 {
+    _ = runTraversal(
+        element: element,
+        visitor: visitor,
+        currentDepth: currentDepth,
+        maxDepth: maxDepth)
+}
+
+private struct TraversalContext {
+    var visitedElements: Set<Element> = []
+    var nodeCount = 0
+    var didLogTimeout = false
+    let deadline: Date
+
+    init(timeout: TimeInterval) {
+        self.deadline = Date().addingTimeInterval(timeout)
+    }
+}
+
+@MainActor
+private func runTraversal(
+    element: Element,
+    visitor: any ElementVisitor,
+    currentDepth: Int,
+    maxDepth: Int) -> Int
+{
+    var context = TraversalContext(timeout: axorcTraversalTimeout)
+    _ = traverseAndSearch(
+        element: element,
+        visitor: visitor,
+        currentDepth: currentDepth,
+        maxDepth: maxDepth,
+        context: &context)
+    return context.nodeCount
+}
+
+@MainActor
+private func traverseAndSearch(
+    element: Element,
+    visitor: any ElementVisitor,
+    currentDepth: Int,
+    maxDepth: Int,
+    context: inout TraversalContext) -> Bool
+{
+    guard Date() <= context.deadline else {
+        if !context.didLogTimeout {
+            logger.warning("Traverse: search timeout (\(axorcTraversalTimeout)s) reached. Aborting traversal.")
+            context.didLogTimeout = true
+        }
+        return true
+    }
+
     let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
 
     guard currentDepth <= maxDepth else {
         logTraversalDepthExceeded(maxDepth, elementDescription)
-        return
+        return false
     }
 
-    traversalNodeCounter += 1
+    guard context.visitedElements.insert(element).inserted else {
+        return false
+    }
+
+    context.nodeCount += 1
     let visitResult = visitor.visit(element: element, depth: currentDepth)
 
     switch visitResult {
     case .stop:
         logTraversalEvent("STOP", elementDescription: elementDescription, depth: currentDepth)
-        return
+        return true
     case .skipChildren:
         logTraversalEvent("SKIP_CHILDREN", elementDescription: elementDescription, depth: currentDepth)
-        return // Do not process children
+        return false
     case .continue:
         logTraversalEvent(
             "CONTINUE",
@@ -316,37 +363,22 @@ public func traverseAndSearch(
         // Continue to process children
     }
 
-    // Maintain a static visited set per traversal to avoid cycles.
-    // We store the CFHash of AXUIElement to uniquely identify.
-    enum VisitedSet { nonisolated(unsafe) static var set = Set<UInt>() }
-
     if let children = element.children(strict: false), !children.isEmpty,
        axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false)
     {
-        // Abort if we are past the deadline
-        if let deadline = traversalDeadline, Date() > deadline {
-            logger.warning("Traverse: global search timeout (\(axorcTraversalTimeout)s) reached. Aborting traversal.")
-            return
-        }
-
         for child in children {
-            let hashVal: UInt = CFHash(child.underlyingElement)
-            if !VisitedSet.set.insert(hashVal).inserted {
-                continue // already visited; skip to avoid cycles
-            }
-            traverseAndSearch(element: child, visitor: visitor, currentDepth: currentDepth + 1, maxDepth: maxDepth)
-            if let searchVisitor = visitor as? SearchVisitor,
-               searchVisitor.stopAtFirstMatchInternal,
-               searchVisitor.foundElement != nil
-            {
-                logger.debug(
-                    logSegments(
-                        "Traverse: SearchVisitor found match and stopAtFirstMatch is true",
-                        "Stopping traversal early"))
-                return // Stop traversal early
+            guard !traverseAndSearch(
+                element: child,
+                visitor: visitor,
+                currentDepth: currentDepth + 1,
+                maxDepth: maxDepth,
+                context: &context)
+            else {
+                return true
             }
         }
     }
+    return false
 }
 
 private func logTraversalDepthExceeded(_ maxDepth: Int, _ elementDescription: String) {
@@ -537,13 +569,6 @@ private let containerRoles: Set<String> = [
 ]
 
 // MARK: - Search Timeout Handling
-
-/// Global deadline used by `traverseAndSearch` to abort extremely long walks.
-/// It is _only_ set for the duration of a single public search call and then cleared again.
-private nonisolated(unsafe) var traversalDeadline: Date?
-
-/// Counts how many nodes have been visited during the current `findTargetElement` invocation.
-private nonisolated(unsafe) var traversalNodeCounter: Int = 0
 
 /// Default timeout (seconds) for a full tree traversal. Override at runtime by setting `axorcTraversalTimeout`.
 public nonisolated(unsafe) var axorcTraversalTimeout: TimeInterval = 30

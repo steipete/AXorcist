@@ -8,6 +8,7 @@ All notable changes to AXorcist will be documented in this file.
 - Add a typed native setter for accessibility selected-text ranges.
 
 ### Fixed
+- Keep accessibility-tree traversal state local to each search and honor prefetched children, so repeated lookups cannot skip elements seen by earlier commands.
 - Stop probing or linking Apple Events for legacy automation-permission status; deprecated compatibility APIs now return unknown while Accessibility permission checks remain native AX-only.
 - Route the published `AXSetValue` compatibility command through the native value-attribute setter instead of treating it as a macOS accessibility action.
 - Execute accessibility actions directly through one system-call owner, preserving native AX failures without redundant action-discovery round trips.
