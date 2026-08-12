@@ -63,6 +63,7 @@ lint:
 
 native-only:
 	@bash scripts/test-native-ax-only.sh
+	@bash scripts/test-native-ax-only-policy.sh
 
 # Run formatting, linting, and native-only policy checks
 check: format-check lint native-only
