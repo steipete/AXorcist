@@ -61,8 +61,11 @@ lint:
 	swiftlint lint --strict
 	@echo "Code linting complete."
 
-# Run both formatting and linting
-check: format-check lint
+native-only:
+	@bash scripts/test-native-ax-only.sh
+
+# Run formatting, linting, and native-only policy checks
+check: format-check lint native-only
 	@echo "All code checks complete."
 
 # Default target
