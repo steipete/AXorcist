@@ -13,7 +13,8 @@ All notable changes to AXorcist will be documented in this file.
 - Refuse element-scoped typing when native focus cannot be established, preventing keyboard events from reaching an unrelated focused app.
 - Route the visitor, collection, element-search, UI-automation, and deep JSON-path walkers through one identity-aware traversal kernel while preserving their established order, depth, pruning, and match semantics.
 - Preserve middle and right mouse-button identity across clicks, holds, and drags, and build complete input sequences before posting so allocation failures cannot leave a button held down.
-- Resolve each architecture from SwiftPM's reported output when building universal release artifacts instead of assuming a fixed build directory.
+- Build both release architectures in one SwiftPM invocation, then verify and package the reported universal binary without assuming a fixed build directory.
+- Keep observation subscriptions in one token registry with exact element ownership and deterministic cleanup across the library and CLI.
 - Preserve attributed-string parameterized results and route both public generic accessors through one native conversion path.
 - Keep accessibility-tree traversal state local to each search and honor prefetched children, so repeated lookups cannot skip elements seen by earlier commands.
 - Stop probing or linking Apple Events for legacy automation-permission status; deprecated compatibility APIs now return unknown while Accessibility permission checks remain native AX-only.
