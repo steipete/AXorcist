@@ -205,22 +205,6 @@ private func pidForResolvedBundleID(_ bundleID: String, fromPath path: String) -
     return nil
 }
 
-func findFrontmostApplicationPid() -> pid_t? {
-    processDebugLog("ProcessUtils: findFrontmostApplicationPid called.")
-    if let frontmostApp = NSWorkspace.shared.frontmostApplication {
-        processDebugLog(
-            "ProcessUtils: Frontmost app for findFrontmostApplicationPid is '\(frontmostApp.localizedName ?? "nil")'",
-            "PID: \(frontmostApp.processIdentifier)",
-            "BundleID: \(frontmostApp.bundleIdentifier ?? "nil")",
-            "Terminated: \(frontmostApp.isTerminated)")
-        return frontmostApp.processIdentifier
-    } else {
-        processWarningLog(
-            "ProcessUtils: NSWorkspace.shared.frontmostApplication returned nil in findFrontmostApplicationPid.")
-        return nil
-    }
-}
-
 public func getParentProcessName() -> String? {
     let parentPid = getppid()
     processDebugLog("ProcessUtils: Parent PID is \(parentPid).")
