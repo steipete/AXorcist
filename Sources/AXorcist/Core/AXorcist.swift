@@ -26,10 +26,36 @@ import Foundation
 /// - ``AXResponse``
 @MainActor
 public class AXorcist {
+    typealias ObservationTargetResolver = @MainActor (
+        _ appIdentifier: String,
+        _ locator: Locator,
+        _ maxDepth: Int) -> (element: Element?, error: String?)
+
     // MARK: Lifecycle
 
     /// Creates a new AXorcist instance.
-    @MainActor public init() {}
+    @MainActor public init() {
+        self.observationRegistry = AXObserverCenter.shared
+        self.observationTargetResolver = nil
+    }
+
+    init(
+        observationRegistry: any AXObservationRegistry,
+        observationTargetResolver: @escaping ObservationTargetResolver)
+    {
+        self.observationRegistry = observationRegistry
+        self.observationTargetResolver = observationTargetResolver
+    }
+
+    deinit {
+        let registry = self.observationRegistry
+        let tokens = self.observationTokens
+        Task { @MainActor in
+            for token in tokens {
+                try? registry.unsubscribe(token: token)
+            }
+        }
+    }
 
     // MARK: Public
 
@@ -82,6 +108,21 @@ public class AXorcist {
     public func clearLogs() {
         GlobalAXLogger.shared.clearEntries()
         self.logger.log(AXLogEntry(level: .info, message: "Log history cleared."))
+    }
+
+    /// Stops every accessibility observation owned by this AXorcist instance.
+    public func stopObserving() {
+        let tokens = self.observationTokens
+        self.observationTokens.removeAll()
+        for token in tokens {
+            do {
+                try self.observationRegistry.unsubscribe(token: token)
+            } catch {
+                self.logger.log(AXLogEntry(
+                    level: .warning,
+                    message: "Failed to stop observation token \(token.id): \(error.localizedDescription)"))
+            }
+        }
     }
 
     // MARK: Internal
@@ -147,6 +188,42 @@ public class AXorcist {
     // MARK: Private
 
     private let logger = GlobalAXLogger.shared // Use the shared logger
+    private let observationRegistry: any AXObservationRegistry
+    private let observationTargetResolver: ObservationTargetResolver?
+    private var observationTokens: Set<SubscriptionToken> = []
+
+    // MARK: - Observation Ownership
+
+    func resolveObservationTarget(
+        appIdentifier: String,
+        locator: Locator,
+        maxDepth: Int) -> (element: Element?, error: String?)
+    {
+        if let observationTargetResolver = self.observationTargetResolver {
+            return observationTargetResolver(appIdentifier, locator, maxDepth)
+        }
+        return findTargetElement(
+            for: appIdentifier,
+            locator: locator,
+            maxDepthForSearch: maxDepth)
+    }
+
+    func subscribeToObservation(
+        pid: pid_t?,
+        element: Element,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+    {
+        let result = self.observationRegistry.subscribe(
+            pid: pid,
+            element: element,
+            notification: notification,
+            handler: handler)
+        if case let .success(token) = result {
+            self.observationTokens.insert(token)
+        }
+        return result
+    }
 
     private func execute(commandEnvelope: AXCommandEnvelope) -> AXResponse {
         if let response = executeQueryRelatedCommands(commandEnvelope) {

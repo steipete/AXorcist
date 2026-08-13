@@ -15,12 +15,21 @@ import Foundation
 /// - Registration and lifecycle management of notification subscriptions
 /// - Process-specific observer tracking
 /// - Automatic cleanup of observers when processes terminate
-/// - Thread-safe observer operations
+/// - Main-actor-isolated observer operations
 ///
 /// This center ensures efficient resource usage by reusing observers for the same
 /// process and prevents memory leaks by properly cleaning up observers.
 @MainActor
 public final class AXObserverCenter {
+    typealias ObserverSetup = @MainActor (
+        _ pid: pid_t?,
+        _ element: Element?,
+        _ notification: AXNotification) -> AXError
+    typealias ObserverCleanup = @MainActor (
+        _ pid: pid_t?,
+        _ element: Element,
+        _ notification: AXNotification) -> Void
+
     // MARK: - Public State
 
     /// Shared instance
@@ -32,22 +41,31 @@ public final class AXObserverCenter {
     }
 
     /// All registered observer keys
-    public var registeredKeys: [AXNotificationSubscriptionKey] { // Updated to use new key type
-        // return observerKeys // Old way
-        Array(self.subscriptions.keys)
+    public var registeredKeys: [AXNotificationSubscriptionKey] {
+        self.subscriptionStore.registeredKeys
     }
 
     // MARK: - Stored State
 
-    /// Stores multiple handlers per notification key (and optional PID)
-    private var subscriptions: [AXNotificationSubscriptionKey: [UUID: AXNotificationSubscriptionHandler]] = [:]
-    private var subscriptionTokens: [UUID: AXNotificationSubscriptionKey] = [:]
+    private let subscriptionStore = AXObserverSubscriptionStore()
     private var observers: [AXObserverObjAndPID] = []
-    private let subscriptionsLock = NSLock()
+    private let observerSetupOverride: ObserverSetup?
+    private let observerCleanupOverride: ObserverCleanup?
 
     // MARK: - Lifecycle
 
-    private init() {}
+    private init() {
+        self.observerSetupOverride = nil
+        self.observerCleanupOverride = nil
+    }
+
+    init(
+        observerSetup: @escaping ObserverSetup,
+        observerCleanup: @escaping ObserverCleanup)
+    {
+        self.observerSetupOverride = observerSetup
+        self.observerCleanupOverride = observerCleanup
+    }
 }
 
 // MARK: - Public API
@@ -67,27 +85,20 @@ extension AXObserverCenter {
                 "Element: \(elementDescriptionForLog)",
                 "notification: \(notification.rawValue)"))
 
-        let token = SubscriptionToken(id: UUID())
-        let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-
-        self.subscriptionsLock.lock()
-        defer { subscriptionsLock.unlock() }
-
-        let setupError = setupUnderlyingObserver(forPid: pid, forElement: element, notification: notification)
+        let registration = self.registrationKey(pid: pid, element: element, notification: notification)
+        let setupError = if self.subscriptionStore.contains(registration: registration) {
+            AXError.success
+        } else {
+            self.setupUnderlyingObserver(registration)
+        }
         guard setupError == .success else {
-            let errorMsg = "Failed to setup underlying AXObserver for \(describePid(pid)) " +
+            let errorMessage = "Failed to setup underlying AXObserver for \(describePid(pid)) " +
                 "notification \(notification.rawValue) (AXError \(setupError.rawValue))"
-            axErrorLog(
-                logSegments(
-                    "Failed to setup underlying AXObserver for \(describePid(pid))",
-                    "notification \(notification.rawValue)",
-                    "error: \(setupError.rawValue)"))
-            return .failure(.observerSetupFailed(details: errorMsg))
+            axErrorLog(errorMessage)
+            return .failure(.observerSetupFailed(details: errorMessage))
         }
 
-        self.subscriptions[key, default: [:]][token.id] = handler
-        self.subscriptionTokens[token.id] = key
-
+        let token = self.subscriptionStore.add(registration: registration, handler: handler)
         axInfoLog(
             logSegments(
                 "Successfully subscribed handler (token: \(token.id)) for \(describePid(pid))",
@@ -96,124 +107,116 @@ extension AXObserverCenter {
     }
 
     public func unsubscribe(token: SubscriptionToken) throws {
-        self.subscriptionsLock.lock()
-        defer { subscriptionsLock.unlock() }
-
-        guard let key = subscriptionTokens.removeValue(forKey: token.id) else {
+        let removal: AXObserverSubscriptionStore.Removal
+        do {
+            removal = try self.subscriptionStore.remove(token: token)
+        } catch {
             axErrorLog("Unsubscribe failed: Token ID \(token.id) not found.")
-            throw AccessibilityError.tokenNotFound(tokenId: token.id)
+            throw error
         }
 
-        guard var handlersForKey = subscriptions[key] else {
-            let tokenKeyDescription = "token \(token.id) (key: \(key))"
-            axWarningLog(
-                logSegments(
-                    "Handler for \(tokenKeyDescription) missing in subscriptions dictionary",
-                    "token existed"))
-            return
-        }
-        guard handlersForKey.removeValue(forKey: token.id) != nil else { return }
-
-        self.subscriptions[key] = handlersForKey
         axInfoLog(
             logSegments(
-                "Successfully unsubscribed handler (token: \(token.id)) for \(describePid(key.pid))",
-                "notification: \(key.notification.rawValue)"))
-        if handlersForKey.isEmpty {
-            self.subscriptions.removeValue(forKey: key)
-            axDebugLog(
-                logSegments(
-                    "No handlers left for \(describePid(key.pid))",
-                    "notification: \(key.notification.rawValue). Key removed from subscriptions"))
-            if let targetPid = key.pid {
-                cleanupUnderlyingObserverNotification(forPid: targetPid, notification: key.notification)
-            }
-        } else {
-            self.subscriptions[key] = handlersForKey
-        }
+                "Successfully unsubscribed handler (token: \(token.id)) " +
+                    "for \(describePid(removal.registration.subscription.pid))",
+                "notification: \(removal.registration.subscription.notification.rawValue)"))
+        guard removal.removedLastHandler else { return }
+
+        axDebugLog(
+            logSegments(
+                "No handlers left for \(describePid(removal.registration.subscription.pid))",
+                "notification: \(removal.registration.subscription.notification.rawValue). " +
+                    "Registration removed from subscriptions"))
+        self.cleanupUnderlyingObserverNotification(removal.registration)
     }
 
     public func removeAllObservers() {
         axInfoLog("Removing all observers and subscriptions globally.")
-        self.subscriptionsLock.lock()
-        defer { subscriptionsLock.unlock() }
+        self.subscriptionStore.removeAll()
 
-        removeAllTokens()
-
-        if !self.observers.isEmpty || !self.subscriptions.isEmpty || !self.subscriptionTokens.isEmpty {
-            axWarningLog(
-                "removeAllObservers: observers, subscriptions, or tokens list not empty after mass unsubscribe. " +
-                    "observers: \(self.observers.count), subscriptions: \(self.subscriptions.count), " +
-                    "tokens: \(self.subscriptionTokens.count)")
-            self.observers.removeAll()
-            self.subscriptions.removeAll()
-            self.subscriptionTokens.removeAll()
+        for record in self.observers {
+            let source = AXObserverGetRunLoopSource(record.observer)
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .defaultMode)
+            CFRunLoopSourceInvalidate(source)
         }
+        self.observers.removeAll()
         axInfoLog("All observers and subscriptions have been cleared.")
     }
 
     public func removeAllObservers(for pid: pid_t) {
         axInfoLog("Removing all observers and subscriptions for PID \(pid)")
-        let tokensForPid = self.subscriptionTokens.filter { $0.value.pid == pid }.map(\.key)
-        for tokenId in tokensForPid {
-            try? self.unsubscribe(token: SubscriptionToken(id: tokenId))
+        for token in self.subscriptionStore.tokens(for: pid) {
+            try? self.unsubscribe(token: token)
         }
     }
 
     public func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool {
-        let key = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        return self.subscriptions[key]?.isEmpty == false
+        self.subscriptionStore.contains(pid: pid, notification: notification)
     }
 }
+
+// MARK: - Canonical Registry
+
+@MainActor
+extension AXObserverCenter: AXObservationRegistry {}
 
 // MARK: - Private Helpers
 
 @MainActor
 extension AXObserverCenter {
-    private func removeAllTokens() {
-        for (tokenId, key) in self.subscriptionTokens {
-            guard var handlers = subscriptions[key] else { continue }
-            handlers.removeValue(forKey: tokenId)
-            if handlers.isEmpty {
-                self.subscriptions.removeValue(forKey: key)
-                self.cleanupUnderlyingObserverNotification(forPid: key.pid, notification: key.notification)
-            } else {
-                self.subscriptions[key] = handlers
-            }
-        }
-        self.subscriptionTokens.removeAll()
-    }
-
     // MARK: - Internal AXObserver Management (previously addObserver / removeObserver)
 
-    /// Ensures an AXObserver is created for the PID and the notification is added to it.
-    /// This is called by `subscribe`.
-    private func setupUnderlyingObserver(
-        forPid pid: pid_t?,
-        forElement element: Element?,
-        notification: AXNotification) -> AXError
+    private func registrationKey(
+        pid: pid_t?,
+        element: Element?,
+        notification: AXNotification) -> AXObserverRegistrationKey
     {
         let targetPid = pid ?? 0
-        self.logObserverSetup(targetPid: targetPid, element: element, notification: notification)
+        let observedElement = Element(self.elementForObservation(
+            pid: pid,
+            targetPid: targetPid,
+            element: element,
+            notification: notification))
+        return AXObserverRegistrationKey(
+            subscription: AXNotificationSubscriptionKey(pid: pid, notification: notification),
+            element: observedElement,
+            scope: self.registrationScope(pid: pid, observedElement: observedElement))
+    }
+
+    private func registrationScope(pid: pid_t?, observedElement: Element) -> AXObserverRegistrationKey.Scope {
+        guard let pid else { return .process }
+        let applicationElement = Element(AXUIElement.application(pid: pid))
+        return observedElement == applicationElement ? .process : .element
+    }
+
+    /// Ensures an AXObserver is created for the exact registration target.
+    private func setupUnderlyingObserver(_ registration: AXObserverRegistrationKey) -> AXError {
+        let subscription = registration.subscription
+        if let observerSetupOverride {
+            return observerSetupOverride(subscription.pid, registration.element, subscription.notification)
+        }
+
+        let targetPid = subscription.pid ?? 0
+        self.logObserverSetup(
+            targetPid: targetPid,
+            element: registration.element,
+            notification: subscription.notification)
         guard let observer = getOrCreateObserver(for: targetPid) else {
             axErrorLog("Failed to get/create AXObserver for effective PID \(targetPid) during setup.")
             return .failure
         }
 
-        let elementToObserveAXUI = self.elementForObservation(
-            pid: pid,
-            targetPid: targetPid,
-            element: element,
-            notification: notification)
-
         let selfPtr = Unmanaged.passUnretained(self).toOpaque()
         let error = AXObserverAddNotification(
             observer,
-            elementToObserveAXUI,
-            notification.rawValue as CFString,
+            registration.element.underlyingElement,
+            subscription.notification.rawValue as CFString,
             selfPtr)
 
-        self.logObserverAddResult(targetPid: targetPid, notification: notification, error: error)
+        self.logObserverAddResult(targetPid: targetPid, notification: subscription.notification, error: error)
+        if error != .success {
+            self.removeObserverIfUnused(targetPid: targetPid)
+        }
         return error
     }
 
@@ -268,21 +271,25 @@ extension AXObserverCenter {
         }
     }
 
-    /// Called when a subscription is removed and its key might no longer be needed by any handler.
-    /// This function will decide if AXObserverRemoveNotification should be called.
-    private func cleanupUnderlyingObserverNotification(forPid pid: pid_t?, notification: AXNotification) {
-        let targetPid = pid ?? 0
+    /// Removes the exact system registration after its final handler unsubscribes.
+    private func cleanupUnderlyingObserverNotification(_ registration: AXObserverRegistrationKey) {
+        let subscription = registration.subscription
+        if let observerCleanupOverride {
+            observerCleanupOverride(subscription.pid, registration.element, subscription.notification)
+            return
+        }
+
+        let targetPid = subscription.pid ?? 0
         axDebugLog(
             logSegments(
                 "Cleanup check for underlying AXObserver notification for \(describePid(targetPid))",
-                "notification: \(notification.rawValue)"))
+                "notification: \(subscription.notification.rawValue)"))
 
-        let specificKey = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        guard self.subscriptions[specificKey]?.isEmpty ?? true else {
+        guard !self.subscriptionStore.contains(registration: registration) else {
             axDebugLog(
                 logSegments(
-                    "Specific subscriptions still exist for \(describePid(pid))",
-                    "notification: \(notification.rawValue). AXObserver notification retained"))
+                    "Specific subscriptions still exist for \(describePid(subscription.pid))",
+                    "notification: \(subscription.notification.rawValue). AXObserver notification retained"))
             return
         }
 
@@ -290,35 +297,36 @@ extension AXObserverCenter {
             axWarningLog(
                 logSegments(
                     "No AXObserver found for \(describePid(targetPid)) during cleanup",
-                    "notification: \(notification.rawValue)"))
+                    "notification: \(subscription.notification.rawValue)"))
             return
         }
 
-        let elementToObserve = pid == nil ? AXUIElementCreateSystemWide() : AXUIElement.application(pid: targetPid)
-        let error = AXObserverRemoveNotification(observer, elementToObserve, notification.rawValue as CFString)
+        let error = AXObserverRemoveNotification(
+            observer,
+            registration.element.underlyingElement,
+            subscription.notification.rawValue as CFString)
 
         if error == .success {
             axInfoLog(
                 logSegments(
                     "Successfully removed notification from AXObserver for \(describePid(targetPid))",
-                    "key: \(notification.rawValue) during cleanup"))
+                    "key: \(subscription.notification.rawValue) during cleanup"))
             self.removeObserverIfUnused(targetPid: targetPid)
         } else {
             axErrorLog(
                 logSegments(
                     "Failed to remove notification from AXObserver for \(describePid(targetPid))",
-                    "key: \(notification.rawValue)",
+                    "key: \(subscription.notification.rawValue)",
                     "error: \(error.rawValue)"))
         }
     }
 
     private func removeObserverIfUnused(targetPid: pid_t) {
-        let hasAnySubscription = self.subscriptions.contains { key, handlers in
-            let keyPid = key.pid ?? 0
-            return keyPid == targetPid && !handlers.isEmpty
-        }
+        let hasAnySubscription = self.subscriptionStore.containsSubscriptions(forEffectivePID: targetPid)
         guard !hasAnySubscription, let observer = getObserver(for: targetPid) else { return }
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        let source = AXObserverGetRunLoopSource(observer)
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .defaultMode)
+        CFRunLoopSourceInvalidate(source)
         self.removePidObserverInstance(pid: targetPid)
     }
 
@@ -401,52 +409,17 @@ extension AXObserverCenter {
 
     // MARK: - Main Notification Processing (Called by global callbacks)
 
-    @MainActor // Ensure this runs on the main actor as handlers are @MainActor
-    private func processNotification(
+    func processNotification(
         pid: pid_t,
         notification: AXNotification,
         rawElement: AXUIElement,
         nsUserInfo: [String: Any]?)
     {
-        self.subscriptionsLock.lock()
-        defer { subscriptionsLock.unlock() }
-
-        // Construct keys for both specific PID and global (nil PID)
-        let specificKey = AXNotificationSubscriptionKey(pid: pid, notification: notification)
-        let globalKey = AXNotificationSubscriptionKey(pid: nil, notification: notification)
-
-        var handlersToCall: [AXNotificationSubscriptionHandler] = []
-
-        // Check for handlers specific to this PID and notification
-        if let specificHandlers = subscriptions[specificKey] {
-            handlersToCall.append(contentsOf: specificHandlers.values)
-        }
-
-        // Check for global handlers for this notification (if not already covered by specific PID match)
-        // This ensures global handlers are called even if a specific PID handler also exists for the same notification
-        // type.
-        if let globalHandlers = subscriptions[globalKey] {
-            handlersToCall.append(contentsOf: globalHandlers.values)
-        }
-
-        // Deduplicate handlers if any subscribed to both specific and global for the same notification (though unlikely
-        // with UUID keys)
-        // let uniqueHandlers = Array(Set(handlersToCall)) // Set requires AXNotificationSubscriptionHandler to be
-        // Hashable, which it might not be (closure).
-        // For now, direct invocation. If a handler is in both lists, it will be called twice.
-        // This design assumes handlers are distinct or idempotent if registered for both global and specific.
-
-        if handlersToCall.isEmpty {
-            // axDebugLog("No handlers registered for PID \(pid), Notification \(notification.rawValue).")
-            return
-        }
-
-        // axDebugLog("Processing notification for PID \(pid), Notification \(notification.rawValue). Invoking
-        // \(handlersToCall.count) handlers.")
-
-        for handler in handlersToCall {
-            handler(pid, notification, rawElement, nsUserInfo)
-        }
+        self.subscriptionStore.dispatch(
+            pid: pid,
+            notification: notification,
+            rawElement: rawElement,
+            userInfo: nsUserInfo)
     }
 
     private func convertUserInfoDictionary(_ userInfo: CFDictionary?) -> [String: Any]? {

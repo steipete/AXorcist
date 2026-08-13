@@ -104,20 +104,19 @@ struct AXORCCommand: ParsableCommand {
         }
 
         if command.command == .observe {
-            self.handleObserveCommand(resultJsonString: resultJsonString, debugCLI: self.debug)
+            self.handleSuccessfulObserveCommand(owner: axorcist)
         } else {
             axClearLogs()
         }
     }
 
     @MainActor
-    private func handleObserveCommand(resultJsonString: String, debugCLI: Bool) {
-        let observerSetupSucceeded = self.parseObserveSetup(resultJsonString)
-        if observerSetupSucceeded {
-            axInfoLog(
-                logSegments(
-                    "AXORCMain: Observer setup successful",
-                    "Process will remain alive by running current RunLoop"))
+    private func handleSuccessfulObserveCommand(owner: AXorcist) {
+        axInfoLog(
+            logSegments(
+                "AXORCMain: Observer setup successful",
+                "Process will remain alive by running current RunLoop"))
+        withExtendedLifetime(owner) {
             #if DEBUG
             axInfoLog("AXORCMain: DEBUG mode - entering RunLoop.current.run() for observer.")
             RunLoop.current.run()
@@ -131,54 +130,6 @@ struct AXORCCommand: ParsableCommand {
             fputs(errorPayload, stderr)
             fflush(stderr)
             #endif
-        } else {
-            axErrorLog(
-                logSegments(
-                    "AXORCMain: Observe command setup reported failure or result was not a success status",
-                    "Exiting"))
-        }
-    }
-
-    private func parseObserveSetup(_ jsonString: String) -> Bool {
-        guard let resultData = jsonString.data(using: .utf8) else {
-            axErrorLog("AXORCMain: Could not convert result JSON string to data for observe setup check.")
-            return false
-        }
-
-        do {
-            if
-                let jsonOutput = try JSONSerialization.jsonObject(with: resultData, options: []) as?
-                [String: Any],
-                let success = jsonOutput["success"] as? Bool,
-                let status = jsonOutput["status"] as? String
-            {
-                axInfoLog(
-                    logSegments(
-                        "AXORCMain: Parsed initial response for observe",
-                        "success=\(success)",
-                        "status=\(status)"))
-                if success, status == "observer_started" {
-                    axInfoLog("AXORCMain: Observer setup deemed SUCCEEDED for observe command.")
-                    return true
-                }
-                axInfoLog(
-                    logSegments(
-                        "AXORCMain: Observer setup deemed FAILED for observe command",
-                        "success=\(success)",
-                        "status=\(status)"))
-                return false
-            }
-            axErrorLog(
-                logSegments(
-                    "AXORCMain: Failed to parse expected fields (success, status)",
-                    "from observe setup JSON"))
-            return false
-        } catch {
-            axErrorLog(
-                logSegments(
-                    "AXORCMain: Could not parse result JSON from observe setup to check for success",
-                    error.localizedDescription))
-            return false
         }
     }
 

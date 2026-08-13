@@ -62,20 +62,15 @@ extension Element {
     }
 
     @MainActor public func pid() -> pid_t? {
-        var pidRef: CFTypeRef?
-        let error = AXUIElementCopyAttributeValue(
-            self.underlyingElement,
-            AXAttributeNames.kAXPIDAttribute as CFString,
-            &pidRef)
-        if error == .success, let pidNum = pidRef as? NSNumber {
-            return pid_t(pidNum.intValue)
-        } else {
-            // Use the global axDebugLog helper function for simplicity and correctness
+        var processIdentifier: pid_t = 0
+        let error = AXUIElementGetPid(self.underlyingElement, &processIdentifier)
+        guard error == .success else {
             axDebugLog(
                 "Failed to get PID for element: \(error.rawValue)",
                 details: ["element": AnyCodable(String(describing: self.underlyingElement))])
+            return nil
         }
-        return nil
+        return processIdentifier
     }
 
     /// Hierarchy and Relationship Getters - simplified

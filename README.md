@@ -493,6 +493,9 @@ Monitor UI changes with these notifications:
 - **AXSelectedTextChanged** - Text selection changes
 - **AXLayoutChanged** - Layout updates
 
+Observe and `stopObservation` commands executed by the same `AXorcist` instance share one subscription registry, so a
+successful stop clears the observations that instance started.
+
 ### Observer Example
 
 ```json

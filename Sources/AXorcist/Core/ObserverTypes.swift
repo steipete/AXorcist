@@ -15,6 +15,18 @@ public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: El
     _ rawElement: AXUIElement,
     _ nsUserInfo: [String: Any]?) -> Void
 
+/// The single registration boundary used by AXorcist's observer APIs.
+@MainActor
+protocol AXObservationRegistry: AnyObject, Sendable {
+    func subscribe(
+        pid: pid_t?,
+        element: Element?,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+
+    func unsubscribe(token: SubscriptionToken) throws
+}
+
 /// Key for tracking accessibility notification subscriptions.
 ///
 /// Allows for both process-specific and global notification observers.
@@ -25,6 +37,18 @@ public struct AXNotificationSubscriptionKey: Hashable {
 
     /// The accessibility notification type to observe.
     let notification: AXNotification
+}
+
+/// Exact system registration identity retained until the final matching handler unsubscribes.
+struct AXObserverRegistrationKey: Hashable {
+    enum Scope: Hashable {
+        case process
+        case element
+    }
+
+    let subscription: AXNotificationSubscriptionKey
+    let element: Element
+    let scope: Scope
 }
 
 /// Key combining process ID and notification type for observer tracking.
@@ -63,7 +87,113 @@ public struct AXObserverObjAndPID {
 /// // Later...
 /// observerCenter.unsubscribe(token)
 /// ```
-public struct SubscriptionToken: Hashable {
+public nonisolated struct SubscriptionToken: Hashable, Sendable {
     /// Unique identifier for this subscription.
     let id: UUID
+}
+
+/// Main-actor-isolated subscription storage. Dispatch snapshots handlers before invoking them,
+/// so callbacks can safely unsubscribe themselves or other callbacks.
+@MainActor
+final class AXObserverSubscriptionStore {
+    struct Removal {
+        let registration: AXObserverRegistrationKey
+        let removedLastHandler: Bool
+    }
+
+    private var subscriptions: [AXObserverRegistrationKey: [UUID: AXNotificationSubscriptionHandler]] = [:]
+    private var subscriptionTokens: [UUID: AXObserverRegistrationKey] = [:]
+
+    var registeredKeys: [AXNotificationSubscriptionKey] {
+        Array(Set(self.subscriptions.keys.map(\.subscription)))
+    }
+
+    func add(
+        registration: AXObserverRegistrationKey,
+        handler: @escaping AXNotificationSubscriptionHandler) -> SubscriptionToken
+    {
+        let token = SubscriptionToken(id: UUID())
+        self.subscriptions[registration, default: [:]][token.id] = handler
+        self.subscriptionTokens[token.id] = registration
+        return token
+    }
+
+    func remove(token: SubscriptionToken) throws -> Removal {
+        guard let registration = self.subscriptionTokens.removeValue(forKey: token.id) else {
+            throw AccessibilityError.tokenNotFound(tokenId: token.id)
+        }
+
+        guard var handlers = self.subscriptions[registration], handlers.removeValue(forKey: token.id) != nil else {
+            return Removal(
+                registration: registration,
+                removedLastHandler: self.subscriptions[registration]?.isEmpty != false)
+        }
+
+        if handlers.isEmpty {
+            self.subscriptions.removeValue(forKey: registration)
+        } else {
+            self.subscriptions[registration] = handlers
+        }
+        return Removal(registration: registration, removedLastHandler: handlers.isEmpty)
+    }
+
+    func removeAll() {
+        self.subscriptions.removeAll()
+        self.subscriptionTokens.removeAll()
+    }
+
+    func tokens(for pid: pid_t) -> [SubscriptionToken] {
+        self.subscriptionTokens.compactMap { tokenID, registration in
+            registration.subscription.pid == pid ? SubscriptionToken(id: tokenID) : nil
+        }
+    }
+
+    func contains(pid: pid_t?, notification: AXNotification) -> Bool {
+        self.subscriptions.contains { registration, handlers in
+            registration.subscription.pid == pid &&
+                registration.subscription.notification == notification &&
+                !handlers.isEmpty
+        }
+    }
+
+    func contains(registration: AXObserverRegistrationKey) -> Bool {
+        self.subscriptions[registration]?.isEmpty == false
+    }
+
+    func containsSubscriptions(forEffectivePID pid: pid_t) -> Bool {
+        self.subscriptions.contains { registration, handlers in
+            (registration.subscription.pid ?? 0) == pid && !handlers.isEmpty
+        }
+    }
+
+    func dispatch(
+        pid: pid_t,
+        notification: AXNotification,
+        rawElement: AXUIElement,
+        userInfo: [String: Any]?)
+    {
+        let specificKey = AXNotificationSubscriptionKey(
+            pid: pid,
+            notification: notification)
+        let globalKey = AXNotificationSubscriptionKey(pid: nil, notification: notification)
+        var handlersToCall: [AXNotificationSubscriptionHandler] = []
+        let eventElement = Element(rawElement)
+        for (registration, handlers) in self.subscriptions {
+            let subscription = registration.subscription
+            let matchesGlobal = subscription == globalKey
+            let matchesProcess = subscription == specificKey && registration.scope == .process
+            // AXObserver registrations are object-specific. Only application registrations use process scope;
+            // element registrations must not fan the callback out to sibling accessibility objects.
+            let matchesElement = subscription == specificKey &&
+                registration.scope == .element &&
+                registration.element == eventElement
+            if matchesGlobal || matchesProcess || matchesElement {
+                handlersToCall.append(contentsOf: handlers.values)
+            }
+        }
+
+        for handler in handlersToCall {
+            handler(pid, notification, rawElement, userInfo)
+        }
+    }
 }
