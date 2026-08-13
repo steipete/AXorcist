@@ -3,30 +3,14 @@
 # Define the output binary name
 BINARY_NAME = axorc
 UNIVERSAL_BINARY_PATH = ./$(BINARY_NAME)
-RELEASE_BUILD_DIR := ./.build/arm64-apple-macosx/release
-RELEASE_BUILD_DIR_X86 := ./.build/x86_64-apple-macosx/release
 
-# Build for arm64 and x86_64, then lipo them together
-# -Xswiftc -Osize: Optimize for size
-# -Xlinker -Wl,-dead_strip: Remove dead code
-# strip -x: Strip symbol table and debug info
-# Ensure old binary is removed first
+# Build and ad-hoc sign a universal local binary.
 all:
-	@echo "Cleaning old binary and build artifacts..."
+	@echo "Cleaning old binary..."
 	rm -f $(UNIVERSAL_BINARY_PATH)
-	swift package clean
-	@echo "Building for arm64..."
-	swift build --arch arm64 -c release -Xswiftc -Osize -Xlinker -dead_strip
-	@echo "Building for x86_64..."
-	swift build --arch x86_64 -c release -Xswiftc -Osize -Xlinker -dead_strip
-	@echo "Creating universal binary..."
-	lipo -create -output $(UNIVERSAL_BINARY_PATH) $(RELEASE_BUILD_DIR)/$(BINARY_NAME) $(RELEASE_BUILD_DIR_X86)/$(BINARY_NAME)
-	@echo "Stripping symbols from universal binary..."
-	strip -x $(UNIVERSAL_BINARY_PATH)
+	./scripts/build-universal-binary.sh $(UNIVERSAL_BINARY_PATH) --adhoc
 	@echo "Build complete: $(UNIVERSAL_BINARY_PATH)"
 	@ls -l $(UNIVERSAL_BINARY_PATH)
-	@codesign -s - $(UNIVERSAL_BINARY_PATH)
-	@echo "Codesigned $(UNIVERSAL_BINARY_PATH)"
 
 
 clean:

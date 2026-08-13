@@ -65,19 +65,10 @@ checksum_path="$archive_path.sha256"
 rm -rf "$stage_dir" "$archive_path" "$checksum_path"
 mkdir -p "$stage_dir"
 
-swift build -c release --arch arm64 --product axorc
-swift build -c release --arch x86_64 --product axorc
-
-lipo -create \
-  .build/arm64-apple-macosx/release/axorc \
-  .build/x86_64-apple-macosx/release/axorc \
-  -output "$binary_path"
-strip -x "$binary_path"
-
 if [[ "$adhoc" == true ]]; then
-  codesign --force --sign - "$binary_path"
+  "$repo_root/scripts/build-universal-binary.sh" "$binary_path" --adhoc
 else
-  codesign --force --options runtime --timestamp --sign "$AXORC_CODESIGN_IDENTITY" "$binary_path"
+  "$repo_root/scripts/build-universal-binary.sh" "$binary_path"
 fi
 
 codesign --verify --strict --verbose=2 "$binary_path"
