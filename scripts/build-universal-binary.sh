@@ -43,33 +43,24 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-stage_dir="$(mktemp -d "${TMPDIR:-/tmp}/axorc-universal.XXXXXX")"
-cleanup() {
-  rm -rf "$stage_dir"
-}
-trap cleanup EXIT
+build_arguments=(-c release --arch arm64 --arch x86_64 --product axorc)
+swift build "${build_arguments[@]}"
+bin_dir="$(swift build "${build_arguments[@]}" --show-bin-path)"
+built_binary="$bin_dir/axorc"
+if [[ ! -x "$built_binary" ]]; then
+  echo "Built universal axorc binary is missing: $built_binary" >&2
+  exit 1
+fi
 
-build_architecture() {
-  local architecture="$1"
-  local destination="$2"
-  local bin_dir
-
-  swift build -c release --arch "$architecture" --product axorc
-  bin_dir="$(swift build -c release --arch "$architecture" --show-bin-path)"
-  if [[ ! -x "$bin_dir/axorc" ]]; then
-    echo "Built axorc binary is missing for $architecture: $bin_dir/axorc" >&2
+for architecture in arm64 x86_64; do
+  if ! lipo "$built_binary" -verify_arch "$architecture"; then
+    echo "Built axorc binary is missing the $architecture architecture: $built_binary" >&2
     exit 1
   fi
-  install -m 0755 "$bin_dir/axorc" "$destination"
-}
-
-arm64_binary="$stage_dir/axorc-arm64"
-x86_64_binary="$stage_dir/axorc-x86_64"
-build_architecture arm64 "$arm64_binary"
-build_architecture x86_64 "$x86_64_binary"
+done
 
 mkdir -p "$(dirname "$output_path")"
-lipo -create "$arm64_binary" "$x86_64_binary" -output "$output_path"
+install -m 0755 "$built_binary" "$output_path"
 strip -x "$output_path"
 
 if [[ "$adhoc" == true ]]; then
