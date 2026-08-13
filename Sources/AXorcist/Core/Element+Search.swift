@@ -47,7 +47,15 @@ extension Element {
         options: ElementSearchOptions = ElementSearchOptions()) -> [Element]
     {
         var results: [Element] = []
-        self.searchElementsRecursively(matching: query, options: options, currentDepth: 0, results: &results)
+        traverseAXTree(
+            from: self,
+            maxDepth: options.maxDepth > 0 ? options.maxDepth : nil)
+        { element, _ in
+            if element.matches(query: query, options: options) {
+                results.append(element)
+            }
+            return .continue
+        }
         return results
     }
 
@@ -61,7 +69,18 @@ extension Element {
         matching query: String,
         options: ElementSearchOptions = ElementSearchOptions()) -> Element?
     {
-        self.findElementRecursively(matching: query, options: options, currentDepth: 0)
+        var result: Element?
+        traverseAXTree(
+            from: self,
+            maxDepth: options.maxDepth > 0 ? options.maxDepth : nil)
+        { element, _ in
+            guard element.matches(query: query, options: options) else {
+                return .continue
+            }
+            result = element
+            return .stop
+        }
+        return result
     }
 
     /// Search for elements by role
@@ -75,7 +94,21 @@ extension Element {
         options: ElementSearchOptions = ElementSearchOptions()) -> [Element]
     {
         var results: [Element] = []
-        self.searchElementsByRoleRecursively(role: role, options: options, currentDepth: 0, results: &results)
+        traverseAXTree(
+            from: self,
+            maxDepth: options.maxDepth > 0 ? options.maxDepth : nil)
+        { element, _ in
+            if options.visibleOnly, element.isHidden() == true {
+                return .skipChildren
+            }
+            if options.enabledOnly, element.isEnabled() == false {
+                return .skipChildren
+            }
+            if element.role() == role {
+                results.append(element)
+            }
+            return .continue
+        }
         return results
     }
 
@@ -130,106 +163,6 @@ extension Element {
 
         return false
     }
-
-    // MARK: - Private Search Methods
-
-    @MainActor
-    private func searchElementsRecursively(
-        matching query: String,
-        options: ElementSearchOptions,
-        currentDepth: Int,
-        results: inout [Element])
-    {
-        // Check depth limit
-        if options.maxDepth > 0, currentDepth > options.maxDepth {
-            return
-        }
-
-        // Check if current element matches
-        if self.matches(query: query, options: options) {
-            results.append(self)
-        }
-
-        // Search children
-        if let children = children() {
-            for child in children {
-                child.searchElementsRecursively(
-                    matching: query,
-                    options: options,
-                    currentDepth: currentDepth + 1,
-                    results: &results)
-            }
-        }
-    }
-
-    @MainActor
-    private func findElementRecursively(
-        matching query: String,
-        options: ElementSearchOptions,
-        currentDepth: Int) -> Element?
-    {
-        // Check depth limit
-        if options.maxDepth > 0, currentDepth > options.maxDepth {
-            return nil
-        }
-
-        // Check if current element matches
-        if self.matches(query: query, options: options) {
-            return self
-        }
-
-        // Search children
-        if let children = children() {
-            for child in children {
-                if let found = child.findElementRecursively(
-                    matching: query,
-                    options: options,
-                    currentDepth: currentDepth + 1)
-                {
-                    return found
-                }
-            }
-        }
-
-        return nil
-    }
-
-    @MainActor
-    private func searchElementsByRoleRecursively(
-        role: String,
-        options: ElementSearchOptions,
-        currentDepth: Int,
-        results: inout [Element])
-    {
-        // Check depth limit
-        if options.maxDepth > 0, currentDepth > options.maxDepth {
-            return
-        }
-
-        // Check visibility and enabled state if required
-        if options.visibleOnly, isHidden() == true {
-            return
-        }
-        if options.enabledOnly, isEnabled() == false {
-            return
-        }
-
-        // Check if current element has the specified role
-        if self.role() == role {
-            results.append(self)
-        }
-
-        // Search children
-        if let children = children() {
-            for child in children {
-                child.searchElementsByRoleRecursively(
-                    role: role,
-                    options: options,
-                    currentDepth: currentDepth + 1,
-                    results: &results)
-            }
-        }
-    }
 }
 
 // MARK: - Convenience Methods
@@ -256,18 +189,14 @@ extension Element {
     /// Find element by identifier
     @MainActor
     public func findElement(byIdentifier identifier: String) -> Element? {
-        if self.identifier() == identifier {
-            return self
-        }
-
-        if let children = children() {
-            for child in children {
-                if let found = child.findElement(byIdentifier: identifier) {
-                    return found
-                }
+        var result: Element?
+        traverseAXTree(from: self) { element, _ in
+            if element.identifier() == identifier {
+                result = element
+                return .stop
             }
+            return .continue
         }
-
-        return nil
+        return result
     }
 }

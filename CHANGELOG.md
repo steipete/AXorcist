@@ -6,10 +6,12 @@ All notable changes to AXorcist will be documented in this file.
 
 ### Added
 - Add a typed native setter for accessibility selected-text ranges.
+- Add immutable per-request accessibility traversal options while keeping the legacy process defaults source-compatible and thread-safe.
 
 ### Fixed
 - Preserve exact PID targets across CLI command conversion, reject conflicting application and PID selectors, and report point lookup misses as errors.
 - Refuse element-scoped typing when native focus cannot be established, preventing keyboard events from reaching an unrelated focused app.
+- Route the visitor, collection, element-search, UI-automation, and deep JSON-path walkers through one identity-aware traversal kernel while preserving their established order, depth, pruning, and match semantics.
 - Preserve middle and right mouse-button identity across clicks, holds, and drags, and build complete input sequences before posting so allocation failures cannot leave a button held down.
 - Resolve each architecture from SwiftPM's reported output when building universal release artifacts instead of assuming a fixed build directory.
 - Preserve attributed-string parameterized results and route both public generic accessors through one native conversion path.

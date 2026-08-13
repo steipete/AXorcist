@@ -32,10 +32,17 @@ private struct AXTraversalPendingElement {
     let depth: Int
 }
 
+private enum AXTraversalVisitDisposition {
+    case continueTraversal
+    case skipChildren
+    case stop
+}
+
 private struct AXTraversalState {
     var pending: [AXTraversalPendingElement]
     var breadthIndex = 0
-    var visited = Set<Element>()
+    var visitDispositions: [Element: AXTraversalVisitDisposition] = [:]
+    var shallowestExpandedDepth: [Element: Int] = [:]
 
     init(root: Element, initialDepth: Int) {
         self.pending = [AXTraversalPendingElement(element: root, depth: initialDepth)]
@@ -75,6 +82,38 @@ private struct AXTraversalState {
             AXTraversalPendingElement(element: $0, depth: parentDepth + 1)
         })
     }
+
+    mutating func visitDisposition(
+        for pendingElement: AXTraversalPendingElement,
+        visit: (Element, Int) -> TreeVisitorResult) -> AXTraversalVisitDisposition
+    {
+        if let disposition = self.visitDispositions[pendingElement.element] {
+            return disposition
+        }
+        let disposition: AXTraversalVisitDisposition = switch visit(
+            pendingElement.element,
+            pendingElement.depth)
+        {
+        case .continue:
+            .continueTraversal
+        case .skipChildren:
+            .skipChildren
+        case .stop:
+            .stop
+        }
+        self.visitDispositions[pendingElement.element] = disposition
+        return disposition
+    }
+
+    mutating func shouldExpand(_ pendingElement: AXTraversalPendingElement) -> Bool {
+        if let previousDepth = self.shallowestExpandedDepth[pendingElement.element],
+           previousDepth <= pendingElement.depth
+        {
+            return false
+        }
+        self.shallowestExpandedDepth[pendingElement.element] = pendingElement.depth
+        return true
+    }
 }
 
 /// The single identity-aware tree walker used by AXorcist's downward traversal surfaces.
@@ -108,23 +147,21 @@ func traverseAXTree(
         if let maxDepth, next.depth > maxDepth {
             continue
         }
-        guard state.visited.insert(next.element).inserted else {
-            continue
-        }
-
-        let visitResult = visit(next.element, next.depth)
-        switch visitResult {
+        switch state.visitDisposition(for: next, visit: visit) {
         case .stop:
             stopped = true
         case .skipChildren:
             continue
-        case .continue:
+        case .continueTraversal:
             break
         }
         if stopped {
             break
         }
         guard shouldDescend(next.element, next.depth) else {
+            continue
+        }
+        guard state.shouldExpand(next) else {
             continue
         }
         if let maxDepth, next.depth >= maxDepth {
@@ -138,7 +175,7 @@ func traverseAXTree(
     }
 
     return AXTraversalResult(
-        visitedCount: state.visited.count,
+        visitedCount: state.visitDispositions.count,
         timedOut: timedOut,
         stopped: stopped)
 }

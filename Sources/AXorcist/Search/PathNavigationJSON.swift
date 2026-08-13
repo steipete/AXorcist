@@ -240,37 +240,29 @@ private func findMatchRecursively(
         message: "PathNav/FMR: Starting recursive search for component '\(pathComponentForLog)' " +
             "with maxDepth \(maxDepth) from [\(rootElement.briefDescription(option: ValueFormatOption.smart))]"))
 
-    var queue: [(element: Element, depth: Int)] = [(rootElement, 0)]
-    var visited = Set<Element>()
-
-    while !queue.isEmpty {
-        let (currentElement, currentDepth) = queue.removeFirst()
-
-        if visited.contains(currentElement) {
-            continue
-        }
-        visited.insert(currentElement)
-
+    var result: Element?
+    traverseAXTree(
+        from: rootElement,
+        maxDepth: maxDepth,
+        order: .breadthFirst)
+    { element, depth in
         if elementMatchesAllCriteriaJSON(
-            currentElement,
+            element,
             criteria: criteria,
             matchType: matchType,
             forPathComponent: pathComponentForLog)
         {
             GlobalAXLogger.shared.log(AXLogEntry(
                 level: .info,
-                message: "PathNav/FMR: Found match at depth \(currentDepth): " +
-                    "[\(currentElement.briefDescription(option: ValueFormatOption.smart))]"))
-            return currentElement
+                message: "PathNav/FMR: Found match at depth \(depth): " +
+                    "[\(element.briefDescription(option: ValueFormatOption.smart))]"))
+            result = element
+            return .stop
         }
-
-        if currentDepth < maxDepth {
-            if let children = currentElement.children() {
-                for child in children {
-                    queue.append((child, currentDepth + 1))
-                }
-            }
-        }
+        return .continue
+    }
+    if let result {
+        return result
     }
 
     GlobalAXLogger.shared.log(AXLogEntry(
