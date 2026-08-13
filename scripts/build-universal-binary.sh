@@ -53,7 +53,7 @@ if [[ ! -x "$built_binary" ]]; then
 fi
 
 for architecture in arm64 x86_64; do
-  if ! lipo -verify_arch "$architecture" "$built_binary"; then
+  if ! lipo "$built_binary" -verify_arch "$architecture"; then
     echo "Built axorc binary is missing the $architecture architecture: $built_binary" >&2
     exit 1
   fi
