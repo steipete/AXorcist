@@ -14,9 +14,109 @@ struct InputDriverTests {
     @Test
     func `cachedLocation populates cache when empty`() {
         var cache: CGPoint?
-        _ = InputDriver.cachedLocation(using: &cache)
-        // If running in CI without UI, location may be nil; just assert cache mirrors result.
-        #expect(cache == InputDriver.currentLocation())
+        let result = InputDriver.cachedLocation(using: &cache)
+        #expect(cache == result)
+    }
+
+    @Test
+    func `mouse button event kinds preserve all three buttons`() {
+        #expect(MouseButton.left.eventKinds == MouseButtonEventKinds(
+            button: .left,
+            down: .leftMouseDown,
+            dragged: .leftMouseDragged,
+            up: .leftMouseUp))
+        #expect(MouseButton.right.eventKinds == MouseButtonEventKinds(
+            button: .right,
+            down: .rightMouseDown,
+            dragged: .rightMouseDragged,
+            up: .rightMouseUp))
+        #expect(MouseButton.middle.eventKinds == MouseButtonEventKinds(
+            button: .center,
+            down: .otherMouseDown,
+            dragged: .otherMouseDragged,
+            up: .otherMouseUp))
+    }
+
+    @Test
+    @MainActor
+    func `right drag prebuilds the complete matching event sequence`() throws {
+        let events = try InputDriver.dragEvents(
+            from: CGPoint(x: 10, y: 20),
+            to: CGPoint(x: 30, y: 40),
+            button: .right,
+            steps: 2)
+
+        #expect(events.down.type == .rightMouseDown)
+        #expect(events.moves.map(\.type) == [.rightMouseDragged, .rightMouseDragged])
+        #expect(events.up.type == .rightMouseUp)
+    }
+
+    @Test
+    @MainActor
+    func `drag allocation failure returns no partial sequence`() {
+        var creationCount = 0
+        do {
+            _ = try InputDriver.dragEvents(
+                from: CGPoint(x: 10, y: 20),
+                to: CGPoint(x: 30, y: 40),
+                button: .middle,
+                steps: 3,
+                makeEvent: { type, point, button in
+                    creationCount += 1
+                    guard creationCount < 3 else { return nil }
+                    return CGEvent(
+                        mouseEventSource: nil,
+                        mouseType: type,
+                        mouseCursorPosition: point,
+                        mouseButton: button)
+                })
+            Issue.record("Expected drag event creation to fail")
+        } catch UIAutomationError.failedToCreateEvent {
+            // Expected: the builder returns no sequence for a caller to post.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(creationCount == 3)
+    }
+
+    @Test
+    @MainActor
+    func `press hold allocation failure returns before posting`() {
+        var creationCount = 0
+        do {
+            _ = try InputDriver.pressHoldEvents(
+                at: CGPoint(x: 10, y: 20),
+                button: .middle,
+                makeEvent: { type, point, button in
+                    creationCount += 1
+                    guard creationCount == 1 else { return nil }
+                    return CGEvent(
+                        mouseEventSource: nil,
+                        mouseType: type,
+                        mouseCursorPosition: point,
+                        mouseButton: button)
+                })
+            Issue.record("Expected press-hold event creation to fail")
+        } catch UIAutomationError.failedToCreateEvent {
+            // Expected: mouse-down is never returned to the caller on partial allocation.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+        #expect(creationCount == 2)
+    }
+
+    @Test
+    @MainActor
+    func `preallocated mouse events can be timestamped at delivery`() throws {
+        let events = try InputDriver.pressHoldEvents(
+            at: CGPoint(x: 10, y: 20),
+            button: .left)
+
+        InputDriver.refreshTimestamp(events.down, timestamp: 100)
+        InputDriver.refreshTimestamp(events.up, timestamp: 200)
+
+        #expect(events.down.timestamp == 100)
+        #expect(events.up.timestamp == 200)
     }
 
     @Test

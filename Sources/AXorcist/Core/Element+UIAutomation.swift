@@ -10,6 +10,38 @@ public enum MouseButton: String, Sendable {
     case middle
 }
 
+struct MouseButtonEventKinds: Equatable {
+    let button: CGMouseButton
+    let down: CGEventType
+    let dragged: CGEventType
+    let up: CGEventType
+}
+
+extension MouseButton {
+    var eventKinds: MouseButtonEventKinds {
+        switch self {
+        case .left:
+            MouseButtonEventKinds(
+                button: .left,
+                down: .leftMouseDown,
+                dragged: .leftMouseDragged,
+                up: .leftMouseUp)
+        case .right:
+            MouseButtonEventKinds(
+                button: .right,
+                down: .rightMouseDown,
+                dragged: .rightMouseDragged,
+                up: .rightMouseUp)
+        case .middle:
+            MouseButtonEventKinds(
+                button: .center,
+                down: .otherMouseDown,
+                dragged: .otherMouseDragged,
+                up: .otherMouseUp)
+        }
+    }
+}
+
 // MARK: - Click Operations
 
 extension Element {
@@ -58,9 +90,7 @@ extension Element {
     {
         let clampedCount = max(1, clickCount)
 
-        let downType: CGEventType = (button == .left ? .leftMouseDown : .rightMouseDown)
-        let upType: CGEventType = (button == .left ? .leftMouseUp : .rightMouseUp)
-        let mouseButton: CGMouseButton = (button == .left ? .left : .right)
+        let eventKinds = button.eventKinds
 
         var pairs: [(down: CGEvent, up: CGEvent)] = []
         pairs.reserveCapacity(clampedCount)
@@ -68,18 +98,18 @@ extension Element {
         for clickIndex in 1...clampedCount {
             guard let mouseDown = CGEvent(
                 mouseEventSource: nil,
-                mouseType: downType,
+                mouseType: eventKinds.down,
                 mouseCursorPosition: point,
-                mouseButton: mouseButton)
+                mouseButton: eventKinds.button)
             else {
                 throw UIAutomationError.failedToCreateEvent
             }
 
             guard let mouseUp = CGEvent(
                 mouseEventSource: nil,
-                mouseType: upType,
+                mouseType: eventKinds.up,
                 mouseCursorPosition: point,
-                mouseButton: mouseButton)
+                mouseButton: eventKinds.button)
             else {
                 throw UIAutomationError.failedToCreateEvent
             }

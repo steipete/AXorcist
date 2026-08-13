@@ -38,4 +38,18 @@ struct ClickEventGenerationTests {
         #expect(pairs[1].down.getIntegerValueField(.mouseEventClickState) == 2)
         #expect(pairs[1].up.getIntegerValueField(.mouseEventClickState) == 2)
     }
+
+    @Test
+    @MainActor
+    func `Middle click uses other mouse events and the center button`() throws {
+        let pairs = try Element.buildClickEventPairs(
+            at: CGPoint(x: 10, y: 20),
+            button: .middle,
+            clickCount: 1)
+
+        #expect(pairs[0].down.type == .otherMouseDown)
+        #expect(pairs[0].up.type == .otherMouseUp)
+        #expect(pairs[0].down.getIntegerValueField(.mouseEventButtonNumber) == 2)
+        #expect(pairs[0].up.getIntegerValueField(.mouseEventButtonNumber) == 2)
+    }
 }
