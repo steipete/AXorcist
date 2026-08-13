@@ -18,6 +18,7 @@ struct TraversalOptionsTests {
             stopAtFirstMatch: true))
     }
 
+    @available(*, deprecated, message: "Exercises the retained legacy compatibility surface.")
     @Test
     func `Legacy globals remain source compatible and preserve sibling defaults`() {
         let original = AXTraversalOptions.snapshotDefaults()
@@ -36,6 +37,7 @@ struct TraversalOptionsTests {
             stopAtFirstMatch: false))
     }
 
+    @available(*, deprecated, message: "Exercises the retained legacy compatibility surface.")
     @Test
     func `Legacy traversal snapshots defaults before a visitor flips them`() {
         let original = AXTraversalOptions.snapshotDefaults()
