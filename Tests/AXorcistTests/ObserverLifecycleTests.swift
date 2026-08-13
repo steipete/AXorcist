@@ -180,9 +180,9 @@ struct ObserverLifecycleTests {
         try watcher?.start()
         #expect(registry.activeSubscriptionCount == 1)
 
-        weak let weakWatcher = watcher
+        let weakWatcher = WeakReference(watcher)
         watcher = nil
-        #expect(weakWatcher == nil)
+        #expect(weakWatcher.value == nil)
         for _ in 0..<10 where registry.unsubscribeCallCount == 0 {
             await Task.yield()
         }
@@ -205,15 +205,24 @@ struct ObserverLifecycleTests {
         _ = axorcist?.runCommand(AXCommandEnvelope(commandID: "deinit-owner", command: .observe(observe)))
         #expect(registry.activeSubscriptionCount == 1)
 
-        weak let weakAXorcist = axorcist
+        let weakAXorcist = WeakReference(axorcist)
         axorcist = nil
-        #expect(weakAXorcist == nil)
+        #expect(weakAXorcist.value == nil)
         for _ in 0..<10 where registry.unsubscribeCallCount == 0 {
             await Task.yield()
         }
 
         #expect(registry.unsubscribeCallCount == 1)
         #expect(registry.activeSubscriptionCount == 0)
+    }
+}
+
+@MainActor
+private final class WeakReference<Value: AnyObject> {
+    weak var value: Value?
+
+    init(_ value: Value?) {
+        self.value = value
     }
 }
 
