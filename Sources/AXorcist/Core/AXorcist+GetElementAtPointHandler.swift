@@ -4,17 +4,43 @@ import Foundation
 @MainActor
 extension AXorcist {
     public func handleGetElementAtPoint(command: GetElementAtPointCommand) -> AXResponse {
+        self.executeGetElementAtPoint(
+            command: command,
+            applicationResolver: nativeApplicationElement,
+            elementResolver: Element.elementAtPoint)
+    }
+
+    func executeGetElementAtPoint(
+        command: GetElementAtPointCommand,
+        applicationResolver: AXApplicationElementResolver,
+        elementResolver: (CGPoint, pid_t) -> Element?) -> AXResponse
+    {
         self.logGetPointRequest(command)
 
-        guard let appElement = self.applicationElement(for: command) else {
-            return self.applicationContextError(command: command)
+        let resolvedTarget: AXResolvedApplicationTarget
+        switch resolveApplicationTarget(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
+            using: applicationResolver)
+        {
+        case let .success(target):
+            resolvedTarget = target
+        case let .failure(error):
+            return error.response
         }
 
-        self.logContextElement(appElement)
+        self.logContextElement(resolvedTarget.element)
 
-        let pid: pid_t = command.pid.map(pid_t.init) ?? appElement.pid() ?? 0
-        guard let element = Element.elementAtPoint(command.point, pid: pid) else {
-            return self.noElementResponse(command: command)
+        guard let pid = resolvedTarget.element.pid(), pid > 0 else {
+            return AXCommandTargetError.applicationNotFound(
+                "Could not determine the PID for \(resolvedTarget.target.description).").response
+        }
+        guard let element = elementResolver(command.point, pid) else {
+            return self.noElementResponse(command: command, target: resolvedTarget.target)
+        }
+        guard element.pid() == pid else {
+            return AXCommandTargetError.elementNotFound(
+                "The element at the requested point did not belong to \(resolvedTarget.target.description).").response
         }
 
         self.logLocatedElement(element)
@@ -29,33 +55,19 @@ extension AXorcist {
         GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
     }
 
-    private func applicationElement(for command: GetElementAtPointCommand) -> Element? {
-        getApplicationElement(for: command.appIdentifier ?? "focused")
-    }
-
-    private func applicationContextError(command: GetElementAtPointCommand) -> AXResponse {
-        let target = command.appIdentifier ?? "focused"
-        let message = """
-        HandleGetElementAtPoint: Could not get application element for '\(target)'.
-        Application context is required even though elementAtPoint is system-wide.
-        """
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
-        return .errorResponse(message: message, code: .elementNotFound)
-    }
-
     private func logContextElement(_ element: Element) {
         let description = element.briefDescription(option: .smart)
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: "Context app element: \(description)"))
     }
 
-    private func noElementResponse(command: GetElementAtPointCommand) -> AXResponse {
-        let target = command.appIdentifier ?? "focused"
+    private func noElementResponse(
+        command: GetElementAtPointCommand,
+        target: AXApplicationTarget) -> AXResponse
+    {
         let point = "[\(command.point.x), \(command.point.y)]"
-        let message = "No UI element found at \(point) for app '\(target)'."
+        let message = "No UI element found at \(point) for \(target.description)."
         GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
-        let payload = NoElementAtPointPayload(message: message, element: nil)
-        return .successResponse(payload: AnyCodable(payload))
+        return .errorResponse(message: message, code: .elementNotFound)
     }
 
     private func logLocatedElement(_ element: Element) {
@@ -74,9 +86,4 @@ extension AXorcist {
             fullAXDescription: element.briefDescription(option: .stringified),
             path: element.generatePathString().components(separatedBy: " -> "))
     }
-}
-
-private struct NoElementAtPointPayload: Codable {
-    let message: String
-    let element: AXElementData?
 }

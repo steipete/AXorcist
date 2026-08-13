@@ -1,9 +1,38 @@
+import ApplicationServices
 import CoreGraphics
 import Testing
 @testable import AXorcist
 
 @Suite("InputDriver cursor helpers")
 struct InputDriverTests {
+    @Test
+    @MainActor
+    func `failed focus prevents every typing event`() {
+        let element = Element(AXUIElementCreateSystemWide())
+        var focusAttempts = 0
+        var eventDispatches = 0
+
+        do {
+            try element.typeText(
+                "do not dispatch",
+                delay: 0,
+                clearFirst: true,
+                ensureFocus: {
+                    focusAttempts += 1
+                    return false
+                },
+                eventDispatcher: { _, _, _ in eventDispatches += 1 })
+            Issue.record("Expected typing to fail before dispatch")
+        } catch ElementTypingError.focusFailed {
+            // Expected: no clear, delete, or text event can reach the global event tap.
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(focusAttempts == 1)
+        #expect(eventDispatches == 0)
+    }
+
     @Test
     func `cachedLocation returns cached value when present`() {
         var cache: CGPoint? = CGPoint(x: 10, y: 20)

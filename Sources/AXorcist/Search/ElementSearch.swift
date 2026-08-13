@@ -60,15 +60,30 @@ public func findTargetElement(
     locator: Locator,
     maxDepthForSearch: Int) -> (element: Element?, error: String?)
 {
-    let locatorDebug = logFindTargetSetup(
-        appIdentifier: appIdentifier,
-        locator: locator,
-        maxDepth: maxDepthForSearch)
-    let pathHintDebugString = locatorDebug.pathHint
     guard let appElement = getApplicationElement(for: appIdentifier) else {
         logger.error("FTE: No app element for \(appIdentifier)")
         return (nil, "Application not found or not accessible: \(appIdentifier)")
     }
+
+    return findTargetElement(
+        startingFrom: appElement,
+        targetDescription: appIdentifier,
+        locator: locator,
+        maxDepthForSearch: maxDepthForSearch)
+}
+
+@MainActor
+func findTargetElement(
+    startingFrom appElement: Element,
+    targetDescription: String,
+    locator: Locator,
+    maxDepthForSearch: Int) -> (element: Element?, error: String?)
+{
+    let locatorDebug = logFindTargetSetup(
+        appIdentifier: targetDescription,
+        locator: locator,
+        maxDepth: maxDepthForSearch)
+    let pathHintDebugString = locatorDebug.pathHint
 
     var currentSearchElement = appElement
     var searchStartingPointDescription = "application root \(appElement.briefDescription(option: .smart))"

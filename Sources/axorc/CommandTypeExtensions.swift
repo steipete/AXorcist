@@ -42,7 +42,8 @@ extension CommandType {
                 debugPathSearch: commandEnvelope.locator?.debugPathSearch),
             attributesToReturn: commandEnvelope.attributes,
             maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
-            includeChildrenBrief: commandEnvelope.includeChildrenBrief))
+            includeChildrenBrief: commandEnvelope.includeChildrenBrief,
+            pid: commandEnvelope.pid))
     }
 
     private static func createPerformActionCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -52,7 +53,8 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             action: actionName,
             value: commandEnvelope.actionValue,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
+            pid: commandEnvelope.pid))
     }
 
     private static func createGetAttributesCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -60,7 +62,8 @@ extension CommandType {
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             attributes: commandEnvelope.attributes ?? [],
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
+            pid: commandEnvelope.pid))
     }
 
     private static func createDescribeElementCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -69,7 +72,8 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             depth: commandEnvelope.maxDepth ?? 3,
             includeIgnored: commandEnvelope.includeIgnoredElements ?? false,
-            maxSearchDepth: commandEnvelope.maxDepth ?? 10))
+            maxSearchDepth: commandEnvelope.maxDepth ?? 10,
+            pid: commandEnvelope.pid))
     }
 
     private static func createExtractTextCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -78,7 +82,8 @@ extension CommandType {
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
             includeChildren: commandEnvelope.includeChildrenInText ?? false,
-            maxDepth: commandEnvelope.maxDepth))
+            maxDepth: commandEnvelope.maxDepth,
+            pid: commandEnvelope.pid))
     }
 
     private static func createCollectAllCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand {
@@ -87,7 +92,8 @@ extension CommandType {
             attributesToReturn: commandEnvelope.attributes,
             maxDepth: commandEnvelope.maxDepth ?? 10,
             filterCriteria: commandEnvelope.filterCriteria,
-            valueFormatOption: ValueFormatOption.smart))
+            valueFormatOption: ValueFormatOption.smart,
+            pid: commandEnvelope.pid))
     }
 
     private static func createBatchCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -121,7 +127,8 @@ extension CommandType {
             appIdentifier: commandEnvelope.application,
             locator: commandEnvelope.locator ?? Locator(criteria: []),
             value: value,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
+            pid: commandEnvelope.pid))
     }
 
     private static func createGetElementAtPointCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -141,7 +148,8 @@ extension CommandType {
         .getFocusedElement(GetFocusedElementCommand(
             appIdentifier: commandEnvelope.application,
             attributesToReturn: commandEnvelope.attributes,
-            includeChildrenBrief: commandEnvelope.includeChildrenBrief))
+            includeChildrenBrief: commandEnvelope.includeChildrenBrief,
+            pid: commandEnvelope.pid))
     }
 
     private static func createObserveCommand(_ commandEnvelope: CommandEnvelope) -> AXCommand? {
@@ -165,6 +173,7 @@ extension CommandType {
             watchChildren: commandEnvelope.watchChildren ?? false,
             notificationName: axNotification,
             includeElementDetails: commandEnvelope.includeElementDetails,
-            maxDepthForSearch: commandEnvelope.maxDepth ?? 10))
+            maxDepthForSearch: commandEnvelope.maxDepth ?? 10,
+            pid: commandEnvelope.pid))
     }
 }

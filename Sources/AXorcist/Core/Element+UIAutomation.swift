@@ -169,20 +169,34 @@ extension Element {
 extension Element {
     /// Type text into this element
     @MainActor public func typeText(_ text: String, delay: TimeInterval = 0.005, clearFirst: Bool = false) throws {
-        // Focus the element first
-        if attribute(Attribute<Bool>.focused) != true {
-            // Try to focus the element
-            _ = setValue(true, forAttribute: Attribute<Bool>.focused.rawValue)
-            // Some elements can't be focused directly, that's OK
-        }
+        try self.typeText(
+            text,
+            delay: delay,
+            clearFirst: clearFirst,
+            ensureFocus: {
+                self.attribute(Attribute<Bool>.focused) == true ||
+                    self.setValue(true, forAttribute: Attribute<Bool>.focused.rawValue)
+            },
+            eventDispatcher: { text, delay, clearFirst in
+                if clearFirst {
+                    try self.clearField()
+                }
+                try Element.typeText(text, delay: delay)
+            })
+    }
 
-        // Clear existing text if requested
-        if clearFirst {
-            try self.clearField()
+    @MainActor
+    func typeText(
+        _ text: String,
+        delay: TimeInterval,
+        clearFirst: Bool,
+        ensureFocus: () -> Bool,
+        eventDispatcher: (String, TimeInterval, Bool) throws -> Void) throws
+    {
+        guard ensureFocus() else {
+            throw ElementTypingError.focusFailed
         }
-
-        // Type the text
-        try Element.typeText(text, delay: delay)
+        try eventDispatcher(text, delay, clearFirst)
     }
 
     /// Clear the text field
@@ -836,5 +850,13 @@ public enum UIAutomationError: Error, LocalizedError {
         case .missingFrame:
             "Element has no frame attribute"
         }
+    }
+}
+
+enum ElementTypingError: Error, LocalizedError {
+    case focusFailed
+
+    var errorDescription: String? {
+        "Failed to focus element before typing"
     }
 }
