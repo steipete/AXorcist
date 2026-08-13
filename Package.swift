@@ -65,6 +65,12 @@ let package = Package(
             swiftSettings: approachableConcurrencySettings
             // Sources will be inferred by SPM
         ),
+        .testTarget(
+            name: "AXorcistCommandConversionTests",
+            dependencies: ["AXorcist", "axorc"],
+            path: "Tests/AXorcistCommandConversionTests",
+            swiftSettings: approachableConcurrencySettings
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

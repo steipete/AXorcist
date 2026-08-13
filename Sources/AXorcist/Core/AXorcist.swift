@@ -135,28 +135,13 @@ public class AXorcist {
             message: "HandleCollectAll: Starting collection for app '\(command.appIdentifier ?? "focused")' " +
                 "with maxDepth: \(command.maxDepth)"))
 
-        // Find the target application element
         let rootElement: Element
-        if let appId = command.appIdentifier, appId != "focused" {
-            // Find specific application
-            if let appPid = pid(forAppIdentifier: appId),
-               let app = Element.application(for: appPid)
-            {
-                rootElement = app
-            } else {
-                let errorMessage = "HandleCollectAll: Could not find application '\(appId)'."
-                self.logger.log(AXLogEntry(level: .error, message: errorMessage))
-                return .errorResponse(message: errorMessage, code: .applicationNotFound)
-            }
-        } else {
-            // Use focused application
-            if let app = Element.focusedApplication() {
-                rootElement = app
-            } else {
-                let errorMessage = "HandleCollectAll: No focused application found."
-                self.logger.log(AXLogEntry(level: .error, message: errorMessage))
-                return .errorResponse(message: errorMessage, code: .applicationNotFound)
-            }
+        switch resolveApplicationTarget(appIdentifier: command.appIdentifier, pid: command.pid) {
+        case let .success(resolvedTarget):
+            rootElement = resolvedTarget.element
+        case let .failure(error):
+            self.logger.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
 
         // Collect all elements recursively
@@ -195,15 +180,31 @@ public class AXorcist {
     // MARK: - Observation Ownership
 
     func resolveObservationTarget(
-        appIdentifier: String,
+        appIdentifier: String?,
+        pid: Int?,
         locator: Locator,
-        maxDepth: Int) -> (element: Element?, error: String?)
+        maxDepth: Int) -> Result<Element, AXCommandTargetError>
     {
-        if let observationTargetResolver = self.observationTargetResolver {
-            return observationTargetResolver(appIdentifier, locator, maxDepth)
+        let target: AXApplicationTarget
+        do {
+            target = try AXApplicationTarget(appIdentifier: appIdentifier, pid: pid)
+        } catch let error as AXCommandTargetError {
+            return .failure(error)
+        } catch {
+            return .failure(.applicationNotFound("Unable to resolve observation target."))
         }
-        return findTargetElement(
-            for: appIdentifier,
+
+        if let observationTargetResolver = self.observationTargetResolver {
+            let result = observationTargetResolver(target.lookupIdentifier, locator, maxDepth)
+            if let element = result.element {
+                return .success(element)
+            }
+            return .failure(.elementNotFound(
+                result.error ?? "Element to observe was not found in \(target.description)."))
+        }
+        return resolveTargetElement(
+            appIdentifier: appIdentifier,
+            pid: pid,
             locator: locator,
             maxDepthForSearch: maxDepth)
     }

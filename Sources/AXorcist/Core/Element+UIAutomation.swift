@@ -173,8 +173,10 @@ extension Element {
             text,
             delay: delay,
             clearFirst: clearFirst,
-            focused: { self.attribute(Attribute<Bool>.focused) },
-            focus: { self.setValue(true, forAttribute: Attribute<Bool>.focused.rawValue) },
+            ensureFocus: {
+                self.attribute(Attribute<Bool>.focused) == true ||
+                    self.setValue(true, forAttribute: Attribute<Bool>.focused.rawValue)
+            },
             eventDispatcher: { text, delay, clearFirst in
                 if clearFirst {
                     try self.clearField()
@@ -188,12 +190,11 @@ extension Element {
         _ text: String,
         delay: TimeInterval,
         clearFirst: Bool,
-        focused: () -> Bool?,
-        focus: () -> Bool,
+        ensureFocus: () -> Bool,
         eventDispatcher: (String, TimeInterval, Bool) throws -> Void) throws
     {
-        guard focused() == true || focus() else {
-            throw UIAutomationError.elementFocusFailed
+        guard ensureFocus() else {
+            throw ElementTypingError.focusFailed
         }
         try eventDispatcher(text, delay, clearFirst)
     }
@@ -828,7 +829,6 @@ extension Element {
 
 public enum UIAutomationError: Error, LocalizedError {
     case failedToCreateEvent
-    case elementFocusFailed
     case elementNotEnabled
     case elementNotActionable(timeout: TimeInterval)
     case unsupportedKey(String)
@@ -839,8 +839,6 @@ public enum UIAutomationError: Error, LocalizedError {
         switch self {
         case .failedToCreateEvent:
             "Failed to create system event"
-        case .elementFocusFailed:
-            "Failed to focus element before typing"
         case .elementNotEnabled:
             "Element is not enabled"
         case let .elementNotActionable(timeout):
@@ -852,5 +850,13 @@ public enum UIAutomationError: Error, LocalizedError {
         case .missingFrame:
             "Element has no frame attribute"
         }
+    }
+}
+
+enum ElementTypingError: Error, LocalizedError {
+    case focusFailed
+
+    var errorDescription: String? {
+        "Failed to focus element before typing"
     }
 }

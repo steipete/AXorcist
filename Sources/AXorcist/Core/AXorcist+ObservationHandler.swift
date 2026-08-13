@@ -14,21 +14,22 @@ extension AXorcist {
     public func handleObserve(command: ObserveCommand) -> AXResponse {
         self.logObservationStart(command)
 
-        let appIdentifier = command.appIdentifier ?? "focused"
         let locator = command.locator ?? Locator(criteria: [
             Criterion(attribute: "AXRole", value: AXRoleNames.kAXApplicationRole, matchType: .exact),
         ])
 
-        let (targetElement, error) = self.resolveObservationTarget(
-            appIdentifier: appIdentifier,
+        let elementToObserve: Element
+        switch self.resolveObservationTarget(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: locator,
             maxDepth: command.maxDepthForSearch)
-
-        guard let elementToObserve = targetElement else {
-            return self.observationNotFoundResponse(
-                appIdentifier: appIdentifier,
-                locator: locator,
-                error: error)
+        {
+        case let .success(resolvedElement):
+            elementToObserve = resolvedElement
+        case let .failure(error):
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
 
         self.logObservationTarget(elementToObserve)
@@ -56,20 +57,6 @@ extension AXorcist {
             element.briefDescription(option: ValueFormatOption.smart),
         ].joined(separator: " ")
         GlobalAXLogger.shared.log(AXLogEntry(level: .debug, message: message))
-    }
-
-    private func observationNotFoundResponse(
-        appIdentifier: String,
-        locator: Locator,
-        error: String?) -> AXResponse
-    {
-        let fallback = [
-            "HandleObserve: Element to observe not found for app '\(appIdentifier)'",
-            "locator \(String(describing: locator))",
-        ].joined(separator: ", ")
-        let errorMessage = error ?? fallback
-        GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
-        return .errorResponse(message: errorMessage, code: .elementNotFound)
     }
 
     private func startObservation(

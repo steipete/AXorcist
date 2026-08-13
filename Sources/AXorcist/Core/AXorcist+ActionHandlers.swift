@@ -17,20 +17,18 @@ extension AXorcist {
     public func handlePerformAction(command: PerformActionCommand) -> AXResponse {
         self.logPerformActionStart(command)
 
-        let appIdentifier = command.appIdentifier ?? "focused"
-        let (foundElement, errorMessage) = findTargetElement(
-            for: appIdentifier,
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: command.maxDepthForSearch)
-
-        guard let element = foundElement else {
-            let fallback = missingElementMessage(
-                prefix: "HandlePerformAction",
-                appIdentifier: appIdentifier,
-                locatorDescription: String(describing: command.locator))
-            let message = errorMessage ?? fallback
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
-            return .errorResponse(message: message, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
 
         return self.executeResolvedAction(command: command, on: element)
@@ -41,20 +39,18 @@ extension AXorcist {
     public func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
         self.logSetFocusedValueStart(command)
 
-        let appIdentifier = command.appIdentifier ?? "focused"
-        let (foundElement, errorMessage) = findTargetElement(
-            for: appIdentifier,
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: command.maxDepthForSearch)
-
-        guard let element = foundElement else {
-            let fallback = missingElementMessage(
-                prefix: "HandleSetFocusedValue",
-                appIdentifier: appIdentifier,
-                locatorDescription: String(describing: command.locator))
-            let message = errorMessage ?? fallback
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: message))
-            return .errorResponse(message: message, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
 
         if self.ensureFocusCapability(for: element) {
@@ -73,16 +69,18 @@ extension AXorcist {
                 "IncludeChildren: \(String(describing: command.includeChildren)), " +
                 "MaxDepth: \(String(describing: command.maxDepth))"))
 
-        let (foundElement, error) = findTargetElement(
-            for: command.appIdentifier ?? "focused",
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: command.maxDepthForSearch)
-
-        guard let element = foundElement else {
-            let errorMessage = error ?? "HandleExtractText: Element not found for app " +
-                "'\(String(describing: command.appIdentifier))' with locator \(command.locator)."
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
-            return .errorResponse(message: errorMessage, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .debug,
@@ -292,9 +290,5 @@ extension AXorcist {
                 "HandleSetFocusedValue: Failed to set kAXFocusedAttribute for \(elementDescription),",
                 "but proceeding to set value.",
             ].joined(separator: " ")))
-    }
-
-    private func missingElementMessage(prefix: String, appIdentifier: String, locatorDescription: String) -> String {
-        "\(prefix): Element not found for app '\(appIdentifier)' with locator \(locatorDescription)."
     }
 }

@@ -17,14 +17,13 @@ struct InputDriverTests {
                 "do not dispatch",
                 delay: 0,
                 clearFirst: true,
-                focused: { false },
-                focus: {
+                ensureFocus: {
                     focusAttempts += 1
                     return false
                 },
                 eventDispatcher: { _, _, _ in eventDispatches += 1 })
             Issue.record("Expected typing to fail before dispatch")
-        } catch UIAutomationError.elementFocusFailed {
+        } catch ElementTypingError.focusFailed {
             // Expected: no clear, delete, or text event can reach the global event tap.
         } catch {
             Issue.record("Unexpected error: \(error)")

@@ -28,7 +28,6 @@ extension AXorcist {
             "HandleQuery: App '\(command.appIdentifier ?? "focused")'",
             "Locator: \(command.locator)")
 
-        let appIdentifier = command.appIdentifier ?? "focused"
         let resolvedMaxDepth = externalMaxDepth ?? 10
 
         // DEBUG LOG FOR MAX DEPTH
@@ -37,16 +36,18 @@ extension AXorcist {
             "HandleQuery: externalMaxDepth = \(String(describing: externalMaxDepth))",
             "resolved maxDepth = \(resolvedMaxDepth)")
 
-        let (foundElement, findError) = findTargetElement(
-            for: appIdentifier,
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: resolvedMaxDepth)
-
-        guard let element = foundElement else {
-            let errorMessage = findError ??
-                "HandleQuery: Element not found for app '\(appIdentifier)' with locator \(command.locator)."
-            self.logQuery(.error, errorMessage)
-            return .errorResponse(message: errorMessage, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            self.logQuery(.error, error.message)
+            return error.response
         }
         self.logQuery(
             .debug,
@@ -71,19 +72,18 @@ extension AXorcist {
             "Locator: \(command.locator)",
             "Attributes: \(command.attributes.joined(separator: ", "))")
 
-        let (foundElement, findError) = findTargetElement(
-            for: command.appIdentifier ?? "focused",
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: command.maxDepthForSearch)
-
-        guard let element = foundElement else {
-            let fallbackError = [
-                "HandleGetAttrs: Element not found for app '\(command.appIdentifier ?? "focused")'",
-                "Locator: \(command.locator)",
-            ].joined(separator: ", ")
-            let errorMessage = findError ?? fallbackError
-            self.logQuery(.error, errorMessage)
-            return .errorResponse(message: errorMessage, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            self.logQuery(.error, error.message)
+            return error.response
         }
         self.logQuery(
             .debug,
@@ -126,19 +126,18 @@ extension AXorcist {
             "Depth: \(command.depth)",
             "IncludeIgnored: \(command.includeIgnored)")
 
-        let (foundElement, findError) = findTargetElement(
-            for: command.appIdentifier ?? "focused",
+        let element: Element
+        switch resolveTargetElement(
+            appIdentifier: command.appIdentifier,
+            pid: command.pid,
             locator: command.locator,
             maxDepthForSearch: command.maxSearchDepth)
-
-        guard let element = foundElement else {
-            let fallbackError = [
-                "HandleDescribe: Element not found for app '\(command.appIdentifier ?? "focused")'",
-                "Locator: \(command.locator)",
-            ].joined(separator: ", ")
-            let errorMessage = findError ?? fallbackError
-            self.logQuery(.error, errorMessage)
-            return .errorResponse(message: errorMessage, code: .elementNotFound)
+        {
+        case let .success(resolvedElement):
+            element = resolvedElement
+        case let .failure(error):
+            self.logQuery(.error, error.message)
+            return error.response
         }
         self.logQuery(
             .debug,

@@ -18,12 +18,13 @@ extension AXorcist {
             level: .info,
             message: "HandleGetFocused: App '\(appInfo)', Attributes: \(attributes)"))
 
-        guard let appElement = getApplicationElement(for: command.appIdentifier ?? "focused") else {
-            let target = String(describing: command.appIdentifier)
-            let errorMessage =
-                "HandleGetFocused: Could not get application element for '\(target)'."
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: errorMessage))
-            return .errorResponse(message: errorMessage, code: .elementNotFound)
+        let appElement: Element
+        switch resolveApplicationTarget(appIdentifier: command.appIdentifier, pid: command.pid) {
+        case let .success(resolvedTarget):
+            appElement = resolvedTarget.element
+        case let .failure(error):
+            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: error.message))
+            return error.response
         }
         let appDescription = appElement.briefDescription(option: ValueFormatOption.smart)
         GlobalAXLogger.shared.log(AXLogEntry(
