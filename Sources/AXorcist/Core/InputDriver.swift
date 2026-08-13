@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import Dispatch
 import Foundation
 
 /// Lightweight, allocation-conscious helpers for synthesizing user input.
@@ -8,6 +9,8 @@ import Foundation
 /// the underlying AX/UI toolkits already impose. Callers (e.g. Peekaboo) can
 /// layer heuristics or visualization on top without paying a baseline tax.
 public enum InputDriver {
+    typealias MouseEventFactory = @MainActor (CGEventType, CGPoint, CGMouseButton) -> CGEvent?
+
     // MARK: - Mouse
 
     /// Click at a screen point.
@@ -50,30 +53,16 @@ public enum InputDriver {
     /// Press and hold at a point for a duration (simulates force click fallback).
     @MainActor
     public static func pressHold(at point: CGPoint, button: MouseButton = .left, duration: TimeInterval) throws {
-        let buttonType: CGMouseButton = (button == .left ? .left : .right)
-        let downType: CGEventType = (button == .left ? .leftMouseDown : .rightMouseDown)
-        let upType: CGEventType = (button == .left ? .leftMouseUp : .rightMouseUp)
-
-        guard let down = CGEvent(
-            mouseEventSource: nil,
-            mouseType: downType,
-            mouseCursorPosition: point,
-            mouseButton: buttonType)
-        else { throw UIAutomationError.failedToCreateEvent }
-        down.setDoubleValueField(.mouseEventPressure, value: 2.0)
-        down.post(tap: .cghidEventTap)
+        let events = try self.pressHoldEvents(at: point, button: button)
+        self.refreshTimestamp(events.down)
+        events.down.post(tap: .cghidEventTap)
 
         if duration > 0 {
             Thread.sleep(forTimeInterval: duration)
         }
 
-        guard let up = CGEvent(
-            mouseEventSource: nil,
-            mouseType: upType,
-            mouseCursorPosition: point,
-            mouseButton: buttonType)
-        else { throw UIAutomationError.failedToCreateEvent }
-        up.post(tap: .cghidEventTap)
+        self.refreshTimestamp(events.up)
+        events.up.post(tap: .cghidEventTap)
     }
 
     /// Drag from → to using the given button.
@@ -85,45 +74,93 @@ public enum InputDriver {
         steps: Int = 20,
         interStepDelay: TimeInterval = 0.0) throws
     {
-        let steps = max(1, steps)
+        let events = try self.dragEvents(from: start, to: end, button: button, steps: steps)
+        self.refreshTimestamp(events.down)
+        events.down.post(tap: .cghidEventTap)
 
-        let buttonType: CGMouseButton = (button == .left ? .left : .right)
-        let downType: CGEventType = (button == .left ? .leftMouseDown : .rightMouseDown)
-        let dragType: CGEventType = .leftMouseDragged
-        let upType: CGEventType = (button == .left ? .leftMouseUp : .rightMouseUp)
-
-        guard let down = CGEvent(
-            mouseEventSource: nil,
-            mouseType: downType,
-            mouseCursorPosition: start,
-            mouseButton: buttonType)
-        else { throw UIAutomationError.failedToCreateEvent }
-        down.post(tap: .cghidEventTap)
-
-        for i in 1...steps {
-            let t = CGFloat(i) / CGFloat(steps)
-            let pos = CGPoint(
-                x: start.x + (end.x - start.x) * t,
-                y: start.y + (end.y - start.y) * t)
-            guard let move = CGEvent(
-                mouseEventSource: nil,
-                mouseType: dragType,
-                mouseCursorPosition: pos,
-                mouseButton: buttonType)
-            else { continue }
+        for move in events.moves {
+            self.refreshTimestamp(move)
             move.post(tap: .cghidEventTap)
             if interStepDelay > 0 {
                 Thread.sleep(forTimeInterval: interStepDelay)
             }
         }
 
-        guard let up = CGEvent(
+        self.refreshTimestamp(events.up)
+        events.up.post(tap: .cghidEventTap)
+    }
+
+    @MainActor
+    static func pressHoldEvents(
+        at point: CGPoint,
+        button: MouseButton,
+        makeEvent: MouseEventFactory = InputDriver.makeMouseEvent) throws -> (down: CGEvent, up: CGEvent)
+    {
+        let eventKinds = button.eventKinds
+        guard let down = makeEvent(eventKinds.down, point, eventKinds.button),
+              let up = makeEvent(eventKinds.up, point, eventKinds.button)
+        else {
+            throw UIAutomationError.failedToCreateEvent
+        }
+        down.setDoubleValueField(.mouseEventPressure, value: 2.0)
+        return (down, up)
+    }
+
+    @MainActor
+    static func dragEvents(
+        from start: CGPoint,
+        to end: CGPoint,
+        button: MouseButton,
+        steps requestedSteps: Int,
+        makeEvent: MouseEventFactory = InputDriver.makeMouseEvent) throws -> (
+        down: CGEvent,
+        moves: [CGEvent],
+        up: CGEvent)
+    {
+        let steps = max(1, requestedSteps)
+        let eventKinds = button.eventKinds
+        guard let down = makeEvent(eventKinds.down, start, eventKinds.button) else {
+            throw UIAutomationError.failedToCreateEvent
+        }
+
+        var moves: [CGEvent] = []
+        moves.reserveCapacity(steps)
+        for index in 1...steps {
+            let progress = CGFloat(index) / CGFloat(steps)
+            let position = CGPoint(
+                x: start.x + (end.x - start.x) * progress,
+                y: start.y + (end.y - start.y) * progress)
+            guard let move = makeEvent(eventKinds.dragged, position, eventKinds.button) else {
+                throw UIAutomationError.failedToCreateEvent
+            }
+            moves.append(move)
+        }
+
+        guard let up = makeEvent(eventKinds.up, end, eventKinds.button) else {
+            throw UIAutomationError.failedToCreateEvent
+        }
+        return (down, moves, up)
+    }
+
+    @MainActor
+    static func refreshTimestamp(
+        _ event: CGEvent,
+        timestamp: CGEventTimestamp = DispatchTime.now().uptimeNanoseconds)
+    {
+        event.timestamp = timestamp
+    }
+
+    @MainActor
+    private static func makeMouseEvent(
+        type: CGEventType,
+        point: CGPoint,
+        button: CGMouseButton) -> CGEvent?
+    {
+        CGEvent(
             mouseEventSource: nil,
-            mouseType: upType,
-            mouseCursorPosition: end,
-            mouseButton: buttonType)
-        else { throw UIAutomationError.failedToCreateEvent }
-        up.post(tap: .cghidEventTap)
+            mouseType: type,
+            mouseCursorPosition: point,
+            mouseButton: button)
     }
 
     /// Scroll by deltas (line-based). Positive `deltaY` scrolls up.
