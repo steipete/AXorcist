@@ -15,12 +15,14 @@ extension AXorcist {
         self.logObservationStart(command)
 
         let appIdentifier = command.appIdentifier ?? "focused"
-        let locator = self.makeObservationLocator()
+        let locator = command.locator ?? Locator(criteria: [
+            Criterion(attribute: "AXRole", value: AXRoleNames.kAXApplicationRole, matchType: .exact),
+        ])
 
-        let (targetElement, error) = findTargetElement(
-            for: appIdentifier,
+        let (targetElement, error) = self.resolveObservationTarget(
+            appIdentifier: appIdentifier,
             locator: locator,
-            maxDepthForSearch: command.maxDepthForSearch)
+            maxDepth: command.maxDepthForSearch)
 
         guard let elementToObserve = targetElement else {
             return self.observationNotFoundResponse(
@@ -48,11 +50,6 @@ extension AXorcist {
         GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))
     }
 
-    private func makeObservationLocator() -> Locator {
-        let criteria = [Criterion(attribute: "pid", value: "self", matchType: .exact)]
-        return Locator(criteria: criteria)
-    }
-
     private func logObservationTarget(_ element: Element) {
         let message = [
             "HandleObserve: Element to observe:",
@@ -78,34 +75,26 @@ extension AXorcist {
     private func startObservation(
         element: Element,
         command: ObserveCommand,
-        callback: @escaping AXObserverManager.AXNotificationCallback) -> AXResponse
+        callback: @escaping AXNotificationSubscriptionHandler) -> AXResponse
     {
-        do {
-            try AXObserverManager.shared.addObserver(
-                for: element,
-                notification: command.notificationName,
-                callback: callback)
+        switch self.subscribeToObservation(
+            pid: element.pid(),
+            element: element,
+            notification: command.notificationName,
+            handler: callback)
+        {
+        case .success:
             let successMessage = [
                 "HandleObserve: Successfully started observing '\(command.notificationName)' on",
                 element.briefDescription(option: ValueFormatOption.smart),
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: successMessage))
             return .successResponse(payload: AnyCodable(["message": successMessage]))
-        } catch let obError as AXObserverManager.ObserverError {
+        case let .failure(error):
             let details = [
                 "HandleObserve: Failed to add observer.",
-                "Error: \(obError.localizedDescription) (Code: \(obError))",
+                "Error: \(error.localizedDescription) (Code: \(error))",
                 "Pid: \(element.pid()?.description ?? "N/A")",
-                "Notification: \(command.notificationName)",
-            ].joined(separator: " ")
-            GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: details))
-            return .errorResponse(message: details, code: .observationFailed)
-        } catch {
-            let details = [
-                "HandleObserve: Failed to add observer with unknown error:",
-                error.localizedDescription,
-                "Element:",
-                element.briefDescription(option: ValueFormatOption.smart),
                 "Notification: \(command.notificationName)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .error, message: details))
@@ -113,14 +102,14 @@ extension AXorcist {
         }
     }
 
-    private func makeObservationCallback() -> AXObserverManager.AXNotificationCallback {
-        { _, axUIElement, notification, userInfo in
+    private func makeObservationCallback() -> AXNotificationSubscriptionHandler {
+        { _, notification, axUIElement, userInfo in
             let element = Element(axUIElement)
             let userInfoDesc = userInfo.map(String.init(describing:)) ?? "nil"
             let message = [
                 "AXObserver CALLBACK:",
                 "Element: \(element.briefDescription(option: ValueFormatOption.smart))",
-                "Notification: \(notification as String)",
+                "Notification: \(notification.rawValue)",
                 "UserInfo: \(userInfoDesc)",
             ].joined(separator: " ")
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: message))

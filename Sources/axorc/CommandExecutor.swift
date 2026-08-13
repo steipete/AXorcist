@@ -34,6 +34,10 @@ struct CommandExecutor {
         return self.processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
     }
 
+    static func stopObservations(axorcist: AXorcist) {
+        axorcist.stopObserving()
+    }
+
     // MARK: Private
 
     /// Simplified to only adjust detail level based on command specific flag, if CLI debug is on.
@@ -73,8 +77,8 @@ struct CommandExecutor {
         .ping: { command, _, debugCLI in handlePingCommand(command: command, debugCLI: debugCLI) },
         .batch: handleBatchCommand,
         .observe: handleObserveCommand,
-        .stopObservation: { command, _, debugCLI in
-            handleStopObservationCommand(command: command, debugCLI: debugCLI)
+        .stopObservation: { command, axorcist, debugCLI in
+            handleStopObservationCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         },
         .isProcessTrusted: { command, _, _ in handleIsProcessTrustedCommand(command: command) },
         .isAXFeatureEnabled: { command, _, _ in handleIsAXFeatureEnabledCommand(command: command) },
@@ -181,8 +185,12 @@ struct CommandExecutor {
     }
 
     @MainActor
-    private static func handleStopObservationCommand(command: CommandEnvelope, debugCLI: Bool) -> String {
-        AXObserverCenter.shared.removeAllObservers()
+    private static func handleStopObservationCommand(
+        command: CommandEnvelope,
+        axorcist: AXorcist,
+        debugCLI: Bool) -> String
+    {
+        self.stopObservations(axorcist: axorcist)
         let stopResponse = FinalResponse(
             commandId: command.commandId,
             commandType: command.command.rawValue,

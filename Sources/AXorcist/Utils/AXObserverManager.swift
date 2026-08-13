@@ -4,9 +4,10 @@ import Foundation
 
 /// Manages accessibility observers for monitoring UI element changes.
 ///
-/// `AXObserverManager` provides a centralized system for managing accessibility observers
-/// that monitor changes to UI elements. It handles observer lifecycle, notification routing,
-/// and ensures proper cleanup of resources.
+/// Legacy raw-callback observer API retained for source compatibility.
+///
+/// New code should use ``AXObserverCenter`` or ``NotificationWatcher``. AXorcist commands no longer
+/// use this separate compatibility manager, so observe and stop operations share one token registry.
 ///
 /// ## Overview
 ///
@@ -35,6 +36,7 @@ import Foundation
 /// - ``AXNotificationCallback``
 /// - ``ObserverError``
 @MainActor
+@available(*, deprecated, message: "Use AXObserverCenter or NotificationWatcher for token-based observation")
 public class AXObserverManager {
     // MARK: Lifecycle
 
@@ -184,6 +186,7 @@ public class AXObserverManager {
 }
 
 @MainActor
+@available(*, deprecated, message: "Use AXObserverCenter or NotificationWatcher for token-based observation")
 extension AXObserverManager {
     private func updateExistingObserver(
         info: inout ObserverInfo,

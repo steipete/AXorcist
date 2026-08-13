@@ -33,8 +33,21 @@ public class NotificationWatcher {
         self.target = .element(element)
         self.notification = notification
         self.handler = handler
+        self.registry = AXObserverCenter.shared
         let logMessage = "NotificationWatcher initialized for element, notification: \(notification.rawValue)"
         axDebugLog(logMessage)
+    }
+
+    init(
+        forElement element: Element,
+        notification: AXNotification,
+        registry: any AXObservationRegistry,
+        handler: @escaping AXNotificationSubscriptionHandler)
+    {
+        self.target = .element(element)
+        self.notification = notification
+        self.handler = handler
+        self.registry = registry
     }
 
     /// Initializes a watcher for a specific process ID (PID).
@@ -42,8 +55,21 @@ public class NotificationWatcher {
         self.target = .pid(pid)
         self.notification = notification
         self.handler = handler
+        self.registry = AXObserverCenter.shared
         let logMessage = "NotificationWatcher initialized for PID \(pid), notification: \(notification.rawValue)"
         axDebugLog(logMessage)
+    }
+
+    init(
+        forPID pid: pid_t,
+        notification: AXNotification,
+        registry: any AXObservationRegistry,
+        handler: @escaping AXNotificationSubscriptionHandler)
+    {
+        self.target = .pid(pid)
+        self.notification = notification
+        self.handler = handler
+        self.registry = registry
     }
 
     /// Initializes a watcher for a global notification (any application).
@@ -51,21 +77,17 @@ public class NotificationWatcher {
         self.target = .global
         self.notification = notification
         self.handler = handler
+        self.registry = AXObserverCenter.shared
         let logMessage = "NotificationWatcher initialized for global notification: \(notification.rawValue)"
         axDebugLog(logMessage)
     }
 
     deinit {
         axDebugLog("NotificationWatcher deinit")
-        // Stop observing when the watcher is deallocated
-        // Since stop() is @MainActor, we need to call it from a Task
-        // and handle potential issues if self is already gone.
-        Task { [weak self] in // Add [weak self]
-            guard let self else { // Add guard
-                axDebugLog("NotificationWatcher.deinit: self is nil, cannot call stop().")
-                return
-            }
-            await self.stop() // Call stop on the guarded self
+        guard let token = self.subscriptionToken else { return }
+        let registry = self.registry
+        Task { @MainActor in
+            try? registry.unsubscribe(token: token)
         }
     }
 
@@ -120,7 +142,7 @@ public class NotificationWatcher {
             "(PID: \(pidToLog)), notification: \(self.notification.rawValue)"
         axInfoLog(logStart)
 
-        let subscribeResult = AXObserverCenter.shared.subscribe(
+        let subscribeResult = self.registry.subscribe(
             pid: effectivePid,
             element: elementForSubscription, // Pass element if target is .element
             notification: self.notification,
@@ -153,7 +175,7 @@ public class NotificationWatcher {
         axInfoLog(logStop)
 
         do {
-            try AXObserverCenter.shared.unsubscribe(token: token)
+            try self.registry.unsubscribe(token: token)
             axInfoLog("\(logStop) - UNSUBSCRIBED successfully. Token: \(token.id)")
         } catch {
             axErrorLog("\(logStop) - FAILED to unsubscribe token \(token.id): \(error.localizedDescription)")
@@ -173,6 +195,7 @@ public class NotificationWatcher {
     private let target: ObservationTarget
     private let notification: AXNotification
     private let handler: AXNotificationSubscriptionHandler
+    private let registry: any AXObservationRegistry
     private var subscriptionToken: SubscriptionToken?
     private var isObserving: Bool = false
 }
