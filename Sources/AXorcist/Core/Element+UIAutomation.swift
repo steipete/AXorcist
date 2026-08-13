@@ -764,27 +764,18 @@ extension Element {
         maxDepth: Int = 10) -> [Element]
     {
         var results: [Element] = []
-
-        // Check self
-        if self.matchesCriteria(role: role, title: title, label: label, value: value, identifier: identifier) {
-            results.append(self)
-        }
-
-        // Check children recursively
-        if maxDepth > 0 {
-            if let children = children() {
-                for child in children {
-                    results.append(contentsOf: child.findElements(
-                        role: role,
-                        title: title,
-                        label: label,
-                        value: value,
-                        identifier: identifier,
-                        maxDepth: maxDepth - 1))
-                }
+        traverseAXTree(from: self, maxDepth: max(0, maxDepth)) { element, _ in
+            if element.matchesCriteria(
+                role: role,
+                title: title,
+                label: label,
+                value: value,
+                identifier: identifier)
+            {
+                results.append(element)
             }
+            return .continue
         }
-
         return results
     }
 

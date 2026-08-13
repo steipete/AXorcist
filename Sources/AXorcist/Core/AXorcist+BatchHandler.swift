@@ -11,6 +11,13 @@ import Foundation
 @MainActor
 extension AXorcist {
     public func handleBatchCommands(command: AXBatchCommand) -> AXResponse {
+        self.handleBatchCommands(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleBatchCommands(
+        command: AXBatchCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleBatch: Received \(command.commands.count) sub-commands."))
@@ -24,7 +31,9 @@ extension AXorcist {
                 message: "HandleBatch: Processing sub-command \(index + 1)/\(command.commands.count): " +
                     "ID '\(subCommandEnvelope.commandID)', Type: \(subCommandEnvelope.command.type)"))
 
-            let response = self.processSingleBatchCommand(subCommandEnvelope.command)
+            let response = self.processSingleBatchCommand(
+                subCommandEnvelope.command,
+                traversalOptions: traversalOptions)
             results.append(response)
 
             if response.status != "success" {
@@ -54,53 +63,68 @@ extension AXorcist {
         }
     }
 
-    private func processSingleBatchCommand(_ command: AXCommand) -> AXResponse {
-        if let response = self.processQueryAndActionCommands(command) {
+    private func processSingleBatchCommand(
+        _ command: AXCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
+        if let response = self.processQueryAndActionCommands(command, traversalOptions: traversalOptions) {
             return response
         }
-        if let response = self.processFocusAndPointCommands(command) {
+        if let response = self.processFocusAndPointCommands(command, traversalOptions: traversalOptions) {
             return response
         }
-        return self.processBatchSpecificCommands(command)
+        return self.processBatchSpecificCommands(command, traversalOptions: traversalOptions)
     }
 
-    private func processQueryAndActionCommands(_ command: AXCommand) -> AXResponse? {
+    private func processQueryAndActionCommands(
+        _ command: AXCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse?
+    {
         switch command {
         case let .query(queryCommand):
-            handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
+            handleQuery(
+                command: queryCommand,
+                maxDepth: queryCommand.maxDepthForSearch,
+                traversalOptions: traversalOptions)
         case let .performAction(actionCommand):
-            handlePerformAction(command: actionCommand)
+            handlePerformAction(command: actionCommand, traversalOptions: traversalOptions)
         case let .getAttributes(getAttributesCommand):
-            handleGetAttributes(command: getAttributesCommand)
+            handleGetAttributes(command: getAttributesCommand, traversalOptions: traversalOptions)
         case let .describeElement(describeCommand):
-            handleDescribeElement(command: describeCommand)
+            handleDescribeElement(command: describeCommand, traversalOptions: traversalOptions)
         case let .extractText(extractTextCommand):
-            handleExtractText(command: extractTextCommand)
+            handleExtractText(command: extractTextCommand, traversalOptions: traversalOptions)
         case let .setFocusedValue(setFocusedValueCommand):
-            handleSetFocusedValue(command: setFocusedValueCommand)
+            handleSetFocusedValue(command: setFocusedValueCommand, traversalOptions: traversalOptions)
         default:
             nil
         }
     }
 
-    private func processFocusAndPointCommands(_ command: AXCommand) -> AXResponse? {
+    private func processFocusAndPointCommands(
+        _ command: AXCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse?
+    {
         switch command {
         case let .getElementAtPoint(getElementAtPointCommand):
             handleGetElementAtPoint(command: getElementAtPointCommand)
         case let .getFocusedElement(getFocusedElementCommand):
             handleGetFocusedElement(command: getFocusedElementCommand)
         case let .collectAll(collectAllCommand):
-            handleCollectAll(command: collectAllCommand)
+            handleCollectAll(command: collectAllCommand, traversalOptions: traversalOptions)
         default:
             nil
         }
     }
 
-    private func processBatchSpecificCommands(_ command: AXCommand) -> AXResponse {
+    private func processBatchSpecificCommands(
+        _ command: AXCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         switch command {
         case let .observe(observeCommand):
             GlobalAXLogger.shared.log(AXLogEntry(level: .info, message: "BatchProc: Processing Observe command."))
-            return handleObserve(command: observeCommand)
+            return handleObserve(command: observeCommand, traversalOptions: traversalOptions)
         case .batch:
             return .errorResponse(
                 message: "Nested batch commands are not supported within a single batch operation.",

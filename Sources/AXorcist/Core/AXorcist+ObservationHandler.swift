@@ -12,6 +12,13 @@ import Foundation
 @MainActor
 extension AXorcist {
     public func handleObserve(command: ObserveCommand) -> AXResponse {
+        self.handleObserve(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleObserve(
+        command: ObserveCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logObservationStart(command)
 
         let locator = command.locator ?? Locator(criteria: [
@@ -23,7 +30,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: locator,
-            maxDepth: command.maxDepthForSearch)
+            maxDepth: command.maxDepthForSearch,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             elementToObserve = resolvedElement

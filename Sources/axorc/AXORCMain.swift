@@ -86,7 +86,8 @@ struct AXORCCommand: ParsableCommand {
     @MainActor private func processAndExecuteCommand(
         command: CommandEnvelope,
         axorcist: AXorcist,
-        debugCLI: Bool) throws
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions) throws
     {
         if debugCLI {
             axDebugLog("Successfully parsed command: \(command.command) (ID: \(command.commandId))")
@@ -95,7 +96,8 @@ struct AXORCCommand: ParsableCommand {
         let resultJsonString = CommandExecutor.execute(
             command: command,
             axorcist: axorcist,
-            debugCLI: debugCLI)
+            debugCLI: debugCLI,
+            traversalOptions: traversalOptions)
         print(resultJsonString)
         fflush(stdout)
 
@@ -142,7 +144,7 @@ struct AXORCCommand: ParsableCommand {
     @MainActor
     private mutating func runMain() throws {
         self.configureLogging()
-        self.applyGlobalFlags()
+        let traversalOptions = self.resolvedTraversalOptions()
         self.logDebugVersion()
 
         let inputResult = InputHandler.parseInput(
@@ -171,7 +173,8 @@ struct AXORCCommand: ParsableCommand {
 
         try self.decodeAndExecute(
             jsonString: jsonStringFromInput,
-            axorcist: axorcistInstance)
+            axorcist: axorcistInstance,
+            traversalOptions: traversalOptions)
 
         if self.debug, self.commandShouldPrintLogsAtEnd() {
             self.flushDebugLogs()
@@ -191,12 +194,12 @@ struct AXORCCommand: ParsableCommand {
         }
     }
 
-    private func applyGlobalFlags() {
-        axorcScanAll = self.scanAll
-        axorcStopAtFirstMatch = !self.noStopFirst
-        if let timeout {
-            axorcTraversalTimeout = TimeInterval(timeout)
-        }
+    func resolvedTraversalOptions() -> AXTraversalOptions {
+        let defaults = AXTraversalOptions.standard
+        return AXTraversalOptions(
+            timeout: self.timeout.map(TimeInterval.init) ?? defaults.timeout,
+            scanAll: self.scanAll,
+            stopAtFirstMatch: !self.noStopFirst)
     }
 
     private func logDebugVersion() {
@@ -229,7 +232,11 @@ struct AXORCCommand: ParsableCommand {
         Self.printErrorResponse(commandId: commandId, error: error, logs: logs)
     }
 
-    private mutating func decodeAndExecute(jsonString: String, axorcist: AXorcist) throws {
+    private mutating func decodeAndExecute(
+        jsonString: String,
+        axorcist: AXorcist,
+        traversalOptions: AXTraversalOptions) throws
+    {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let data = jsonString.data(using: .utf8) else {
@@ -267,7 +274,11 @@ struct AXORCCommand: ParsableCommand {
         }
 
         self.suppressFinalLogDump = command.command == .observe
-        try self.processAndExecuteCommand(command: command, axorcist: axorcist, debugCLI: self.debug)
+        try self.processAndExecuteCommand(
+            command: command,
+            axorcist: axorcist,
+            debugCLI: self.debug,
+            traversalOptions: traversalOptions)
     }
 
     private func flushDebugLogs() {

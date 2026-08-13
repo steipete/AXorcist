@@ -135,6 +135,7 @@ func resolveTargetElement(
     pid: Int?,
     locator: Locator,
     maxDepthForSearch: Int,
+    traversalOptions: AXTraversalOptions = .snapshotDefaults(),
     using resolver: AXApplicationElementResolver = nativeApplicationElement)
     -> Result<Element, AXCommandTargetError>
 {
@@ -146,7 +147,8 @@ func resolveTargetElement(
             startingFrom: resolvedTarget.element,
             targetDescription: resolvedTarget.target.description,
             locator: locator,
-            maxDepthForSearch: maxDepthForSearch)
+            maxDepthForSearch: maxDepthForSearch,
+            traversalOptions: traversalOptions)
         guard let element = result.element else {
             return .failure(.elementNotFound(
                 result.error ?? "Element not found in \(resolvedTarget.target.description)."))
