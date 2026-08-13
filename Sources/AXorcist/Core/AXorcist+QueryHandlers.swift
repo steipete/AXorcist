@@ -23,6 +23,17 @@ extension AXorcist {
     // MARK: - Query Handler
 
     public func handleQuery(command: QueryCommand, maxDepth externalMaxDepth: Int?) -> AXResponse {
+        self.handleQuery(
+            command: command,
+            maxDepth: externalMaxDepth,
+            traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleQuery(
+        command: QueryCommand,
+        maxDepth externalMaxDepth: Int?,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logQuery(
             .info,
             "HandleQuery: App '\(command.appIdentifier ?? "focused")'",
@@ -41,7 +52,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: resolvedMaxDepth)
+            maxDepthForSearch: resolvedMaxDepth,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement
@@ -66,6 +78,13 @@ extension AXorcist {
     // MARK: - Get Attributes Handler
 
     public func handleGetAttributes(command: GetAttributesCommand) -> AXResponse {
+        self.handleGetAttributes(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleGetAttributes(
+        command: GetAttributesCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logQuery(
             .info,
             "HandleGetAttrs: App '\(command.appIdentifier ?? "focused")'",
@@ -77,7 +96,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch)
+            maxDepthForSearch: command.maxDepthForSearch,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement
@@ -119,6 +139,13 @@ extension AXorcist {
     // MARK: - Describe Element Handler
 
     public func handleDescribeElement(command: DescribeElementCommand) -> AXResponse {
+        self.handleDescribeElement(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleDescribeElement(
+        command: DescribeElementCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logQuery(
             .info,
             "HandleDescribe: App '\(command.appIdentifier ?? "focused")'",
@@ -131,7 +158,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: command.maxSearchDepth)
+            maxDepthForSearch: command.maxSearchDepth,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement

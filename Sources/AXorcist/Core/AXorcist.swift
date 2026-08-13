@@ -87,11 +87,21 @@ public class AXorcist {
     /// let response = AXorcist.shared.runCommand(envelope)
     /// ```
     public func runCommand(_ commandEnvelope: AXCommandEnvelope) -> AXResponse {
+        self.runCommand(commandEnvelope, traversalOptions: .snapshotDefaults())
+    }
+
+    /// Executes an accessibility command with an immutable request-scoped traversal policy.
+    public func runCommand(
+        _ commandEnvelope: AXCommandEnvelope,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logger.log(AXLogEntry(
             level: .info,
             message: "RunCommand: ID '\(commandEnvelope.commandID)', Type: \(commandEnvelope.command.type)"))
 
-        let response = self.execute(commandEnvelope: commandEnvelope)
+        let response = self.execute(
+            commandEnvelope: commandEnvelope,
+            traversalOptions: traversalOptions)
 
         self.logger.log(AXLogEntry(
             level: .info,
@@ -130,6 +140,13 @@ public class AXorcist {
     // MARK: - CollectAll Handler (New)
 
     func handleCollectAll(command: CollectAllCommand) -> AXResponse {
+        self.handleCollectAll(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    func handleCollectAll(
+        command: CollectAllCommand,
+        traversalOptions _: AXTraversalOptions) -> AXResponse
+    {
         self.logger.log(AXLogEntry(
             level: .info,
             message: "HandleCollectAll: Starting collection for app '\(command.appIdentifier ?? "focused")' " +
@@ -144,21 +161,14 @@ public class AXorcist {
             return error.response
         }
 
-        // Collect all elements recursively
-        var collectedElements: [AXElementData] = []
-        var visitedElements: Set<UInt> = []
         let attributesToFetch = command.attributesToReturn ?? AXMiscConstants.defaultAttributesToFetch
         let collectionContext = ElementCollectionContext(
             maxDepth: command.maxDepth,
             filterCriteria: command.filterCriteria,
             attributesToFetch: attributesToFetch)
-
-        self.collectElementsRecursively(
-            element: rootElement,
-            currentDepth: 0,
-            context: collectionContext,
-            visited: &visitedElements,
-            collectedElements: &collectedElements)
+        let collectedElements = self.collectElementData(
+            from: rootElement,
+            context: collectionContext)
 
         self.logger.log(AXLogEntry(
             level: .info,
@@ -177,13 +187,37 @@ public class AXorcist {
     private let observationTargetResolver: ObservationTargetResolver?
     private var observationTokens: Set<SubscriptionToken> = []
 
+    private func collectElementData(
+        from root: Element,
+        context: ElementCollectionContext) -> [AXElementData]
+    {
+        var collectedElements: [AXElementData] = []
+        traverseAXTree(
+            from: root,
+            maxDepth: context.maxDepth,
+            visit: { element, _ in
+                let shouldInclude = context.filterCriteria.map { criteria in
+                    elementMatchesCriteria(element, criteria: criteria)
+                } ?? true
+                if shouldInclude {
+                    collectedElements.append(buildQueryResponse(
+                        element: element,
+                        attributesToFetch: context.attributesToFetch,
+                        includeChildrenBrief: false))
+                }
+                return .continue
+            })
+        return collectedElements
+    }
+
     // MARK: - Observation Ownership
 
     func resolveObservationTarget(
         appIdentifier: String?,
         pid: Int?,
         locator: Locator,
-        maxDepth: Int) -> Result<Element, AXCommandTargetError>
+        maxDepth: Int,
+        traversalOptions: AXTraversalOptions) -> Result<Element, AXCommandTargetError>
     {
         let target: AXApplicationTarget
         do {
@@ -206,7 +240,8 @@ public class AXorcist {
             appIdentifier: appIdentifier,
             pid: pid,
             locator: locator,
-            maxDepthForSearch: maxDepth)
+            maxDepthForSearch: maxDepth,
+            traversalOptions: traversalOptions)
     }
 
     func subscribeToObservation(
@@ -226,98 +261,73 @@ public class AXorcist {
         return result
     }
 
-    private func execute(commandEnvelope: AXCommandEnvelope) -> AXResponse {
-        if let response = executeQueryRelatedCommands(commandEnvelope) {
+    private func execute(
+        commandEnvelope: AXCommandEnvelope,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
+        if let response = executeQueryRelatedCommands(commandEnvelope, traversalOptions: traversalOptions) {
             return response
         }
-        if let response = executeInteractionCommands(commandEnvelope) {
+        if let response = executeInteractionCommands(commandEnvelope, traversalOptions: traversalOptions) {
             return response
         }
-        return self.executeObserverCommands(commandEnvelope)
+        return self.executeObserverCommands(commandEnvelope, traversalOptions: traversalOptions)
     }
 
-    private func executeQueryRelatedCommands(_ envelope: AXCommandEnvelope) -> AXResponse? {
+    private func executeQueryRelatedCommands(
+        _ envelope: AXCommandEnvelope,
+        traversalOptions: AXTraversalOptions) -> AXResponse?
+    {
         switch envelope.command {
         case let .query(queryCommand):
-            handleQuery(command: queryCommand, maxDepth: queryCommand.maxDepthForSearch)
+            handleQuery(
+                command: queryCommand,
+                maxDepth: queryCommand.maxDepthForSearch,
+                traversalOptions: traversalOptions)
         case let .getAttributes(getAttributesCommand):
-            handleGetAttributes(command: getAttributesCommand)
+            handleGetAttributes(command: getAttributesCommand, traversalOptions: traversalOptions)
         case let .describeElement(describeCommand):
-            handleDescribeElement(command: describeCommand)
+            handleDescribeElement(command: describeCommand, traversalOptions: traversalOptions)
         case let .collectAll(collectAllCommand):
-            self.handleCollectAll(command: collectAllCommand)
+            self.handleCollectAll(command: collectAllCommand, traversalOptions: traversalOptions)
         default:
             nil
         }
     }
 
-    private func executeInteractionCommands(_ envelope: AXCommandEnvelope) -> AXResponse? {
+    private func executeInteractionCommands(
+        _ envelope: AXCommandEnvelope,
+        traversalOptions: AXTraversalOptions) -> AXResponse?
+    {
         switch envelope.command {
         case let .performAction(actionCommand):
-            handlePerformAction(command: actionCommand)
+            handlePerformAction(command: actionCommand, traversalOptions: traversalOptions)
         case let .extractText(extractTextCommand):
-            handleExtractText(command: extractTextCommand)
+            handleExtractText(command: extractTextCommand, traversalOptions: traversalOptions)
         case let .setFocusedValue(setFocusedValueCommand):
-            handleSetFocusedValue(command: setFocusedValueCommand)
+            handleSetFocusedValue(command: setFocusedValueCommand, traversalOptions: traversalOptions)
         default:
             nil
         }
     }
 
-    private func executeObserverCommands(_ envelope: AXCommandEnvelope) -> AXResponse {
+    private func executeObserverCommands(
+        _ envelope: AXCommandEnvelope,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         switch envelope.command {
         case let .batch(batchCommandEnvelope):
-            handleBatchCommands(command: batchCommandEnvelope)
+            handleBatchCommands(command: batchCommandEnvelope, traversalOptions: traversalOptions)
         case let .getElementAtPoint(getElementAtPointCommand):
             handleGetElementAtPoint(command: getElementAtPointCommand)
         case let .getFocusedElement(getFocusedElementCommand):
             handleGetFocusedElement(command: getFocusedElementCommand)
         case let .observe(observeCommand):
-            handleObserve(command: observeCommand)
+            handleObserve(command: observeCommand, traversalOptions: traversalOptions)
         default:
             .errorResponse(
                 message: "Unsupported command type: \(envelope.command.type)",
                 code: .unknownCommand)
-        }
-    }
-
-    private func collectElementsRecursively(
-        element: Element,
-        currentDepth: Int,
-        context: ElementCollectionContext,
-        visited: inout Set<UInt>,
-        collectedElements: inout [AXElementData])
-    {
-        // Check depth limit
-        guard currentDepth <= context.maxDepth else { return }
-
-        // Prevent infinite loops caused by cyclic AX hierarchies (Window → App → Window …)
-        let hashValue = CFHash(element.underlyingElement)
-        guard visited.insert(hashValue).inserted else { return }
-
-        // A filter controls which elements are returned, not which branches are traversed.
-        // Descendants can match even when their parent does not.
-        let shouldInclude = context.filterCriteria.map { criteria in
-            elementMatchesCriteria(element, criteria: criteria)
-        } ?? true
-        if shouldInclude {
-            let elementData = buildQueryResponse(
-                element: element,
-                attributesToFetch: context.attributesToFetch,
-                includeChildrenBrief: false)
-            collectedElements.append(elementData)
-        }
-
-        // Recursively collect children
-        if let children = element.children() {
-            for child in children {
-                self.collectElementsRecursively(
-                    element: child,
-                    currentDepth: currentDepth + 1,
-                    context: context,
-                    visited: &visited,
-                    collectedElements: &collectedElements)
-            }
         }
     }
 

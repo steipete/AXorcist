@@ -12,8 +12,9 @@ struct CommandExecutor {
     static func execute(
         command: CommandEnvelope,
         axorcist: AXorcist,
-        debugCLI: Bool, // This is from the --debug CLI flag
-    ) -> String {
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions = .standard) -> String
+    {
         // The main AXORCCommand.run() now sets the global logging based on --debug.
         // CommandExecutor.setupLogging can adjust detail level if command.debugLogging is true.
         let previousDetailLevel = self.setupDetailLevelForCommand(
@@ -31,7 +32,11 @@ struct CommandExecutor {
             "Executing command: \(command.command) (ID: \(command.commandId)), "
                 + "cmdDebug: \(command.debugLogging), cliDebug: \(debugCLI)")
 
-        return self.processCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
+        return self.processCommand(
+            command: command,
+            axorcist: axorcist,
+            debugCLI: debugCLI,
+            traversalOptions: traversalOptions)
     }
 
     static func stopObservations(axorcist: AXorcist) {
@@ -58,8 +63,15 @@ struct CommandExecutor {
         return previousDetailLevel
     }
 
-    private typealias DirectCommandHandler = @MainActor (CommandEnvelope, AXorcist, Bool) -> String
-    private typealias SimpleCommandExecutor = @MainActor (CommandEnvelope, AXorcist) -> HandlerResponse
+    private typealias DirectCommandHandler = @MainActor (
+        CommandEnvelope,
+        AXorcist,
+        Bool,
+        AXTraversalOptions) -> String
+    private typealias SimpleCommandExecutor = @MainActor (
+        CommandEnvelope,
+        AXorcist,
+        AXTraversalOptions) -> HandlerResponse
 
     private static let simpleExecutors: [CommandType: SimpleCommandExecutor] = [
         .getFocusedElement: executeGetFocusedElement,
@@ -74,14 +86,14 @@ struct CommandExecutor {
         .collectAll: handleCollectAllCommand,
         .getElementAtPoint: handleGetElementAtPointCommand,
         .setFocusedValue: handleSetFocusedValueCommand,
-        .ping: { command, _, debugCLI in handlePingCommand(command: command, debugCLI: debugCLI) },
+        .ping: { command, _, debugCLI, _ in handlePingCommand(command: command, debugCLI: debugCLI) },
         .batch: handleBatchCommand,
         .observe: handleObserveCommand,
-        .stopObservation: { command, axorcist, debugCLI in
+        .stopObservation: { command, axorcist, debugCLI, _ in
             handleStopObservationCommand(command: command, axorcist: axorcist, debugCLI: debugCLI)
         },
-        .isProcessTrusted: { command, _, _ in handleIsProcessTrustedCommand(command: command) },
-        .isAXFeatureEnabled: { command, _, _ in handleIsAXFeatureEnabledCommand(command: command) },
+        .isProcessTrusted: { command, _, _, _ in handleIsProcessTrustedCommand(command: command) },
+        .isAXFeatureEnabled: { command, _, _, _ in handleIsAXFeatureEnabledCommand(command: command) },
     ]
 
     private static let notImplementedCommands: Set<CommandType> = [
@@ -91,17 +103,23 @@ struct CommandExecutor {
     ]
 
     @MainActor
-    private static func processCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+    private static func processCommand(
+        command: CommandEnvelope,
+        axorcist: AXorcist,
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions) -> String
+    {
         if let executor = simpleExecutors[command.command] {
             return handleSimpleCommand(
                 command: command,
                 axorcist: axorcist,
                 debugCLI: debugCLI,
+                traversalOptions: traversalOptions,
                 executor: executor)
         }
 
         if let handler = commandHandlers[command.command] {
-            return handler(command, axorcist, debugCLI)
+            return handler(command, axorcist, debugCLI, traversalOptions)
         }
 
         if self.notImplementedCommands.contains(command.command) {
@@ -119,7 +137,8 @@ struct CommandExecutor {
     private static func handleCollectAllCommand(
         command: CommandEnvelope,
         axorcist: AXorcist,
-        debugCLI: Bool) -> String
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions) -> String
     {
         axDebugLog("CollectAll called. debugCLI=\(debugCLI). Passing to axorcist.handleCollectAll.")
         guard let axCommand = command.command.toAXCommand(commandEnvelope: command) else {
@@ -134,7 +153,9 @@ struct CommandExecutor {
                 debugCLI: debugCLI,
                 commandDebugLogging: command.debugLogging)
         }
-        let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axCommand))
+        let axResponse = axorcist.runCommand(
+            AXCommandEnvelope(commandID: command.commandId, command: axCommand),
+            traversalOptions: traversalOptions)
         let handlerResponse = if axResponse.status == "success" {
             HandlerResponse(data: axResponse.payload, error: nil)
         } else {
@@ -152,16 +173,24 @@ struct CommandExecutor {
     private static func handleGetElementAtPointCommand(
         command: CommandEnvelope,
         axorcist: AXorcist,
-        debugCLI: Bool) -> String
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions) -> String
     {
-        handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
+        handleSimpleCommand(
+            command: command,
+            axorcist: axorcist,
+            debugCLI: debugCLI,
+            traversalOptions: traversalOptions)
+        { cmd, axorcist, options in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert GetElementAtPoint to AXCommand")
                 return HandlerResponse(
                     data: nil,
                     error: "Internal error: Failed to create AXCommand for GetElementAtPoint")
             }
-            let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            let axResponse = axorcist.runCommand(
+                AXCommandEnvelope(commandID: cmd.commandId, command: axCmd),
+                traversalOptions: options)
             return HandlerResponse(from: axResponse)
         }
     }
@@ -170,16 +199,24 @@ struct CommandExecutor {
     private static func handleSetFocusedValueCommand(
         command: CommandEnvelope,
         axorcist: AXorcist,
-        debugCLI: Bool) -> String
+        debugCLI: Bool,
+        traversalOptions: AXTraversalOptions) -> String
     {
-        handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI) { cmd, axorcist in
+        handleSimpleCommand(
+            command: command,
+            axorcist: axorcist,
+            debugCLI: debugCLI,
+            traversalOptions: traversalOptions)
+        { cmd, axorcist, options in
             guard let axCmd = cmd.command.toAXCommand(commandEnvelope: cmd) else {
                 axErrorLog("Failed to convert SetFocusedValue to AXCommand")
                 return HandlerResponse(
                     data: nil,
                     error: "Internal error: Failed to create AXCommand for SetFocusedValue")
             }
-            let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: cmd.commandId, command: axCmd))
+            let axResponse = axorcist.runCommand(
+                AXCommandEnvelope(commandID: cmd.commandId, command: axCmd),
+                traversalOptions: options)
             return HandlerResponse(from: axResponse)
         }
     }

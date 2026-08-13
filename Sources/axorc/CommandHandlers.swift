@@ -10,7 +10,12 @@ import Foundation
 // MARK: - Command Handlers
 
 @MainActor
-func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handlePerformActionCommand(
+    command: CommandEnvelope,
+    axorcist: AXorcist,
+    debugCLI: Bool,
+    traversalOptions: AXTraversalOptions) -> String
+{
     guard command.actionName != nil else {
         let errorResponse = HandlerResponse(data: nil, error: "performAction requires actionName")
         return finalizeAndEncodeResponse(
@@ -21,16 +26,28 @@ func handlePerformActionCommand(command: CommandEnvelope, axorcist: AXorcist, de
             commandDebugLogging: command.debugLogging)
     }
 
-    return handleSimpleCommand(command: command, axorcist: axorcist, debugCLI: debugCLI, executor: executePerformAction)
+    return handleSimpleCommand(
+        command: command,
+        axorcist: axorcist,
+        debugCLI: debugCLI,
+        traversalOptions: traversalOptions,
+        executor: executePerformAction)
 }
 
 @MainActor
-func handleBatchCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handleBatchCommand(
+    command: CommandEnvelope,
+    axorcist: AXorcist,
+    debugCLI: Bool,
+    traversalOptions: AXTraversalOptions) -> String
+{
     guard let batchCmd = command.command.toAXCommand(commandEnvelope: command) else {
         return encodeBatchConversionFailure(commandId: command.commandId)
     }
 
-    let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: batchCmd))
+    let axResponse = axorcist.runCommand(
+        AXCommandEnvelope(commandID: command.commandId, command: batchCmd),
+        traversalOptions: traversalOptions)
     var finalResponseObject = buildBatchResponse(commandId: command.commandId, axResponse: axResponse)
 
     if debugCLI || command.debugLogging {
@@ -110,7 +127,12 @@ func handleNotImplementedCommand(command: CommandEnvelope, message: String, debu
 }
 
 @MainActor
-func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI: Bool) -> String {
+func handleObserveCommand(
+    command: CommandEnvelope,
+    axorcist: AXorcist,
+    debugCLI: Bool,
+    traversalOptions: AXTraversalOptions) -> String
+{
     guard let axObserveCommand = command.command.toAXCommand(commandEnvelope: command) else {
         axErrorLog("Failed to convert Observe to AXCommand")
         let errorResponse = HandlerResponse(data: nil, error: "Internal error: Failed to create AXCommand for Observe")
@@ -122,7 +144,9 @@ func handleObserveCommand(command: CommandEnvelope, axorcist: AXorcist, debugCLI
             commandDebugLogging: command.debugLogging)
     }
 
-    let axResponse = axorcist.runCommand(AXCommandEnvelope(commandID: command.commandId, command: axObserveCommand))
+    let axResponse = axorcist.runCommand(
+        AXCommandEnvelope(commandID: command.commandId, command: axObserveCommand),
+        traversalOptions: traversalOptions)
     let handlerResponse = HandlerResponse(from: axResponse)
 
     return finalizeAndEncodeResponse(
@@ -138,9 +162,10 @@ func handleSimpleCommand(
     command: CommandEnvelope,
     axorcist: AXorcist,
     debugCLI: Bool,
-    executor: (CommandEnvelope, AXorcist) -> HandlerResponse) -> String
+    traversalOptions: AXTraversalOptions,
+    executor: (CommandEnvelope, AXorcist, AXTraversalOptions) -> HandlerResponse) -> String
 {
-    let handlerResponse = executor(command, axorcist)
+    let handlerResponse = executor(command, axorcist, traversalOptions)
     return finalizeAndEncodeResponse(
         commandId: command.commandId,
         commandType: command.command.rawValue,

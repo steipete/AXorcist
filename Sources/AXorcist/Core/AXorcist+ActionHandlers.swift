@@ -15,6 +15,13 @@ extension AXorcist {
     // MARK: - Perform Action Handler
 
     public func handlePerformAction(command: PerformActionCommand) -> AXResponse {
+        self.handlePerformAction(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handlePerformAction(
+        command: PerformActionCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logPerformActionStart(command)
 
         let element: Element
@@ -22,7 +29,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch)
+            maxDepthForSearch: command.maxDepthForSearch,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement
@@ -37,6 +45,13 @@ extension AXorcist {
     // MARK: - Set Focused Value Handler
 
     public func handleSetFocusedValue(command: SetFocusedValueCommand) -> AXResponse {
+        self.handleSetFocusedValue(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleSetFocusedValue(
+        command: SetFocusedValueCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         self.logSetFocusedValueStart(command)
 
         let element: Element
@@ -44,7 +59,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch)
+            maxDepthForSearch: command.maxDepthForSearch,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement
@@ -62,6 +78,13 @@ extension AXorcist {
     // MARK: - Extract Text Handler
 
     public func handleExtractText(command: ExtractTextCommand) -> AXResponse {
+        self.handleExtractText(command: command, traversalOptions: .snapshotDefaults())
+    }
+
+    public func handleExtractText(
+        command: ExtractTextCommand,
+        traversalOptions: AXTraversalOptions) -> AXResponse
+    {
         GlobalAXLogger.shared.log(AXLogEntry(
             level: .info,
             message: "HandleExtractText: App '\(String(describing: command.appIdentifier))', " +
@@ -74,7 +97,8 @@ extension AXorcist {
             appIdentifier: command.appIdentifier,
             pid: command.pid,
             locator: command.locator,
-            maxDepthForSearch: command.maxDepthForSearch)
+            maxDepthForSearch: command.maxDepthForSearch,
+            traversalOptions: traversalOptions)
         {
         case let .success(resolvedElement):
             element = resolvedElement

@@ -112,8 +112,8 @@ public func getElement(
 func findDescendantAtPath(
     currentRoot: Element,
     pathComponents: [PathStep],
-    maxDepth _: Int,
-    debugSearch _: Bool) -> Element?
+    debugSearch _: Bool,
+    traversalOptions: AXTraversalOptions) -> Element?
 {
     var currentElement = currentRoot
     logPathSearchStart(currentElement: currentElement, componentCount: pathComponents.count)
@@ -125,7 +125,11 @@ func findDescendantAtPath(
             return nil
         }
 
-        let match = findMatch(for: component, among: children, componentIndex: index)
+        let match = findMatch(
+            for: component,
+            among: children,
+            componentIndex: index,
+            traversalOptions: traversalOptions)
         guard let nextElement = match else {
             logNoMatch(component: component, element: currentElement, index: index)
             return nil
@@ -176,7 +180,8 @@ private func childrenForPathComponent(element: Element, componentIndex: Int) -> 
 private func findMatch(
     for component: PathStep,
     among children: [Element],
-    componentIndex: Int) -> Element?
+    componentIndex: Int,
+    traversalOptions: AXTraversalOptions) -> Element?
 {
     let searchVisitor = SearchVisitor(
         criteria: component.criteria,
@@ -191,7 +196,8 @@ private func findMatch(
             element: child,
             visitor: searchVisitor,
             currentDepth: 0,
-            maxDepth: component.maxDepthForStep ?? 1)
+            maxDepth: component.maxDepthForStep ?? 1,
+            traversalOptions: traversalOptions)
         if let foundElement = searchVisitor.foundElement {
             logMatch(component: component, element: foundElement, index: componentIndex)
             return foundElement

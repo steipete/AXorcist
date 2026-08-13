@@ -60,6 +60,20 @@ public func findTargetElement(
     locator: Locator,
     maxDepthForSearch: Int) -> (element: Element?, error: String?)
 {
+    findTargetElement(
+        for: appIdentifier,
+        locator: locator,
+        maxDepthForSearch: maxDepthForSearch,
+        traversalOptions: .snapshotDefaults())
+}
+
+@MainActor
+public func findTargetElement(
+    for appIdentifier: String,
+    locator: Locator,
+    maxDepthForSearch: Int,
+    traversalOptions: AXTraversalOptions) -> (element: Element?, error: String?)
+{
     guard let appElement = getApplicationElement(for: appIdentifier) else {
         logger.error("FTE: No app element for \(appIdentifier)")
         return (nil, "Application not found or not accessible: \(appIdentifier)")
@@ -69,7 +83,8 @@ public func findTargetElement(
         startingFrom: appElement,
         targetDescription: appIdentifier,
         locator: locator,
-        maxDepthForSearch: maxDepthForSearch)
+        maxDepthForSearch: maxDepthForSearch,
+        traversalOptions: traversalOptions)
 }
 
 @MainActor
@@ -78,6 +93,22 @@ func findTargetElement(
     targetDescription: String,
     locator: Locator,
     maxDepthForSearch: Int) -> (element: Element?, error: String?)
+{
+    findTargetElement(
+        startingFrom: appElement,
+        targetDescription: targetDescription,
+        locator: locator,
+        maxDepthForSearch: maxDepthForSearch,
+        traversalOptions: .snapshotDefaults())
+}
+
+@MainActor
+func findTargetElement(
+    startingFrom appElement: Element,
+    targetDescription: String,
+    locator: Locator,
+    maxDepthForSearch: Int,
+    traversalOptions: AXTraversalOptions) -> (element: Element?, error: String?)
 {
     let locatorDebug = logFindTargetSetup(
         appIdentifier: targetDescription,
@@ -91,9 +122,9 @@ func findTargetElement(
     let pathResult = performPathNavigation(
         currentElement: currentSearchElement,
         locator: locator,
-        maxDepthForSearch: maxDepthForSearch,
         pathHintDebugString: pathHintDebugString,
-        searchStartingPointDescription: searchStartingPointDescription)
+        searchStartingPointDescription: searchStartingPointDescription,
+        traversalOptions: traversalOptions)
 
     if let error = pathResult.error {
         return (nil, error)
@@ -117,7 +148,8 @@ func findTargetElement(
         startElement: currentSearchElement,
         locator: locator,
         maxDepthForSearch: maxDepthForSearch,
-        searchStartingPointDescription: searchStartingPointDescription)
+        searchStartingPointDescription: searchStartingPointDescription,
+        traversalOptions: traversalOptions)
 
     if let error = criteriaResult.error {
         return (nil, error)
@@ -128,9 +160,9 @@ func findTargetElement(
 private func performPathNavigation(
     currentElement: Element,
     locator: Locator,
-    maxDepthForSearch: Int,
     pathHintDebugString: String,
-    searchStartingPointDescription: String) -> PathNavigationResult
+    searchStartingPointDescription: String,
+    traversalOptions: AXTraversalOptions) -> PathNavigationResult
 {
     var element = currentElement
     var description = searchStartingPointDescription
@@ -161,8 +193,8 @@ private func performPathNavigation(
     if let navigatedElement = findDescendantAtPath(
         currentRoot: element,
         pathComponents: pathSteps,
-        maxDepth: maxDepthForSearch,
-        debugSearch: locator.debugPathSearch ?? false)
+        debugSearch: locator.debugPathSearch ?? false,
+        traversalOptions: traversalOptions)
     {
         logger.info(
             logSegments(
@@ -184,7 +216,8 @@ private func applyCriteriaSearch(
     startElement: Element,
     locator: Locator,
     maxDepthForSearch: Int,
-    searchStartingPointDescription: String) -> (element: Element?, error: String?)
+    searchStartingPointDescription: String,
+    traversalOptions: AXTraversalOptions) -> (element: Element?, error: String?)
 {
     let criteriaCount = locator.criteria.count
     let matchAll = locator.matchAll ?? true
@@ -202,14 +235,15 @@ private func applyCriteriaSearch(
         criteria: locator.criteria,
         matchType: finalSearchMatchType,
         matchAllCriteria: finalSearchMatchAll,
-        stopAtFirstMatch: axorcStopAtFirstMatch,
+        stopAtFirstMatch: traversalOptions.stopAtFirstMatch,
         maxDepth: maxDepthForSearch)
 
     let nodesVisited = runTraversal(
         element: startElement,
         visitor: searchVisitor,
         currentDepth: 0,
-        maxDepth: maxDepthForSearch)
+        maxDepth: maxDepthForSearch,
+        executionPolicy: AXTraversalExecutionPolicy(options: traversalOptions))
 
     if let foundMatch = searchVisitor.foundElement {
         let foundDescription = foundMatch.briefDescription(option: .smart)
@@ -256,6 +290,22 @@ public func collectAllElements(
     maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
     includeIgnored: Bool = false) -> [Element]
 {
+    collectAllElements(
+        from: startElement,
+        matching: criteria,
+        maxDepth: maxDepth,
+        includeIgnored: includeIgnored,
+        traversalOptions: .snapshotDefaults())
+}
+
+@MainActor
+public func collectAllElements(
+    from startElement: Element,
+    matching criteria: [Criterion]? = nil,
+    maxDepth: Int = AXMiscConstants.defaultMaxDepthSearch,
+    includeIgnored: Bool = false,
+    traversalOptions: AXTraversalOptions) -> [Element]
+{
     let criteriaDebugString = criteria?
         .map { "\($0.attribute):\($0.value)(\($0.matchType?.rawValue ?? "exact"))" }
         .joined(separator: ", ")
@@ -268,7 +318,12 @@ public func collectAllElements(
             "I=\(includeIgnored)"))
 
     let visitor = CollectAllVisitor(criteria: criteria, includeIgnored: includeIgnored)
-    traverseAndSearch(element: startElement, visitor: visitor, currentDepth: 0, maxDepth: maxDepth)
+    traverseAndSearch(
+        element: startElement,
+        visitor: visitor,
+        currentDepth: 0,
+        maxDepth: maxDepth,
+        traversalOptions: traversalOptions)
 
     logger.info("CA: Found \(visitor.collectedElements.count)")
     return visitor.collectedElements
@@ -297,22 +352,44 @@ public func traverseAndSearch(
     currentDepth: Int,
     maxDepth: Int)
 {
+    traverseAndSearch(
+        element: element,
+        visitor: visitor,
+        currentDepth: currentDepth,
+        maxDepth: maxDepth,
+        traversalOptions: .snapshotDefaults())
+}
+
+@MainActor
+public func traverseAndSearch(
+    element: Element,
+    visitor: any ElementVisitor,
+    currentDepth: Int,
+    maxDepth: Int,
+    traversalOptions: AXTraversalOptions)
+{
+    traverseAndSearch(
+        element: element,
+        visitor: visitor,
+        currentDepth: currentDepth,
+        maxDepth: maxDepth,
+        executionPolicy: AXTraversalExecutionPolicy(options: traversalOptions))
+}
+
+@MainActor
+func traverseAndSearch(
+    element: Element,
+    visitor: any ElementVisitor,
+    currentDepth: Int,
+    maxDepth: Int,
+    executionPolicy: AXTraversalExecutionPolicy)
+{
     _ = runTraversal(
         element: element,
         visitor: visitor,
         currentDepth: currentDepth,
-        maxDepth: maxDepth)
-}
-
-private struct TraversalContext {
-    var visitedElements: Set<Element> = []
-    var nodeCount = 0
-    var didLogTimeout = false
-    let deadline: Date
-
-    init(timeout: TimeInterval) {
-        self.deadline = Date().addingTimeInterval(timeout)
-    }
+        maxDepth: maxDepth,
+        executionPolicy: executionPolicy)
 }
 
 @MainActor
@@ -320,87 +397,40 @@ private func runTraversal(
     element: Element,
     visitor: any ElementVisitor,
     currentDepth: Int,
-    maxDepth: Int) -> Int
-{
-    var context = TraversalContext(timeout: axorcTraversalTimeout)
-    _ = traverseAndSearch(
-        element: element,
-        visitor: visitor,
-        currentDepth: currentDepth,
-        maxDepth: maxDepth,
-        context: &context)
-    return context.nodeCount
-}
-
-@MainActor
-private func traverseAndSearch(
-    element: Element,
-    visitor: any ElementVisitor,
-    currentDepth: Int,
     maxDepth: Int,
-    context: inout TraversalContext) -> Bool
+    executionPolicy: AXTraversalExecutionPolicy) -> Int
 {
-    guard Date() <= context.deadline else {
-        if !context.didLogTimeout {
-            logger.warning("Traverse: search timeout (\(axorcTraversalTimeout)s) reached. Aborting traversal.")
-            context.didLogTimeout = true
-        }
-        return true
-    }
-
-    let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
-
-    guard currentDepth <= maxDepth else {
-        logTraversalDepthExceeded(maxDepth, elementDescription)
-        return false
-    }
-
-    guard context.visitedElements.insert(element).inserted else {
-        return false
-    }
-
-    context.nodeCount += 1
-    let visitResult = visitor.visit(element: element, depth: currentDepth)
-
-    switch visitResult {
-    case .stop:
-        logTraversalEvent("STOP", elementDescription: elementDescription, depth: currentDepth)
-        return true
-    case .skipChildren:
-        logTraversalEvent("SKIP_CHILDREN", elementDescription: elementDescription, depth: currentDepth)
-        return false
-    case .continue:
-        logTraversalEvent(
-            "CONTINUE",
-            elementDescription: elementDescription,
-            depth: currentDepth,
-            extra: "Processing children")
-        // Continue to process children
-    }
-
-    if let children = element.children(strict: false), !children.isEmpty,
-       axorcScanAll || (element.role().map { containerRoles.contains($0) } ?? false)
-    {
-        for child in children {
-            guard !traverseAndSearch(
-                element: child,
-                visitor: visitor,
-                currentDepth: currentDepth + 1,
-                maxDepth: maxDepth,
-                context: &context)
-            else {
-                return true
+    let traversalOptions = executionPolicy.options
+    let result = traverseAXTree(
+        from: element,
+        initialDepth: currentDepth,
+        maxDepth: maxDepth,
+        timeout: traversalOptions.timeout,
+        now: executionPolicy.now,
+        shouldDescend: { element, _ in
+            traversalOptions.scanAll || (element.role().map { containerRoles.contains($0) } ?? false)
+        },
+        onTimeout: {
+            logger.warning("Traverse: search timeout (\(traversalOptions.timeout)s) reached. Aborting traversal.")
+        },
+        visit: { element, depth in
+            let elementDescription = element.briefDescription(option: ValueFormatOption.smart)
+            let visitResult = visitor.visit(element: element, depth: depth)
+            switch visitResult {
+            case .stop:
+                logTraversalEvent("STOP", elementDescription: elementDescription, depth: depth)
+            case .skipChildren:
+                logTraversalEvent("SKIP_CHILDREN", elementDescription: elementDescription, depth: depth)
+            case .continue:
+                logTraversalEvent(
+                    "CONTINUE",
+                    elementDescription: elementDescription,
+                    depth: depth,
+                    extra: "Processing children")
             }
-        }
-    }
-    return false
-}
-
-private func logTraversalDepthExceeded(_ maxDepth: Int, _ elementDescription: String) {
-    logger.debug(
-        logSegments(
-            "Traverse: Max depth \(maxDepth) reached at [\(elementDescription)]",
-            "Stopping this branch"))
+            return visitResult
+        })
+    return result.visitedCount
 }
 
 private func logTraversalEvent(
@@ -582,16 +612,3 @@ private let containerRoles: Set<String> = [
     "AXGeneric", "AXSection", "AXArticle", "AXSplitter", "AXScrollBar", "AXPane",
     AXRoleNames.kAXMenuBarRole,
 ]
-
-// MARK: - Search Timeout Handling
-
-/// Default timeout (seconds) for a full tree traversal. Override at runtime by setting `axorcTraversalTimeout`.
-public nonisolated(unsafe) var axorcTraversalTimeout: TimeInterval = 30
-
-/// When true, traversal will ignore `containerRoles` pruning and descend into *every* child of every element.
-/// Enable via CLI flag `--scan-all`.
-public nonisolated(unsafe) var axorcScanAll: Bool = false
-
-/// Controls whether SearchVisitor should stop at the first element that satisfies the final locator criteria.
-/// CLI flag `--no-stop-first` sets this to `false`.
-public nonisolated(unsafe) var axorcStopAtFirstMatch: Bool = true

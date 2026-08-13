@@ -201,7 +201,11 @@ enum CLIFrontend {
         json: Bool,
         renderer: ([String: Any]) throws -> String) throws -> Int32
     {
-        let response = CommandExecutor.execute(command: envelope, axorcist: AXorcist.shared, debugCLI: false)
+        let response = CommandExecutor.execute(
+            command: envelope,
+            axorcist: AXorcist.shared,
+            debugCLI: false,
+            traversalOptions: .standard)
         guard let object = self.object(from: response) else {
             throw UserError("AXorcist returned malformed JSON.", exitCode: 1)
         }
