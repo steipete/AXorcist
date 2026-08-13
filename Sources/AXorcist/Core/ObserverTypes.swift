@@ -182,6 +182,8 @@ final class AXObserverSubscriptionStore {
             let subscription = registration.subscription
             let matchesGlobal = subscription == globalKey
             let matchesProcess = subscription == specificKey && registration.scope == .process
+            // AXObserver registrations are object-specific. Only application registrations use process scope;
+            // element registrations must not fan the callback out to sibling accessibility objects.
             let matchesElement = subscription == specificKey &&
                 registration.scope == .element &&
                 registration.element == eventElement
