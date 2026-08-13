@@ -8,7 +8,6 @@ All notable changes to AXorcist will be documented in this file.
 - Add a typed native setter for accessibility selected-text ranges.
 
 ### Fixed
-- Route observe and stop commands through one registry, resolve native element PIDs reliably, recognize current observe success responses, allow callbacks to unsubscribe safely, and clean up watcher tokens on deinitialization.
 - Preserve attributed-string parameterized results and route both public generic accessors through one native conversion path.
 - Keep accessibility-tree traversal state local to each search and honor prefetched children, so repeated lookups cannot skip elements seen by earlier commands.
 - Stop probing or linking Apple Events for legacy automation-permission status; deprecated compatibility APIs now return unknown while Accessibility permission checks remain native AX-only.
