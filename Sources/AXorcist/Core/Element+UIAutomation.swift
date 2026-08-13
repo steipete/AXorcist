@@ -169,20 +169,33 @@ extension Element {
 extension Element {
     /// Type text into this element
     @MainActor public func typeText(_ text: String, delay: TimeInterval = 0.005, clearFirst: Bool = false) throws {
-        // Focus the element first
-        if attribute(Attribute<Bool>.focused) != true {
-            // Try to focus the element
-            _ = setValue(true, forAttribute: Attribute<Bool>.focused.rawValue)
-            // Some elements can't be focused directly, that's OK
-        }
+        try self.typeText(
+            text,
+            delay: delay,
+            clearFirst: clearFirst,
+            focused: { self.attribute(Attribute<Bool>.focused) },
+            focus: { self.setValue(true, forAttribute: Attribute<Bool>.focused.rawValue) },
+            eventDispatcher: { text, delay, clearFirst in
+                if clearFirst {
+                    try self.clearField()
+                }
+                try Element.typeText(text, delay: delay)
+            })
+    }
 
-        // Clear existing text if requested
-        if clearFirst {
-            try self.clearField()
+    @MainActor
+    func typeText(
+        _ text: String,
+        delay: TimeInterval,
+        clearFirst: Bool,
+        focused: () -> Bool?,
+        focus: () -> Bool,
+        eventDispatcher: (String, TimeInterval, Bool) throws -> Void) throws
+    {
+        guard focused() == true || focus() else {
+            throw UIAutomationError.elementFocusFailed
         }
-
-        // Type the text
-        try Element.typeText(text, delay: delay)
+        try eventDispatcher(text, delay, clearFirst)
     }
 
     /// Clear the text field
@@ -815,6 +828,7 @@ extension Element {
 
 public enum UIAutomationError: Error, LocalizedError {
     case failedToCreateEvent
+    case elementFocusFailed
     case elementNotEnabled
     case elementNotActionable(timeout: TimeInterval)
     case unsupportedKey(String)
@@ -825,6 +839,8 @@ public enum UIAutomationError: Error, LocalizedError {
         switch self {
         case .failedToCreateEvent:
             "Failed to create system event"
+        case .elementFocusFailed:
+            "Failed to focus element before typing"
         case .elementNotEnabled:
             "Element is not enabled"
         case let .elementNotActionable(timeout):

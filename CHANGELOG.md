@@ -8,6 +8,7 @@ All notable changes to AXorcist will be documented in this file.
 - Add a typed native setter for accessibility selected-text ranges.
 
 ### Fixed
+- Refuse element-scoped typing when native focus cannot be established, preventing keyboard events from reaching an unrelated focused app.
 - Preserve middle and right mouse-button identity across clicks, holds, and drags, and build complete input sequences before posting so allocation failures cannot leave a button held down.
 - Resolve each architecture from SwiftPM's reported output when building universal release artifacts instead of assuming a fixed build directory.
 - Preserve attributed-string parameterized results and route both public generic accessors through one native conversion path.
