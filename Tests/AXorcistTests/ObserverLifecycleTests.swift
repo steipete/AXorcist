@@ -268,6 +268,104 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `global watcher retries a transient launched application failure`() async throws {
+        let registry = RecordingObservationRegistry(remainingFailureCounts: [42: 1])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in },
+            handler: { _, _, _, _ in })
+        try watcher.start()
+
+        applicationMonitor.launch(processIdentifier: 42)
+        for _ in 0..<20 where !registry.activeProcessIdentifiers.contains(42) {
+            await Task.yield()
+        }
+
+        #expect(registry.attemptCount(for: 42) == 2)
+        #expect(registry.activeProcessIdentifiers.contains(42))
+        watcher.stop()
+    }
+
+    @Test
+    func `global watcher bounds persistent launched application retries`() async throws {
+        let registry = RecordingObservationRegistry(failingProcessIdentifiers: [42])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in },
+            handler: { _, _, _, _ in })
+        try watcher.start()
+
+        applicationMonitor.launch(processIdentifier: 42)
+        for _ in 0..<50 where registry.attemptCount(for: 42) < 4 {
+            await Task.yield()
+        }
+        let boundedAttemptCount = registry.attemptCount(for: 42)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        #expect(boundedAttemptCount == 4)
+        #expect(registry.attemptCount(for: 42) == boundedAttemptCount)
+        #expect(!registry.activeProcessIdentifiers.contains(42))
+        watcher.stop()
+    }
+
+    @Test
+    func `termination cancels retry before a replacement reuses the PID`() async throws {
+        let registry = RecordingObservationRegistry(remainingFailureCounts: [42: 1])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in try await Task.sleep(for: .seconds(60)) },
+            handler: { _, _, _, _ in })
+        try watcher.start()
+
+        applicationMonitor.launch(processIdentifier: 42)
+        applicationMonitor.terminate(processIdentifier: 42)
+        applicationMonitor.launch(processIdentifier: 42)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+
+        #expect(registry.attemptCount(for: 42) == 2)
+        #expect(registry.activeProcessIdentifiers.contains(42))
+        watcher.stop()
+    }
+
+    @Test
+    func `watcher deinit cancels a sleeping global registration retry`() async throws {
+        let registry = RecordingObservationRegistry(remainingFailureCounts: [42: 1])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
+        var watcher: NotificationWatcher? = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in try await Task.sleep(for: .seconds(60)) },
+            handler: { _, _, _, _ in })
+        try watcher?.start()
+        applicationMonitor.launch(processIdentifier: 42)
+
+        let weakWatcher = WeakReference(watcher)
+        watcher = nil
+        for _ in 0..<20 where applicationMonitor.stopCount == 0 {
+            await Task.yield()
+        }
+
+        #expect(weakWatcher.value == nil)
+        #expect(applicationMonitor.stopCount == 1)
+        #expect(registry.attemptCount(for: 42) == 1)
+        #expect(registry.activeProcessIdentifiers.isEmpty)
+    }
+
+    @Test
     func `global watcher fails when every current application rejects registration`() {
         let registry = RecordingObservationRegistry(failingProcessIdentifiers: [41, 42])
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
@@ -334,12 +432,17 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
     private var subscriptions: [SubscriptionToken: AXNotificationSubscriptionHandler] = [:]
     private var processIdentifiersByToken: [SubscriptionToken: pid_t] = [:]
     private let failingProcessIdentifiers: Set<pid_t>
+    private var remainingFailureCounts: [pid_t: Int]
 
     private(set) var unsubscribeCallCount = 0
     private(set) var subscribedProcessIdentifiers: [pid_t] = []
 
-    init(failingProcessIdentifiers: Set<pid_t> = []) {
+    init(
+        failingProcessIdentifiers: Set<pid_t> = [],
+        remainingFailureCounts: [pid_t: Int] = [:])
+    {
         self.failingProcessIdentifiers = failingProcessIdentifiers
+        self.remainingFailureCounts = remainingFailureCounts
     }
 
     var activeSubscriptionCount: Int {
@@ -354,6 +457,10 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
         self.subscriptions[token] != nil
     }
 
+    func attemptCount(for processIdentifier: pid_t) -> Int {
+        self.subscribedProcessIdentifiers.count { $0 == processIdentifier }
+    }
+
     func subscribe(
         pid: pid_t,
         element _: Element?,
@@ -361,7 +468,11 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
     {
         self.subscribedProcessIdentifiers.append(pid)
-        guard !self.failingProcessIdentifiers.contains(pid) else {
+        let remainingFailures = self.remainingFailureCounts[pid, default: 0]
+        if remainingFailures > 0 {
+            self.remainingFailureCounts[pid] = remainingFailures - 1
+        }
+        guard !self.failingProcessIdentifiers.contains(pid), remainingFailures == 0 else {
             return .failure(.observerSetupFailed(details: "Fixture rejected PID \(pid)"))
         }
         let token = SubscriptionToken(id: UUID())
