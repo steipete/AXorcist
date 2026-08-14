@@ -390,7 +390,10 @@ struct ObserverLifecycleTests {
         #expect(registry.unsubscribeCallCount == 1)
         #expect(registry.activeSubscriptionCount == 0)
     }
+}
 
+@MainActor
+extension ObserverLifecycleTests {
     @Test
     func `global watcher fans out by PID and follows native application lifecycle`() throws {
         let registry = RecordingObservationRegistry()
