@@ -469,6 +469,24 @@ extension ObserverLifecycleTests {
     }
 
     @Test
+    func `failed initial application waits for its first backoff`() throws {
+        let registry = RecordingObservationRegistry(failingProcessIdentifiers: [42])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in try await Task.sleep(for: .seconds(60)) },
+            handler: { _, _, _, _ in })
+
+        try watcher.start()
+
+        #expect(registry.attemptCount(for: 41) == 1)
+        #expect(registry.attemptCount(for: 42) == 1)
+        watcher.stop()
+    }
+
+    @Test
     func `global observer retry schedule spans slow application startup`() {
         #expect(AXGlobalObserverRetryPolicy.delays == [.milliseconds(500), .seconds(2), .seconds(8)])
         #expect(AXGlobalObserverRetryPolicy.maximumAttempts == 3)
@@ -736,6 +754,9 @@ private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonito
     {
         self.onLaunch = onLaunch
         self.onTermination = onTermination
+        for processIdentifier in self.runningProcessIdentifiers.sorted() {
+            onLaunch(processIdentifier)
+        }
     }
 
     func stop() {

@@ -279,6 +279,9 @@ extension NotificationWatcher {
         let processIdentifiers = Array(Set(globalApplicationMonitor.runningProcessIdentifiers)).sorted()
         var failures: [AccessibilityError] = []
         for pid in processIdentifiers {
+            guard self.globalSubscriptionTokens[pid] == nil,
+                  self.globalRetryTasks[pid] == nil
+            else { continue }
             if let error = self.subscribeGlobalProcess(pid) {
                 failures.append(error)
                 axWarningLog("Global observer skipped running PID \(pid): \(error.localizedDescription)")
