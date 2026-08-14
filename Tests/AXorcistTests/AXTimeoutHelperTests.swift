@@ -209,4 +209,34 @@ struct AXTimeoutHelperTests {
         }
         #expect(result == 42)
     }
+
+    @Test
+    @MainActor
+    func `equal elements with distinct references keep independent messaging scopes`() throws {
+        let first = Element(AXUIElementCreateApplication(getpid()))
+        let second = Element(AXUIElementCreateApplication(getpid()))
+        #expect(first == second)
+        #expect(ObjectIdentifier(first.underlyingElement) != ObjectIdentifier(second.underlyingElement))
+
+        let result = try first.withMessagingTimeout(0.5) { _ in
+            try second.withMessagingTimeout(0.5) { _ in 42 }
+        }
+        #expect(result == 42)
+    }
+
+    @Test
+    @MainActor
+    func `distinct system-wide references share one messaging scope`() throws {
+        let first = Element(AXUIElementCreateSystemWide())
+        let second = Element(AXUIElementCreateSystemWide())
+        #expect(ObjectIdentifier(first.underlyingElement) != ObjectIdentifier(second.underlyingElement))
+
+        _ = try first.withMessagingTimeout(0.5) { _ in
+            #expect(throws: AXMessagingTimeoutError.nestedScope) {
+                try second.withMessagingTimeout(0.25) { _ in
+                    Issue.record("The nested system-wide operation must not run")
+                }
+            }
+        }
+    }
 }
