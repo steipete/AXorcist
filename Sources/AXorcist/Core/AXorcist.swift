@@ -254,7 +254,7 @@ public class AXorcist {
             return .failure(.observerSetupFailed(
                 details: "Observed accessibility element has no owning application PID"))
         }
-        let result = self.observationRegistry.subscribe(
+        let result = self.observationRegistry.subscribeProcess(
             pid: pid,
             element: element,
             notification: notification,

@@ -6,6 +6,7 @@
 //
 
 import ApplicationServices
+import Darwin
 import Foundation
 
 /// Centralized manager for AXObserver instances that coordinates accessibility notifications.
@@ -29,6 +30,11 @@ public final class AXObserverCenter {
         _ pid: pid_t,
         _ element: Element,
         _ notification: AXNotification) -> Void
+    typealias ProcessIdentityProvider = @MainActor (_ pid: pid_t) -> UInt64?
+
+    private struct ObserverGeneration {
+        let startIdentity: UInt64
+    }
 
     // MARK: - Public State
 
@@ -49,14 +55,17 @@ public final class AXObserverCenter {
 
     private let subscriptionStore = AXObserverSubscriptionStore()
     private var observers: [AXObserverObjAndPID] = []
+    private var observerGenerations: [pid_t: ObserverGeneration] = [:]
     private let observerSetupOverride: ObserverSetup?
     private let observerCleanupOverride: ObserverCleanup?
+    private let processIdentityProvider: ProcessIdentityProvider
 
     // MARK: - Lifecycle
 
     private init() {
         self.observerSetupOverride = nil
         self.observerCleanupOverride = nil
+        self.processIdentityProvider = Self.nativeProcessStartIdentity
     }
 
     init(
@@ -65,6 +74,17 @@ public final class AXObserverCenter {
     {
         self.observerSetupOverride = observerSetup
         self.observerCleanupOverride = observerCleanup
+        self.processIdentityProvider = { UInt64(UInt32(bitPattern: $0)) }
+    }
+
+    init(
+        observerSetup: @escaping ObserverSetup,
+        observerCleanup: @escaping ObserverCleanup,
+        processIdentityProvider: @escaping ProcessIdentityProvider)
+    {
+        self.observerSetupOverride = observerSetup
+        self.observerCleanupOverride = observerCleanup
+        self.processIdentityProvider = processIdentityProvider
     }
 }
 
@@ -72,7 +92,26 @@ public final class AXObserverCenter {
 
 @MainActor
 extension AXObserverCenter {
+    /// Subscribe to one application or element notification.
+    ///
+    /// A nil PID is retained for source compatibility but fails explicitly because
+    /// macOS has no global AX observer. Use `NotificationWatcher(globalNotification:)`
+    /// for native per-application fan-out.
     public func subscribe(
+        pid: pid_t? = nil,
+        element: Element? = nil,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+    {
+        guard let pid else {
+            let details = "macOS AXObserver requires an application PID; " +
+                "use NotificationWatcher(globalNotification:) for native global fan-out"
+            return .failure(.observerSetupFailed(details: details))
+        }
+        return self.subscribeProcess(pid: pid, element: element, notification: notification, handler: handler)
+    }
+
+    func subscribeProcess(
         pid: pid_t,
         element: Element? = nil,
         notification: AXNotification,
@@ -82,6 +121,11 @@ extension AXObserverCenter {
             return .failure(.observerSetupFailed(
                 details: "macOS AXObserver requires an application PID greater than zero"))
         }
+        guard let expectedGeneration = self.processIdentityProvider(pid) else {
+            return .failure(.observerSetupFailed(
+                details: "Could not resolve the process generation for PID \(pid)"))
+        }
+        self.prepareObserverGeneration(for: pid, currentIdentity: expectedGeneration)
         let elementDescriptionForLog = element?.briefDescription() ?? "N/A"
         axDebugLog(
             logSegments(
@@ -93,7 +137,7 @@ extension AXObserverCenter {
         let setupError = if self.subscriptionStore.contains(registration: registration) {
             AXError.success
         } else {
-            self.setupUnderlyingObserver(registration)
+            self.setupUnderlyingObserver(registration, expectedGeneration: expectedGeneration)
         }
         guard setupError == .success else {
             let errorMessage = "Failed to setup underlying AXObserver for \(describePid(pid)) " +
@@ -108,29 +152,6 @@ extension AXObserverCenter {
                 "Successfully subscribed handler (token: \(token.id)) for \(describePid(pid))",
                 "notification: \(notification.rawValue)"))
         return .success(token)
-    }
-
-    /// Compatibility entry point for the former nil-PID global observer API.
-    ///
-    /// macOS AX observers require an application PID and the system-wide element does
-    /// not support notifications. Use `NotificationWatcher(globalNotification:)` for
-    /// native event-driven fan-out across running applications.
-    @available(
-        *,
-        deprecated,
-        message: "A nil PID cannot create a macOS AXObserver; use NotificationWatcher(globalNotification:handler:)")
-    public func subscribe(
-        pid: pid_t? = nil,
-        element: Element? = nil,
-        notification: AXNotification,
-        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
-    {
-        guard let pid else {
-            let details = "macOS AXObserver requires an application PID; " +
-                "use NotificationWatcher(globalNotification:) for native global fan-out"
-            return .failure(.observerSetupFailed(details: details))
-        }
-        return self.subscribe(pid: pid, element: element, notification: notification, handler: handler)
     }
 
     public func unsubscribe(token: SubscriptionToken) throws {
@@ -167,6 +188,7 @@ extension AXObserverCenter {
             CFRunLoopSourceInvalidate(source)
         }
         self.observers.removeAll()
+        self.observerGenerations.removeAll()
         axInfoLog("All observers and subscriptions have been cleared.")
     }
 
@@ -215,10 +237,24 @@ extension AXObserverCenter {
     }
 
     /// Ensures an AXObserver is created for the exact registration target.
-    private func setupUnderlyingObserver(_ registration: AXObserverRegistrationKey) -> AXError {
+    private func setupUnderlyingObserver(
+        _ registration: AXObserverRegistrationKey,
+        expectedGeneration: UInt64) -> AXError
+    {
         let subscription = registration.subscription
         if let observerSetupOverride {
-            return observerSetupOverride(subscription.pid, registration.element, subscription.notification)
+            let error = observerSetupOverride(subscription.pid, registration.element, subscription.notification)
+            let finalGeneration = self.processIdentityProvider(subscription.pid)
+            guard finalGeneration == expectedGeneration else {
+                if finalGeneration != nil {
+                    self.resetObserverGeneration(for: subscription.pid)
+                }
+                return .cannotComplete
+            }
+            if error == .success {
+                self.recordObserverGeneration(for: subscription.pid, startIdentity: expectedGeneration)
+            }
+            return error
         }
 
         let targetPid = subscription.pid
@@ -226,7 +262,7 @@ extension AXObserverCenter {
             targetPid: targetPid,
             element: registration.element,
             notification: subscription.notification)
-        guard let observer = getOrCreateObserver(for: targetPid) else {
+        guard let observer = getOrCreateObserver(for: targetPid, expectedGeneration: expectedGeneration) else {
             axErrorLog("Failed to get/create AXObserver for effective PID \(targetPid) during setup.")
             return .failure
         }
@@ -237,6 +273,22 @@ extension AXObserverCenter {
             registration.element.underlyingElement,
             subscription.notification.rawValue as CFString,
             selfPtr)
+
+        let finalGeneration = self.processIdentityProvider(targetPid)
+        guard finalGeneration == expectedGeneration else {
+            if error == .success {
+                _ = AXObserverRemoveNotification(
+                    observer,
+                    registration.element.underlyingElement,
+                    subscription.notification.rawValue as CFString)
+            }
+            if finalGeneration == nil {
+                self.removeObserverIfUnused(targetPid: targetPid)
+            } else {
+                self.resetObserverGeneration(for: targetPid)
+            }
+            return .cannotComplete
+        }
 
         self.logObserverAddResult(targetPid: targetPid, notification: subscription.notification, error: error)
         if error != .success {
@@ -348,30 +400,58 @@ extension AXObserverCenter {
 
     // MARK: - Private Methods
 
+    private func prepareObserverGeneration(for pid: pid_t, currentIdentity: UInt64) {
+        guard let storedGeneration = self.observerGenerations[pid] else { return }
+        guard storedGeneration.startIdentity != currentIdentity else { return }
+
+        self.resetObserverGeneration(for: pid)
+    }
+
+    private func resetObserverGeneration(for pid: pid_t) {
+        if let observer = getObserver(for: pid) {
+            let source = AXObserverGetRunLoopSource(observer)
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .defaultMode)
+            CFRunLoopSourceInvalidate(source)
+        }
+        self.removePidObserverInstance(pid: pid)
+        let removedSubscriptionCount = self.subscriptionStore.removeAll(for: pid)
+        axInfoLog(
+            "Reset stale AXObserver generation for PID \(pid); removed " +
+                "\(removedSubscriptionCount) logical subscriptions")
+    }
+
+    private func recordObserverGeneration(for pid: pid_t, startIdentity: UInt64) {
+        self.observerGenerations[pid] = ObserverGeneration(startIdentity: startIdentity)
+    }
+
     private func getObserver(for pid: pid_t) -> AXObserver? {
         self.observers.first { $0.pid == pid }?.observer
     }
 
-    private func getOrCreateObserver(for pid: pid_t) -> AXObserver? {
+    private func getOrCreateObserver(for pid: pid_t, expectedGeneration: UInt64) -> AXObserver? {
         if let existing = getObserver(for: pid) {
             return existing
         }
-        return self.createObserver(for: pid)
+        return self.createObserver(for: pid, expectedGeneration: expectedGeneration)
     }
 
-    private func createObserver(for pid: pid_t) -> AXObserver? {
+    private func createObserver(for pid: pid_t, expectedGeneration: UInt64) -> AXObserver? {
         var observer: AXObserver?
         let callback = self.makeObserverCallback()
 
         let error = AXObserverCreateWithInfoCallback(pid, callback, &observer)
 
-        if error == .success, let newObserver = observer {
+        if error == .success,
+           let newObserver = observer,
+           self.processIdentityProvider(pid) == expectedGeneration
+        {
             // Add to run loop ONCE when observer is created.
             CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(newObserver), .defaultMode)
             axDebugLog("Added run loop source for new observer PID \(pid)")
 
             let obj = AXObserverObjAndPID(observer: newObserver, pid: pid)
             self.observers.append(obj)
+            self.recordObserverGeneration(for: pid, startIdentity: expectedGeneration)
             axDebugLog("Created observer for PID \(pid)")
             return newObserver
         } else {
@@ -420,7 +500,31 @@ extension AXObserverCenter {
 
     private func removePidObserverInstance(pid: pid_t) {
         self.observers.removeAll { $0.pid == pid }
+        self.observerGenerations.removeValue(forKey: pid)
         axDebugLog("Removed AXObserver instance for effective PID \(pid).")
+    }
+
+    private static func nativeProcessStartIdentity(_ processIdentifier: pid_t) -> UInt64? {
+        guard processIdentifier > 0 else { return nil }
+        var info = proc_bsdinfo()
+        let expectedSize = Int32(MemoryLayout<proc_bsdinfo>.stride)
+        guard proc_pidinfo(
+            processIdentifier,
+            PROC_PIDTBSDINFO,
+            0,
+            &info,
+            expectedSize) == expectedSize,
+            info.pbi_start_tvsec >= 0,
+            info.pbi_start_tvusec >= 0
+        else {
+            return nil
+        }
+        let seconds = UInt64(info.pbi_start_tvsec)
+        let microseconds = UInt64(info.pbi_start_tvusec)
+        let (scaledSeconds, scalingOverflow) = seconds.multipliedReportingOverflow(by: 1_000_000)
+        let (identity, additionOverflow) = scaledSeconds.addingReportingOverflow(microseconds)
+        guard !scalingOverflow, !additionOverflow else { return nil }
+        return identity
     }
 
     // MARK: - Main Notification Processing (Called by global callbacks)

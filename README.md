@@ -510,9 +510,9 @@ try watcher.start()
 ```
 
 Applications that do not support the requested notification are skipped. Starting fails when running candidate
-applications exist but none accepts the notification. The deprecated nil-PID `AXObserverCenter.subscribe` entry point
-now returns an explicit setup failure instead of attempting to construct an invalid PID-zero observer. A transient
-registration failure after an application lifecycle event receives three bounded retries; termination cancels pending
+applications exist but none accepts the notification. The source-compatible nil-PID `AXObserverCenter.subscribe`
+entry point now returns an explicit setup failure instead of attempting to construct an invalid PID-zero observer. A
+transient registration failure after an application lifecycle event receives three bounded retries; termination cancels pending
 retry work, so this recovery never becomes a polling loop.
 
 ### Observer Example
