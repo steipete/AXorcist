@@ -18,7 +18,7 @@ public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: El
 /// The single registration boundary used by AXorcist's observer APIs.
 @MainActor
 protocol AXObservationRegistry: AnyObject, Sendable {
-    func subscribe(
+    func subscribeProcess(
         pid: pid_t,
         element: Element?,
         notification: AXNotification,
@@ -139,6 +139,15 @@ final class AXObserverSubscriptionStore {
     func removeAll() {
         self.subscriptions.removeAll()
         self.subscriptionTokens.removeAll()
+    }
+
+    @discardableResult
+    func removeAll(for pid: pid_t) -> Int {
+        let tokens = self.tokens(for: pid)
+        for token in tokens {
+            _ = try? self.remove(token: token)
+        }
+        return tokens.count
     }
 
     func tokens(for pid: pid_t) -> [SubscriptionToken] {

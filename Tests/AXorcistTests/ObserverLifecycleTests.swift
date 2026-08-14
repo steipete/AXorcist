@@ -47,6 +47,159 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `observer center subscribe method reference remains unambiguous`() {
+        typealias Subscribe = (
+            pid_t?,
+            Element?,
+            AXNotification,
+            @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in .success },
+            observerCleanup: { _, _, _ in })
+        let subscribe: Subscribe = center.subscribe
+
+        let result = subscribe(nil, nil, .focusedUIElementChanged) { _, _, _, _ in }
+
+        if case .failure = result {} else {
+            Issue.record("Expected the source-compatible nil PID call to fail explicitly")
+        }
+    }
+
+    @Test
+    func `observer center resets shared registrations when a PID generation changes`() throws {
+        let processGeneration = ProcessGenerationBox(100)
+        var setupCount = 0
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCount += 1
+                return .success
+            },
+            observerCleanup: { _, _, _ in },
+            processIdentityProvider: { _ in processGeneration.value })
+        let first = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+        let second = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+        #expect(setupCount == 1)
+
+        processGeneration.value = 101
+        let replacement = try center.subscribe(
+            pid: 42,
+            notification: .focusedUIElementChanged)
+        { _, _, _, _ in }.get()
+
+        #expect(setupCount == 2)
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: first)
+        }
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: second)
+        }
+        try center.unsubscribe(token: replacement)
+    }
+
+    @Test
+    func `unknown process generation refuses setup without purging existing subscriptions`() throws {
+        let processGeneration = ProcessGenerationBox(100)
+        var setupCount = 0
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCount += 1
+                return .success
+            },
+            observerCleanup: { _, _, _ in },
+            processIdentityProvider: { _ in processGeneration.value })
+        let existing = try center.subscribe(
+            pid: 42,
+            notification: .focusedUIElementChanged)
+        { _, _, _, _ in }.get()
+
+        processGeneration.value = nil
+        let unavailable = center.subscribe(pid: 42, notification: .titleChanged) { _, _, _, _ in }
+
+        if case .failure = unavailable {} else {
+            Issue.record("Expected unavailable process identity to refuse setup")
+        }
+        #expect(setupCount == 1)
+        #expect(center.isKeyRegistered(pid: 42, notification: .focusedUIElementChanged))
+        try center.unsubscribe(token: existing)
+    }
+
+    @Test
+    func `observer creation refuses a process generation change during setup`() {
+        let processGenerations = ProcessGenerationSequence([100, 101])
+        var setupCount = 0
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCount += 1
+                return .success
+            },
+            observerCleanup: { _, _, _ in },
+            processIdentityProvider: { _ in processGenerations.next() })
+
+        let result = center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }
+
+        if case .failure = result {} else {
+            Issue.record("Expected a mid-setup generation change to refuse the observer")
+        }
+        #expect(setupCount == 1)
+        #expect(!center.isKeyRegistered(pid: 42, notification: .focusedUIElementChanged))
+    }
+
+    @Test
+    func `post-setup generation change purges shared stale registrations`() throws {
+        let processGenerations = ProcessGenerationSequence([100, 100, 100, 100, 101])
+        var setupCount = 0
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCount += 1
+                return .success
+            },
+            observerCleanup: { _, _, _ in },
+            processIdentityProvider: { _ in processGenerations.next() })
+        let first = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+        let second = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+
+        let replacement = center.subscribe(pid: 42, notification: .titleChanged) { _, _, _, _ in }
+
+        if case .failure = replacement {} else {
+            Issue.record("Expected post-setup generation drift to refuse registration")
+        }
+        #expect(setupCount == 2)
+        #expect(!center.isKeyRegistered(pid: 42, notification: .focusedUIElementChanged))
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: first)
+        }
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: second)
+        }
+    }
+
+    @Test
+    func `failed setup still purges a confirmed stale generation`() throws {
+        let processGenerations = ProcessGenerationSequence([100, 100, 100, 100, 101])
+        let center = AXObserverCenter(
+            observerSetup: { _, _, notification in
+                notification == .titleChanged ? .cannotComplete : .success
+            },
+            observerCleanup: { _, _, _ in },
+            processIdentityProvider: { _ in processGenerations.next() })
+        let first = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+        let second = try center.subscribe(pid: 42, notification: .focusedUIElementChanged) { _, _, _, _ in }.get()
+
+        let replacement = center.subscribe(pid: 42, notification: .titleChanged) { _, _, _, _ in }
+
+        if case .failure = replacement {} else {
+            Issue.record("Expected failed setup with generation drift to refuse registration")
+        }
+        #expect(!center.isKeyRegistered(pid: 42, notification: .focusedUIElementChanged))
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: first)
+        }
+        #expect(throws: AccessibilityError.self) {
+            try center.unsubscribe(token: second)
+        }
+    }
+
+    @Test
     func `CLI recognizes the current observe success response`() {
         #expect(CLIFrontend.responseSucceeded("{\"command_id\":\"observe\",\"status\":\"success\"}"))
         #expect(CLIFrontend.responseSucceeded("{\"command_id\":\"observe\",\"status\":\"error\"}") == false)
@@ -56,7 +209,7 @@ struct ObserverLifecycleTests {
     func `observe and stop use the same registry without clearing unrelated subscriptions`() throws {
         let registry = RecordingObservationRegistry()
         let target = Element(AXUIElementCreateApplication(getpid()))
-        let unrelatedToken = try registry.subscribe(
+        let unrelatedToken = try registry.subscribeProcess(
             pid: 7,
             element: nil,
             notification: .titleChanged)
@@ -237,7 +390,10 @@ struct ObserverLifecycleTests {
         #expect(registry.unsubscribeCallCount == 1)
         #expect(registry.activeSubscriptionCount == 0)
     }
+}
 
+@MainActor
+extension ObserverLifecycleTests {
     @Test
     func `global watcher fans out by PID and follows native application lifecycle`() throws {
         let registry = RecordingObservationRegistry()
@@ -393,6 +549,32 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `workspace application diff ignores wrapper churn for one semantic application`() {
+        let oldWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 100)
+        let newWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 200)
+
+        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
+            previous: [oldWrapper: pid_t(42)],
+            current: [newWrapper: pid_t(42)])
+
+        #expect(changes.terminations.isEmpty)
+        #expect(changes.launches.isEmpty)
+    }
+
+    @Test
+    func `workspace application diff detects semantic replacement despite address reuse`() {
+        let oldApplication = RunningApplicationIdentityDouble(processInstance: "old", wrapperAddress: 100)
+        let replacement = RunningApplicationIdentityDouble(processInstance: "new", wrapperAddress: 100)
+
+        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
+            previous: [oldApplication: pid_t(42)],
+            current: [replacement: pid_t(42)])
+
+        #expect(changes.terminations == [42])
+        #expect(changes.launches == [42])
+    }
+
+    @Test
     func `AXorcist deinit unregisters its owned tokens`() async {
         let registry = RecordingObservationRegistry()
         let target = Element(AXUIElementCreateApplication(getpid()))
@@ -461,7 +643,7 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
         self.subscribedProcessIdentifiers.count { $0 == processIdentifier }
     }
 
-    func subscribe(
+    func subscribeProcess(
         pid: pid_t,
         element _: Element?,
         notification _: AXNotification,
@@ -525,5 +707,40 @@ private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonito
     func terminate(processIdentifier: pid_t) {
         self.runningProcessIdentifiers.removeAll { $0 == processIdentifier }
         self.onTermination?(processIdentifier)
+    }
+}
+
+private struct RunningApplicationIdentityDouble: Hashable {
+    let processInstance: String
+    let wrapperAddress: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.processInstance == rhs.processInstance
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.processInstance)
+    }
+}
+
+@MainActor
+private final class ProcessGenerationBox {
+    var value: UInt64?
+
+    init(_ value: UInt64?) {
+        self.value = value
+    }
+}
+
+@MainActor
+private final class ProcessGenerationSequence {
+    private var values: [UInt64?]
+
+    init(_ values: [UInt64?]) {
+        self.values = values
+    }
+
+    func next() -> UInt64? {
+        self.values.isEmpty ? nil : self.values.removeFirst()
     }
 }

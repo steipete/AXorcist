@@ -190,7 +190,7 @@ public class NotificationWatcher {
             "(PID: \(effectivePid)), notification: \(self.notification.rawValue)"
         axInfoLog(logStart)
 
-        let subscribeResult = self.registry.subscribe(
+        let subscribeResult = self.registry.subscribeProcess(
             pid: effectivePid,
             element: elementForSubscription, // Pass element if target is .element
             notification: self.notification,
@@ -313,7 +313,7 @@ extension NotificationWatcher {
 
     private func subscribeGlobalProcess(_ pid: pid_t) -> AccessibilityError? {
         guard pid > 0, self.globalSubscriptionTokens[pid] == nil else { return nil }
-        switch self.registry.subscribe(
+        switch self.registry.subscribeProcess(
             pid: pid,
             element: nil,
             notification: self.notification,

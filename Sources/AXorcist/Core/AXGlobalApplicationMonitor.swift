@@ -47,14 +47,16 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
     }
 
     private var runningApplicationsObservation: NSKeyValueObservation?
-    private var applicationsByIdentity: [ObjectIdentifier: pid_t] = [:]
+    // Retain AppKit's semantic application keys: separate wrappers for one process instance
+    // compare equal, while a replacement process remains a distinct application identity.
+    private var applicationsByIdentity: [NSRunningApplication: pid_t] = [:]
     private var onLaunch: (@MainActor (pid_t) -> Void)?
     private var onTermination: (@MainActor (pid_t) -> Void)?
 
     private func reconcile(_ runningApplications: [NSRunningApplication]) {
         let currentApplications = Dictionary(
             uniqueKeysWithValues: Self.eligibleApplications(runningApplications).map {
-                (ObjectIdentifier($0), $0.processIdentifier)
+                ($0, $0.processIdentifier)
             })
         let changes = Self.lifecycleChanges(
             previous: self.applicationsByIdentity,
