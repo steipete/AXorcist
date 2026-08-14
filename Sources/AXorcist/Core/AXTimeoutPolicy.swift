@@ -84,14 +84,27 @@ public enum AXMessagingTimeoutError: Error, Equatable, Sendable, CustomStringCon
 
 @MainActor
 private enum AXMessagingTimeoutRegistry {
-    private static var activeElements: Set<Element> = []
+    private enum Key: Hashable {
+        case systemWide
+        case element(ObjectIdentifier)
+    }
+
+    private static let systemWideElement = AXUIElementCreateSystemWide()
+    private static var activeElements: Set<Key> = []
 
     static func begin(_ element: Element) -> Bool {
-        self.activeElements.insert(element).inserted
+        self.activeElements.insert(self.key(for: element)).inserted
     }
 
     static func end(_ element: Element) {
-        self.activeElements.remove(element)
+        self.activeElements.remove(self.key(for: element))
+    }
+
+    private static func key(for element: Element) -> Key {
+        if CFEqual(element.underlyingElement, self.systemWideElement) {
+            return .systemWide
+        }
+        return .element(ObjectIdentifier(element.underlyingElement))
     }
 }
 
