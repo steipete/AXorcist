@@ -36,6 +36,18 @@ public final class AXObserverCenter {
         let startIdentity: UInt64
     }
 
+    /// Layout from XNU's API-stable `proc_uniqidentifierinfo`.
+    private struct ProcessUniqueIdentifierInfo {
+        var executableUUIDHigh: UInt64 = 0
+        var executableUUIDLow: UInt64 = 0
+        var uniqueIdentifier: UInt64 = 0
+        var parentUniqueIdentifier: UInt64 = 0
+        var identifierVersion: Int32 = 0
+        var originalParentIdentifierVersion: Int32 = 0
+        var reserved2: UInt64 = 0
+        var reserved3: UInt64 = 0
+    }
+
     // MARK: - Public State
 
     /// Shared instance
@@ -65,7 +77,7 @@ public final class AXObserverCenter {
     private init() {
         self.observerSetupOverride = nil
         self.observerCleanupOverride = nil
-        self.processIdentityProvider = Self.nativeProcessStartIdentity
+        self.processIdentityProvider = Self.nativeProcessUniqueIdentity
     }
 
     init(
@@ -504,27 +516,21 @@ extension AXObserverCenter {
         axDebugLog("Removed AXObserver instance for effective PID \(pid).")
     }
 
-    private static func nativeProcessStartIdentity(_ processIdentifier: pid_t) -> UInt64? {
+    static func nativeProcessUniqueIdentity(_ processIdentifier: pid_t) -> UInt64? {
         guard processIdentifier > 0 else { return nil }
-        var info = proc_bsdinfo()
-        let expectedSize = Int32(MemoryLayout<proc_bsdinfo>.stride)
+        var info = ProcessUniqueIdentifierInfo()
+        let expectedSize = Int32(MemoryLayout<ProcessUniqueIdentifierInfo>.stride)
         guard proc_pidinfo(
             processIdentifier,
-            PROC_PIDTBSDINFO,
+            17, // PROC_PIDUNIQIDENTIFIERINFO from XNU's proc_info_private.h
             0,
             &info,
             expectedSize) == expectedSize,
-            info.pbi_start_tvsec >= 0,
-            info.pbi_start_tvusec >= 0
+            info.uniqueIdentifier != 0
         else {
             return nil
         }
-        let seconds = UInt64(info.pbi_start_tvsec)
-        let microseconds = UInt64(info.pbi_start_tvusec)
-        let (scaledSeconds, scalingOverflow) = seconds.multipliedReportingOverflow(by: 1_000_000)
-        let (identity, additionOverflow) = scaledSeconds.addingReportingOverflow(microseconds)
-        guard !scalingOverflow, !additionOverflow else { return nil }
-        return identity
+        return info.uniqueIdentifier
     }
 
     // MARK: - Main Notification Processing (Called by global callbacks)
