@@ -19,7 +19,7 @@ public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: El
 @MainActor
 protocol AXObservationRegistry: AnyObject, Sendable {
     func subscribe(
-        pid: pid_t?,
+        pid: pid_t,
         element: Element?,
         notification: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
@@ -29,11 +29,10 @@ protocol AXObservationRegistry: AnyObject, Sendable {
 
 /// Key for tracking accessibility notification subscriptions.
 ///
-/// Allows for both process-specific and global notification observers.
-/// When `pid` is nil, the subscription applies globally for that notification type.
+/// Accessibility notification subscription for one exact process.
 public struct AXNotificationSubscriptionKey: Hashable {
-    /// Process ID to monitor, or nil for global monitoring.
-    let pid: pid_t?
+    /// Process ID to monitor.
+    let pid: pid_t
 
     /// The accessibility notification type to observe.
     let notification: AXNotification
@@ -148,7 +147,7 @@ final class AXObserverSubscriptionStore {
         }
     }
 
-    func contains(pid: pid_t?, notification: AXNotification) -> Bool {
+    func contains(pid: pid_t, notification: AXNotification) -> Bool {
         self.subscriptions.contains { registration, handlers in
             registration.subscription.pid == pid &&
                 registration.subscription.notification == notification &&
@@ -162,7 +161,7 @@ final class AXObserverSubscriptionStore {
 
     func containsSubscriptions(forEffectivePID pid: pid_t) -> Bool {
         self.subscriptions.contains { registration, handlers in
-            (registration.subscription.pid ?? 0) == pid && !handlers.isEmpty
+            registration.subscription.pid == pid && !handlers.isEmpty
         }
     }
 
@@ -175,19 +174,17 @@ final class AXObserverSubscriptionStore {
         let specificKey = AXNotificationSubscriptionKey(
             pid: pid,
             notification: notification)
-        let globalKey = AXNotificationSubscriptionKey(pid: nil, notification: notification)
         var handlersToCall: [AXNotificationSubscriptionHandler] = []
         let eventElement = Element(rawElement)
         for (registration, handlers) in self.subscriptions {
             let subscription = registration.subscription
-            let matchesGlobal = subscription == globalKey
             let matchesProcess = subscription == specificKey && registration.scope == .process
             // AXObserver registrations are object-specific. Only application registrations use process scope;
             // element registrations must not fan the callback out to sibling accessibility objects.
             let matchesElement = subscription == specificKey &&
                 registration.scope == .element &&
                 registration.element == eventElement
-            if matchesGlobal || matchesProcess || matchesElement {
+            if matchesProcess || matchesElement {
                 handlersToCall.append(contentsOf: handlers.values)
             }
         }
