@@ -3,6 +3,15 @@
 import ApplicationServices
 import Foundation
 
+private enum AXGlobalObserverRetryPolicy {
+    static let maximumAttempts = 3
+
+    static func sleep(beforeAttempt attempt: Int) async throws {
+        let delayMilliseconds = 100 * (1 << (attempt - 1))
+        try await Task.sleep(for: .milliseconds(delayMilliseconds))
+    }
+}
+
 /// Provides a high-level interface for observing accessibility notifications on UI elements or processes.
 ///
 /// NotificationWatcher simplifies the process of:
@@ -35,6 +44,7 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = AXObserverCenter.shared
         self.globalApplicationMonitor = nil
+        self.globalRetrySleep = AXGlobalObserverRetryPolicy.sleep
         let logMessage = "NotificationWatcher initialized for element, notification: \(notification.rawValue)"
         axDebugLog(logMessage)
     }
@@ -50,6 +60,7 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = registry
         self.globalApplicationMonitor = nil
+        self.globalRetrySleep = AXGlobalObserverRetryPolicy.sleep
     }
 
     /// Initializes a watcher for a specific process ID (PID).
@@ -59,6 +70,7 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = AXObserverCenter.shared
         self.globalApplicationMonitor = nil
+        self.globalRetrySleep = AXGlobalObserverRetryPolicy.sleep
         let logMessage = "NotificationWatcher initialized for PID \(pid), notification: \(notification.rawValue)"
         axDebugLog(logMessage)
     }
@@ -74,6 +86,7 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = registry
         self.globalApplicationMonitor = nil
+        self.globalRetrySleep = AXGlobalObserverRetryPolicy.sleep
     }
 
     /// Initializes a watcher for a global notification (any application).
@@ -83,6 +96,7 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = AXObserverCenter.shared
         self.globalApplicationMonitor = AXWorkspaceApplicationMonitor()
+        self.globalRetrySleep = AXGlobalObserverRetryPolicy.sleep
         let logMessage = "NotificationWatcher initialized for global notification: \(notification.rawValue)"
         axDebugLog(logMessage)
     }
@@ -91,6 +105,7 @@ public class NotificationWatcher {
         globalNotification notification: AXNotification,
         registry: any AXObservationRegistry,
         applicationMonitor: any AXGlobalApplicationMonitoring,
+        retrySleep: @escaping @Sendable (Int) async throws -> Void = AXGlobalObserverRetryPolicy.sleep,
         handler: @escaping AXNotificationSubscriptionHandler)
     {
         self.target = .global
@@ -98,14 +113,19 @@ public class NotificationWatcher {
         self.handler = handler
         self.registry = registry
         self.globalApplicationMonitor = applicationMonitor
+        self.globalRetrySleep = retrySleep
     }
 
     deinit {
         axDebugLog("NotificationWatcher deinit")
         let token = self.subscriptionToken
         let globalTokens = Array(self.globalSubscriptionTokens.values)
+        let globalRetryTasks = Array(self.globalRetryTasks.values)
         let registry = self.registry
         let applicationMonitor = self.globalApplicationMonitor
+        for task in globalRetryTasks {
+            task.cancel()
+        }
         Task { @MainActor in
             applicationMonitor?.stop()
             if let token {
@@ -229,8 +249,11 @@ public class NotificationWatcher {
     private let handler: AXNotificationSubscriptionHandler
     private let registry: any AXObservationRegistry
     private let globalApplicationMonitor: (any AXGlobalApplicationMonitoring)?
+    private let globalRetrySleep: @Sendable (Int) async throws -> Void
     private var subscriptionToken: SubscriptionToken?
     private var globalSubscriptionTokens: [pid_t: SubscriptionToken] = [:]
+    private var globalRetryTasks: [pid_t: Task<Void, Never>] = [:]
+    private var globalObservationStarting = false
     private var isObserving: Bool = false
 }
 
@@ -241,12 +264,14 @@ extension NotificationWatcher {
             throw AccessibilityError.observerSetupFailed(details: "Global application lifecycle monitor unavailable")
         }
 
+        self.globalObservationStarting = true
+        defer { self.globalObservationStarting = false }
         globalApplicationMonitor.start(
             onLaunch: { [weak self] pid in
-                guard let self, let error = self.subscribeGlobalProcess(pid) else { return }
-                axWarningLog("Global observer skipped launched PID \(pid): \(error.localizedDescription)")
+                self?.handleGlobalLaunch(pid)
             },
             onTermination: { [weak self] pid in
+                self?.cancelGlobalRetry(pid)
                 self?.unsubscribeGlobalProcess(pid)
             })
 
@@ -256,10 +281,14 @@ extension NotificationWatcher {
             if let error = self.subscribeGlobalProcess(pid) {
                 failures.append(error)
                 axWarningLog("Global observer skipped running PID \(pid): \(error.localizedDescription)")
+                self.scheduleGlobalRetry(pid, attempt: 1, lastError: error)
+            } else {
+                self.cancelGlobalRetry(pid)
             }
         }
 
         if !processIdentifiers.isEmpty, self.globalSubscriptionTokens.isEmpty {
+            self.cancelAllGlobalRetries()
             globalApplicationMonitor.stop()
             throw failures.first ?? AccessibilityError.observerSetupFailed(
                 details: "No running application accepted \(self.notification.rawValue)")
@@ -274,6 +303,7 @@ extension NotificationWatcher {
     private func stopGlobalObservation() {
         guard self.isObserving || !self.globalSubscriptionTokens.isEmpty else { return }
         self.globalApplicationMonitor?.stop()
+        self.cancelAllGlobalRetries()
         for pid in self.globalSubscriptionTokens.keys.sorted() {
             self.unsubscribeGlobalProcess(pid)
         }
@@ -295,6 +325,51 @@ extension NotificationWatcher {
         case let .failure(error):
             return error
         }
+    }
+
+    private func handleGlobalLaunch(_ pid: pid_t) {
+        self.cancelGlobalRetry(pid)
+        guard let error = self.subscribeGlobalProcess(pid) else { return }
+        axWarningLog("Global observer skipped launched PID \(pid): \(error.localizedDescription)")
+        self.scheduleGlobalRetry(pid, attempt: 1, lastError: error)
+    }
+
+    private func scheduleGlobalRetry(_ pid: pid_t, attempt: Int, lastError: AccessibilityError) {
+        guard self.isObserving || self.globalObservationStarting else { return }
+        guard attempt <= AXGlobalObserverRetryPolicy.maximumAttempts else {
+            axWarningLog(
+                "Global observer exhausted retries for PID \(pid): \(lastError.localizedDescription)")
+            return
+        }
+        guard self.globalRetryTasks[pid] == nil else { return }
+
+        let retrySleep = self.globalRetrySleep
+        self.globalRetryTasks[pid] = Task { @MainActor [weak self] in
+            do {
+                try await retrySleep(attempt)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.globalRetryTasks.removeValue(forKey: pid)
+            guard self.isObserving || self.globalObservationStarting else { return }
+            if let error = self.subscribeGlobalProcess(pid) {
+                self.scheduleGlobalRetry(pid, attempt: attempt + 1, lastError: error)
+            } else {
+                axInfoLog("Global observer recovered registration for PID \(pid) on retry \(attempt)")
+            }
+        }
+    }
+
+    private func cancelGlobalRetry(_ pid: pid_t) {
+        self.globalRetryTasks.removeValue(forKey: pid)?.cancel()
+    }
+
+    private func cancelAllGlobalRetries() {
+        for task in self.globalRetryTasks.values {
+            task.cancel()
+        }
+        self.globalRetryTasks = [:]
     }
 
     private func unsubscribeGlobalProcess(_ pid: pid_t) {
