@@ -1,11 +1,171 @@
 import ApplicationServices
+import Darwin
 import Foundation
 
-nonisolated enum ObserverNativeWorkerAdmission {
-    static let maximumConcurrentWorkers = 8
+nonisolated enum ObserverNativeWork {
+    private struct ProcessUniqueIdentifierInfo {
+        var executableUUIDHigh: UInt64 = 0
+        var executableUUIDLow: UInt64 = 0
+        var uniqueIdentifier: UInt64 = 0
+        var parentUniqueIdentifier: UInt64 = 0
+        var identifierVersion: Int32 = 0
+        var originalParentIdentifierVersion: Int32 = 0
+        var reserved2: UInt64 = 0
+        var reserved3: UInt64 = 0
+    }
 
-    static func allowsStartingWorker(activeWorkerCount: Int) -> Bool {
-        activeWorkerCount < self.maximumConcurrentWorkers
+    static func processUniqueIdentity(_ processIdentifier: pid_t) -> UInt64? {
+        guard processIdentifier > 0 else { return nil }
+        var info = ProcessUniqueIdentifierInfo()
+        let expectedSize = Int32(MemoryLayout<ProcessUniqueIdentifierInfo>.stride)
+        guard proc_pidinfo(
+            processIdentifier,
+            17, // PROC_PIDUNIQIDENTIFIERINFO from XNU's proc_info_private.h
+            0,
+            &info,
+            expectedSize) == expectedSize,
+            info.uniqueIdentifier != 0
+        else { return nil }
+        return info.uniqueIdentifier
+    }
+
+    static func boundedProcessUniqueIdentity(
+        _ processIdentifier: pid_t,
+        admission: ObserverNativeWorkerAdmission) async -> UInt64?
+    {
+        await self.firstResult(
+            timeout: .milliseconds(100),
+            timeoutValue: UInt64?.none,
+            admission: admission)
+        {
+            self.processUniqueIdentity(processIdentifier)
+        }
+    }
+
+    static func firstResult<Value: Sendable>(
+        timeout: Duration,
+        timeoutValue: Value,
+        admission: ObserverNativeWorkerAdmission,
+        operation: @escaping @Sendable () -> Value) async -> Value
+    {
+        guard admission.tryAcquire() else { return timeoutValue }
+        return await withCheckedContinuation { continuation in
+            let gate = FirstResultGate(continuation: continuation)
+            Thread.detachNewThread {
+                let result = autoreleasepool { operation() }
+                admission.release()
+                gate.finish(with: result)
+            }
+            Task.detached(priority: .utility) {
+                try? await Task.sleep(for: timeout)
+                gate.finish(with: timeoutValue)
+            }
+        }
+    }
+
+    static func perform<Value: Sendable>(
+        admission: ObserverNativeWorkerAdmission,
+        refusalValue: Value,
+        operation: @escaping @Sendable () -> Value) async -> Value
+    {
+        guard admission.tryAcquire() else { return refusalValue }
+        return await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                let result = autoreleasepool { operation() }
+                admission.release()
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    static func performCleanup<Value: Sendable>(
+        admission: ObserverNativeWorkerAdmission,
+        operation: @escaping @Sendable () -> Value) async -> Value
+    {
+        await admission.acquireCleanup()
+        return await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                let result = autoreleasepool { operation() }
+                admission.release()
+                continuation.resume(returning: result)
+            }
+        }
+    }
+
+    static func performSynchronously<Value>(
+        admission: ObserverNativeWorkerAdmission,
+        refusalValue: Value,
+        operation: () -> Value) -> Value
+    {
+        guard admission.tryAcquire() else { return refusalValue }
+        defer { admission.release() }
+        return operation()
+    }
+
+    static func tryPerformCleanupSynchronously<Value>(
+        admission: ObserverNativeWorkerAdmission,
+        operation: () -> Value) -> Value?
+    {
+        guard admission.tryAcquireCleanup() else { return nil }
+        defer { admission.release() }
+        return operation()
+    }
+}
+
+final nonisolated class ObserverNativeWorkerAdmission: @unchecked Sendable {
+    static let maximumConcurrentWorkers = 8
+    static let maximumRegularWorkers = ObserverNativeWorkerAdmission.maximumConcurrentWorkers - 1
+
+    private let lock = NSLock()
+    private var activeWorkerCount = 0
+    private var cleanupWaiters: [CheckedContinuation<Void, Never>] = []
+
+    func tryAcquire() -> Bool {
+        self.lock.withLock {
+            guard self.activeWorkerCount < Self.maximumRegularWorkers else { return false }
+            self.activeWorkerCount += 1
+            return true
+        }
+    }
+
+    func tryAcquireCleanup() -> Bool {
+        self.lock.withLock {
+            guard self.activeWorkerCount < Self.maximumConcurrentWorkers else { return false }
+            self.activeWorkerCount += 1
+            return true
+        }
+    }
+
+    func acquireCleanup() async {
+        await withCheckedContinuation { continuation in
+            let acquired = self.lock.withLock {
+                if self.activeWorkerCount < Self.maximumConcurrentWorkers {
+                    self.activeWorkerCount += 1
+                    return true
+                }
+                self.cleanupWaiters.append(continuation)
+                return false
+            }
+            if acquired {
+                continuation.resume()
+            }
+        }
+    }
+
+    func release() {
+        let waiter = self.lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            precondition(self.activeWorkerCount > 0)
+            if !self.cleanupWaiters.isEmpty {
+                return self.cleanupWaiters.removeFirst()
+            }
+            self.activeWorkerCount -= 1
+            return nil
+        }
+        waiter?.resume()
+    }
+
+    var activeCount: Int {
+        self.lock.withLock { self.activeWorkerCount }
     }
 }
 
@@ -61,12 +221,13 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         }
     }
 
-    func wait() -> AXError {
+    func wait(until deadline: ContinuousClock.Instant) -> AXError? {
+        let clock = ContinuousClock()
         self.condition.lock()
-        while self.result == nil {
-            self.condition.wait()
+        while self.result == nil, clock.now < deadline {
+            self.condition.wait(until: Date(timeIntervalSinceNow: 0.01))
         }
-        let result = self.result ?? .failure
+        let result = self.result
         self.condition.unlock()
         return result
     }

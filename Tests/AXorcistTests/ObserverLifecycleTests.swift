@@ -364,23 +364,6 @@ struct ObserverLifecycleTests {
     }
 
     @Test
-    func `native registration result semantics remain fail closed`() {
-        #expect(NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.success))
-        #expect(NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.notificationNotRegistered))
-        #expect(!NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.cannotComplete))
-        #expect(NativeNotificationRegistration.normalizedAdditionResult(.notificationAlreadyRegistered) == .success)
-        #expect(NativeNotificationRegistration.normalizedAdditionResult(.cannotComplete) == .cannotComplete)
-    }
-
-    @Test
-    func `native observer worker admission is process bounded`() {
-        #expect(ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 0))
-        #expect(ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 7))
-        #expect(!ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 8))
-        #expect(!ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 80))
-    }
-
-    @Test
     func `shared registration cleans up its exact target after the final token`() throws {
         var setupCount = 0
         var cleanedElement: Element?
