@@ -28,6 +28,14 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `native process identity can inspect root launchd without BSD info privilege`() throws {
+        let firstIdentity = try #require(AXObserverCenter.nativeProcessUniqueIdentity(1))
+        let secondIdentity = try #require(AXObserverCenter.nativeProcessUniqueIdentity(1))
+
+        #expect(firstIdentity == secondIdentity)
+    }
+
+    @Test
     func `observer center rejects PID zero before native setup`() {
         var setupCalled = false
         let center = AXObserverCenter(
