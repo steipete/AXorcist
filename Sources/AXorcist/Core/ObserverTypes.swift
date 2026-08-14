@@ -24,7 +24,24 @@ protocol AXObservationRegistry: AnyObject, Sendable {
         notification: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
 
+    func subscribeProcessAsync(
+        pid: pid_t,
+        element: Element?,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) async -> Result<SubscriptionToken, AccessibilityError>
+
     func unsubscribe(token: SubscriptionToken) throws
+}
+
+extension AXObservationRegistry {
+    func subscribeProcessAsync(
+        pid: pid_t,
+        element: Element?,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) async -> Result<SubscriptionToken, AccessibilityError>
+    {
+        self.subscribeProcess(pid: pid, element: element, notification: notification, handler: handler)
+    }
 }
 
 /// Key for tracking accessibility notification subscriptions.
@@ -48,6 +65,19 @@ struct AXObserverRegistrationKey: Hashable {
     let subscription: AXNotificationSubscriptionKey
     let element: Element
     let scope: Scope
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        guard lhs.subscription == rhs.subscription, lhs.scope == rhs.scope else { return false }
+        return lhs.scope == .process || lhs.element == rhs.element
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.subscription)
+        hasher.combine(self.scope)
+        if self.scope == .element {
+            hasher.combine(self.element)
+        }
+    }
 }
 
 /// Key combining process ID and notification type for observer tracking.
