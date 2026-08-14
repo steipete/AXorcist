@@ -346,6 +346,41 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `process registration identity does not compare accessibility elements`() {
+        let subscription = AXNotificationSubscriptionKey(pid: 91, notification: .valueChanged)
+        let firstElement = Element(AXUIElementCreateApplication(91))
+        let unrelatedElement = Element(AXUIElementCreateApplication(92))
+        let first = AXObserverRegistrationKey(
+            subscription: subscription,
+            element: firstElement,
+            scope: .process)
+        let second = AXObserverRegistrationKey(
+            subscription: subscription,
+            element: unrelatedElement,
+            scope: .process)
+
+        #expect(first == second)
+        #expect(Set([first, second]).count == 1)
+    }
+
+    @Test
+    func `native registration result semantics remain fail closed`() {
+        #expect(NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.success))
+        #expect(NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.notificationNotRegistered))
+        #expect(!NativeNotificationRegistration.removalConfirmsRegistrationAbsent(.cannotComplete))
+        #expect(NativeNotificationRegistration.normalizedAdditionResult(.notificationAlreadyRegistered) == .success)
+        #expect(NativeNotificationRegistration.normalizedAdditionResult(.cannotComplete) == .cannotComplete)
+    }
+
+    @Test
+    func `native observer worker admission is process bounded`() {
+        #expect(ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 0))
+        #expect(ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 7))
+        #expect(!ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 8))
+        #expect(!ObserverNativeWorkerAdmission.allowsStartingWorker(activeWorkerCount: 80))
+    }
+
+    @Test
     func `shared registration cleans up its exact target after the final token`() throws {
         var setupCount = 0
         var cleanedElement: Element?
@@ -398,12 +433,38 @@ struct ObserverLifecycleTests {
         #expect(registry.unsubscribeCallCount == 1)
         #expect(registry.activeSubscriptionCount == 0)
     }
+
+    @Test
+    func `process watcher can restart immediately after stopping`() throws {
+        var setupCount = 0
+        var cleanupCount = 0
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCount += 1
+                return .success
+            },
+            observerCleanup: { _, _, _ in cleanupCount += 1 })
+        let watcher = NotificationWatcher(
+            forPID: 42,
+            notification: .valueChanged,
+            registry: center,
+            handler: { _, _, _, _ in })
+
+        try watcher.start()
+        watcher.stop()
+        try watcher.start()
+
+        #expect(watcher.isActive)
+        #expect(setupCount == 2)
+        #expect(cleanupCount == 1)
+        watcher.stop()
+    }
 }
 
 @MainActor
 extension ObserverLifecycleTests {
     @Test
-    func `global watcher fans out by PID and follows native application lifecycle`() throws {
+    func `global watcher fans out by PID and follows native application lifecycle`() async throws {
         let registry = RecordingObservationRegistry()
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [42, 41])
         let watcher = NotificationWatcher(
@@ -413,14 +474,20 @@ extension ObserverLifecycleTests {
         { _, _, _, _ in }
 
         try watcher.start()
+        for _ in 0..<20 where registry.activeProcessIdentifiers.count < 2 {
+            await Task.yield()
+        }
 
         #expect(watcher.isActive)
-        #expect(registry.subscribedProcessIdentifiers == [41, 42])
+        #expect(registry.subscribedProcessIdentifiers.sorted() == [41, 42])
         #expect(!registry.subscribedProcessIdentifiers.contains(0))
 
         applicationMonitor.launch(processIdentifier: 43)
         applicationMonitor.launch(processIdentifier: 43)
-        #expect(registry.subscribedProcessIdentifiers == [41, 42, 43])
+        for _ in 0..<20 where !registry.activeProcessIdentifiers.contains(43) {
+            await Task.yield()
+        }
+        #expect(registry.subscribedProcessIdentifiers.sorted() == [41, 42, 43])
 
         applicationMonitor.terminate(processIdentifier: 42)
         #expect(registry.activeProcessIdentifiers == [41, 43])
@@ -477,7 +544,7 @@ extension ObserverLifecycleTests {
     }
 
     @Test
-    func `failed initial application waits for its first backoff`() throws {
+    func `failed initial application waits for its first backoff`() async throws {
         let registry = RecordingObservationRegistry(failingProcessIdentifiers: [42])
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
         let watcher = NotificationWatcher(
@@ -488,6 +555,9 @@ extension ObserverLifecycleTests {
             handler: { _, _, _, _ in })
 
         try watcher.start()
+        for _ in 0..<20 where registry.attemptCount(for: 41) == 0 || registry.attemptCount(for: 42) == 0 {
+            await Task.yield()
+        }
 
         #expect(registry.attemptCount(for: 41) == 1)
         #expect(registry.attemptCount(for: 42) == 1)
@@ -595,20 +665,95 @@ extension ObserverLifecycleTests {
     }
 
     @Test
-    func `global watcher fails when every current application rejects registration`() {
+    func `global watcher remains active when every current application rejects registration`() async throws {
         let registry = RecordingObservationRegistry(failingProcessIdentifiers: [41, 42])
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
         let watcher = NotificationWatcher(
             globalNotification: .focusedUIElementChanged,
             registry: registry,
-            applicationMonitor: applicationMonitor)
-        { _, _, _, _ in }
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in },
+            handler: { _, _, _, _ in })
 
-        #expect(throws: AccessibilityError.self) {
-            try watcher.start()
+        try watcher.start()
+        for _ in 0..<100 where registry.attemptCount(for: 41) < 4 || registry.attemptCount(for: 42) < 4 {
+            await Task.yield()
         }
+
+        #expect(watcher.isActive)
+        #expect(registry.activeProcessIdentifiers.isEmpty)
+        #expect(registry.attemptCount(for: 41) == 4)
+        #expect(registry.attemptCount(for: 42) == 4)
+        watcher.stop()
+        #expect(applicationMonitor.stopCount == 1)
+    }
+
+    @Test
+    func `global watcher startup does not await a wedged application registration`() async throws {
+        let registry = SuspendingObservationRegistry()
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            handler: { _, _, _, _ in })
+
+        try watcher.start()
+        #expect(watcher.isActive)
+        for _ in 0..<20 where registry.pendingProcessIdentifiers.isEmpty ||
+            !registry.activeProcessIdentifiers.contains(41)
+        {
+            await Task.yield()
+        }
+        #expect(registry.pendingProcessIdentifiers == [42])
+        #expect(registry.activeProcessIdentifiers == [41])
+
+        watcher.stop()
         #expect(!watcher.isActive)
         #expect(applicationMonitor.stopCount == 1)
+
+        registry.resume(processIdentifier: 42)
+        for _ in 0..<20 where registry.unsubscribeCallCount < 2 {
+            await Task.yield()
+        }
+        #expect(registry.unsubscribeCallCount == 2)
+        #expect(registry.activeProcessIdentifiers.isEmpty)
+    }
+
+    @Test
+    func `global watcher restart keeps only the replacement suspended registration`() async throws {
+        let registry = SuspendingObservationRegistry()
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [42])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            handler: { _, _, _, _ in })
+
+        try watcher.start()
+        for _ in 0..<20 where registry.pendingCount(for: 42) < 1 {
+            await Task.yield()
+        }
+        watcher.stop()
+        try watcher.start()
+        for _ in 0..<20 where registry.pendingCount(for: 42) < 2 {
+            await Task.yield()
+        }
+
+        registry.resume(processIdentifier: 42)
+        for _ in 0..<20 where registry.unsubscribeCallCount == 0 {
+            await Task.yield()
+        }
+        registry.resume(processIdentifier: 42)
+        for _ in 0..<20 where registry.activeProcessIdentifiers.isEmpty {
+            await Task.yield()
+        }
+
+        #expect(watcher.isActive)
+        #expect(registry.unsubscribeCallCount == 1)
+        #expect(registry.activeProcessIdentifiers == [42])
+        watcher.stop()
+        #expect(registry.activeProcessIdentifiers.isEmpty)
     }
 
     @Test
@@ -742,6 +887,71 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
             throw AccessibilityError.tokenNotFound(tokenId: token.id)
         }
         self.processIdentifiersByToken.removeValue(forKey: token)
+    }
+}
+
+@MainActor
+private final class SuspendingObservationRegistry: AXObservationRegistry {
+    private let suspendedProcessIdentifiers: Set<pid_t> = [42]
+    private var continuations: [pid_t: [CheckedContinuation<Void, Never>]] = [:]
+    private var processIdentifiersByToken: [SubscriptionToken: pid_t] = [:]
+
+    private(set) var unsubscribeCallCount = 0
+
+    var pendingProcessIdentifiers: [pid_t] {
+        self.continuations.compactMap { $0.value.isEmpty ? nil : $0.key }.sorted()
+    }
+
+    var activeProcessIdentifiers: [pid_t] {
+        self.processIdentifiersByToken.values.sorted()
+    }
+
+    func subscribeProcess(
+        pid: pid_t,
+        element _: Element?,
+        notification _: AXNotification,
+        handler _: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+    {
+        .success(self.recordSubscription(processIdentifier: pid))
+    }
+
+    func subscribeProcessAsync(
+        pid: pid_t,
+        element _: Element?,
+        notification _: AXNotification,
+        handler _: @escaping AXNotificationSubscriptionHandler) async -> Result<SubscriptionToken, AccessibilityError>
+    {
+        guard self.suspendedProcessIdentifiers.contains(pid) else {
+            return .success(self.recordSubscription(processIdentifier: pid))
+        }
+        await withCheckedContinuation { continuation in
+            self.continuations[pid, default: []].append(continuation)
+        }
+        return .success(self.recordSubscription(processIdentifier: pid))
+    }
+
+    func unsubscribe(token: SubscriptionToken) throws {
+        self.unsubscribeCallCount += 1
+        guard self.processIdentifiersByToken.removeValue(forKey: token) != nil else {
+            throw AccessibilityError.tokenNotFound(tokenId: token.id)
+        }
+    }
+
+    func resume(processIdentifier: pid_t) {
+        guard var pending = self.continuations[processIdentifier], !pending.isEmpty else { return }
+        let continuation = pending.removeFirst()
+        self.continuations[processIdentifier] = pending
+        continuation.resume()
+    }
+
+    func pendingCount(for processIdentifier: pid_t) -> Int {
+        self.continuations[processIdentifier]?.count ?? 0
+    }
+
+    private func recordSubscription(processIdentifier: pid_t) -> SubscriptionToken {
+        let token = SubscriptionToken(id: UUID())
+        self.processIdentifiersByToken[token] = processIdentifier
+        return token
     }
 }
 

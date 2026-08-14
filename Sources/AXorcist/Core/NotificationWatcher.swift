@@ -121,9 +121,13 @@ public class NotificationWatcher {
         axDebugLog("NotificationWatcher deinit")
         let token = self.subscriptionToken
         let globalTokens = Array(self.globalSubscriptionTokens.values)
-        let globalRetryTasks = Array(self.globalRetryTasks.values)
+        let globalRegistrationTasks = self.globalRegistrationTasks.values.map(\.task)
+        let globalRetryTasks = self.globalRetryTasks.values.map(\.task)
         let registry = self.registry
         let applicationMonitor = self.globalApplicationMonitor
+        for task in globalRegistrationTasks {
+            task.cancel()
+        }
         for task in globalRetryTasks {
             task.cancel()
         }
@@ -245,6 +249,16 @@ public class NotificationWatcher {
         case global
     }
 
+    private struct GlobalRegistrationTask {
+        let id: UUID
+        let task: Task<Void, Never>
+    }
+
+    private struct GlobalRetryTask {
+        let id: UUID
+        let task: Task<Void, Never>
+    }
+
     private let target: ObservationTarget
     private let notification: AXNotification
     private let handler: AXNotificationSubscriptionHandler
@@ -253,8 +267,9 @@ public class NotificationWatcher {
     private let globalRetrySleep: @Sendable (Int) async throws -> Void
     private var subscriptionToken: SubscriptionToken?
     private var globalSubscriptionTokens: [pid_t: SubscriptionToken] = [:]
-    private var globalRetryTasks: [pid_t: Task<Void, Never>] = [:]
-    private var globalObservationStarting = false
+    private var globalRegistrationTasks: [pid_t: GlobalRegistrationTask] = [:]
+    private var globalRegistrationRefreshRequests: Set<pid_t> = []
+    private var globalRetryTasks: [pid_t: GlobalRetryTask] = [:]
     private var isObserving: Bool = false
 }
 
@@ -265,81 +280,129 @@ extension NotificationWatcher {
             throw AccessibilityError.observerSetupFailed(details: "Global application lifecycle monitor unavailable")
         }
 
-        self.globalObservationStarting = true
-        defer { self.globalObservationStarting = false }
+        // Process registration is intentionally asynchronous: a wedged AX endpoint
+        // must never keep the lifecycle monitor or its caller on the main actor.
+        self.isObserving = true
         globalApplicationMonitor.start(
             onLaunch: { [weak self] pid in
                 self?.handleGlobalLaunch(pid)
             },
             onTermination: { [weak self] pid in
+                self?.cancelGlobalRegistration(pid)
                 self?.cancelGlobalRetry(pid)
+                self?.globalRegistrationRefreshRequests.remove(pid)
                 self?.unsubscribeGlobalProcess(pid)
             })
 
         let processIdentifiers = Array(Set(globalApplicationMonitor.runningProcessIdentifiers)).sorted()
-        var failures: [AccessibilityError] = []
-        for pid in processIdentifiers {
-            guard self.globalSubscriptionTokens[pid] == nil,
-                  self.globalRetryTasks[pid] == nil
-            else { continue }
-            if let error = self.subscribeGlobalProcess(pid) {
-                failures.append(error)
-                axWarningLog("Global observer skipped running PID \(pid): \(error.localizedDescription)")
-                self.scheduleGlobalRetry(pid, attempt: 1, lastError: error)
-            } else {
-                self.cancelGlobalRetry(pid)
-            }
+        for pid in processIdentifiers where self.globalRegistrationTasks[pid] == nil {
+            self.startGlobalRegistration(pid, retryAttempt: 0)
         }
 
-        if !processIdentifiers.isEmpty, self.globalSubscriptionTokens.isEmpty {
-            self.cancelAllGlobalRetries()
-            globalApplicationMonitor.stop()
-            throw failures.first ?? AccessibilityError.observerSetupFailed(
-                details: "No running application accepted \(self.notification.rawValue)")
-        }
-
-        self.isObserving = true
         axInfoLog(
-            "Global observer started with \(self.globalSubscriptionTokens.count) process registrations for " +
+            "Global observer started; scheduling \(processIdentifiers.count) process registrations for " +
                 self.notification.rawValue)
     }
 
     private func stopGlobalObservation() {
-        guard self.isObserving || !self.globalSubscriptionTokens.isEmpty else { return }
+        guard self.isObserving ||
+            !self.globalSubscriptionTokens.isEmpty ||
+            !self.globalRegistrationTasks.isEmpty ||
+            !self.globalRetryTasks.isEmpty
+        else { return }
+        self.isObserving = false
         self.globalApplicationMonitor?.stop()
+        self.cancelAllGlobalRegistrations()
         self.cancelAllGlobalRetries()
+        self.globalRegistrationRefreshRequests.removeAll()
         for pid in self.globalSubscriptionTokens.keys.sorted() {
             self.unsubscribeGlobalProcess(pid)
         }
-        self.isObserving = false
         axInfoLog("Global observer stopped for \(self.notification.rawValue)")
     }
 
-    private func subscribeGlobalProcess(_ pid: pid_t) -> AccessibilityError? {
-        guard pid > 0, self.globalSubscriptionTokens[pid] == nil else { return nil }
-        switch self.registry.subscribeProcess(
-            pid: pid,
-            element: nil,
-            notification: self.notification,
-            handler: self.handler)
-        {
+    private func handleGlobalLaunch(_ pid: pid_t) {
+        guard self.isObserving, pid > 0, self.globalSubscriptionTokens[pid] == nil else { return }
+        self.cancelGlobalRetry(pid)
+        if self.globalRegistrationTasks[pid] != nil {
+            self.globalRegistrationRefreshRequests.insert(pid)
+            return
+        }
+        self.startGlobalRegistration(pid, retryAttempt: 0)
+    }
+
+    private func startGlobalRegistration(_ pid: pid_t, retryAttempt: Int) {
+        guard self.isObserving,
+              pid > 0,
+              self.globalSubscriptionTokens[pid] == nil,
+              self.globalRegistrationTasks[pid] == nil
+        else { return }
+
+        let id = UUID()
+        let registry = self.registry
+        let notification = self.notification
+        let handler = self.handler
+        let task = Task { @MainActor [weak self] in
+            let result = await registry.subscribeProcessAsync(
+                pid: pid,
+                element: nil,
+                notification: notification,
+                handler: handler)
+            guard let self else {
+                if case let .success(token) = result {
+                    try? registry.unsubscribe(token: token)
+                }
+                return
+            }
+            self.completeGlobalRegistration(
+                pid,
+                id: id,
+                retryAttempt: retryAttempt,
+                result: result)
+        }
+        self.globalRegistrationTasks[pid] = GlobalRegistrationTask(id: id, task: task)
+    }
+
+    private func completeGlobalRegistration(
+        _ pid: pid_t,
+        id: UUID,
+        retryAttempt: Int,
+        result: Result<SubscriptionToken, AccessibilityError>)
+    {
+        guard self.globalRegistrationTasks[pid]?.id == id else {
+            if case let .success(token) = result {
+                try? self.registry.unsubscribe(token: token)
+            }
+            return
+        }
+        self.globalRegistrationTasks.removeValue(forKey: pid)
+
+        guard self.isObserving else {
+            if case let .success(token) = result {
+                try? self.registry.unsubscribe(token: token)
+            }
+            return
+        }
+
+        switch result {
         case let .success(token):
+            self.globalRegistrationRefreshRequests.remove(pid)
             self.globalSubscriptionTokens[pid] = token
-            return nil
+            if retryAttempt > 0 {
+                axInfoLog("Global observer recovered registration for PID \(pid) on retry \(retryAttempt)")
+            }
         case let .failure(error):
-            return error
+            axWarningLog("Global observer skipped PID \(pid): \(error.localizedDescription)")
+            if self.globalRegistrationRefreshRequests.remove(pid) != nil {
+                self.startGlobalRegistration(pid, retryAttempt: retryAttempt)
+                return
+            }
+            self.scheduleGlobalRetry(pid, attempt: retryAttempt + 1, lastError: error)
         }
     }
 
-    private func handleGlobalLaunch(_ pid: pid_t) {
-        self.cancelGlobalRetry(pid)
-        guard let error = self.subscribeGlobalProcess(pid) else { return }
-        axWarningLog("Global observer skipped launched PID \(pid): \(error.localizedDescription)")
-        self.scheduleGlobalRetry(pid, attempt: 1, lastError: error)
-    }
-
     private func scheduleGlobalRetry(_ pid: pid_t, attempt: Int, lastError: AccessibilityError) {
-        guard self.isObserving || self.globalObservationStarting else { return }
+        guard self.isObserving else { return }
         guard attempt <= AXGlobalObserverRetryPolicy.maximumAttempts else {
             axWarningLog(
                 "Global observer exhausted retries for PID \(pid): \(lastError.localizedDescription)")
@@ -348,30 +411,41 @@ extension NotificationWatcher {
         guard self.globalRetryTasks[pid] == nil else { return }
 
         let retrySleep = self.globalRetrySleep
-        self.globalRetryTasks[pid] = Task { @MainActor [weak self] in
+        let id = UUID()
+        let task = Task { @MainActor [weak self] in
             do {
                 try await retrySleep(attempt)
             } catch {
                 return
             }
             guard !Task.isCancelled, let self else { return }
+            guard self.globalRetryTasks[pid]?.id == id else { return }
             self.globalRetryTasks.removeValue(forKey: pid)
-            guard self.isObserving || self.globalObservationStarting else { return }
-            if let error = self.subscribeGlobalProcess(pid) {
-                self.scheduleGlobalRetry(pid, attempt: attempt + 1, lastError: error)
-            } else {
-                axInfoLog("Global observer recovered registration for PID \(pid) on retry \(attempt)")
-            }
+            guard self.isObserving else { return }
+            self.startGlobalRegistration(pid, retryAttempt: attempt)
         }
+        self.globalRetryTasks[pid] = GlobalRetryTask(id: id, task: task)
+    }
+
+    private func cancelGlobalRegistration(_ pid: pid_t) {
+        self.globalRegistrationTasks.removeValue(forKey: pid)?.task.cancel()
+    }
+
+    private func cancelAllGlobalRegistrations() {
+        for registration in self.globalRegistrationTasks.values {
+            registration.task.cancel()
+        }
+        self.globalRegistrationTasks = [:]
+        self.globalRegistrationRefreshRequests.removeAll()
     }
 
     private func cancelGlobalRetry(_ pid: pid_t) {
-        self.globalRetryTasks.removeValue(forKey: pid)?.cancel()
+        self.globalRetryTasks.removeValue(forKey: pid)?.task.cancel()
     }
 
     private func cancelAllGlobalRetries() {
-        for task in self.globalRetryTasks.values {
-            task.cancel()
+        for retry in self.globalRetryTasks.values {
+            retry.task.cancel()
         }
         self.globalRetryTasks = [:]
     }

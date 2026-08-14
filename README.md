@@ -509,12 +509,14 @@ let watcher = NotificationWatcher(globalNotification: .focusedUIElementChanged) 
 try watcher.start()
 ```
 
-Applications that do not support the requested notification are skipped. Starting fails when running candidate
-applications exist but none accepts the notification. The source-compatible nil-PID `AXObserverCenter.subscribe`
-entry point now returns an explicit setup failure instead of attempting to construct an invalid PID-zero observer. A
-transient registration failure after an application lifecycle event receives three bounded retries over 10.5 seconds,
-and an `isFinishedLaunching` readiness transition triggers an immediate fresh attempt. Termination cancels pending retry
-work, so this recovery never becomes a polling loop.
+Applications that do not support the requested notification are skipped. Starting installs lifecycle tracking and
+returns without waiting for per-application Accessibility endpoints; observer creation, registration, and cleanup run
+off the main actor with bounded native messaging timeouts, so one wedged app cannot block startup or teardown. The
+source-compatible
+nil-PID `AXObserverCenter.subscribe` entry point returns an explicit setup failure instead of attempting to construct an
+invalid PID-zero observer. A transient registration failure after an application lifecycle event receives three bounded
+retries over 10.5 seconds, and an `isFinishedLaunching` readiness transition triggers an immediate fresh attempt.
+Termination cancels pending registration and retry work, so this recovery never becomes a polling loop.
 
 ### Observer Example
 
