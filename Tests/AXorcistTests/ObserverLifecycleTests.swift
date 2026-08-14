@@ -393,6 +393,32 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `workspace application diff ignores wrapper churn for one semantic application`() {
+        let oldWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 100)
+        let newWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 200)
+
+        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
+            previous: [oldWrapper: pid_t(42)],
+            current: [newWrapper: pid_t(42)])
+
+        #expect(changes.terminations.isEmpty)
+        #expect(changes.launches.isEmpty)
+    }
+
+    @Test
+    func `workspace application diff detects semantic replacement despite address reuse`() {
+        let oldApplication = RunningApplicationIdentityDouble(processInstance: "old", wrapperAddress: 100)
+        let replacement = RunningApplicationIdentityDouble(processInstance: "new", wrapperAddress: 100)
+
+        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
+            previous: [oldApplication: pid_t(42)],
+            current: [replacement: pid_t(42)])
+
+        #expect(changes.terminations == [42])
+        #expect(changes.launches == [42])
+    }
+
+    @Test
     func `AXorcist deinit unregisters its owned tokens`() async {
         let registry = RecordingObservationRegistry()
         let target = Element(AXUIElementCreateApplication(getpid()))
@@ -525,5 +551,18 @@ private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonito
     func terminate(processIdentifier: pid_t) {
         self.runningProcessIdentifiers.removeAll { $0 == processIdentifier }
         self.onTermination?(processIdentifier)
+    }
+}
+
+private struct RunningApplicationIdentityDouble: Hashable {
+    let processInstance: String
+    let wrapperAddress: Int
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.processInstance == rhs.processInstance
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(self.processInstance)
     }
 }
