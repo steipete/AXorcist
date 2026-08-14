@@ -446,6 +446,53 @@ extension ObserverLifecycleTests {
     }
 
     @Test
+    func `slow application readiness triggers registration before fallback retry`() async throws {
+        let registry = RecordingObservationRegistry(remainingFailureCounts: [42: 1])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor,
+            retrySleep: { _ in try await Task.sleep(for: .seconds(60)) },
+            handler: { _, _, _, _ in })
+        try watcher.start()
+
+        applicationMonitor.launch(processIdentifier: 42)
+        applicationMonitor.ready(processIdentifier: 42)
+        for _ in 0..<10 where !registry.activeProcessIdentifiers.contains(42) {
+            await Task.yield()
+        }
+
+        #expect(registry.attemptCount(for: 42) == 2)
+        #expect(registry.activeProcessIdentifiers.contains(42))
+        watcher.stop()
+    }
+
+    @Test
+    func `global observer retry schedule spans slow application startup`() {
+        #expect(AXGlobalObserverRetryPolicy.delays == [.milliseconds(500), .seconds(2), .seconds(8)])
+        #expect(AXGlobalObserverRetryPolicy.maximumAttempts == 3)
+    }
+
+    @Test
+    func `application readiness can be claimed exactly once`() {
+        var observations = ["slow-app": 42]
+        let activeApplications: Set = ["slow-app"]
+
+        let firstClaim = AXWorkspaceApplicationMonitor.claimReadiness(
+            for: "slow-app",
+            activeApplications: activeApplications,
+            observations: &observations)
+        let duplicateClaim = AXWorkspaceApplicationMonitor.claimReadiness(
+            for: "slow-app",
+            activeApplications: activeApplications,
+            observations: &observations)
+
+        #expect(firstClaim == 42)
+        #expect(duplicateClaim == nil)
+    }
+
+    @Test
     func `global watcher bounds persistent launched application retries`() async throws {
         let registry = RecordingObservationRegistry(failingProcessIdentifiers: [42])
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
@@ -707,6 +754,10 @@ private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonito
     func terminate(processIdentifier: pid_t) {
         self.runningProcessIdentifiers.removeAll { $0 == processIdentifier }
         self.onTermination?(processIdentifier)
+    }
+
+    func ready(processIdentifier: pid_t) {
+        self.onLaunch?(processIdentifier)
     }
 }
 

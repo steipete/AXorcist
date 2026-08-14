@@ -3,12 +3,13 @@
 import ApplicationServices
 import Foundation
 
-private enum AXGlobalObserverRetryPolicy {
-    static let maximumAttempts = 3
+enum AXGlobalObserverRetryPolicy {
+    static let delays: [Duration] = [.milliseconds(500), .seconds(2), .seconds(8)]
+    static let maximumAttempts = AXGlobalObserverRetryPolicy.delays.count
 
     static func sleep(beforeAttempt attempt: Int) async throws {
-        let delayMilliseconds = 100 * (1 << (attempt - 1))
-        try await Task.sleep(for: .milliseconds(delayMilliseconds))
+        guard self.delays.indices.contains(attempt - 1) else { return }
+        try await Task.sleep(for: self.delays[attempt - 1])
     }
 }
 
