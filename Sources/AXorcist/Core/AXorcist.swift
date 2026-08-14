@@ -250,6 +250,10 @@ public class AXorcist {
         notification: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
     {
+        guard let pid = pid ?? element.pid() else {
+            return .failure(.observerSetupFailed(
+                details: "Observed accessibility element has no owning application PID"))
+        }
         let result = self.observationRegistry.subscribe(
             pid: pid,
             element: element,

@@ -496,6 +496,23 @@ Monitor UI changes with these notifications:
 Observe and `stopObservation` commands executed by the same `AXorcist` instance share one subscription registry, so a
 successful stop clears the observations that instance started.
 
+Accessibility observers are application-scoped on macOS; PID `0` and the system-wide AX element cannot receive
+notifications. `NotificationWatcher(globalNotification:)` implements global watching by registering one observer for
+each running user application and observing native KVO changes to `NSWorkspace.runningApplications` to keep that set
+current, including menu-bar agents and background applications:
+
+```swift
+let watcher = NotificationWatcher(globalNotification: .focusedUIElementChanged) {
+    pid, notification, element, userInfo in
+    print("\(pid): \(notification.rawValue)")
+}
+try watcher.start()
+```
+
+Applications that do not support the requested notification are skipped. Starting fails when running candidate
+applications exist but none accepts the notification. The deprecated nil-PID `AXObserverCenter.subscribe` entry point
+now returns an explicit setup failure instead of attempting to construct an invalid PID-zero observer.
+
 ### Observer Example
 
 ```json

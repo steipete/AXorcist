@@ -22,11 +22,11 @@ import Foundation
 @MainActor
 public final class AXObserverCenter {
     typealias ObserverSetup = @MainActor (
-        _ pid: pid_t?,
+        _ pid: pid_t,
         _ element: Element?,
         _ notification: AXNotification) -> AXError
     typealias ObserverCleanup = @MainActor (
-        _ pid: pid_t?,
+        _ pid: pid_t,
         _ element: Element,
         _ notification: AXNotification) -> Void
 
@@ -73,11 +73,15 @@ public final class AXObserverCenter {
 @MainActor
 extension AXObserverCenter {
     public func subscribe(
-        pid: pid_t? = nil,
+        pid: pid_t,
         element: Element? = nil,
         notification: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
     {
+        guard pid > 0 else {
+            return .failure(.observerSetupFailed(
+                details: "macOS AXObserver requires an application PID greater than zero"))
+        }
         let elementDescriptionForLog = element?.briefDescription() ?? "N/A"
         axDebugLog(
             logSegments(
@@ -104,6 +108,29 @@ extension AXObserverCenter {
                 "Successfully subscribed handler (token: \(token.id)) for \(describePid(pid))",
                 "notification: \(notification.rawValue)"))
         return .success(token)
+    }
+
+    /// Compatibility entry point for the former nil-PID global observer API.
+    ///
+    /// macOS AX observers require an application PID and the system-wide element does
+    /// not support notifications. Use `NotificationWatcher(globalNotification:)` for
+    /// native event-driven fan-out across running applications.
+    @available(
+        *,
+        deprecated,
+        message: "A nil PID cannot create a macOS AXObserver; use NotificationWatcher(globalNotification:handler:)")
+    public func subscribe(
+        pid: pid_t? = nil,
+        element: Element? = nil,
+        notification: AXNotification,
+        handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
+    {
+        guard let pid else {
+            let details = "macOS AXObserver requires an application PID; " +
+                "use NotificationWatcher(globalNotification:) for native global fan-out"
+            return .failure(.observerSetupFailed(details: details))
+        }
+        return self.subscribe(pid: pid, element: element, notification: notification, handler: handler)
     }
 
     public func unsubscribe(token: SubscriptionToken) throws {
@@ -151,7 +178,8 @@ extension AXObserverCenter {
     }
 
     public func isKeyRegistered(pid: pid_t?, notification: AXNotification) -> Bool {
-        self.subscriptionStore.contains(pid: pid, notification: notification)
+        guard let pid else { return false }
+        return self.subscriptionStore.contains(pid: pid, notification: notification)
     }
 }
 
@@ -167,14 +195,12 @@ extension AXObserverCenter {
     // MARK: - Internal AXObserver Management (previously addObserver / removeObserver)
 
     private func registrationKey(
-        pid: pid_t?,
+        pid: pid_t,
         element: Element?,
         notification: AXNotification) -> AXObserverRegistrationKey
     {
-        let targetPid = pid ?? 0
         let observedElement = Element(self.elementForObservation(
             pid: pid,
-            targetPid: targetPid,
             element: element,
             notification: notification))
         return AXObserverRegistrationKey(
@@ -183,8 +209,7 @@ extension AXObserverCenter {
             scope: self.registrationScope(pid: pid, observedElement: observedElement))
     }
 
-    private func registrationScope(pid: pid_t?, observedElement: Element) -> AXObserverRegistrationKey.Scope {
-        guard let pid else { return .process }
+    private func registrationScope(pid: pid_t, observedElement: Element) -> AXObserverRegistrationKey.Scope {
         let applicationElement = Element(AXUIElement.application(pid: pid))
         return observedElement == applicationElement ? .process : .element
     }
@@ -196,7 +221,7 @@ extension AXObserverCenter {
             return observerSetupOverride(subscription.pid, registration.element, subscription.notification)
         }
 
-        let targetPid = subscription.pid ?? 0
+        let targetPid = subscription.pid
         self.logObserverSetup(
             targetPid: targetPid,
             element: registration.element,
@@ -230,34 +255,25 @@ extension AXObserverCenter {
     }
 
     private func elementForObservation(
-        pid: pid_t?,
-        targetPid: pid_t,
+        pid: pid_t,
         element: Element?,
         notification: AXNotification) -> AXUIElement
     {
         if let specificElement = element {
             axDebugLog(
                 logSegments(
-                    "Observer for \(describePid(targetPid))",
+                    "Observer for \(describePid(pid))",
                     "using provided specific element \(specificElement.briefDescription())",
                     "notification \(notification.rawValue)"))
             return specificElement.underlyingElement
         }
 
-        if pid == nil {
-            axDebugLog(
-                logSegments(
-                    "Global observer: Using system-wide element",
-                    "notification \(notification.rawValue)"))
-            return AXUIElementCreateSystemWide()
-        }
-
         axDebugLog(
             logSegments(
-                "Application observer \(describePid(targetPid))",
+                "Application observer \(describePid(pid))",
                 "Using application element",
                 "notification \(notification.rawValue)"))
-        return AXUIElement.application(pid: targetPid)
+        return AXUIElement.application(pid: pid)
     }
 
     private func logObserverAddResult(targetPid: pid_t, notification: AXNotification, error: AXError) {
@@ -279,7 +295,7 @@ extension AXObserverCenter {
             return
         }
 
-        let targetPid = subscription.pid ?? 0
+        let targetPid = subscription.pid
         axDebugLog(
             logSegments(
                 "Cleanup check for underlying AXObserver notification for \(describePid(targetPid))",

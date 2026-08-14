@@ -17,6 +17,36 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `PID zero cannot create a native global AX observer`() {
+        var observer: AXObserver?
+        let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
+
+        let error = AXObserverCreateWithInfoCallback(0, callback, &observer)
+
+        #expect(error != .success)
+        #expect(observer == nil)
+    }
+
+    @Test
+    func `observer center rejects PID zero before native setup`() {
+        var setupCalled = false
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in
+                setupCalled = true
+                return .success
+            },
+            observerCleanup: { _, _, _ in })
+
+        let result = center.subscribe(pid: 0, notification: .focusedUIElementChanged) { _, _, _, _ in }
+
+        if case .failure = result {
+            #expect(!setupCalled)
+        } else {
+            Issue.record("Expected PID zero to be refused")
+        }
+    }
+
+    @Test
     func `CLI recognizes the current observe success response`() {
         #expect(CLIFrontend.responseSucceeded("{\"command_id\":\"observe\",\"status\":\"success\"}"))
         #expect(CLIFrontend.responseSucceeded("{\"command_id\":\"observe\",\"status\":\"error\"}") == false)
@@ -25,7 +55,7 @@ struct ObserverLifecycleTests {
     @Test
     func `observe and stop use the same registry without clearing unrelated subscriptions`() throws {
         let registry = RecordingObservationRegistry()
-        let target = Element(AXUIElementCreateSystemWide())
+        let target = Element(AXUIElementCreateApplication(getpid()))
         let unrelatedToken = try registry.subscribe(
             pid: 7,
             element: nil,
@@ -59,6 +89,23 @@ struct ObserverLifecycleTests {
         #expect(registry.unsubscribeCallCount == 1)
         #expect(registry.activeSubscriptionCount == 1)
         #expect(registry.contains(unrelatedToken))
+    }
+
+    @Test
+    func `application observation derives its PID when the caller omits it`() throws {
+        let registry = RecordingObservationRegistry()
+        let target = Element(AXUIElementCreateApplication(getpid()))
+        let axorcist = AXorcist(
+            observationRegistry: registry,
+            observationTargetResolver: { _, _, _ in (target, nil) })
+
+        _ = try axorcist.subscribeToObservation(
+            pid: nil,
+            element: target,
+            notification: .valueChanged)
+        { _, _, _, _ in }.get()
+
+        #expect(registry.subscribedProcessIdentifiers == [getpid()])
     }
 
     @Test
@@ -192,9 +239,65 @@ struct ObserverLifecycleTests {
     }
 
     @Test
+    func `global watcher fans out by PID and follows native application lifecycle`() throws {
+        let registry = RecordingObservationRegistry()
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [42, 41])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor)
+        { _, _, _, _ in }
+
+        try watcher.start()
+
+        #expect(watcher.isActive)
+        #expect(registry.subscribedProcessIdentifiers == [41, 42])
+        #expect(!registry.subscribedProcessIdentifiers.contains(0))
+
+        applicationMonitor.launch(processIdentifier: 43)
+        applicationMonitor.launch(processIdentifier: 43)
+        #expect(registry.subscribedProcessIdentifiers == [41, 42, 43])
+
+        applicationMonitor.terminate(processIdentifier: 42)
+        #expect(registry.activeProcessIdentifiers == [41, 43])
+
+        watcher.stop()
+        #expect(!watcher.isActive)
+        #expect(registry.activeProcessIdentifiers.isEmpty)
+        #expect(applicationMonitor.stopCount == 1)
+    }
+
+    @Test
+    func `global watcher fails when every current application rejects registration`() {
+        let registry = RecordingObservationRegistry(failingProcessIdentifiers: [41, 42])
+        let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41, 42])
+        let watcher = NotificationWatcher(
+            globalNotification: .focusedUIElementChanged,
+            registry: registry,
+            applicationMonitor: applicationMonitor)
+        { _, _, _, _ in }
+
+        #expect(throws: AccessibilityError.self) {
+            try watcher.start()
+        }
+        #expect(!watcher.isActive)
+        #expect(applicationMonitor.stopCount == 1)
+    }
+
+    @Test
+    func `workspace application diff preserves replacement events when a PID is reused`() {
+        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
+            previous: ["stable": pid_t(7), "old-generation": pid_t(42)],
+            current: ["stable": pid_t(7), "agent": pid_t(9), "new-generation": pid_t(42)])
+
+        #expect(changes.terminations == [42])
+        #expect(changes.launches == [9, 42])
+    }
+
+    @Test
     func `AXorcist deinit unregisters its owned tokens`() async {
         let registry = RecordingObservationRegistry()
-        let target = Element(AXUIElementCreateSystemWide())
+        let target = Element(AXUIElementCreateApplication(getpid()))
         var axorcist: AXorcist? = AXorcist(
             observationRegistry: registry,
             observationTargetResolver: { _, _, _ in (target, nil) })
@@ -229,11 +332,22 @@ private final class WeakReference<Value: AnyObject> {
 @MainActor
 private final class RecordingObservationRegistry: AXObservationRegistry {
     private var subscriptions: [SubscriptionToken: AXNotificationSubscriptionHandler] = [:]
+    private var processIdentifiersByToken: [SubscriptionToken: pid_t] = [:]
+    private let failingProcessIdentifiers: Set<pid_t>
 
     private(set) var unsubscribeCallCount = 0
+    private(set) var subscribedProcessIdentifiers: [pid_t] = []
+
+    init(failingProcessIdentifiers: Set<pid_t> = []) {
+        self.failingProcessIdentifiers = failingProcessIdentifiers
+    }
 
     var activeSubscriptionCount: Int {
         self.subscriptions.count
+    }
+
+    var activeProcessIdentifiers: [pid_t] {
+        self.processIdentifiersByToken.values.sorted()
     }
 
     func contains(_ token: SubscriptionToken) -> Bool {
@@ -241,13 +355,18 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
     }
 
     func subscribe(
-        pid _: pid_t?,
+        pid: pid_t,
         element _: Element?,
         notification _: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
     {
+        self.subscribedProcessIdentifiers.append(pid)
+        guard !self.failingProcessIdentifiers.contains(pid) else {
+            return .failure(.observerSetupFailed(details: "Fixture rejected PID \(pid)"))
+        }
         let token = SubscriptionToken(id: UUID())
         self.subscriptions[token] = handler
+        self.processIdentifiersByToken[token] = pid
         return .success(token)
     }
 
@@ -256,5 +375,44 @@ private final class RecordingObservationRegistry: AXObservationRegistry {
         guard self.subscriptions.removeValue(forKey: token) != nil else {
             throw AccessibilityError.tokenNotFound(tokenId: token.id)
         }
+        self.processIdentifiersByToken.removeValue(forKey: token)
+    }
+}
+
+@MainActor
+private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonitoring {
+    private(set) var runningProcessIdentifiers: [pid_t]
+    private(set) var stopCount = 0
+    private var onLaunch: (@MainActor (pid_t) -> Void)?
+    private var onTermination: (@MainActor (pid_t) -> Void)?
+
+    init(runningProcessIdentifiers: [pid_t]) {
+        self.runningProcessIdentifiers = runningProcessIdentifiers
+    }
+
+    func start(
+        onLaunch: @escaping @MainActor (pid_t) -> Void,
+        onTermination: @escaping @MainActor (pid_t) -> Void)
+    {
+        self.onLaunch = onLaunch
+        self.onTermination = onTermination
+    }
+
+    func stop() {
+        self.stopCount += 1
+        self.onLaunch = nil
+        self.onTermination = nil
+    }
+
+    func launch(processIdentifier: pid_t) {
+        if !self.runningProcessIdentifiers.contains(processIdentifier) {
+            self.runningProcessIdentifiers.append(processIdentifier)
+        }
+        self.onLaunch?(processIdentifier)
+    }
+
+    func terminate(processIdentifier: pid_t) {
+        self.runningProcessIdentifiers.removeAll { $0 == processIdentifier }
+        self.onTermination?(processIdentifier)
     }
 }
