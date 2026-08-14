@@ -9,6 +9,7 @@ All notable changes to AXorcist will be documented in this file.
 - Add immutable per-request accessibility traversal options while keeping the legacy process defaults source-compatible and thread-safe.
 
 ### Fixed
+- Refuse per-element Accessibility reads when macOS cannot arm their messaging deadline, and report any failure to clear an armed deadline after the protected operation.
 - Implement global accessibility notification watching as native per-application observers driven by KVO changes to `NSWorkspace.runningApplications` and application readiness, keep observer creation, registration, and cleanup deadline-bounded off the main actor so a wedged app cannot block startup or teardown, retain semantic application identity across wrapper churn, reset shared observers with unprivileged process-unique identities across PID reuse, recover boundedly from transient registration failures, and reject the invalid PID-zero observer path.
 - Resolve point-owned applications from one native on-screen window snapshot, avoiding synchronous all-app Accessibility queries while keeping frontmost fallback limited to the compatibility API.
 - Preserve exact PID targets across CLI command conversion, reject conflicting application and PID selectors, and report point lookup misses as errors.
