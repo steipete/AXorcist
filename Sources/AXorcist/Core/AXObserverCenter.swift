@@ -36,12 +36,6 @@ public final class AXObserverCenter {
         let startIdentity: UInt64
     }
 
-    private struct PendingObserverCreation {
-        let id: UUID
-        let expectedGeneration: UInt64
-        let task: Task<NativeObserverCreation, Never>
-    }
-
     private struct PendingRegistration {
         let id: UUID
         let expectedGeneration: UInt64
@@ -825,7 +819,37 @@ extension AXObserverCenter {
         if let existing = getObserver(for: pid) {
             return existing
         }
-        return self.createObserver(for: pid, expectedGeneration: expectedGeneration)
+        _ = self.pendingObserverCreation(for: pid, expectedGeneration: expectedGeneration)
+        return self.finishPendingObserverCreationSynchronously(
+            for: pid,
+            expectedGeneration: expectedGeneration)
+    }
+
+    private func finishPendingObserverCreationSynchronously(
+        for pid: pid_t,
+        expectedGeneration: UInt64) -> AXObserver?
+    {
+        guard let pending = self.pendingObserverCreations[pid],
+              pending.expectedGeneration == expectedGeneration
+        else { return nil }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .milliseconds(750))
+        while pending.completion.currentResult() == nil, clock.now < deadline {
+            _ = RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
+        guard let outcome = pending.completion.currentResult() else { return nil }
+        guard self.pendingObserverCreations[pid]?.id == pending.id else {
+            return self.observer(for: pid, matching: expectedGeneration)
+        }
+        guard self.processIdentityProvider(pid) == expectedGeneration else {
+            self.pendingObserverCreations.removeValue(forKey: pid)
+            return nil
+        }
+        self.pendingObserverCreations.removeValue(forKey: pid)
+        if let existing = self.observer(for: pid, matching: expectedGeneration) {
+            return existing
+        }
+        return self.commitNativeObserver(outcome, for: pid, expectedGeneration: expectedGeneration)
     }
 
     private func getOrCreateObserverAsync(for pid: pid_t, expectedGeneration: UInt64) async -> AXObserver? {
@@ -867,22 +891,19 @@ extension AXObserverCenter {
         }
         self.pendingObserverCreations.removeValue(forKey: pid)?.task.cancel()
         let id = UUID()
+        let completion = NativeObserverCreationCompletion()
         let workerKey = ObserverWorkerKey(pid: pid, processGeneration: expectedGeneration)
         if self.nativeObserverWorkers[workerKey] != nil {
-            let task = Task<NativeObserverCreation, Never> { .timedOut }
-            let pending = PendingObserverCreation(
+            let pending = PendingObserverCreation.timedOut(
                 id: id,
-                expectedGeneration: expectedGeneration,
-                task: task)
+                expectedGeneration: expectedGeneration)
             self.pendingObserverCreations[pid] = pending
             return pending
         }
         guard self.nativeWorkAdmission.tryAcquire() else {
-            let task = Task<NativeObserverCreation, Never> { .timedOut }
-            let pending = PendingObserverCreation(
+            let pending = PendingObserverCreation.timedOut(
                 id: id,
-                expectedGeneration: expectedGeneration,
-                task: task)
+                expectedGeneration: expectedGeneration)
             self.pendingObserverCreations[pid] = pending
             return pending
         }
@@ -897,16 +918,19 @@ extension AXObserverCenter {
             }
         }
         let task = Task.detached(priority: .utility) {
-            await Self.createNativeObserver(
+            let outcome = await Self.createNativeObserver(
                 for: pid,
                 callback: callback,
                 timeout: .milliseconds(500),
                 workerFinished: workerFinished)
+            completion.finish(with: outcome)
+            return outcome
         }
         let pending = PendingObserverCreation(
             id: id,
             expectedGeneration: expectedGeneration,
-            task: task)
+            task: task,
+            completion: completion)
         self.pendingObserverCreations[pid] = pending
         return pending
     }
@@ -1001,31 +1025,6 @@ extension AXObserverCenter {
         ObserverStateEpoch(
             global: self.globalStateEpoch,
             process: self.processStateEpochs[pid, default: 0])
-    }
-
-    private func createObserver(for pid: pid_t, expectedGeneration: UInt64) -> AXObserver? {
-        var observer: AXObserver?
-        let callback = self.makeObserverCallback()
-
-        let error = AXObserverCreateWithInfoCallback(pid, callback, &observer)
-
-        if error == .success,
-           let newObserver = observer,
-           self.processIdentityProvider(pid) == expectedGeneration
-        {
-            // Add to run loop ONCE when observer is created.
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(newObserver), .defaultMode)
-            axDebugLog("Added run loop source for new observer PID \(pid)")
-
-            let obj = AXObserverObjAndPID(observer: newObserver, pid: pid)
-            self.observers.append(obj)
-            self.recordObserverGeneration(for: pid, startIdentity: expectedGeneration)
-            axDebugLog("Created observer for PID \(pid)")
-            return newObserver
-        } else {
-            axErrorLog("Failed to create observer for PID \(pid), error: \(error.rawValue)")
-            return nil
-        }
     }
 
     private func makeObserverCallback() -> AXObserverCallbackWithInfo {

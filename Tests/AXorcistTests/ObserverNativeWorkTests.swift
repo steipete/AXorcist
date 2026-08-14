@@ -113,4 +113,33 @@ struct ObserverNativeWorkTests {
 
         #expect(result == .success)
     }
+
+    @Test @MainActor
+    func `observer creation completion signals while main actor pumps run loop`() {
+        let completion = NativeObserverCreationCompletion()
+        Task.detached {
+            completion.finish(with: .timedOut)
+        }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+
+        while completion.currentResult() == nil, clock.now < deadline {
+            _ = RunLoop.current.run(mode: .default, before: Date(timeIntervalSinceNow: 0.01))
+        }
+
+        guard case .timedOut = completion.currentResult() else {
+            Issue.record("Expected off-actor observer creation completion")
+            return
+        }
+    }
+
+    @Test
+    func `timed out observer creation completes synchronously`() {
+        let pending = PendingObserverCreation.timedOut(id: UUID(), expectedGeneration: 1)
+
+        guard case .timedOut = pending.completion.currentResult() else {
+            Issue.record("Expected the timeout sentinel to be immediately observable")
+            return
+        }
+    }
 }

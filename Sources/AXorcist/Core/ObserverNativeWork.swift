@@ -183,6 +183,24 @@ nonisolated enum NativeObserverCreation: @unchecked Sendable {
     case timedOut
 }
 
+struct PendingObserverCreation {
+    let id: UUID
+    let expectedGeneration: UInt64
+    let task: Task<NativeObserverCreation, Never>
+    let completion: NativeObserverCreationCompletion
+
+    static func timedOut(id: UUID, expectedGeneration: UInt64) -> Self {
+        let completion = NativeObserverCreationCompletion()
+        completion.finish(with: .timedOut)
+        let task = Task<NativeObserverCreation, Never> { .timedOut }
+        return Self(
+            id: id,
+            expectedGeneration: expectedGeneration,
+            task: task,
+            completion: completion)
+    }
+}
+
 final nonisolated class FirstResultGate<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Value, Never>?
@@ -247,6 +265,23 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
                 self.condition.unlock()
             }
         }
+    }
+}
+
+final nonisolated class NativeObserverCreationCompletion: @unchecked Sendable {
+    private let condition = NSCondition()
+    private var result: NativeObserverCreation?
+
+    func finish(with result: NativeObserverCreation) {
+        self.condition.withLock {
+            guard self.result == nil else { return }
+            self.result = result
+            self.condition.broadcast()
+        }
+    }
+
+    func currentResult() -> NativeObserverCreation? {
+        self.condition.withLock { self.result }
     }
 }
 
