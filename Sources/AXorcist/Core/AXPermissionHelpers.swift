@@ -129,25 +129,19 @@ public enum AXPermissionHelpers {
         interval: TimeInterval = 1.0) -> AsyncStream<Bool>
     {
         AsyncStream { continuation in
-            let initialState = Self.syncOnMainActor {
-                self.hasAccessibilityPermissions()
-            }
-            continuation.yield(initialState)
-
             // Use a class to hold the timer and state to avoid capture issues
             final class TimerBox: @unchecked Sendable {
                 var timer: Timer?
-                var lastState: Bool
-
-                init(initialState: Bool) {
-                    self.lastState = initialState
-                }
+                var lastState: Bool?
             }
-            let timerBox = TimerBox(initialState: initialState)
+            let timerBox = TimerBox()
 
-            Self.syncOnMainActor {
+            let start: @MainActor () -> Void = {
+                let initialState = self.hasAccessibilityPermissions()
+                timerBox.lastState = initialState
+                continuation.yield(initialState)
                 timerBox.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-                    let currentState = Self.syncOnMainActor {
+                    let currentState = MainActor.assumeIsolated {
                         self.hasAccessibilityPermissions()
                     }
                     if currentState != timerBox.lastState {
@@ -156,9 +150,10 @@ public enum AXPermissionHelpers {
                     }
                 }
             }
+            Self.hopToMainActor(start)
 
             continuation.onTermination = { @Sendable _ in
-                Self.syncOnMainActor {
+                Self.hopToMainActor {
                     timerBox.timer?.invalidate()
                     timerBox.timer = nil
                 }
@@ -167,13 +162,12 @@ public enum AXPermissionHelpers {
     }
 
     @inline(__always)
-    private nonisolated static func syncOnMainActor<Value: Sendable>(
-        _ work: @MainActor () -> Value) -> Value
-    {
+    private nonisolated static func hopToMainActor(_ work: @escaping @MainActor () -> Void) {
         if Thread.isMainThread {
-            return MainActor.assumeIsolated(work)
+            MainActor.assumeIsolated(work)
+            return
         }
-        return DispatchQueue.main.sync {
+        DispatchQueue.main.async {
             MainActor.assumeIsolated(work)
         }
     }
