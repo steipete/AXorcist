@@ -142,4 +142,45 @@ struct ObserverNativeWorkTests {
             return
         }
     }
+
+    @Test
+    func `perform fails closed when native notification work never returns`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        let never = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: admission,
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(50))
+        {
+            never.wait()
+            return .success
+        }
+
+        #expect(result == .cannotComplete)
+    }
+
+    @Test
+    func `performCleanup fails closed when native notification work never returns`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        let never = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.performCleanup(
+            admission: admission,
+            timeoutValue: AXError.cannotComplete,
+            timeout: .milliseconds(50))
+        {
+            never.wait()
+            return AXError.success
+        }
+
+        #expect(result == .cannotComplete)
+    }
+
+    @Test
+    func `removal completion value fails closed when the native result never arrives`() async {
+        let completion = NativeRemovalCompletion()
+
+        let result = await completion.value(timeout: .milliseconds(50))
+
+        #expect(result == .cannotComplete)
+    }
 }

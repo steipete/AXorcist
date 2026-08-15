@@ -239,37 +239,57 @@ extension AXObserverCenter {
         let expectedEpoch = self.prepareObserverEpoch(for: pid, currentIdentity: expectedGeneration)
 
         let registration = self.registrationKey(pid: pid, element: element, notification: notification)
-        while true {
-            await self.finishPendingRemoval(registration)
-            guard self.currentStateEpoch(for: pid) == expectedEpoch else {
-                return .failure(.observerSetupFailed(
-                    details: "Observer state changed while registering PID \(pid)"))
-            }
-
-            let setupResult = if let state = self.nativeRegistrationStates[registration],
-                                 state.processGeneration == expectedGeneration
+        let deadline = ContinuousClock().now.advanced(by: .seconds(2))
+        while ContinuousClock().now < deadline {
+            if let result = await self.attemptSubscribeProcessAsync(
+                pid: pid,
+                registration: registration,
+                expectedGeneration: expectedGeneration,
+                expectedEpoch: expectedEpoch,
+                handler: handler)
             {
-                NativeRegistrationSetupResult(error: .success, state: state)
-            } else {
-                await self.setupRegistrationAsync(
-                    registration,
-                    expectedGeneration: expectedGeneration)
+                return result
             }
-            if self.pendingRemovals[registration] != nil {
-                continue
-            }
-            guard setupResult.error == .success,
-                  self.currentStateEpoch(for: pid) == expectedEpoch,
-                  self.observerGenerations[pid]?.startIdentity == expectedGeneration
-            else {
-                return self.asyncSetupFailure(pid: pid, notification: notification, error: setupResult.error)
-            }
-            guard let state = setupResult.state,
-                  self.nativeRegistrationStates[registration] == state
-            else { continue }
-            self.asynchronousNativeRegistrations.insert(registration)
-            return .success(self.subscriptionStore.add(registration: registration, handler: handler))
         }
+        return .failure(.observerSetupFailed(
+            details: "Timed out registering a bounded AXObserver for PID \(pid)"))
+    }
+
+    private func attemptSubscribeProcessAsync(
+        pid: pid_t,
+        registration: AXObserverRegistrationKey,
+        expectedGeneration: UInt64,
+        expectedEpoch: ObserverStateEpoch,
+        handler: @escaping AXNotificationSubscriptionHandler) async -> Result<SubscriptionToken, AccessibilityError>?
+    {
+        await self.finishPendingRemoval(registration)
+        guard self.currentStateEpoch(for: pid) == expectedEpoch else {
+            return .failure(.observerSetupFailed(
+                details: "Observer state changed while registering PID \(pid)"))
+        }
+
+        let setupResult = if let state = self.nativeRegistrationStates[registration],
+                             state.processGeneration == expectedGeneration
+        {
+            NativeRegistrationSetupResult(error: .success, state: state)
+        } else {
+            await self.setupRegistrationAsync(registration, expectedGeneration: expectedGeneration)
+        }
+        if self.pendingRemovals[registration] != nil {
+            return nil
+        }
+        guard setupResult.error == .success,
+              self.currentStateEpoch(for: pid) == expectedEpoch,
+              self.observerGenerations[pid]?.startIdentity == expectedGeneration
+        else {
+            return self.asyncSetupFailure(
+                pid: pid,
+                notification: registration.subscription.notification,
+                error: setupResult.error)
+        }
+        guard let state = setupResult.state, self.nativeRegistrationStates[registration] == state else { return nil }
+        self.asynchronousNativeRegistrations.insert(registration)
+        return .success(self.subscriptionStore.add(registration: registration, handler: handler))
     }
 
     private func asyncSetupFailure(
@@ -526,9 +546,10 @@ extension AXObserverCenter {
     }
 
     private func removeNativeRegistration(_ registration: NativeNotificationRegistration) async -> AXError {
-        await ObserverNativeWork.performCleanup(admission: self.nativeWorkAdmission) {
-            registration.remove()
-        }
+        await ObserverNativeWork.performCleanup(
+            admission: self.nativeWorkAdmission,
+            timeoutValue: .cannotComplete,
+            operation: registration.remove)
     }
 
     private func setupUnderlyingObserver(
@@ -702,9 +723,10 @@ extension AXObserverCenter {
         self.pendingRemovals[registration] = PendingRemoval(id: id, completion: completion)
         let nativeWorkAdmission = self.nativeWorkAdmission
         Task.detached(priority: .utility) {
-            let error = await ObserverNativeWork.performCleanup(admission: nativeWorkAdmission) {
-                cleanup.remove()
-            }
+            let error = await ObserverNativeWork.performCleanup(
+                admission: nativeWorkAdmission,
+                timeoutValue: .cannotComplete,
+                operation: cleanup.remove)
             completion.finish(with: error)
             await MainActor.run {
                 self.completePendingRemoval(registration, id: id, error: error)
