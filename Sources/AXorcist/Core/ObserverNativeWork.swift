@@ -70,15 +70,24 @@ nonisolated enum ObserverNativeWork {
         _ registration: NativeNotificationRegistration,
         admission: ObserverNativeWorkerAdmission) async -> AXError
     {
-        await self.perform(
+        let identity = registration.addIdentity
+        let attempt = NativeAddAttempts.begin(identity)
+        return await self.perform(
             admission: admission,
             refusalValue: AXError.cannotComplete,
             onLateResult: { late in
-                if late == .success {
+                if self.shouldRemoveLateSuccessfulAdd(
+                    late,
+                    attemptIsCurrent: NativeAddAttempts.isCurrent(identity, attempt))
+                {
                     _ = registration.remove()
                 }
             },
             operation: registration.add)
+    }
+
+    static func shouldRemoveLateSuccessfulAdd(_ late: AXError, attemptIsCurrent: Bool) -> Bool {
+        late == .success && attemptIsCurrent
     }
 
     static func perform<Value: Sendable>(
@@ -379,12 +388,56 @@ final nonisolated class NativeObserverCreationCompletion: @unchecked Sendable {
     }
 }
 
+nonisolated struct NativeAddIdentity: Hashable, Sendable {
+    let observerBits: UInt
+    let elementBits: UInt
+    let notification: String
+}
+
+nonisolated enum NativeAddAttempts {
+    private static let table = NativeAddAttemptTable()
+
+    static func begin(_ identity: NativeAddIdentity) -> UInt64 {
+        self.table.begin(identity)
+    }
+
+    static func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {
+        self.table.isCurrent(identity, token)
+    }
+}
+
+final nonisolated class NativeAddAttemptTable: @unchecked Sendable {
+    private let lock = NSLock()
+    private var generations: [NativeAddIdentity: UInt64] = [:]
+
+    func begin(_ identity: NativeAddIdentity) -> UInt64 {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        let next = (self.generations[identity] ?? 0) + 1
+        self.generations[identity] = next
+        return next
+    }
+
+    func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.generations[identity] == token
+    }
+}
+
 nonisolated struct NativeNotificationRegistration: @unchecked Sendable {
     let observer: AXObserver
     let element: AXUIElement
     let notification: CFString
     let refcon: UnsafeMutableRawPointer
     let appliesMessagingTimeout: Bool
+
+    var addIdentity: NativeAddIdentity {
+        NativeAddIdentity(
+            observerBits: UInt(truncatingIfNeeded: CFHash(self.observer)),
+            elementBits: UInt(truncatingIfNeeded: CFHash(self.element)),
+            notification: self.notification as String)
+    }
 
     static func removalConfirmsRegistrationAbsent(_ error: AXError) -> Bool {
         error == .success || error == .notificationNotRegistered

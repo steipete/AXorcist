@@ -218,6 +218,76 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
+    func `late add cleanup skips remove after a newer attempt starts`() async {
+        let table = NativeAddAttemptTable()
+        let identity = NativeAddIdentity(observerBits: 1, elementBits: 2, notification: "AXFocusedUIElementChanged")
+        let first = table.begin(identity)
+        let removed = LateRemoveCounter()
+        let release = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: ObserverNativeWorkerAdmission(),
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(30),
+            onLateResult: { late in
+                removed.markLate()
+                if ObserverNativeWork.shouldRemoveLateSuccessfulAdd(
+                    late,
+                    attemptIsCurrent: table.isCurrent(identity, first))
+                {
+                    removed.increment()
+                }
+            },
+            operation: {
+                release.wait()
+                return .success
+            })
+
+        #expect(result == .cannotComplete)
+        _ = table.begin(identity)
+        release.signal()
+        let deadline = ContinuousClock().now.advanced(by: .seconds(1))
+        while !removed.sawLate, ContinuousClock().now < deadline {
+            await Task.yield()
+        }
+        #expect(removed.sawLate)
+        #expect(!removed.didRemove)
+    }
+
+    @Test
+    func `late add cleanup removes when the timed-out attempt is still current`() async {
+        let table = NativeAddAttemptTable()
+        let identity = NativeAddIdentity(observerBits: 3, elementBits: 4, notification: "AXValueChanged")
+        let first = table.begin(identity)
+        let removed = LateRemoveCounter()
+        let release = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: ObserverNativeWorkerAdmission(),
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(30),
+            onLateResult: { late in
+                removed.markLate()
+                if ObserverNativeWork.shouldRemoveLateSuccessfulAdd(
+                    late,
+                    attemptIsCurrent: table.isCurrent(identity, first))
+                {
+                    removed.increment()
+                }
+            },
+            operation: {
+                release.wait()
+                return .success
+            })
+
+        #expect(result == .cannotComplete)
+        release.signal()
+        let deadline = ContinuousClock().now.advanced(by: .seconds(1))
+        while !removed.sawLate, ContinuousClock().now < deadline {
+            await Task.yield()
+        }
+        #expect(removed.didRemove)
+    }
+
+    @Test
     func `late successful add is reported after a timeout`() async {
         let admission = ObserverNativeWorkerAdmission()
         let release = DispatchSemaphore(value: 0)
@@ -241,6 +311,36 @@ struct ObserverNativeWorkTests {
             await Task.yield()
         }
         #expect(lateBox.value == .success)
+    }
+}
+
+private final nonisolated class LateRemoveCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = 0
+    private var lateSeen = false
+
+    func markLate() {
+        self.lock.lock()
+        self.lateSeen = true
+        self.lock.unlock()
+    }
+
+    func increment() {
+        self.lock.lock()
+        self.stored += 1
+        self.lock.unlock()
+    }
+
+    var didRemove: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.stored > 0
+    }
+
+    var sawLate: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.lateSeen
     }
 }
 
