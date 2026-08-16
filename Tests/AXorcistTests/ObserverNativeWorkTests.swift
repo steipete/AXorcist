@@ -218,6 +218,37 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
+    func `add attempt is reserved only after worker admission`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        for _ in 0..<ObserverNativeWorkerAdmission.maximumRegularWorkers {
+            #expect(admission.tryAcquire())
+        }
+        let admitted = LateRemoveCounter()
+        let result = await ObserverNativeWork.perform(
+            admission: admission,
+            refusalValue: AXError.cannotComplete,
+            onAdmitted: {
+                admitted.increment()
+            },
+            operation: { AXError.success })
+
+        #expect(result == .cannotComplete)
+        #expect(!admitted.didRemove)
+    }
+
+    @Test
+    func `add attempt table retires only the current generation`() {
+        let table = NativeAddAttemptTable()
+        let identity = NativeAddIdentity(observerBits: 7, elementBits: 8, notification: "AXCreated")
+        let first = table.begin(identity)
+        let second = table.begin(identity)
+        table.retire(identity, first)
+        #expect(table.isCurrent(identity, second))
+        table.retire(identity, second)
+        #expect(!table.isCurrent(identity, second))
+    }
+
+    @Test
     func `late add cleanup skips remove after a newer attempt starts`() async {
         let table = NativeAddAttemptTable()
         let identity = NativeAddIdentity(observerBits: 1, elementBits: 2, notification: "AXFocusedUIElementChanged")

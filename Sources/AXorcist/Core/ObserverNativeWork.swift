@@ -48,12 +48,18 @@ nonisolated enum ObserverNativeWork {
         timeout: Duration,
         timeoutValue: Value,
         admission: ObserverNativeWorkerAdmission,
+        onAdmitted: (@Sendable () -> Void)? = nil,
+        onFirstResult: (@Sendable (_ fromTimeout: Bool) -> Void)? = nil,
         onLateResult: (@Sendable (Value) -> Void)? = nil,
         operation: @escaping @Sendable () -> Value) async -> Value
     {
         guard admission.tryAcquire() else { return timeoutValue }
+        onAdmitted?()
         return await withCheckedContinuation { continuation in
-            let gate = FirstResultGate(continuation: continuation, onLateResult: onLateResult)
+            let gate = FirstResultGate(
+                continuation: continuation,
+                onFirstResult: onFirstResult,
+                onLateResult: onLateResult)
             Thread.detachNewThread {
                 let result = autoreleasepool { operation() }
                 admission.release()
@@ -71,19 +77,32 @@ nonisolated enum ObserverNativeWork {
         admission: ObserverNativeWorkerAdmission) async -> AXError
     {
         let identity = registration.addIdentity
-        let attempt = NativeAddAttempts.begin(identity)
-        return await self.perform(
+        let attempt = NativeAddTokenBox()
+        let result = await self.perform(
             admission: admission,
             refusalValue: AXError.cannotComplete,
+            onAdmitted: {
+                attempt.store(NativeAddAttempts.begin(identity))
+            },
+            onFirstResult: { fromTimeout in
+                if fromTimeout {
+                    attempt.markTimedOutFirst()
+                }
+            },
             onLateResult: { late in
                 if self.shouldRemoveLateSuccessfulAdd(
                     late,
-                    attemptIsCurrent: NativeAddAttempts.isCurrent(identity, attempt))
+                    attemptIsCurrent: NativeAddAttempts.isCurrent(identity, token: attempt.value))
                 {
                     _ = registration.remove()
                 }
+                NativeAddAttempts.retire(identity, token: attempt.value)
             },
             operation: registration.add)
+        if !attempt.didTimeOutFirst {
+            NativeAddAttempts.retire(identity, token: attempt.value)
+        }
+        return result
     }
 
     static func shouldRemoveLateSuccessfulAdd(_ late: AXError, attemptIsCurrent: Bool) -> Bool {
@@ -94,6 +113,8 @@ nonisolated enum ObserverNativeWork {
         admission: ObserverNativeWorkerAdmission,
         refusalValue: Value,
         timeout: Duration = notificationWorkTimeout,
+        onAdmitted: (@Sendable () -> Void)? = nil,
+        onFirstResult: (@Sendable (_ fromTimeout: Bool) -> Void)? = nil,
         onLateResult: (@Sendable (Value) -> Void)? = nil,
         operation: @escaping @Sendable () -> Value) async -> Value
     {
@@ -101,6 +122,8 @@ nonisolated enum ObserverNativeWork {
             timeout: timeout,
             timeoutValue: refusalValue,
             admission: admission,
+            onAdmitted: onAdmitted,
+            onFirstResult: onFirstResult,
             onLateResult: onLateResult,
             operation: operation)
     }
@@ -266,30 +289,34 @@ final nonisolated class FirstResultGate<Value: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private var continuation: CheckedContinuation<Value, Never>?
     private var delivered = false
+    private let onFirstResult: (@Sendable (Bool) -> Void)?
     private let onLateResult: (@Sendable (Value) -> Void)?
 
     init(
         continuation: CheckedContinuation<Value, Never>,
+        onFirstResult: (@Sendable (Bool) -> Void)? = nil,
         onLateResult: (@Sendable (Value) -> Void)? = nil)
     {
         self.continuation = continuation
+        self.onFirstResult = onFirstResult
         self.onLateResult = onLateResult
     }
 
     func finish(with value: Value, fromTimeout: Bool = false) {
-        let outcome = self.lock.withLock { () -> (CheckedContinuation<Value, Never>?, Value?) in
+        let outcome = self.lock.withLock { () -> (CheckedContinuation<Value, Never>?, Value?, Bool) in
             if !self.delivered {
                 self.delivered = true
                 let continuation = self.continuation
                 self.continuation = nil
-                return (continuation, nil)
+                return (continuation, nil, fromTimeout)
             }
             if fromTimeout {
-                return (nil, nil)
+                return (nil, nil, false)
             }
-            return (nil, value)
+            return (nil, value, false)
         }
         if let continuation = outcome.0 {
+            self.onFirstResult?(outcome.2)
             continuation.resume(returning: value)
         }
         if let late = outcome.1 {
@@ -401,8 +428,44 @@ nonisolated enum NativeAddAttempts {
         self.table.begin(identity)
     }
 
-    static func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {
-        self.table.isCurrent(identity, token)
+    static func isCurrent(_ identity: NativeAddIdentity, token: UInt64?) -> Bool {
+        guard let token else { return false }
+        return self.table.isCurrent(identity, token)
+    }
+
+    static func retire(_ identity: NativeAddIdentity, token: UInt64?) {
+        guard let token else { return }
+        self.table.retire(identity, token)
+    }
+}
+
+final nonisolated class NativeAddTokenBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: UInt64?
+    private var timedOutFirst = false
+
+    func store(_ value: UInt64) {
+        self.lock.lock()
+        self.stored = value
+        self.lock.unlock()
+    }
+
+    func markTimedOutFirst() {
+        self.lock.lock()
+        self.timedOutFirst = true
+        self.lock.unlock()
+    }
+
+    var value: UInt64? {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.stored
+    }
+
+    var didTimeOutFirst: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.timedOutFirst
     }
 }
 
@@ -422,6 +485,14 @@ final nonisolated class NativeAddAttemptTable: @unchecked Sendable {
         self.lock.lock()
         defer { self.lock.unlock() }
         return self.generations[identity] == token
+    }
+
+    func retire(_ identity: NativeAddIdentity, _ token: UInt64) {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        if self.generations[identity] == token {
+            self.generations.removeValue(forKey: identity)
+        }
     }
 }
 
