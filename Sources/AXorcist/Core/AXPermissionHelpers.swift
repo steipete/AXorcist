@@ -138,14 +138,27 @@ public enum AXPermissionHelpers {
         AsyncStream { continuation in
             // Use a class to hold the timer and state to avoid capture issues
             final class TimerBox: @unchecked Sendable {
+                private let lock = NSLock()
                 var timer: Timer?
                 var lastState: Bool?
-                var terminated = false
+                private var terminatedFlag = false
+
+                var isTerminated: Bool {
+                    self.lock.lock()
+                    defer { self.lock.unlock() }
+                    return self.terminatedFlag
+                }
+
+                func markTerminated() {
+                    self.lock.lock()
+                    self.terminatedFlag = true
+                    self.lock.unlock()
+                }
             }
             let timerBox = TimerBox()
 
             let start: @MainActor () -> Void = {
-                guard !timerBox.terminated else { return }
+                guard !timerBox.isTerminated else { return }
                 let initialState = self.hasAccessibilityPermissions()
                 timerBox.lastState = initialState
                 continuation.yield(initialState)
@@ -163,7 +176,7 @@ public enum AXPermissionHelpers {
             Self.hopToMainActor(start)
 
             continuation.onTermination = { @Sendable _ in
-                timerBox.terminated = true
+                timerBox.markTerminated()
                 Self.hopToMainActor {
                     timerBox.timer?.invalidate()
                     timerBox.timer = nil
