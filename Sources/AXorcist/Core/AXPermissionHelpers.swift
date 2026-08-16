@@ -128,26 +128,42 @@ public enum AXPermissionHelpers {
     public static func permissionChanges(
         interval: TimeInterval = 1.0) -> AsyncStream<Bool>
     {
-        AsyncStream { continuation in
-            let initialState = Self.syncOnMainActor {
-                self.hasAccessibilityPermissions()
-            }
-            continuation.yield(initialState)
+        self.permissionChanges(interval: interval, onTimerScheduled: nil)
+    }
 
+    nonisolated static func permissionChanges(
+        interval: TimeInterval,
+        onTimerScheduled: (@MainActor () -> Void)?) -> AsyncStream<Bool>
+    {
+        AsyncStream { continuation in
             // Use a class to hold the timer and state to avoid capture issues
             final class TimerBox: @unchecked Sendable {
+                private let lock = NSLock()
                 var timer: Timer?
-                var lastState: Bool
+                var lastState: Bool?
+                private var terminatedFlag = false
 
-                init(initialState: Bool) {
-                    self.lastState = initialState
+                var isTerminated: Bool {
+                    self.lock.lock()
+                    defer { self.lock.unlock() }
+                    return self.terminatedFlag
+                }
+
+                func markTerminated() {
+                    self.lock.lock()
+                    self.terminatedFlag = true
+                    self.lock.unlock()
                 }
             }
-            let timerBox = TimerBox(initialState: initialState)
+            let timerBox = TimerBox()
 
-            Self.syncOnMainActor {
+            let start: @MainActor () -> Void = {
+                guard !timerBox.isTerminated else { return }
+                let initialState = self.hasAccessibilityPermissions()
+                timerBox.lastState = initialState
+                continuation.yield(initialState)
                 timerBox.timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { _ in
-                    let currentState = Self.syncOnMainActor {
+                    let currentState = MainActor.assumeIsolated {
                         self.hasAccessibilityPermissions()
                     }
                     if currentState != timerBox.lastState {
@@ -155,10 +171,13 @@ public enum AXPermissionHelpers {
                         continuation.yield(currentState)
                     }
                 }
+                onTimerScheduled?()
             }
+            Self.hopToMainActor(start)
 
             continuation.onTermination = { @Sendable _ in
-                Self.syncOnMainActor {
+                timerBox.markTerminated()
+                Self.hopToMainActor {
                     timerBox.timer?.invalidate()
                     timerBox.timer = nil
                 }
@@ -167,13 +186,12 @@ public enum AXPermissionHelpers {
     }
 
     @inline(__always)
-    private nonisolated static func syncOnMainActor<Value: Sendable>(
-        _ work: @MainActor () -> Value) -> Value
-    {
+    private nonisolated static func hopToMainActor(_ work: @escaping @MainActor () -> Void) {
         if Thread.isMainThread {
-            return MainActor.assumeIsolated(work)
+            MainActor.assumeIsolated(work)
+            return
         }
-        return DispatchQueue.main.sync {
+        DispatchQueue.main.async {
             MainActor.assumeIsolated(work)
         }
     }
