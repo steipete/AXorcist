@@ -641,7 +641,10 @@ extension AXObserverCenter {
             element: element,
             notification: registration.subscription.notification.rawValue as CFString,
             refcon: Unmanaged.passUnretained(self).toOpaque(),
-            appliesMessagingTimeout: processScoped)
+            appliesMessagingTimeout: processScoped,
+            addTarget: processScoped
+                ? .process(registration.subscription.pid)
+                : .element(element))
     }
 
     private func logObserverAddResult(targetPid: pid_t, notification: AXNotification, error: AXError) {

@@ -1,4 +1,5 @@
 import ApplicationServices
+import Darwin
 import Foundation
 import Testing
 @testable import AXorcist
@@ -143,7 +144,34 @@ struct ObserverNativeCleanupTests {
     }
 
     @Test
-    func `add attempt identity uses retained object pointers not CFHash`() throws {
+    func `process scoped add identities share a generation across fresh application proxies`() throws {
+        var createdObserver: AXObserver?
+        let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
+        let created = AXObserverCreateWithInfoCallback(getpid(), callback, &createdObserver)
+        let observer = try #require(created == .success ? createdObserver : nil)
+        let processIdentifier = getpid()
+        let notification = kAXFocusedUIElementChangedNotification as CFString
+        let firstProxy = makeProcessAddRegistration(
+            observer: observer,
+            pid: processIdentifier,
+            notification: notification)
+        let retryProxy = makeProcessAddRegistration(
+            observer: observer,
+            pid: processIdentifier,
+            notification: notification)
+        #expect(firstProxy.addIdentity == retryProxy.addIdentity)
+        #expect(ObjectIdentifier(firstProxy.element) != ObjectIdentifier(retryProxy.element))
+
+        let table = NativeAddAttemptTable()
+        let firstToken = table.begin(firstProxy.addIdentity)
+        let retryToken = table.begin(retryProxy.addIdentity)
+        #expect(retryToken != firstToken)
+        #expect(!table.isCurrent(firstProxy.addIdentity, firstToken))
+        #expect(table.isCurrent(retryProxy.addIdentity, retryToken))
+    }
+
+    @Test
+    func `element scoped add identities use CFEqual not pointer identity`() throws {
         var createdObserver: AXObserver?
         let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
         let created = AXObserverCreateWithInfoCallback(getpid(), callback, &createdObserver)
@@ -152,24 +180,75 @@ struct ObserverNativeCleanupTests {
         let secondElement = AXUIElementCreateApplication(getpid())
         let first = NativeAddIdentity(
             observer: observer,
-            element: firstElement,
-            notification: "AXCreated")
+            notification: "AXCreated",
+            target: .element(firstElement))
         let second = NativeAddIdentity(
             observer: observer,
-            element: secondElement,
-            notification: "AXCreated")
-        let firstAgain = NativeAddIdentity(
-            observer: observer,
-            element: firstElement,
-            notification: "AXCreated")
-        #expect(first != second)
-        #expect(first == firstAgain)
+            notification: "AXCreated",
+            target: .element(secondElement))
+        #expect((first == second) == CFEqual(firstElement, secondElement))
 
+        let other = NativeAddIdentity(
+            observer: observer,
+            notification: "AXCreated",
+            target: .element(AXUIElementCreateApplication(1)))
+        #expect(first != other)
+        #expect(first != NativeAddIdentity(
+            observer: observer,
+            notification: "AXCreated",
+            target: .process(getpid())))
+    }
+
+    @Test
+    func `process scoped timeout retry is not removed by an older late success`() async throws {
+        var createdObserver: AXObserver?
+        let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
+        let created = AXObserverCreateWithInfoCallback(getpid(), callback, &createdObserver)
+        let observer = try #require(created == .success ? createdObserver : nil)
+        let processIdentifier = getpid()
+        let notification = kAXFocusedUIElementChangedNotification as CFString
+        let firstRegistration = makeProcessAddRegistration(
+            observer: observer,
+            pid: processIdentifier,
+            notification: notification)
+        let retryRegistration = makeProcessAddRegistration(
+            observer: observer,
+            pid: processIdentifier,
+            notification: notification)
         let table = NativeAddAttemptTable()
-        let firstToken = table.begin(first)
-        _ = table.begin(second)
-        #expect(table.isCurrent(first, firstToken))
-        #expect(!table.isCurrent(second, firstToken))
+        let firstToken = table.begin(firstRegistration.addIdentity)
+        let removed = LateRemoveCounter()
+        let release = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: ObserverNativeWorkerAdmission(),
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(30),
+            onLateResult: { late in
+                removed.markLate()
+                if ObserverNativeWork.shouldRemoveLateSuccessfulAdd(
+                    late,
+                    attemptIsCurrent: table.isCurrent(firstRegistration.addIdentity, firstToken))
+                {
+                    removed.increment()
+                }
+            },
+            operation: {
+                release.wait()
+                return .success
+            })
+
+        #expect(result == .cannotComplete)
+        let retryToken = table.begin(retryRegistration.addIdentity)
+        #expect(retryToken != firstToken)
+        #expect(table.isCurrent(retryRegistration.addIdentity, retryToken))
+        release.signal()
+        let deadline = ContinuousClock().now.advanced(by: .seconds(1))
+        while !removed.sawLate, ContinuousClock().now < deadline {
+            await Task.yield()
+        }
+        #expect(removed.sawLate)
+        #expect(!removed.didRemove)
+        #expect(table.isCurrent(retryRegistration.addIdentity, retryToken))
     }
 
     @Test
@@ -186,6 +265,36 @@ struct ObserverNativeCleanupTests {
         let later = table.begin(firstIdentity)
         #expect(later != first)
         #expect(table.retainedIdentityCount == 1)
+    }
+}
+
+private final nonisolated class LateRemoveCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = 0
+    private var lateSeen = false
+
+    func markLate() {
+        self.lock.lock()
+        self.lateSeen = true
+        self.lock.unlock()
+    }
+
+    func increment() {
+        self.lock.lock()
+        self.stored += 1
+        self.lock.unlock()
+    }
+
+    var didRemove: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.stored > 0
+    }
+
+    var sawLate: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.lateSeen
     }
 }
 

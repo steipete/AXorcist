@@ -458,20 +458,47 @@ final nonisolated class NativeObserverCreationCompletion: @unchecked Sendable {
 }
 
 nonisolated struct NativeAddIdentity: Hashable, @unchecked Sendable {
+    enum Target: Hashable, @unchecked Sendable {
+        case process(pid_t)
+        case element(AXUIElement)
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+            case let (.process(left), .process(right)):
+                left == right
+            case let (.element(left), .element(right)):
+                CFEqual(left, right)
+            default:
+                false
+            }
+        }
+
+        func hash(into hasher: inout Hasher) {
+            switch self {
+            case let .process(processIdentifier):
+                hasher.combine(0 as UInt8)
+                hasher.combine(processIdentifier)
+            case let .element(element):
+                hasher.combine(1 as UInt8)
+                hasher.combine(CFHash(element))
+            }
+        }
+    }
+
     let observer: AXObserver
-    let element: AXUIElement
     let notification: String
+    let target: Target
 
     static func == (lhs: Self, rhs: Self) -> Bool {
         ObjectIdentifier(lhs.observer) == ObjectIdentifier(rhs.observer)
-            && ObjectIdentifier(lhs.element) == ObjectIdentifier(rhs.element)
             && lhs.notification == rhs.notification
+            && lhs.target == rhs.target
     }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(ObjectIdentifier(self.observer))
-        hasher.combine(ObjectIdentifier(self.element))
         hasher.combine(self.notification)
+        hasher.combine(self.target)
     }
 }
 
@@ -563,12 +590,13 @@ nonisolated struct NativeNotificationRegistration: @unchecked Sendable {
     let notification: CFString
     let refcon: UnsafeMutableRawPointer
     let appliesMessagingTimeout: Bool
+    let addTarget: NativeAddIdentity.Target
 
     var addIdentity: NativeAddIdentity {
         NativeAddIdentity(
             observer: self.observer,
-            element: self.element,
-            notification: self.notification as String)
+            notification: self.notification as String,
+            target: self.addTarget)
     }
 
     static func removalConfirmsRegistrationAbsent(_ error: AXError) -> Bool {

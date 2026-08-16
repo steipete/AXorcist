@@ -15,8 +15,22 @@ nonisolated func makeTestAddIdentity(
     else { return nil }
     return NativeAddIdentity(
         observer: observer,
+        notification: notification,
+        target: .process(pid))
+}
+
+nonisolated func makeProcessAddRegistration(
+    observer: AXObserver,
+    pid: pid_t,
+    notification: CFString) -> NativeNotificationRegistration
+{
+    NativeNotificationRegistration(
+        observer: observer,
         element: AXUIElementCreateApplication(pid),
-        notification: notification)
+        notification: notification,
+        refcon: Unmanaged.passUnretained(observer).toOpaque(),
+        appliesMessagingTimeout: true,
+        addTarget: .process(pid))
 }
 
 extension Comment {
