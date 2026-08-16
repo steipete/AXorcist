@@ -249,6 +249,19 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
+    func `retired add attempt token is not reused by a later begin`() {
+        let table = NativeAddAttemptTable()
+        let identity = NativeAddIdentity(observerBits: 9, elementBits: 10, notification: "AXTitleChanged")
+        let timedOut = table.begin(identity)
+        let successfulRetry = table.begin(identity)
+        table.retire(identity, successfulRetry)
+        let laterRetry = table.begin(identity)
+        #expect(laterRetry != timedOut)
+        #expect(table.isCurrent(identity, laterRetry))
+        #expect(!table.isCurrent(identity, timedOut))
+    }
+
+    @Test
     func `late add cleanup skips remove after a newer attempt starts`() async {
         let table = NativeAddAttemptTable()
         let identity = NativeAddIdentity(observerBits: 1, elementBits: 2, notification: "AXFocusedUIElementChanged")
@@ -316,6 +329,49 @@ struct ObserverNativeWorkTests {
             await Task.yield()
         }
         #expect(removed.didRemove)
+    }
+
+    @Test
+    func `late add cleanup skips remove after a retired token would have been reused`() async {
+        let table = NativeAddAttemptTable()
+        let identity = NativeAddIdentity(
+            observerBits: 11,
+            elementBits: 12,
+            notification: "AXSelectedTextChanged")
+        let timedOut = table.begin(identity)
+        let removed = LateRemoveCounter()
+        let release = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: ObserverNativeWorkerAdmission(),
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(30),
+            onLateResult: { late in
+                removed.markLate()
+                if ObserverNativeWork.shouldRemoveLateSuccessfulAdd(
+                    late,
+                    attemptIsCurrent: table.isCurrent(identity, timedOut))
+                {
+                    removed.increment()
+                }
+            },
+            operation: {
+                release.wait()
+                return .success
+            })
+
+        #expect(result == .cannotComplete)
+        let successfulRetry = table.begin(identity)
+        table.retire(identity, successfulRetry)
+        let laterRetry = table.begin(identity)
+        #expect(laterRetry != timedOut)
+        release.signal()
+        let deadline = ContinuousClock().now.advanced(by: .seconds(1))
+        while !removed.sawLate, ContinuousClock().now < deadline {
+            await Task.yield()
+        }
+        #expect(removed.sawLate)
+        #expect(!removed.didRemove)
+        #expect(table.isCurrent(identity, laterRetry))
     }
 
     @Test

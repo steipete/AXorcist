@@ -471,27 +471,29 @@ final nonisolated class NativeAddTokenBox: @unchecked Sendable {
 
 final nonisolated class NativeAddAttemptTable: @unchecked Sendable {
     private let lock = NSLock()
-    private var generations: [NativeAddIdentity: UInt64] = [:]
+    private var nextTokens: [NativeAddIdentity: UInt64] = [:]
+    private var current: [NativeAddIdentity: UInt64] = [:]
 
     func begin(_ identity: NativeAddIdentity) -> UInt64 {
         self.lock.lock()
         defer { self.lock.unlock() }
-        let next = (self.generations[identity] ?? 0) + 1
-        self.generations[identity] = next
+        let next = (self.nextTokens[identity] ?? 0) + 1
+        self.nextTokens[identity] = next
+        self.current[identity] = next
         return next
     }
 
     func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {
         self.lock.lock()
         defer { self.lock.unlock() }
-        return self.generations[identity] == token
+        return self.current[identity] == token
     }
 
     func retire(_ identity: NativeAddIdentity, _ token: UInt64) {
         self.lock.lock()
         defer { self.lock.unlock() }
-        if self.generations[identity] == token {
-            self.generations.removeValue(forKey: identity)
+        if self.current[identity] == token {
+            self.current.removeValue(forKey: identity)
         }
     }
 }
