@@ -9,9 +9,9 @@ nonisolated struct PermissionChangeStreamTests {
         let stream = await MainActor.run {
             AXPermissionHelpers.permissionChanges(interval: 60)
         }
-        let completed = await Task.detached {
+        let completed = await Self.runOnDedicatedThread {
             Self.cancelCompletesWhileMainQueueIsBusy(stream: stream)
-        }.value
+        }
 
         #expect(completed)
     }
@@ -19,9 +19,9 @@ nonisolated struct PermissionChangeStreamTests {
     @Test
     func `permissionChanges skip start after an already-terminated stream`() async {
         let scheduled = PermissionTimerScheduleBox()
-        let skipped = await Task.detached {
+        let skipped = await Self.runOnDedicatedThread {
             Self.cancelBeforeQueuedStartRuns(scheduled: scheduled)
-        }.value
+        }
 
         #expect(skipped)
         #expect(!scheduled.wasMarked)
@@ -77,6 +77,16 @@ nonisolated struct PermissionChangeStreamTests {
         }
         flushed.wait()
         return !scheduled.wasMarked
+    }
+
+    private nonisolated static func runOnDedicatedThread<Value: Sendable>(
+        _ operation: @escaping @Sendable () -> Value) async -> Value
+    {
+        await withCheckedContinuation { continuation in
+            Thread.detachNewThread {
+                continuation.resume(returning: operation())
+            }
+        }
     }
 }
 
