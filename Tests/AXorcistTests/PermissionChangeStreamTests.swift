@@ -16,6 +16,17 @@ nonisolated struct PermissionChangeStreamTests {
         #expect(completed)
     }
 
+    @Test
+    func `permissionChanges skip start after an already-terminated stream`() async {
+        let scheduled = PermissionTimerScheduleBox()
+        let skipped = await Task.detached {
+            Self.cancelBeforeQueuedStartRuns(scheduled: scheduled)
+        }.value
+
+        #expect(skipped)
+        #expect(!scheduled.wasMarked)
+    }
+
     private nonisolated static func cancelCompletesWhileMainQueueIsBusy(
         stream: AsyncStream<Bool>) -> Bool
     {
@@ -39,5 +50,49 @@ nonisolated struct PermissionChangeStreamTests {
         let finished = consumeFinished.wait(timeout: .now() + .milliseconds(400)) == .success
         releaseMain.signal()
         return finished
+    }
+
+    private nonisolated static func cancelBeforeQueuedStartRuns(
+        scheduled: PermissionTimerScheduleBox) -> Bool
+    {
+        let mainHeld = DispatchSemaphore(value: 0)
+        let streamCreated = DispatchSemaphore(value: 0)
+        let releaseMain = DispatchSemaphore(value: 0)
+
+        DispatchQueue.main.async {
+            mainHeld.signal()
+            streamCreated.wait()
+            releaseMain.wait()
+        }
+        mainHeld.wait()
+
+        _ = AXPermissionHelpers.permissionChanges(interval: 60) {
+            scheduled.mark()
+        }
+        streamCreated.signal()
+        releaseMain.signal()
+        let flushed = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            flushed.signal()
+        }
+        flushed.wait()
+        return !scheduled.wasMarked
+    }
+}
+
+private final nonisolated class PermissionTimerScheduleBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var marked = false
+
+    func mark() {
+        self.lock.lock()
+        self.marked = true
+        self.lock.unlock()
+    }
+
+    var wasMarked: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.marked
     }
 }

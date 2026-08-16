@@ -128,15 +128,24 @@ public enum AXPermissionHelpers {
     public static func permissionChanges(
         interval: TimeInterval = 1.0) -> AsyncStream<Bool>
     {
+        self.permissionChanges(interval: interval, onTimerScheduled: nil)
+    }
+
+    nonisolated static func permissionChanges(
+        interval: TimeInterval,
+        onTimerScheduled: (@MainActor () -> Void)?) -> AsyncStream<Bool>
+    {
         AsyncStream { continuation in
             // Use a class to hold the timer and state to avoid capture issues
             final class TimerBox: @unchecked Sendable {
                 var timer: Timer?
                 var lastState: Bool?
+                var terminated = false
             }
             let timerBox = TimerBox()
 
             let start: @MainActor () -> Void = {
+                guard !timerBox.terminated else { return }
                 let initialState = self.hasAccessibilityPermissions()
                 timerBox.lastState = initialState
                 continuation.yield(initialState)
@@ -149,10 +158,12 @@ public enum AXPermissionHelpers {
                         continuation.yield(currentState)
                     }
                 }
+                onTimerScheduled?()
             }
             Self.hopToMainActor(start)
 
             continuation.onTermination = { @Sendable _ in
+                timerBox.terminated = true
                 Self.hopToMainActor {
                     timerBox.timer?.invalidate()
                     timerBox.timer = nil
