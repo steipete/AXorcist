@@ -132,12 +132,17 @@ nonisolated enum ObserverNativeWork {
         admission: ObserverNativeWorkerAdmission,
         timeoutValue: Value,
         timeout: Duration = notificationWorkTimeout,
+        onFirstResult: (@Sendable (_ fromTimeout: Bool) -> Void)? = nil,
+        onLateResult: (@Sendable (Value) -> Void)? = nil,
         operation: @escaping @Sendable () -> Value) async -> Value
     {
         let acquired = await admission.acquireCleanup(timeout: timeout)
         guard acquired else { return timeoutValue }
         return await withCheckedContinuation { continuation in
-            let gate = FirstResultGate(continuation: continuation)
+            let gate = FirstResultGate(
+                continuation: continuation,
+                onFirstResult: onFirstResult,
+                onLateResult: onLateResult)
             Thread.detachNewThread {
                 let result = autoreleasepool { operation() }
                 admission.release()
@@ -145,9 +150,39 @@ nonisolated enum ObserverNativeWork {
             }
             Task.detached(priority: .utility) {
                 try? await Task.sleep(for: timeout)
-                gate.finish(with: timeoutValue)
+                gate.finish(with: timeoutValue, fromTimeout: true)
             }
         }
+    }
+
+    /// Timeout bounds the waiter only. The pending record stays until the
+    /// native remove reports its own result.
+    static func shouldFinalizePendingRemoval(firstResultFromTimeout: Bool) -> Bool {
+        !firstResultFromTimeout
+    }
+
+    static func runPendingCleanup(
+        admission: ObserverNativeWorkerAdmission,
+        timeout: Duration = notificationWorkTimeout,
+        operation: @escaping @Sendable () -> AXError,
+        onFinished: @escaping @Sendable (AXError) -> Void) async
+    {
+        let first = NativeAddTokenBox()
+        let error = await self.performCleanup(
+            admission: admission,
+            timeoutValue: .cannotComplete,
+            timeout: timeout,
+            onFirstResult: { fromTimeout in
+                if fromTimeout {
+                    first.markTimedOutFirst()
+                }
+            },
+            onLateResult: onFinished,
+            operation: operation)
+        guard self.shouldFinalizePendingRemoval(firstResultFromTimeout: first.didTimeOutFirst) else {
+            return
+        }
+        onFinished(error)
     }
 
     static func performSynchronously<Value>(
@@ -471,16 +506,21 @@ final nonisolated class NativeAddTokenBox: @unchecked Sendable {
 
 final nonisolated class NativeAddAttemptTable: @unchecked Sendable {
     private let lock = NSLock()
-    private var nextTokens: [NativeAddIdentity: UInt64] = [:]
+    private var nextToken: UInt64 = 0
     private var current: [NativeAddIdentity: UInt64] = [:]
+
+    var retainedIdentityCount: Int {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.current.count
+    }
 
     func begin(_ identity: NativeAddIdentity) -> UInt64 {
         self.lock.lock()
         defer { self.lock.unlock() }
-        let next = (self.nextTokens[identity] ?? 0) + 1
-        self.nextTokens[identity] = next
-        self.current[identity] = next
-        return next
+        self.nextToken += 1
+        self.current[identity] = self.nextToken
+        return self.nextToken
     }
 
     func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {

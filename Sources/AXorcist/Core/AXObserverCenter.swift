@@ -718,13 +718,14 @@ extension AXObserverCenter {
         self.pendingRemovals[registration] = PendingRemoval(id: id, completion: completion)
         let nativeWorkAdmission = self.nativeWorkAdmission
         Task.detached(priority: .utility) {
-            let error = await ObserverNativeWork.performCleanup(
+            await ObserverNativeWork.runPendingCleanup(
                 admission: nativeWorkAdmission,
-                timeoutValue: .cannotComplete,
                 operation: cleanup.remove)
-            completion.finish(with: error)
-            await MainActor.run {
-                self.completePendingRemoval(registration, id: id, error: error)
+            { error in
+                completion.finish(with: error)
+                Task { @MainActor in
+                    self.completePendingRemoval(registration, id: id, error: error)
+                }
             }
         }
     }
