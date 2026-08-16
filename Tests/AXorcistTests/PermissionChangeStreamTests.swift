@@ -27,6 +27,17 @@ nonisolated struct PermissionChangeStreamTests {
         #expect(!scheduled.wasMarked)
     }
 
+    @Test
+    func `permissionChanges skip timer when cancellation wins installation race`() async {
+        let scheduled = PermissionTimerScheduleBox()
+        let skipped = await Self.runOnDedicatedThread {
+            Self.cancelBeforeTimerInstallation(scheduled: scheduled)
+        }
+
+        #expect(skipped)
+        #expect(!scheduled.wasMarked)
+    }
+
     private nonisolated static func cancelCompletesWhileMainQueueIsBusy(
         stream: AsyncStream<Bool>) -> Bool
     {
@@ -77,6 +88,40 @@ nonisolated struct PermissionChangeStreamTests {
         }
         flushed.wait()
         return !scheduled.wasMarked
+    }
+
+    private nonisolated static func cancelBeforeTimerInstallation(
+        scheduled: PermissionTimerScheduleBox) -> Bool
+    {
+        let installReached = DispatchSemaphore(value: 0)
+        let releaseInstall = DispatchSemaphore(value: 0)
+        let consumeFinished = DispatchSemaphore(value: 0)
+
+        let stream = AXPermissionHelpers.permissionChanges(
+            interval: 60,
+            beforeTimerInstall: {
+                installReached.signal()
+                releaseInstall.wait()
+            },
+            onTimerScheduled: {
+                scheduled.mark()
+            })
+        let consume = Task.detached {
+            for await _ in stream {}
+            consumeFinished.signal()
+        }
+
+        installReached.wait()
+        consume.cancel()
+        let cancelled = consumeFinished.wait(timeout: .now() + .milliseconds(400)) == .success
+        releaseInstall.signal()
+
+        let flushed = DispatchSemaphore(value: 0)
+        DispatchQueue.main.async {
+            flushed.signal()
+        }
+        flushed.wait()
+        return cancelled && !scheduled.wasMarked
     }
 
     private nonisolated static func runOnDedicatedThread<Value: Sendable>(
