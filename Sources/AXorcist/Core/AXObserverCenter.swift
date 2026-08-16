@@ -505,12 +505,7 @@ extension AXObserverCenter {
         let registrationWork = self.nativeNotificationRegistration(for: registration, observer: observer)
         let nativeWorkAdmission = self.nativeWorkAdmission
         let registrationTask = Task.detached(priority: .utility) {
-            await ObserverNativeWork.perform(
-                admission: nativeWorkAdmission,
-                refusalValue: AXError.cannotComplete)
-            {
-                registrationWork.add()
-            }
+            await ObserverNativeWork.addNotification(registrationWork, admission: nativeWorkAdmission)
         }
         let error = await registrationTask.value
         guard self.pendingRegistrations[registration]?.id == operationID,
@@ -737,6 +732,7 @@ extension AXObserverCenter {
     private func finishPendingRemoval(_ registration: AXObserverRegistrationKey) async {
         guard let pending = self.pendingRemovals[registration] else { return }
         let error = await pending.completion.value()
+        guard pending.completion.currentResult() != nil else { return }
         self.completePendingRemoval(registration, id: pending.id, error: error)
     }
 
