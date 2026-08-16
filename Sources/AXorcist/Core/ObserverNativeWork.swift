@@ -71,41 +71,64 @@ nonisolated enum ObserverNativeWork {
         }
     }
 
-    static func addNotification(
-        _ registration: NativeNotificationRegistration,
-        admission: ObserverNativeWorkerAdmission) async -> AXError
-    {
-        let identity = registration.addIdentity
-        let attempt = NativeAddTokenBox()
-        let result = await self.perform(
-            admission: admission,
-            refusalValue: AXError.cannotComplete,
-            onAdmitted: {
-                attempt.store(NativeAddAttempts.begin(identity))
-            },
-            onFirstResult: { fromTimeout in
-                if fromTimeout {
-                    attempt.markTimedOutFirst()
-                }
-            },
-            onLateResult: { late in
-                if self.shouldRemoveLateSuccessfulAdd(
-                    late,
-                    attemptIsCurrent: NativeAddAttempts.isCurrent(identity, token: attempt.value))
-                {
-                    _ = registration.remove()
-                }
-                NativeAddAttempts.retire(identity, token: attempt.value)
-            },
-            operation: registration.add)
-        if !attempt.didTimeOutFirst {
-            NativeAddAttempts.retire(identity, token: attempt.value)
-        }
-        return result
+    enum PendingAddDisposition: Equatable, Sendable {
+        case commit
+        case pendingRemoval
+        case finishOnly
     }
 
-    static func shouldRemoveLateSuccessfulAdd(_ late: AXError, attemptIsCurrent: Bool) -> Bool {
-        late == .success && attemptIsCurrent
+    struct PendingNativeFirstResult: Equatable, Sendable {
+        let error: AXError
+        let timedOut: Bool
+    }
+
+    static func shouldLaunchNewAdd(hasInFlightPending: Bool) -> Bool {
+        !hasInFlightPending
+    }
+
+    static func canLaunchNativeAdd(hasPendingAdd: Bool, hasUnconfirmedRemoval: Bool) -> Bool {
+        !hasPendingAdd && !hasUnconfirmedRemoval
+    }
+
+    static func pendingAddDisposition(
+        nativeError: AXError,
+        stillPending: Bool,
+        waiterCount: Int,
+        generationMatches: Bool,
+        isLate: Bool) -> PendingAddDisposition
+    {
+        if nativeError == .success, stillPending, generationMatches, !isLate || waiterCount > 0 {
+            return .commit
+        }
+        if nativeError == .success {
+            return .pendingRemoval
+        }
+        return .finishOnly
+    }
+
+    static func shouldKeepTrackingRemoval(_ error: AXError) -> Bool {
+        !NativeNotificationRegistration.removalConfirmsRegistrationAbsent(error)
+    }
+
+    static func runPendingAdd(
+        admission: ObserverNativeWorkerAdmission,
+        timeout: Duration = notificationWorkTimeout,
+        operation: @escaping @Sendable () -> AXError,
+        onFinished: @escaping @Sendable (AXError) -> Void) async -> PendingNativeFirstResult
+    {
+        let first = NativeAddTokenBox()
+        let error = await self.perform(
+            admission: admission,
+            refusalValue: .cannotComplete,
+            timeout: timeout,
+            onFirstResult: { fromTimeout in
+                if fromTimeout {
+                    first.markTimedOutFirst()
+                }
+            },
+            onLateResult: onFinished,
+            operation: operation)
+        return PendingNativeFirstResult(error: error, timedOut: first.didTimeOutFirst)
     }
 
     static func perform<Value: Sendable>(
@@ -376,21 +399,20 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
     private let condition = NSCondition()
     private var result: AXError?
     private var waiters: [RemovalWaiter] = []
+    private var parkedWaiterCount = 0
 
-    func finish(with result: AXError) {
+    func parkWaiter() {
         self.condition.lock()
-        guard self.result == nil else {
-            self.condition.unlock()
-            return
-        }
-        self.result = result
-        let waiters = self.waiters
-        self.waiters.removeAll()
-        self.condition.broadcast()
+        self.parkedWaiterCount += 1
         self.condition.unlock()
-        for waiter in waiters {
-            waiter.continuation.resume(returning: result)
+    }
+
+    func unparkWaiter() {
+        self.condition.lock()
+        if self.parkedWaiterCount > 0 {
+            self.parkedWaiterCount -= 1
         }
+        self.condition.unlock()
     }
 
     func wait(until deadline: ContinuousClock.Instant) -> AXError? {
@@ -406,6 +428,28 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
 
     func currentResult() -> AXError? {
         self.condition.withLock { self.result }
+    }
+
+    var waiterCount: Int {
+        self.condition.withLock { self.waiters.count + self.parkedWaiterCount }
+    }
+
+    @discardableResult
+    func finish(with result: AXError) -> Int {
+        self.condition.lock()
+        guard self.result == nil else {
+            self.condition.unlock()
+            return 0
+        }
+        self.result = result
+        let waiters = self.waiters
+        self.waiters.removeAll()
+        self.condition.broadcast()
+        self.condition.unlock()
+        for waiter in waiters {
+            waiter.continuation.resume(returning: result)
+        }
+        return waiters.count
     }
 
     func value(timeout: Duration = .milliseconds(750)) async -> AXError {
@@ -457,69 +501,6 @@ final nonisolated class NativeObserverCreationCompletion: @unchecked Sendable {
     }
 }
 
-nonisolated struct NativeAddIdentity: Hashable, @unchecked Sendable {
-    enum Target: Hashable, @unchecked Sendable {
-        case process(pid_t)
-        case element(AXUIElement)
-
-        static func == (lhs: Self, rhs: Self) -> Bool {
-            switch (lhs, rhs) {
-            case let (.process(left), .process(right)):
-                left == right
-            case let (.element(left), .element(right)):
-                CFEqual(left, right)
-            default:
-                false
-            }
-        }
-
-        func hash(into hasher: inout Hasher) {
-            switch self {
-            case let .process(processIdentifier):
-                hasher.combine(0 as UInt8)
-                hasher.combine(processIdentifier)
-            case let .element(element):
-                hasher.combine(1 as UInt8)
-                hasher.combine(CFHash(element))
-            }
-        }
-    }
-
-    let observer: AXObserver
-    let notification: String
-    let target: Target
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        ObjectIdentifier(lhs.observer) == ObjectIdentifier(rhs.observer)
-            && lhs.notification == rhs.notification
-            && lhs.target == rhs.target
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(ObjectIdentifier(self.observer))
-        hasher.combine(self.notification)
-        hasher.combine(self.target)
-    }
-}
-
-nonisolated enum NativeAddAttempts {
-    private static let table = NativeAddAttemptTable()
-
-    static func begin(_ identity: NativeAddIdentity) -> UInt64 {
-        self.table.begin(identity)
-    }
-
-    static func isCurrent(_ identity: NativeAddIdentity, token: UInt64?) -> Bool {
-        guard let token else { return false }
-        return self.table.isCurrent(identity, token)
-    }
-
-    static func retire(_ identity: NativeAddIdentity, token: UInt64?) {
-        guard let token else { return }
-        self.table.retire(identity, token)
-    }
-}
-
 final nonisolated class NativeAddTokenBox: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: UInt64?
@@ -550,54 +531,12 @@ final nonisolated class NativeAddTokenBox: @unchecked Sendable {
     }
 }
 
-final nonisolated class NativeAddAttemptTable: @unchecked Sendable {
-    private let lock = NSLock()
-    private var nextToken: UInt64 = 0
-    private var current: [NativeAddIdentity: UInt64] = [:]
-
-    var retainedIdentityCount: Int {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        return self.current.count
-    }
-
-    func begin(_ identity: NativeAddIdentity) -> UInt64 {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        self.nextToken += 1
-        self.current[identity] = self.nextToken
-        return self.nextToken
-    }
-
-    func isCurrent(_ identity: NativeAddIdentity, _ token: UInt64) -> Bool {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        return self.current[identity] == token
-    }
-
-    func retire(_ identity: NativeAddIdentity, _ token: UInt64) {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        if self.current[identity] == token {
-            self.current.removeValue(forKey: identity)
-        }
-    }
-}
-
 nonisolated struct NativeNotificationRegistration: @unchecked Sendable {
     let observer: AXObserver
     let element: AXUIElement
     let notification: CFString
     let refcon: UnsafeMutableRawPointer
     let appliesMessagingTimeout: Bool
-    let addTarget: NativeAddIdentity.Target
-
-    var addIdentity: NativeAddIdentity {
-        NativeAddIdentity(
-            observer: self.observer,
-            notification: self.notification as String,
-            target: self.addTarget)
-    }
 
     static func removalConfirmsRegistrationAbsent(_ error: AXError) -> Bool {
         error == .success || error == .notificationNotRegistered

@@ -1,37 +1,7 @@
 @preconcurrency import AppKit
 import ApplicationServices
-import Darwin
 import Testing
 @testable import AXorcist
-
-nonisolated func makeTestAddIdentity(
-    pid: pid_t = getpid(),
-    notification: String) -> NativeAddIdentity?
-{
-    var observer: AXObserver?
-    let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
-    guard AXObserverCreateWithInfoCallback(pid, callback, &observer) == .success,
-          let observer
-    else { return nil }
-    return NativeAddIdentity(
-        observer: observer,
-        notification: notification,
-        target: .process(pid))
-}
-
-nonisolated func makeProcessAddRegistration(
-    observer: AXObserver,
-    pid: pid_t,
-    notification: CFString) -> NativeNotificationRegistration
-{
-    NativeNotificationRegistration(
-        observer: observer,
-        element: AXUIElementCreateApplication(pid),
-        notification: notification,
-        refcon: Unmanaged.passUnretained(observer).toOpaque(),
-        appliesMessagingTimeout: true,
-        addTarget: .process(pid))
-}
 
 extension Comment {
     init(_ text: String) {
