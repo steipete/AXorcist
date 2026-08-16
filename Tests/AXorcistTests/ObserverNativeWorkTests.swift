@@ -194,6 +194,7 @@ struct ObserverNativeWorkTests {
         #expect(timedOut == .cannotComplete)
         #expect(completion.currentResult() == .success)
         #expect(await completion.value(timeout: .milliseconds(20)) == .success)
+        #expect(completion.currentResult() != timedOut)
     }
 
     @Test
@@ -237,9 +238,9 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `add attempt table retires only the current generation`() {
+    func `add attempt table retires only the current generation`() throws {
         let table = NativeAddAttemptTable()
-        let identity = NativeAddIdentity(observerBits: 7, elementBits: 8, notification: "AXCreated")
+        let identity = try #require(makeTestAddIdentity(pid: 7, notification: "AXCreated"))
         let first = table.begin(identity)
         let second = table.begin(identity)
         table.retire(identity, first)
@@ -249,9 +250,9 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `retired add attempt token is not reused by a later begin`() {
+    func `retired add attempt token is not reused by a later begin`() throws {
         let table = NativeAddAttemptTable()
-        let identity = NativeAddIdentity(observerBits: 9, elementBits: 10, notification: "AXTitleChanged")
+        let identity = try #require(makeTestAddIdentity(pid: 9, notification: "AXTitleChanged"))
         let timedOut = table.begin(identity)
         let successfulRetry = table.begin(identity)
         table.retire(identity, successfulRetry)
@@ -262,9 +263,10 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `late add cleanup skips remove after a newer attempt starts`() async {
+    func `late add cleanup skips remove after a newer attempt starts`() async throws {
         let table = NativeAddAttemptTable()
-        let identity = NativeAddIdentity(observerBits: 1, elementBits: 2, notification: "AXFocusedUIElementChanged")
+        let identity = try #require(
+            makeTestAddIdentity(pid: 1, notification: "AXFocusedUIElementChanged"))
         let first = table.begin(identity)
         let removed = LateRemoveCounter()
         let release = DispatchSemaphore(value: 0)
@@ -298,9 +300,9 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `late add cleanup removes when the timed-out attempt is still current`() async {
+    func `late add cleanup removes when the timed-out attempt is still current`() async throws {
         let table = NativeAddAttemptTable()
-        let identity = NativeAddIdentity(observerBits: 3, elementBits: 4, notification: "AXValueChanged")
+        let identity = try #require(makeTestAddIdentity(pid: 3, notification: "AXValueChanged"))
         let first = table.begin(identity)
         let removed = LateRemoveCounter()
         let release = DispatchSemaphore(value: 0)
@@ -332,12 +334,9 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `late add cleanup skips remove after a retired token would have been reused`() async {
+    func `late add cleanup skips remove after a retired token would have been reused`() async throws {
         let table = NativeAddAttemptTable()
-        let identity = NativeAddIdentity(
-            observerBits: 11,
-            elementBits: 12,
-            notification: "AXSelectedTextChanged")
+        let identity = try #require(makeTestAddIdentity(pid: 11, notification: "AXSelectedTextChanged"))
         let timedOut = table.begin(identity)
         let removed = LateRemoveCounter()
         let release = DispatchSemaphore(value: 0)

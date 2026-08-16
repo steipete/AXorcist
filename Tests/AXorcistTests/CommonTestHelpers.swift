@@ -1,6 +1,23 @@
 @preconcurrency import AppKit
+import ApplicationServices
+import Darwin
 import Testing
 @testable import AXorcist
+
+nonisolated func makeTestAddIdentity(
+    pid: pid_t = getpid(),
+    notification: String) -> NativeAddIdentity?
+{
+    var observer: AXObserver?
+    let callback: AXObserverCallbackWithInfo = { _, _, _, _, _ in }
+    guard AXObserverCreateWithInfoCallback(pid, callback, &observer) == .success,
+          let observer
+    else { return nil }
+    return NativeAddIdentity(
+        observer: observer,
+        element: AXUIElementCreateApplication(pid),
+        notification: notification)
+}
 
 extension Comment {
     init(_ text: String) {

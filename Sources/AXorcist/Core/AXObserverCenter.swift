@@ -732,8 +732,8 @@ extension AXObserverCenter {
 
     private func finishPendingRemoval(_ registration: AXObserverRegistrationKey) async {
         guard let pending = self.pendingRemovals[registration] else { return }
-        let error = await pending.completion.value()
-        guard pending.completion.currentResult() != nil else { return }
+        _ = await pending.completion.value()
+        guard let error = pending.completion.currentResult() else { return }
         self.completePendingRemoval(registration, id: pending.id, error: error)
     }
 

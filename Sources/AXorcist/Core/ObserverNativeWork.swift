@@ -62,8 +62,7 @@ nonisolated enum ObserverNativeWork {
                 onLateResult: onLateResult)
             Thread.detachNewThread {
                 let result = autoreleasepool { operation() }
-                admission.release()
-                gate.finish(with: result)
+                gate.finish(with: result, releaseAdmission: { admission.release() })
             }
             Task.detached(priority: .utility) {
                 try? await Task.sleep(for: timeout)
@@ -145,8 +144,7 @@ nonisolated enum ObserverNativeWork {
                 onLateResult: onLateResult)
             Thread.detachNewThread {
                 let result = autoreleasepool { operation() }
-                admission.release()
-                gate.finish(with: result)
+                gate.finish(with: result, releaseAdmission: { admission.release() })
             }
             Task.detached(priority: .utility) {
                 try? await Task.sleep(for: timeout)
@@ -337,7 +335,11 @@ final nonisolated class FirstResultGate<Value: Sendable>: @unchecked Sendable {
         self.onLateResult = onLateResult
     }
 
-    func finish(with value: Value, fromTimeout: Bool = false) {
+    func finish(
+        with value: Value,
+        fromTimeout: Bool = false,
+        releaseAdmission: (@Sendable () -> Void)? = nil)
+    {
         let outcome = self.lock.withLock { () -> (CheckedContinuation<Value, Never>?, Value?, Bool) in
             if !self.delivered {
                 self.delivered = true
@@ -352,10 +354,15 @@ final nonisolated class FirstResultGate<Value: Sendable>: @unchecked Sendable {
         }
         if let continuation = outcome.0 {
             self.onFirstResult?(outcome.2)
+            if !fromTimeout {
+                releaseAdmission?()
+            }
             continuation.resume(returning: value)
+            return
         }
         if let late = outcome.1 {
             self.onLateResult?(late)
+            releaseAdmission?()
         }
     }
 }
@@ -450,10 +457,22 @@ final nonisolated class NativeObserverCreationCompletion: @unchecked Sendable {
     }
 }
 
-nonisolated struct NativeAddIdentity: Hashable, Sendable {
-    let observerBits: UInt
-    let elementBits: UInt
+nonisolated struct NativeAddIdentity: Hashable, @unchecked Sendable {
+    let observer: AXObserver
+    let element: AXUIElement
     let notification: String
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        ObjectIdentifier(lhs.observer) == ObjectIdentifier(rhs.observer)
+            && ObjectIdentifier(lhs.element) == ObjectIdentifier(rhs.element)
+            && lhs.notification == rhs.notification
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(ObjectIdentifier(self.observer))
+        hasher.combine(ObjectIdentifier(self.element))
+        hasher.combine(self.notification)
+    }
 }
 
 nonisolated enum NativeAddAttempts {
@@ -547,8 +566,8 @@ nonisolated struct NativeNotificationRegistration: @unchecked Sendable {
 
     var addIdentity: NativeAddIdentity {
         NativeAddIdentity(
-            observerBits: UInt(truncatingIfNeeded: CFHash(self.observer)),
-            elementBits: UInt(truncatingIfNeeded: CFHash(self.element)),
+            observer: self.observer,
+            element: self.element,
             notification: self.notification as String)
     }
 
