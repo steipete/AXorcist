@@ -73,6 +73,20 @@ struct ObserverNativePendingAddTests {
                 waiterCount: 1,
                 generationMatches: false,
                 isLate: true) == .pendingRemoval)
+        #expect(ObserverNativeWork.shouldResetObserverGeneration(observed: 2, expected: 1))
+    }
+
+    @Test
+    func `unknown process identity does not reset the observer generation`() {
+        #expect(!ObserverNativeWork.shouldResetObserverGeneration(observed: nil, expected: 1))
+        #expect(!ObserverNativeWork.shouldResetObserverGeneration(observed: 1, expected: 1))
+        #expect(
+            ObserverNativeWork.pendingAddDisposition(
+                nativeError: .success,
+                stillPending: true,
+                waiterCount: 1,
+                generationMatches: false,
+                isLate: true) == .pendingRemoval)
     }
 
     @Test

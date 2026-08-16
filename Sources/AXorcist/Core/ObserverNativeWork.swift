@@ -110,6 +110,12 @@ nonisolated enum ObserverNativeWork {
         !NativeNotificationRegistration.removalConfirmsRegistrationAbsent(error)
     }
 
+    /// A missing identity is unknown, not a confirmed PID reuse.
+    static func shouldResetObserverGeneration(observed: UInt64?, expected: UInt64) -> Bool {
+        guard let observed else { return false }
+        return observed != expected
+    }
+
     static func runPendingAdd(
         admission: ObserverNativeWorkerAdmission,
         timeout: Duration = notificationWorkTimeout,

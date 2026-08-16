@@ -183,7 +183,10 @@ extension AXObserverCenter {
                 pending?.completion.finish(with: .cannotComplete)
                 self.pendingRegistrations.removeValue(forKey: registration)
             }
-            if !generationMatches {
+            if ObserverNativeWork.shouldResetObserverGeneration(
+                observed: finalGeneration,
+                expected: expectedGeneration)
+            {
                 self.resetObserverGeneration(
                     for: registration.subscription.pid,
                     ifMatching: expectedGeneration)
