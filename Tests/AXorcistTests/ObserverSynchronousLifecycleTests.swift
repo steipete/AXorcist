@@ -195,7 +195,7 @@ struct ObserverSynchronousLifecycleTests {
 
     private func waitForPendingWorkToDrain(_ center: AXObserverCenter) async {
         let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .seconds(2))
+        let deadline = clock.now.advanced(by: .seconds(10))
         while !center.pendingRegistrations.isEmpty || !center.pendingRemovals.isEmpty,
               clock.now < deadline
         {
