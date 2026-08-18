@@ -4,271 +4,125 @@ import Foundation
 
 /// Manages accessibility observers for monitoring UI element changes.
 ///
-/// Legacy raw-callback observer API retained for source compatibility.
-///
-/// New code should use ``AXObserverCenter`` or ``NotificationWatcher``. AXorcist commands no longer
-/// use this separate compatibility manager, so observe and stop operations share one token registry.
-///
-/// ## Overview
-///
-/// The manager:
-/// - Creates and manages AXObserver instances for monitoring UI elements
-/// - Routes notifications to appropriate callbacks
-/// - Handles observer lifecycle and cleanup
-/// - Provides thread-safe observer management
-///
-/// This is a singleton class that should be accessed via ``shared``.
-///
-/// ## Topics
-///
-/// ### Getting the Shared Instance
-///
-/// - ``shared``
-///
-/// ### Managing Observers
-///
-/// - ``addObserver(for:notification:callback:)``
-/// - ``removeObserver(for:notification:)``
-/// - ``removeAllObservers(for:)``
-///
-/// ### Types
-///
-/// - ``AXNotificationCallback``
-/// - ``ObserverError``
+/// Legacy raw-callback observer API retained for source compatibility. New code should use
+/// ``AXObserverCenter`` or ``NotificationWatcher``. This adapter owns only its logical tokens;
+/// native observer creation, bounded registration, late-result cleanup, and removal all remain
+/// centralized in ``AXObserverCenter``.
 @MainActor
 @available(*, deprecated, message: "Use AXObserverCenter or NotificationWatcher for token-based observation")
-public class AXObserverManager {
+public final class AXObserverManager {
     // MARK: Lifecycle
 
-    private init() {}
+    private init() {
+        self.observationCenter = .shared
+    }
+
+    init(observationCenter: AXObserverCenter) {
+        self.observationCenter = observationCenter
+    }
 
     // MARK: Public
 
-    /// Typealias for notification callback - matches AXObserverCallbackWithInfo but without refcon
+    /// Typealias for notification callback - matches AXObserverCallbackWithInfo but without refcon.
     public typealias AXNotificationCallback = (AXObserver, AXUIElement, CFString, CFDictionary?) -> Void
 
-    /// Error types
+    /// Error types retained by the compatibility API.
     public enum ObserverError: Error {
         case couldNotCreateObserver
         case addNotificationFailed(AXError)
         case other(String)
     }
 
-    /// Singleton instance
+    /// Singleton instance.
     public static let shared = AXObserverManager()
 
-    /// Add observer for an element and notification
+    /// Add an observer for an element and notification.
     public func addObserver(
         for element: Element,
         notification: AXNotification,
         callback: @escaping AXNotificationCallback) throws
     {
-        let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
-
-        self.observerLock.lock()
-        defer { observerLock.unlock() }
-
-        if var observerInfo = observers[elementId] {
-            try updateExistingObserver(
-                info: &observerInfo,
-                element: element,
-                notification: notification,
-                callback: callback)
-            self.observers[elementId] = observerInfo
+        let key = RegistrationKey(element: element, notification: notification)
+        if let registration = self.registrations[key] {
+            registration.callback.callback = callback
             return
         }
 
-        self.observers[elementId] = try createObserverInfo(
-            for: element,
-            notification: notification,
-            callback: callback)
+        guard let pid = element.pid() else {
+            throw ObserverError.other("Could not get PID for element")
+        }
+        let callbackBox = CallbackBox(callback: callback)
+        let result = self.observationCenter.subscribeObserverAware(
+            pid: pid,
+            element: element,
+            notification: notification)
+        { observer, rawElement, notificationString, userInfo in
+            callbackBox.callback(observer, rawElement, notificationString, userInfo)
+        }
+        switch result {
+        case let .success(token):
+            self.registrations[key] = Registration(token: token, callback: callbackBox)
+        case let .failure(error):
+            throw self.compatibilityError(from: error)
+        }
     }
 
-    /// Remove observer for an element and notification
+    /// Remove the observer owned by this compatibility manager for an element and notification.
     public func removeObserver(for element: Element, notification: AXNotification) throws {
-        let elementId = ObjectIdentifier(element.underlyingElement as AnyObject)
-
-        self.observerLock.lock()
-        defer { observerLock.unlock() }
-
-        guard var observerInfo = observers[elementId] else {
-            // No observer for this element
-            return
-        }
-
-        // Remove the notification from the observer
-        let error = AXObserverRemoveNotification(
-            observerInfo.observer,
-            element.underlyingElement,
-            notification.rawValue as CFString)
-        if error != .success {
-            axErrorLog("Failed to remove notification: \(error)")
+        let key = RegistrationKey(element: element, notification: notification)
+        guard let registration = self.registrations[key] else { return }
+        let error = self.observationCenter.unsubscribeCompatibility(token: registration.token)
+        guard NativeNotificationRegistration.removalConfirmsRegistrationAbsent(error) else {
             throw ObserverError.other("Failed to remove notification: \(error)")
         }
-
-        // Remove the callback
-        observerInfo.callbacks.removeValue(forKey: notification.rawValue as CFString)
-
-        // If no more callbacks, remove the observer entirely
-        if observerInfo.callbacks.isEmpty {
-            // Remove from run loop
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), observerInfo.runLoopSource, .defaultMode)
-
-            // Invalidate the observer
-            CFRunLoopSourceInvalidate(observerInfo.runLoopSource)
-
-            // Remove from our storage
-            self.observers.removeValue(forKey: elementId)
-
-            axDebugLog("Removed observer for element")
-        } else {
-            // Update the observer info with removed callback
-            self.observers[elementId] = observerInfo
-        }
+        self.registrations.removeValue(forKey: key)
     }
 
-    /// Remove all observers
+    /// Remove every observer owned by this compatibility manager without affecting other clients.
     public func removeAllObservers() {
-        self.observerLock.lock()
-        defer { observerLock.unlock() }
-
-        for (_, observerInfo) in self.observers {
-            // Remove from run loop
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), observerInfo.runLoopSource, .defaultMode)
-
-            // Invalidate the observer
-            CFRunLoopSourceInvalidate(observerInfo.runLoopSource)
+        let registrations = Array(self.registrations.values)
+        self.registrations.removeAll()
+        for registration in registrations {
+            try? self.observationCenter.unsubscribe(token: registration.token)
         }
-
-        self.observers.removeAll()
-        axDebugLog("Removed all observers")
     }
 
     // MARK: Private
 
-    /// Private storage for observers and callbacks
-    private struct ObserverInfo {
-        let observer: AXObserver
-        let runLoopSource: CFRunLoopSource
-        var callbacks: [CFString: AXNotificationCallback] = [:]
-    }
+    private struct RegistrationKey: Hashable {
+        let elementID: ObjectIdentifier
+        let notification: AXNotification
 
-    private func notificationKey(for notification: AXNotification) -> CFString {
-        notification.rawValue as CFString
-    }
-
-    private var observers: [ObjectIdentifier: ObserverInfo] = [:]
-    private let observerLock = NSLock()
-
-    /// Handle incoming notifications
-    private func handleNotification(
-        observer: AXObserver,
-        element: AXUIElement,
-        notification: CFString,
-        userInfo: CFDictionary?)
-    {
-        let elementId = ObjectIdentifier(element as AnyObject)
-
-        self.observerLock.lock()
-        let observerInfo = self.observers[elementId]
-        self.observerLock.unlock()
-
-        guard let observerInfo,
-              let callback = observerInfo.callbacks[notification]
-        else {
-            axWarningLog("Received notification '\(notification)' but no callback found")
-            return
-        }
-
-        // Call the callback
-        callback(observer, element, notification, userInfo)
-    }
-}
-
-@MainActor
-@available(*, deprecated, message: "Use AXObserverCenter or NotificationWatcher for token-based observation")
-extension AXObserverManager {
-    private func updateExistingObserver(
-        info: inout ObserverInfo,
-        element: Element,
-        notification: AXNotification,
-        callback: @escaping AXNotificationCallback) throws
-    {
-        info.callbacks[self.notificationKey(for: notification)] = callback
-
-        let error = AXObserverAddNotification(
-            info.observer,
-            element.underlyingElement,
-            notification.rawValue as CFString,
-            nil)
-
-        if error != .success {
-            axErrorLog("Failed to add notification: \(error)")
-            throw ObserverError.addNotificationFailed(error)
+        init(element: Element, notification: AXNotification) {
+            self.elementID = ObjectIdentifier(element.underlyingElement as AnyObject)
+            self.notification = notification
         }
     }
 
-    private func createObserverInfo(
-        for element: Element,
-        notification: AXNotification,
-        callback: @escaping AXNotificationCallback) throws -> ObserverInfo
-    {
-        let pid = try pidForElement(element)
-        let observer = try makeObserver(pid: pid)
-        try addNotification(notification, to: observer, element: element)
-
-        let runLoopSource = AXObserverGetRunLoopSource(observer)
-        CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .defaultMode)
-
-        var callbacks: [CFString: AXNotificationCallback] = [:]
-        callbacks[self.notificationKey(for: notification)] = callback
-
-        axDebugLog("Created observer for PID \(pid) with notification \(notification.rawValue)")
-        return ObserverInfo(observer: observer, runLoopSource: runLoopSource, callbacks: callbacks)
+    private struct Registration {
+        let token: SubscriptionToken
+        let callback: CallbackBox
     }
 
-    private func pidForElement(_ element: Element) throws -> pid_t {
-        guard let pid = element.pid() else {
-            throw ObserverError.other("Could not get PID for element")
+    private final class CallbackBox {
+        var callback: AXNotificationCallback
+
+        init(callback: @escaping AXNotificationCallback) {
+            self.callback = callback
         }
-        return pid
     }
 
-    private func makeObserver(pid: pid_t) throws -> AXObserver {
-        var observer: AXObserver?
-        let axCallback: AXObserverCallbackWithInfo = { observer, element, notification, userInfo, _ in
-            AXObserverManager.shared.handleNotification(
-                observer: observer,
-                element: element,
-                notification: notification,
-                userInfo: userInfo)
-        }
+    private let observationCenter: AXObserverCenter
+    private var registrations: [RegistrationKey: Registration] = [:]
 
-        let creationError = AXObserverCreateWithInfoCallback(
-            pid,
-            axCallback,
-            &observer)
-
-        guard creationError == .success, let observer else {
-            axErrorLog("Failed to create observer: \(creationError)")
-            throw ObserverError.couldNotCreateObserver
-        }
-        return observer
-    }
-
-    private func addNotification(
-        _ notification: AXNotification,
-        to observer: AXObserver,
-        element: Element) throws
-    {
-        let error = AXObserverAddNotification(
-            observer,
-            element.underlyingElement,
-            notification.rawValue as CFString,
-            nil)
-        if error != .success {
-            axErrorLog("Failed to add notification: \(error)")
-            throw ObserverError.addNotificationFailed(error)
+    private func compatibilityError(from error: AXObserverSubscriptionError) -> ObserverError {
+        switch error {
+        case .observerCreationFailed:
+            .couldNotCreateObserver
+        case let .nativeRegistrationFailed(_, _, nativeError):
+            .addNotificationFailed(nativeError)
+        case let .validation(details):
+            .other(details)
         }
     }
 }
