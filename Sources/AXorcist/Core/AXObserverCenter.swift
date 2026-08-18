@@ -31,6 +31,9 @@ public final class AXObserverCenter {
         _ element: Element,
         _ notification: AXNotification) -> Void
     typealias ProcessIdentityProvider = @MainActor (_ pid: pid_t) -> UInt64?
+    typealias NativeRegistrationWorkProvider = @MainActor (
+        _ registration: AXObserverRegistrationKey,
+        _ observer: AXObserver) -> ObserverNativeRegistrationWork
 
     struct ObserverGeneration {
         let startIdentity: UInt64
@@ -40,7 +43,25 @@ public final class AXObserverCenter {
         let id: UUID
         let expectedGeneration: UInt64
         let task: Task<NativeRegistrationSetupResult, Never>
-        let completion: NativeRemovalCompletion
+        let completion: NativeAddCompletion
+        let work: ObserverNativeRegistrationWork
+    }
+
+    struct PendingAddLaunch {
+        let id: UUID
+        let expectedGeneration: UInt64
+        let completion: NativeAddCompletion
+        let work: ObserverNativeRegistrationWork
+        let startGate: ObserverAsyncStartGate
+    }
+
+    struct PendingAddResolution {
+        let operationID: UUID
+        let expectedGeneration: UInt64
+        let cleanup: ObserverNativeRegistrationWork
+        let outcome: ObserverNativeWork.PendingNativeFirstResult
+        let finalGeneration: UInt64?
+        let hasSynchronousWaiter: Bool
     }
 
     struct NativeRegistrationState: Equatable {
@@ -56,7 +77,7 @@ public final class AXObserverCenter {
     struct PendingRemoval {
         let id: UUID
         let completion: NativeRemovalCompletion
-        let cleanup: NativeNotificationRegistration
+        let cleanup: ObserverNativeRegistrationWork
     }
 
     struct ObserverWorkerKey: Hashable {
@@ -95,12 +116,12 @@ public final class AXObserverCenter {
     var pendingRegistrations: [AXObserverRegistrationKey: PendingRegistration] = [:]
     var pendingRemovals: [AXObserverRegistrationKey: PendingRemoval] = [:]
     var nativeRegistrationStates: [AXObserverRegistrationKey: NativeRegistrationState] = [:]
-    var asynchronousNativeRegistrations: Set<AXObserverRegistrationKey> = []
     var globalStateEpoch: UInt64 = 0
     var processStateEpochs: [pid_t: UInt64] = [:]
     let observerSetupOverride: ObserverSetup?
     let observerCleanupOverride: ObserverCleanup?
     let processIdentityProvider: ProcessIdentityProvider
+    let nativeRegistrationWorkProvider: NativeRegistrationWorkProvider?
 
     // MARK: - Lifecycle
 
@@ -108,6 +129,7 @@ public final class AXObserverCenter {
         self.observerSetupOverride = nil
         self.observerCleanupOverride = nil
         self.processIdentityProvider = Self.nativeProcessUniqueIdentity
+        self.nativeRegistrationWorkProvider = nil
     }
 
     init(
@@ -117,6 +139,7 @@ public final class AXObserverCenter {
         self.observerSetupOverride = observerSetup
         self.observerCleanupOverride = observerCleanup
         self.processIdentityProvider = { UInt64(UInt32(bitPattern: $0)) }
+        self.nativeRegistrationWorkProvider = nil
     }
 
     init(
@@ -127,6 +150,17 @@ public final class AXObserverCenter {
         self.observerSetupOverride = observerSetup
         self.observerCleanupOverride = observerCleanup
         self.processIdentityProvider = processIdentityProvider
+        self.nativeRegistrationWorkProvider = nil
+    }
+
+    init(
+        processIdentityProvider: @escaping ProcessIdentityProvider,
+        nativeRegistrationWorkProvider: @escaping NativeRegistrationWorkProvider)
+    {
+        self.observerSetupOverride = nil
+        self.observerCleanupOverride = nil
+        self.processIdentityProvider = processIdentityProvider
+        self.nativeRegistrationWorkProvider = nativeRegistrationWorkProvider
     }
 }
 
@@ -159,56 +193,73 @@ extension AXObserverCenter {
         notification: AXNotification,
         handler: @escaping AXNotificationSubscriptionHandler) -> Result<SubscriptionToken, AccessibilityError>
     {
+        self.subscribeStored(
+            pid: pid,
+            element: element,
+            notification: notification,
+            storedHandler: .standard(handler))
+            .mapError { $0.accessibilityError }
+    }
+
+    func subscribeObserverAware(
+        pid: pid_t,
+        element: Element,
+        notification: AXNotification,
+        handler: @escaping AXObserverAwareNotificationHandler) -> Result<SubscriptionToken, AXObserverSubscriptionError>
+    {
+        self.subscribeStored(
+            pid: pid,
+            element: element,
+            notification: notification,
+            storedHandler: .observerAware(handler))
+    }
+
+    private func subscribeStored(
+        pid: pid_t,
+        element: Element?,
+        notification: AXNotification,
+        storedHandler: AXStoredNotificationHandler) -> Result<SubscriptionToken, AXObserverSubscriptionError>
+    {
         guard pid > 0 else {
-            return .failure(.observerSetupFailed(
-                details: "macOS AXObserver requires an application PID greater than zero"))
+            return .failure(.validation(
+                "macOS AXObserver requires an application PID greater than zero"))
         }
         guard let expectedGeneration = self.processIdentityProvider(pid) else {
-            return .failure(.observerSetupFailed(
-                details: "Could not resolve the process generation for PID \(pid)"))
+            return .failure(.validation(
+                "Could not resolve the process generation for PID \(pid)"))
         }
         self.prepareObserverGeneration(for: pid, currentIdentity: expectedGeneration)
 
         let registration = self.registrationKey(pid: pid, element: element, notification: notification)
         let awaitedRemoval = self.finishPendingRemovalSynchronously(registration)
         guard awaitedRemoval != false else {
-            return .failure(.observerSetupFailed(
-                details: "Timed out awaiting observer cleanup for PID \(pid)"))
+            return .failure(.validation(
+                "Timed out awaiting observer cleanup for PID \(pid)"))
         }
         guard awaitedRemoval != true || self.processIdentityProvider(pid) == expectedGeneration else {
             self.resetObserverGeneration(for: pid, ifMatching: expectedGeneration)
-            return .failure(.observerSetupFailed(
-                details: "Process generation changed while awaiting observer cleanup for PID \(pid)"))
+            return .failure(.validation(
+                "Process generation changed while awaiting observer cleanup for PID \(pid)"))
         }
-        let expectedEpoch = self.currentStateEpoch(for: pid)
-        let joinedRegistration = self.finishPendingRegistrationSynchronously(
+        let setupResult = self.setupRegistrationSynchronously(
             registration,
             expectedGeneration: expectedGeneration,
-            expectedEpoch: expectedEpoch)
-        let hasNativeRegistration = self.nativeRegistrationStates[registration]?.processGeneration == expectedGeneration
-        let setupError = self.subscribeNativeSetupError(
-            registration,
-            expectedGeneration: expectedGeneration,
-            joined: joinedRegistration,
-            hasNativeRegistration: hasNativeRegistration)
-        guard setupError == .success else {
-            let errorMessage = "Failed to setup underlying AXObserver for \(describePid(pid)) " +
-                "notification \(notification.rawValue) (AXError \(setupError.rawValue))"
-            axErrorLog(errorMessage)
-            return .failure(.observerSetupFailed(details: errorMessage))
+            expectedEpoch: self.currentStateEpoch(for: pid))
+        if case let .failure(error) = setupResult {
+            axErrorLog(error.accessibilityError.localizedDescription)
+            return .failure(error)
         }
-        if joinedRegistration == nil, !hasNativeRegistration {
+        if self.observerSetupOverride != nil {
             self.nativeRegistrationStates[registration] = NativeRegistrationState(
                 operationID: UUID(),
                 processGeneration: expectedGeneration)
         }
-        if joinedRegistration != nil {
-            self.asynchronousNativeRegistrations.insert(registration)
-        } else if !hasNativeRegistration {
-            self.asynchronousNativeRegistrations.remove(registration)
+        guard self.nativeRegistrationStates[registration]?.processGeneration == expectedGeneration else {
+            return .failure(.validation(
+                "Observer registration completed without owned native state for PID \(pid)"))
         }
 
-        return .success(self.subscriptionStore.add(registration: registration, handler: handler))
+        return .success(self.subscriptionStore.add(registration: registration, handler: storedHandler))
     }
 
     func subscribeProcessAsync(
@@ -293,8 +344,9 @@ extension AXObserverCenter {
                 error: setupResult.error)
         }
         guard let state = setupResult.state, self.nativeRegistrationStates[registration] == state else { return nil }
-        self.asynchronousNativeRegistrations.insert(registration)
-        return .success(self.subscriptionStore.add(registration: registration, handler: handler))
+        return .success(self.subscriptionStore.add(
+            registration: registration,
+            handler: .standard(handler)))
     }
 
     private func asyncSetupFailure(
@@ -331,6 +383,52 @@ extension AXObserverCenter {
         self.cleanupUnderlyingObserverNotification(removal.registration)
     }
 
+    func unsubscribeCompatibility(token: SubscriptionToken) -> AXError {
+        guard let registration = self.subscriptionStore.registration(for: token) else {
+            return .notificationNotRegistered
+        }
+        if self.subscriptionStore.handlerCount(for: registration) > 1 || self.observerCleanupOverride != nil {
+            do {
+                try self.unsubscribe(token: token)
+                return .success
+            } catch {
+                return .notificationNotRegistered
+            }
+        }
+
+        if self.nativeRegistrationStates[registration] != nil,
+           self.pendingRemovals[registration] == nil
+        {
+            guard let observer = self.getObserver(for: registration.subscription.pid) else {
+                self.nativeRegistrationStates.removeValue(forKey: registration)
+                return self.removeCompatibilityToken(token, registration: registration)
+            }
+            self.scheduleNativeRemoval(
+                registration,
+                cleanup: self.nativeRegistrationWork(for: registration, observer: observer))
+        }
+        if self.pendingRemovals[registration] != nil,
+           self.finishPendingRemovalSynchronously(registration) != true
+        {
+            return self.pendingRemovals[registration]?.completion.currentResult() ?? .cannotComplete
+        }
+        guard self.nativeRegistrationStates[registration] == nil,
+              self.pendingRemovals[registration] == nil
+        else { return .cannotComplete }
+        return self.removeCompatibilityToken(token, registration: registration)
+    }
+
+    private func removeCompatibilityToken(
+        _ token: SubscriptionToken,
+        registration: AXObserverRegistrationKey) -> AXError
+    {
+        guard (try? self.subscriptionStore.remove(token: token)) != nil else {
+            return .notificationNotRegistered
+        }
+        self.removeObserverIfUnused(targetPid: registration.subscription.pid)
+        return .success
+    }
+
     public func removeAllObservers() {
         axInfoLog("Removing all observers and subscriptions globally.")
         self.advanceStateEpoch()
@@ -344,7 +442,6 @@ extension AXObserverCenter {
         self.pendingRegistrations.removeAll()
         self.pendingRemovals.removeAll()
         self.nativeRegistrationStates.removeAll()
-        self.asynchronousNativeRegistrations.removeAll()
         self.processStateEpochs.removeAll()
         self.subscriptionStore.removeAll()
 
@@ -408,61 +505,22 @@ extension AXObserverCenter {
         return observedElement == applicationElement ? .process : .element
     }
 
-    func setupUnderlyingObserver(
+    func setupOverriddenObserver(
         _ registration: AXObserverRegistrationKey,
         expectedGeneration: UInt64) -> AXError
     {
         let subscription = registration.subscription
-        if let observerSetupOverride {
-            let error = observerSetupOverride(subscription.pid, registration.element, subscription.notification)
-            let finalGeneration = self.processIdentityProvider(subscription.pid)
-            guard finalGeneration == expectedGeneration else {
-                if finalGeneration != nil {
-                    self.resetObserverGeneration(for: subscription.pid)
-                }
-                return .cannotComplete
-            }
-            if error == .success {
-                self.recordObserverGeneration(for: subscription.pid, startIdentity: expectedGeneration)
-            }
-            return error
-        }
-
-        let targetPid = subscription.pid
-        guard let observer = getOrCreateObserver(for: targetPid, expectedGeneration: expectedGeneration) else {
-            axErrorLog("Failed to get/create AXObserver for effective PID \(targetPid) during setup.")
-            return .failure
-        }
-
-        let registrationWork = self.nativeNotificationRegistration(for: registration, observer: observer)
-        let error = ObserverNativeWork.performSynchronously(
-            admission: self.nativeWorkAdmission,
-            refusalValue: AXError.cannotComplete)
-        {
-            registrationWork.add()
-        }
-
-        let finalGeneration = self.processIdentityProvider(targetPid)
+        guard let observerSetupOverride else { return .cannotComplete }
+        let error = observerSetupOverride(subscription.pid, registration.element, subscription.notification)
+        let finalGeneration = self.processIdentityProvider(subscription.pid)
         guard finalGeneration == expectedGeneration else {
-            if error == .success {
-                let removalError = ObserverNativeWork.tryPerformCleanupSynchronously(
-                    admission: self.nativeWorkAdmission,
-                    operation: { registrationWork.remove() })
-                if removalError == nil {
-                    self.scheduleNativeRemoval(registration, cleanup: registrationWork)
-                }
-            }
-            if finalGeneration == nil {
-                self.removeObserverIfUnused(targetPid: targetPid)
-            } else {
-                self.resetObserverGeneration(for: targetPid)
+            if finalGeneration != nil {
+                self.resetObserverGeneration(for: subscription.pid)
             }
             return .cannotComplete
         }
-
-        self.logObserverAddResult(targetPid: targetPid, notification: subscription.notification, error: error)
-        if error != .success {
-            self.removeObserverIfUnused(targetPid: targetPid)
+        if error == .success {
+            self.recordObserverGeneration(for: subscription.pid, startIdentity: expectedGeneration)
         }
         return error
     }
@@ -489,10 +547,13 @@ extension AXObserverCenter {
         return AXUIElement.application(pid: pid)
     }
 
-    func nativeNotificationRegistration(
+    func nativeRegistrationWork(
         for registration: AXObserverRegistrationKey,
-        observer: AXObserver) -> NativeNotificationRegistration
+        observer: AXObserver) -> ObserverNativeRegistrationWork
     {
+        if let nativeRegistrationWorkProvider {
+            return nativeRegistrationWorkProvider(registration, observer)
+        }
         let processScoped = registration.scope == .process
         let element = processScoped
             ? AXUIElement.application(pid: registration.subscription.pid)
@@ -502,7 +563,7 @@ extension AXObserverCenter {
             element: element,
             notification: registration.subscription.notification.rawValue as CFString,
             refcon: Unmanaged.passUnretained(self).toOpaque(),
-            appliesMessagingTimeout: processScoped)
+            appliesMessagingTimeout: processScoped).work
     }
 
     func logObserverAddResult(targetPid: pid_t, notification: AXNotification, error: AXError) {
@@ -522,7 +583,6 @@ extension AXObserverCenter {
         if let observerCleanupOverride {
             observerCleanupOverride(subscription.pid, registration.element, subscription.notification)
             self.nativeRegistrationStates.removeValue(forKey: registration)
-            self.asynchronousNativeRegistrations.remove(registration)
             return
         }
 
@@ -542,7 +602,6 @@ extension AXObserverCenter {
 
         guard let observer = getObserver(for: targetPid) else {
             self.nativeRegistrationStates.removeValue(forKey: registration)
-            self.asynchronousNativeRegistrations.remove(registration)
             axWarningLog(
                 logSegments(
                     "No AXObserver found for \(describePid(targetPid)) during cleanup",
@@ -554,29 +613,15 @@ extension AXObserverCenter {
             return
         }
 
-        let cleanup = self.nativeNotificationRegistration(for: registration, observer: observer)
-        guard self.asynchronousNativeRegistrations.contains(registration) else {
-            guard let error = ObserverNativeWork.tryPerformCleanupSynchronously(
-                admission: self.nativeWorkAdmission,
-                operation: {
-                    cleanup.remove()
-                })
-            else {
-                self.asynchronousNativeRegistrations.insert(registration)
-                self.scheduleNativeRemoval(registration, cleanup: cleanup)
-                return
-            }
-            self.finalizeNativeRemoval(registration, error: error)
-            return
-        }
-        self.scheduleNativeRemoval(registration, cleanup: cleanup)
+        self.scheduleNativeRemoval(
+            registration,
+            cleanup: self.nativeRegistrationWork(for: registration, observer: observer))
     }
 
     func finalizeNativeRemoval(_ registration: AXObserverRegistrationKey, error: AXError) {
         let targetPid = registration.subscription.pid
         let notification = registration.subscription.notification
         self.nativeRegistrationStates.removeValue(forKey: registration)
-        self.asynchronousNativeRegistrations.remove(registration)
         if NativeNotificationRegistration.removalConfirmsRegistrationAbsent(error) {
             axInfoLog(
                 logSegments(
@@ -653,7 +698,7 @@ extension AXObserverCenter {
         self.observers.first { $0.pid == pid }?.observer
     }
 
-    private func getOrCreateObserver(for pid: pid_t, expectedGeneration: UInt64) -> AXObserver? {
+    func getOrCreateObserver(for pid: pid_t, expectedGeneration: UInt64) -> AXObserver? {
         if let existing = getObserver(for: pid) {
             return existing
         }
@@ -866,40 +911,40 @@ extension AXObserverCenter {
     }
 
     private func makeObserverCallback() -> AXObserverCallbackWithInfo {
-        { _, element, notificationCFString, userInfo, refcon in
+        { observer, element, notificationCFString, userInfo, refcon in
             guard let refcon else { return }
             let center = Unmanaged<AXObserverCenter>.fromOpaque(refcon).takeUnretainedValue()
-            center.handleObserverCallback(
+            center.handleObserverCallback(event: AXObserverRawNotificationEvent(
+                observer: observer,
                 element: element,
-                notificationCFString: notificationCFString,
-                userInfo: userInfo)
+                notification: notificationCFString,
+                userInfo: userInfo))
         }
     }
 
-    private func handleObserverCallback(
-        element: AXUIElement,
-        notificationCFString: CFString,
-        userInfo: CFDictionary?)
-    {
+    private func handleObserverCallback(event: AXObserverRawNotificationEvent) {
         var elementPID: pid_t = 0
-        AXUIElementGetPid(element, &elementPID)
+        AXUIElementGetPid(event.element, &elementPID)
 
-        guard let axNotification = AXNotification(rawValue: notificationCFString as String) else {
+        guard let axNotification = AXNotification(rawValue: event.notification as String) else {
             axWarningLog(
                 logSegments(
-                    "Received unknown notification string: \(notificationCFString as String)",
+                    "Received unknown notification string: \(event.notification as String)",
                     "for \(describePid(elementPID))",
                     "Cannot call handler"))
             return
         }
 
-        let nsUserInfo = self.convertUserInfoDictionary(userInfo)
+        let nsUserInfo = self.convertUserInfoDictionary(event.userInfo)
         Task { @MainActor in
-            self.processNotification(
+            self.processNotification(AXObserverNotificationEvent(
+                observer: event.observer,
                 pid: elementPID,
                 notification: axNotification,
-                rawElement: element,
-                nsUserInfo: nsUserInfo)
+                notificationString: event.notification,
+                rawElement: event.element,
+                rawUserInfo: event.userInfo,
+                userInfo: nsUserInfo))
         }
     }
 
@@ -908,9 +953,6 @@ extension AXObserverCenter {
         self.observerGenerations.removeValue(forKey: pid)
         self.nativeRegistrationStates = self.nativeRegistrationStates.filter {
             $0.key.subscription.pid != pid
-        }
-        self.asynchronousNativeRegistrations = self.asynchronousNativeRegistrations.filter {
-            $0.subscription.pid != pid
         }
         axDebugLog("Removed AXObserver instance for effective PID \(pid).")
     }
@@ -921,17 +963,24 @@ extension AXObserverCenter {
 
     // MARK: - Main Notification Processing (Called by global callbacks)
 
+    func processNotification(_ event: AXObserverNotificationEvent) {
+        self.subscriptionStore.dispatch(event)
+    }
+
     func processNotification(
         pid: pid_t,
         notification: AXNotification,
         rawElement: AXUIElement,
         nsUserInfo: [String: Any]?)
     {
-        self.subscriptionStore.dispatch(
+        self.subscriptionStore.dispatch(AXObserverNotificationEvent(
+            observer: nil,
             pid: pid,
             notification: notification,
+            notificationString: notification.rawValue as CFString,
             rawElement: rawElement,
-            userInfo: nsUserInfo)
+            rawUserInfo: nil,
+            userInfo: nsUserInfo))
     }
 
     private func convertUserInfoDictionary(_ userInfo: CFDictionary?) -> [String: Any]? {

@@ -9,6 +9,7 @@ All notable changes to AXorcist will be documented in this file.
 - Add immutable per-request accessibility traversal options while keeping the legacy process defaults source-compatible and thread-safe.
 
 ### Fixed
+- Route synchronous and legacy element observation through the shared bounded registration and cleanup state machine, so a wedged Accessibility endpoint cannot block the main actor indefinitely or escape late-result rollback.
 - Bound asynchronous AX notification add and remove waits, including removal joins and subscription setup retries, so a wedged Accessibility endpoint cannot hang global observer startup or teardown. Thanks @SebTardif.
 - Refuse per-element Accessibility reads when macOS cannot arm their messaging deadline, and report any failure to clear an armed deadline after the protected operation.
 - Implement global accessibility notification watching as native per-application observers driven by KVO changes to `NSWorkspace.runningApplications` and application readiness, keep observer creation, registration, and cleanup deadline-bounded off the main actor so a wedged app cannot block startup or teardown, retain semantic application identity across wrapper churn, reset shared observers with unprivileged process-unique identities across PID reuse, recover boundedly from transient registration failures, and reject the invalid PID-zero observer path.

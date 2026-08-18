@@ -27,19 +27,118 @@ struct ObserverNativePendingAddTests {
 
     @Test
     func `sync join parks a waiter so late success commits`() {
-        let completion = NativeRemovalCompletion()
-        #expect(completion.waiterCount == 0)
-        completion.parkWaiter()
-        #expect(completion.waiterCount == 1)
+        let completion = NativeAddCompletion()
+        #expect(completion.beginSynchronousWait())
+        let outcome = ObserverNativeWork.PendingNativeFirstResult(error: .success, timedOut: true)
+        #expect(completion.finishNative(with: outcome) == .synchronous)
+        #expect(completion.waiterCountAtNativeFinish == 1)
         #expect(
             ObserverNativeWork.pendingAddDisposition(
                 nativeError: .success,
                 stillPending: true,
-                waiterCount: completion.waiterCount,
+                waiterCount: completion.waiterCountAtNativeFinish,
                 generationMatches: true,
                 isLate: true) == .commit)
-        completion.unparkWaiter()
-        #expect(completion.waiterCount == 0)
+        #expect(completion.waitForNativeResult(
+            until: ContinuousClock().now.advanced(by: .seconds(1))) == outcome)
+    }
+
+    @Test
+    func `native result does not wake async joiners before resolution`() async {
+        let completion = NativeAddCompletion()
+        let returned = PendingAddResultBox()
+        let waiter = Task {
+            let outcome = await completion.value(timeout: .seconds(30))
+            returned.store(outcome.error)
+            return outcome
+        }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(5))
+        while completion.resolutionWaiterCount == 0, clock.now < deadline {
+            await Task.yield()
+        }
+        #expect(completion.resolutionWaiterCount == 1)
+        let native = ObserverNativeWork.PendingNativeFirstResult(error: .success, timedOut: false)
+
+        #expect(completion.finishNative(with: native) == .asynchronous)
+        for _ in 0..<10 {
+            await Task.yield()
+        }
+        #expect(returned.value == nil)
+
+        let resolved = ObserverNativeWork.PendingNativeFirstResult(error: .cannotComplete, timedOut: false)
+        completion.publishResolved(resolved)
+        #expect(await waiter.value == resolved)
+    }
+
+    @Test
+    func `timed out async joiner no longer authorizes a late commit`() async {
+        let completion = NativeAddCompletion()
+        let waiter = Task {
+            await completion.value(timeout: .milliseconds(20))
+        }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while completion.resolutionWaiterCount == 0, clock.now < deadline {
+            await Task.yield()
+        }
+        #expect(completion.finishNative(with: ObserverNativeWork.PendingNativeFirstResult(
+            error: .success,
+            timedOut: true)) == .asynchronous)
+
+        #expect(await waiter.value.error == .cannotComplete)
+        #expect(completion.resolutionWaiterCount == 0)
+    }
+
+    @Test
+    func `sync deadline atomically hands a later native result to async resolution`() {
+        let completion = NativeAddCompletion()
+        #expect(completion.beginSynchronousWait())
+        let clock = ContinuousClock()
+
+        #expect(completion.waitForNativeResult(until: clock.now) == nil)
+        #expect(completion.finishNative(with: ObserverNativeWork.PendingNativeFirstResult(
+            error: .success,
+            timedOut: true)) == .asynchronous)
+    }
+
+    @Test
+    func `sync join can claim a native-ready result before async resolution starts`() {
+        let completion = NativeAddCompletion()
+        let outcome = ObserverNativeWork.PendingNativeFirstResult(error: .success, timedOut: true)
+        #expect(completion.finishNative(with: outcome) == .asynchronous)
+
+        #expect(completion.beginSynchronousWait())
+        #expect(completion.waitForNativeResult(
+            until: ContinuousClock().now.advanced(by: .seconds(1))) == outcome)
+        #expect(!completion.beginAsynchronousResolution())
+    }
+
+    @Test @MainActor
+    func `resolved setup never adopts another process generation`() {
+        let center = AXObserverCenter(
+            observerSetup: { _, _, _ in .success },
+            observerCleanup: { _, _, _ in })
+        let registration = AXObserverRegistrationKey(
+            subscription: AXNotificationSubscriptionKey(pid: 42, notification: .valueChanged),
+            element: Element(AXUIElementCreateApplication(42)),
+            scope: .process)
+        center.nativeRegistrationStates[registration] = AXObserverCenter.NativeRegistrationState(
+            operationID: UUID(),
+            processGeneration: 2)
+        let completion = NativeAddCompletion()
+        completion.publishResolved(ObserverNativeWork.PendingNativeFirstResult(
+            error: .success,
+            timedOut: false))
+
+        let result = center.registrationSetupResult(
+            registration,
+            expectedGeneration: 1,
+            completion: completion,
+            fallbackError: .success)
+
+        #expect(result.error == .cannotComplete)
+        #expect(result.state == nil)
     }
 
     @Test

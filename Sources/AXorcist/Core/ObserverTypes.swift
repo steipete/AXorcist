@@ -15,6 +15,53 @@ public typealias AXNotificationSubscriptionHandler = @MainActor ( /* element: El
     _ rawElement: AXUIElement,
     _ nsUserInfo: [String: Any]?) -> Void
 
+typealias AXObserverAwareNotificationHandler = @MainActor (
+    _ observer: AXObserver,
+    _ rawElement: AXUIElement,
+    _ notification: CFString,
+    _ userInfo: CFDictionary?) -> Void
+
+enum AXStoredNotificationHandler {
+    case standard(AXNotificationSubscriptionHandler)
+    case observerAware(AXObserverAwareNotificationHandler)
+}
+
+enum AXObserverSubscriptionError: Error {
+    case observerCreationFailed(pid_t)
+    case nativeRegistrationFailed(pid_t, AXNotification, AXError)
+    case validation(String)
+
+    @MainActor var accessibilityError: AccessibilityError {
+        switch self {
+        case let .observerCreationFailed(pid):
+            .observerSetupFailed(details: "Could not create AXObserver for \(describePid(pid))")
+        case let .nativeRegistrationFailed(pid, notification, error):
+            .observerSetupFailed(
+                details: "Failed to setup underlying AXObserver for \(describePid(pid)) " +
+                    "notification \(notification.rawValue) (AXError \(error.rawValue))")
+        case let .validation(details):
+            .observerSetupFailed(details: details)
+        }
+    }
+}
+
+nonisolated struct AXObserverRawNotificationEvent: @unchecked Sendable {
+    let observer: AXObserver
+    let element: AXUIElement
+    let notification: CFString
+    let userInfo: CFDictionary?
+}
+
+nonisolated struct AXObserverNotificationEvent: @unchecked Sendable {
+    let observer: AXObserver?
+    let pid: pid_t
+    let notification: AXNotification
+    let notificationString: CFString
+    let rawElement: AXUIElement
+    let rawUserInfo: CFDictionary?
+    let userInfo: [String: Any]?
+}
+
 /// The single registration boundary used by AXorcist's observer APIs.
 @MainActor
 protocol AXObservationRegistry: AnyObject, Sendable {
@@ -130,7 +177,7 @@ final class AXObserverSubscriptionStore {
         let removedLastHandler: Bool
     }
 
-    private var subscriptions: [AXObserverRegistrationKey: [UUID: AXNotificationSubscriptionHandler]] = [:]
+    private var subscriptions: [AXObserverRegistrationKey: [UUID: AXStoredNotificationHandler]] = [:]
     private var subscriptionTokens: [UUID: AXObserverRegistrationKey] = [:]
 
     var registeredKeys: [AXNotificationSubscriptionKey] {
@@ -139,12 +186,19 @@ final class AXObserverSubscriptionStore {
 
     func add(
         registration: AXObserverRegistrationKey,
-        handler: @escaping AXNotificationSubscriptionHandler) -> SubscriptionToken
+        handler: AXStoredNotificationHandler) -> SubscriptionToken
     {
         let token = SubscriptionToken(id: UUID())
         self.subscriptions[registration, default: [:]][token.id] = handler
         self.subscriptionTokens[token.id] = registration
         return token
+    }
+
+    func add(
+        registration: AXObserverRegistrationKey,
+        handler: @escaping AXNotificationSubscriptionHandler) -> SubscriptionToken
+    {
+        self.add(registration: registration, handler: .standard(handler))
     }
 
     func remove(token: SubscriptionToken) throws -> Removal {
@@ -186,6 +240,14 @@ final class AXObserverSubscriptionStore {
         }
     }
 
+    func registration(for token: SubscriptionToken) -> AXObserverRegistrationKey? {
+        self.subscriptionTokens[token.id]
+    }
+
+    func handlerCount(for registration: AXObserverRegistrationKey) -> Int {
+        self.subscriptions[registration]?.count ?? 0
+    }
+
     func contains(pid: pid_t, notification: AXNotification) -> Bool {
         self.subscriptions.contains { registration, handlers in
             registration.subscription.pid == pid &&
@@ -204,17 +266,12 @@ final class AXObserverSubscriptionStore {
         }
     }
 
-    func dispatch(
-        pid: pid_t,
-        notification: AXNotification,
-        rawElement: AXUIElement,
-        userInfo: [String: Any]?)
-    {
+    func dispatch(_ event: AXObserverNotificationEvent) {
         let specificKey = AXNotificationSubscriptionKey(
-            pid: pid,
-            notification: notification)
-        var handlersToCall: [AXNotificationSubscriptionHandler] = []
-        let eventElement = Element(rawElement)
+            pid: event.pid,
+            notification: event.notification)
+        var handlersToCall: [AXStoredNotificationHandler] = []
+        let eventElement = Element(event.rawElement)
         for (registration, handlers) in self.subscriptions {
             let subscription = registration.subscription
             let matchesProcess = subscription == specificKey && registration.scope == .process
@@ -229,7 +286,29 @@ final class AXObserverSubscriptionStore {
         }
 
         for handler in handlersToCall {
-            handler(pid, notification, rawElement, userInfo)
+            switch handler {
+            case let .standard(standard):
+                standard(event.pid, event.notification, event.rawElement, event.userInfo)
+            case let .observerAware(observerAware):
+                guard let observer = event.observer else { continue }
+                observerAware(observer, event.rawElement, event.notificationString, event.rawUserInfo)
+            }
         }
+    }
+
+    func dispatch(
+        pid: pid_t,
+        notification: AXNotification,
+        rawElement: AXUIElement,
+        userInfo: [String: Any]?)
+    {
+        self.dispatch(AXObserverNotificationEvent(
+            observer: nil,
+            pid: pid,
+            notification: notification,
+            notificationString: notification.rawValue as CFString,
+            rawElement: rawElement,
+            rawUserInfo: nil,
+            userInfo: userInfo))
     }
 }

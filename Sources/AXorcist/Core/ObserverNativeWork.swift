@@ -211,25 +211,6 @@ nonisolated enum ObserverNativeWork {
         }
         onFinished(error)
     }
-
-    static func performSynchronously<Value>(
-        admission: ObserverNativeWorkerAdmission,
-        refusalValue: Value,
-        operation: () -> Value) -> Value
-    {
-        guard admission.tryAcquire() else { return refusalValue }
-        defer { admission.release() }
-        return operation()
-    }
-
-    static func tryPerformCleanupSynchronously<Value>(
-        admission: ObserverNativeWorkerAdmission,
-        operation: () -> Value) -> Value?
-    {
-        guard admission.tryAcquireCleanup() else { return nil }
-        defer { admission.release() }
-        return operation()
-    }
 }
 
 final nonisolated class ObserverNativeWorkerAdmission: @unchecked Sendable {
@@ -396,21 +377,61 @@ final nonisolated class FirstResultGate<Value: Sendable>: @unchecked Sendable {
     }
 }
 
-final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
-    private struct RemovalWaiter {
+final nonisolated class ObserverAsyncStartGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isOpen = false
+    private var waiter: CheckedContinuation<Void, Never>?
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            let resumeNow = self.lock.withLock { () -> Bool in
+                if self.isOpen {
+                    return true
+                }
+                self.waiter = continuation
+                return false
+            }
+            if resumeNow {
+                continuation.resume()
+            }
+        }
+    }
+
+    func open() {
+        let waiter = self.lock.withLock { () -> CheckedContinuation<Void, Never>? in
+            self.isOpen = true
+            defer { self.waiter = nil }
+            return self.waiter
+        }
+        waiter?.resume()
+    }
+}
+
+nonisolated class NativeWorkCompletion<Value: Sendable>: @unchecked Sendable {
+    private struct Waiter {
         let id: UUID
-        let continuation: CheckedContinuation<AXError, Never>
+        let continuation: CheckedContinuation<Value, Never>
     }
 
     private let condition = NSCondition()
-    private var result: AXError?
-    private var waiters: [RemovalWaiter] = []
+    private let timeoutValue: Value
+    private var result: Value?
+    private var waiters: [Waiter] = []
     private var parkedWaiterCount = 0
+    private var finishedWaiterCount = 0
+    private var finishedSynchronousWaiterCount = 0
 
-    func parkWaiter() {
+    init(timeoutValue: Value) {
+        self.timeoutValue = timeoutValue
+    }
+
+    @discardableResult
+    func parkWaiter() -> Bool {
         self.condition.lock()
+        defer { self.condition.unlock() }
+        guard self.result == nil else { return false }
         self.parkedWaiterCount += 1
-        self.condition.unlock()
+        return true
     }
 
     func unparkWaiter() {
@@ -421,7 +442,7 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         self.condition.unlock()
     }
 
-    func wait(until deadline: ContinuousClock.Instant) -> AXError? {
+    func wait(until deadline: ContinuousClock.Instant) -> Value? {
         let clock = ContinuousClock()
         self.condition.lock()
         while self.result == nil, clock.now < deadline {
@@ -432,7 +453,7 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         return result
     }
 
-    func currentResult() -> AXError? {
+    func currentResult() -> Value? {
         self.condition.withLock { self.result }
     }
 
@@ -440,14 +461,24 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         self.condition.withLock { self.waiters.count + self.parkedWaiterCount }
     }
 
+    var waiterCountAtFinish: Int {
+        self.condition.withLock { self.finishedWaiterCount }
+    }
+
+    var synchronousWaiterCountAtFinish: Int {
+        self.condition.withLock { self.finishedSynchronousWaiterCount }
+    }
+
     @discardableResult
-    func finish(with result: AXError) -> Int {
+    func finish(with result: Value) -> Int {
         self.condition.lock()
         guard self.result == nil else {
             self.condition.unlock()
             return 0
         }
         self.result = result
+        self.finishedWaiterCount = self.waiters.count + self.parkedWaiterCount
+        self.finishedSynchronousWaiterCount = self.parkedWaiterCount
         let waiters = self.waiters
         self.waiters.removeAll()
         self.condition.broadcast()
@@ -458,7 +489,7 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         return waiters.count
     }
 
-    func value(timeout: Duration = .milliseconds(750)) async -> AXError {
+    func value(timeout: Duration = .milliseconds(750)) async -> Value {
         let waiterID = UUID()
         return await withCheckedContinuation { continuation in
             self.condition.lock()
@@ -467,7 +498,7 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
                 continuation.resume(returning: result)
                 return
             }
-            self.waiters.append(RemovalWaiter(id: waiterID, continuation: continuation))
+            self.waiters.append(Waiter(id: waiterID, continuation: continuation))
             self.condition.unlock()
             Task.detached(priority: .utility) {
                 try? await Task.sleep(for: timeout)
@@ -486,7 +517,114 @@ final nonisolated class NativeRemovalCompletion: @unchecked Sendable {
         }
         let waiter = self.waiters.remove(at: index)
         self.condition.unlock()
-        waiter.continuation.resume(returning: .cannotComplete)
+        waiter.continuation.resume(returning: self.timeoutValue)
+    }
+}
+
+final nonisolated class NativeRemovalCompletion: NativeWorkCompletion<AXError>, @unchecked Sendable {
+    init() {
+        super.init(timeoutValue: .cannotComplete)
+    }
+}
+
+nonisolated enum NativeAddResolutionOwner: Equatable, Sendable {
+    case synchronous
+    case asynchronous
+    case alreadyFinished
+}
+
+final nonisolated class NativeAddCompletion: @unchecked Sendable {
+    private enum ResolutionState {
+        case waitingForNative
+        case queuedAsynchronous
+        case synchronous
+        case resolvingAsynchronously
+        case resolved
+    }
+
+    private let condition = NSCondition()
+    private let resolved = NativeWorkCompletion<ObserverNativeWork.PendingNativeFirstResult>(
+        timeoutValue: ObserverNativeWork.PendingNativeFirstResult(
+            error: .cannotComplete,
+            timedOut: true))
+    private var nativeResult: ObserverNativeWork.PendingNativeFirstResult?
+    private var synchronousWaiterActive = false
+    private var waiterCountWhenNativeFinished = 0
+    private var resolutionState = ResolutionState.waitingForNative
+
+    func beginSynchronousWait() -> Bool {
+        self.condition.lock()
+        defer { self.condition.unlock() }
+        switch self.resolutionState {
+        case .waitingForNative where !self.synchronousWaiterActive:
+            self.synchronousWaiterActive = true
+            return true
+        case .queuedAsynchronous:
+            self.resolutionState = .synchronous
+            self.synchronousWaiterActive = true
+            return true
+        case .waitingForNative, .synchronous, .resolvingAsynchronously, .resolved:
+            return false
+        }
+    }
+
+    func finishNative(with result: ObserverNativeWork.PendingNativeFirstResult) -> NativeAddResolutionOwner {
+        self.condition.lock()
+        guard self.nativeResult == nil else {
+            self.condition.unlock()
+            return .alreadyFinished
+        }
+        self.nativeResult = result
+        self.waiterCountWhenNativeFinished = self.resolved.waiterCount + (self.synchronousWaiterActive ? 1 : 0)
+        let owner: NativeAddResolutionOwner = self.synchronousWaiterActive ? .synchronous : .asynchronous
+        self.resolutionState = self.synchronousWaiterActive ? .synchronous : .queuedAsynchronous
+        self.condition.broadcast()
+        self.condition.unlock()
+        return owner
+    }
+
+    func waitForNativeResult(until deadline: ContinuousClock.Instant) -> ObserverNativeWork.PendingNativeFirstResult? {
+        let clock = ContinuousClock()
+        self.condition.lock()
+        while self.nativeResult == nil, clock.now < deadline {
+            self.condition.wait(until: Date(timeIntervalSinceNow: 0.01))
+        }
+        let result = self.nativeResult
+        self.synchronousWaiterActive = false
+        self.condition.unlock()
+        return result
+    }
+
+    func beginAsynchronousResolution() -> Bool {
+        self.condition.lock()
+        defer { self.condition.unlock() }
+        guard self.resolutionState == .queuedAsynchronous else { return false }
+        self.resolutionState = .resolvingAsynchronously
+        return true
+    }
+
+    func publishResolved(_ result: ObserverNativeWork.PendingNativeFirstResult) {
+        self.condition.withLock {
+            self.resolutionState = .resolved
+            self.synchronousWaiterActive = false
+        }
+        self.resolved.finish(with: result)
+    }
+
+    func currentResult() -> ObserverNativeWork.PendingNativeFirstResult? {
+        self.resolved.currentResult()
+    }
+
+    func value(timeout: Duration = .milliseconds(750)) async -> ObserverNativeWork.PendingNativeFirstResult {
+        await self.resolved.value(timeout: timeout)
+    }
+
+    var waiterCountAtNativeFinish: Int {
+        self.condition.withLock { self.waiterCountWhenNativeFinished }
+    }
+
+    var resolutionWaiterCount: Int {
+        self.resolved.waiterCount
     }
 }
 
@@ -581,4 +719,13 @@ nonisolated struct NativeNotificationRegistration: @unchecked Sendable {
         guard self.appliesMessagingTimeout else { return }
         AXUIElementSetMessagingTimeout(self.element, 0)
     }
+
+    var work: ObserverNativeRegistrationWork {
+        ObserverNativeRegistrationWork(add: self.add, remove: self.remove)
+    }
+}
+
+nonisolated struct ObserverNativeRegistrationWork: Sendable {
+    let add: @Sendable () -> AXError
+    let remove: @Sendable () -> AXError
 }

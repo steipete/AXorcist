@@ -67,31 +67,6 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
-    func `synchronous cleanup distinguishes saturation from a native result`() {
-        let admission = ObserverNativeWorkerAdmission()
-        for _ in 0..<ObserverNativeWorkerAdmission.maximumRegularWorkers {
-            #expect(admission.tryAcquire())
-        }
-        #expect(admission.tryAcquireCleanup())
-        var executed = false
-
-        let refused = ObserverNativeWork.tryPerformCleanupSynchronously(admission: admission) {
-            executed = true
-            return AXError.success
-        }
-        #expect(refused == nil)
-        #expect(!executed)
-
-        admission.release()
-        let admitted = ObserverNativeWork.tryPerformCleanupSynchronously(admission: admission) {
-            executed = true
-            return AXError.success
-        }
-        #expect(admitted == .success)
-        #expect(executed)
-    }
-
-    @Test
     func `synchronous native removal join has a monotonic deadline`() {
         let completion = NativeRemovalCompletion()
         let clock = ContinuousClock()
