@@ -142,4 +142,171 @@ struct ObserverNativeWorkTests {
             return
         }
     }
+
+    @Test
+    func `perform fails closed when native notification work never returns`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        let never = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.perform(
+            admission: admission,
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(50))
+        {
+            never.wait()
+            return .success
+        }
+
+        #expect(result == .cannotComplete)
+    }
+
+    @Test
+    func `performCleanup fails closed when native notification work never returns`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        let never = DispatchSemaphore(value: 0)
+        let result = await ObserverNativeWork.performCleanup(
+            admission: admission,
+            timeoutValue: AXError.cannotComplete,
+            timeout: .milliseconds(50))
+        {
+            never.wait()
+            return AXError.success
+        }
+
+        #expect(result == .cannotComplete)
+    }
+
+    @Test
+    func `removal completion value fails closed when the native result never arrives`() async {
+        let completion = NativeRemovalCompletion()
+
+        let result = await completion.value(timeout: .milliseconds(50))
+
+        #expect(result == .cannotComplete)
+        #expect(completion.currentResult() == nil)
+    }
+
+    @Test
+    func `removal timeout does not finalize a later native result`() async {
+        let completion = NativeRemovalCompletion()
+        let timedOut = await completion.value(timeout: .milliseconds(20))
+        completion.finish(with: .success)
+
+        #expect(timedOut == .cannotComplete)
+        #expect(completion.currentResult() == .success)
+        #expect(await completion.value(timeout: .milliseconds(20)) == .success)
+        #expect(completion.currentResult() != timedOut)
+    }
+
+    @Test
+    func `performCleanup admission is bounded when workers are saturated`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        for _ in 0..<ObserverNativeWorkerAdmission.maximumRegularWorkers {
+            #expect(admission.tryAcquire())
+        }
+        #expect(admission.tryAcquireCleanup())
+        #expect(admission.activeCount == ObserverNativeWorkerAdmission.maximumConcurrentWorkers)
+
+        let result = await ObserverNativeWork.performCleanup(
+            admission: admission,
+            timeoutValue: AXError.cannotComplete,
+            timeout: .milliseconds(40))
+        {
+            AXError.success
+        }
+
+        #expect(result == .cannotComplete)
+        #expect(admission.activeCount == ObserverNativeWorkerAdmission.maximumConcurrentWorkers)
+    }
+
+    @Test
+    func `add attempt is reserved only after worker admission`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        for _ in 0..<ObserverNativeWorkerAdmission.maximumRegularWorkers {
+            #expect(admission.tryAcquire())
+        }
+        let admitted = LateRemoveCounter()
+        let result = await ObserverNativeWork.perform(
+            admission: admission,
+            refusalValue: AXError.cannotComplete,
+            onAdmitted: {
+                admitted.increment()
+            },
+            operation: { AXError.success })
+
+        #expect(result == .cannotComplete)
+        #expect(!admitted.didRemove)
+    }
+
+    @Test
+    func `late successful add is reported after a timeout`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        let release = DispatchSemaphore(value: 0)
+        let lateBox = LateResultBox()
+        let result = await ObserverNativeWork.perform(
+            admission: admission,
+            refusalValue: AXError.cannotComplete,
+            timeout: .milliseconds(30),
+            onLateResult: { late in
+                lateBox.store(late)
+            },
+            operation: {
+                release.wait()
+                return .success
+            })
+
+        #expect(result == .cannotComplete)
+        release.signal()
+        let deadline = ContinuousClock().now.advanced(by: .seconds(1))
+        while lateBox.value == nil, ContinuousClock().now < deadline {
+            await Task.yield()
+        }
+        #expect(lateBox.value == .success)
+    }
+}
+
+private final nonisolated class LateRemoveCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = 0
+    private var lateSeen = false
+
+    func markLate() {
+        self.lock.lock()
+        self.lateSeen = true
+        self.lock.unlock()
+    }
+
+    func increment() {
+        self.lock.lock()
+        self.stored += 1
+        self.lock.unlock()
+    }
+
+    var didRemove: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.stored > 0
+    }
+
+    var sawLate: Bool {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.lateSeen
+    }
+}
+
+private final nonisolated class LateResultBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: AXError?
+
+    func store(_ value: AXError) {
+        self.lock.lock()
+        self.stored = value
+        self.lock.unlock()
+    }
+
+    var value: AXError? {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.stored
+    }
 }
