@@ -9,10 +9,10 @@ The Homebrew formula consumes a Developer ID-signed universal binary. Do not pub
 3. Build with the existing Developer ID Application identity:
 
    ```bash
-   AXORC_CODESIGN_IDENTITY='Developer ID Application: ...' scripts/build-release-artifact.sh 0.1.6
+   AXORC_CODESIGN_IDENTITY='Developer ID Application: ...' scripts/build-release-artifact.sh 0.1.7
    ```
 
-4. Submit `dist/axorc-0.1.6-macos-universal.zip` to `notarytool` using the approved release credentials. Wait for acceptance. Zip archives cannot be stapled; verify the downloaded archive online with Gatekeeper after publication.
+4. Submit `dist/axorc-0.1.7-macos-universal.zip` to `notarytool` using the approved release credentials. Wait for acceptance. Zip archives cannot be stapled; verify the downloaded archive online with Gatekeeper after publication.
 
 ## Publish and update Homebrew
 
@@ -21,7 +21,7 @@ The Homebrew formula consumes a Developer ID-signed universal binary. Do not pub
 3. Render the formula with the public artifact checksum:
 
    ```bash
-   scripts/render-homebrew-formula.sh 0.1.6 <sha256> > axorc.rb
+   scripts/render-homebrew-formula.sh 0.1.7 <sha256> > axorc.rb
    ```
 
 4. Add `axorc.rb` to `openclaw/homebrew-tap`, then run `brew audit --strict axorc`, `brew install --build-from-source ./axorc.rb`, `axorc --version`, `axorc --help`, and `axorc permissions` on a clean host.

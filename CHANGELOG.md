@@ -2,34 +2,37 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [Unreleased]
+## [0.1.7] - 2026-08-28
 
-### Added
-- Add a typed native setter for accessibility selected-text ranges.
-- Add immutable per-request accessibility traversal options while keeping the legacy process defaults source-compatible and thread-safe.
+### Highlights
+- Raw JSON path-only locators now work, `path_from_root` is honored, and decode errors identify the exact failing field path.
 
 ### Fixed
 - Decode documented `path_from_root` locators without requiring `criteria`, preserve their navigation hints, and report precise raw JSON field errors; clarify the CLI and JSON command names. Thanks @pixel-placebo-lab.
+- Preserve exact PID targets across CLI command conversion, reject conflicting application and PID selectors, and report point lookup misses as errors.
+- Refuse element-scoped typing when native focus cannot be established, preventing keyboard events from reaching an unrelated focused app.
+- Traverse menu bars during default searches so their items remain discoverable without `--scan-all`. Thanks @dalsoop.
+- Match generic accessibility criteria such as `AXTitle` against their real Core Foundation values. Thanks @dalsoop.
+- Discover element actions through the dedicated macOS Accessibility API so supported actions such as `AXPress` work in SwiftUI apps. Thanks @dalsoop.
+- Preserve middle and right mouse-button identity across clicks, holds, and drags, and build complete input sequences before posting so allocation failures cannot leave a button held down.
+- Keep accessibility-tree traversal state local to each search and honor prefetched children, so repeated lookups cannot skip elements seen by earlier commands.
 - Route synchronous and legacy element observation through the shared bounded registration and cleanup state machine, so a wedged Accessibility endpoint cannot block the main actor indefinitely or escape late-result rollback.
 - Bound asynchronous AX notification add and remove waits, including removal joins and subscription setup retries, so a wedged Accessibility endpoint cannot hang global observer startup or teardown. Thanks @SebTardif.
 - Refuse per-element Accessibility reads when macOS cannot arm their messaging deadline, and report any failure to clear an armed deadline after the protected operation.
 - Implement global accessibility notification watching as native per-application observers driven by KVO changes to `NSWorkspace.runningApplications` and application readiness, keep observer creation, registration, and cleanup deadline-bounded off the main actor so a wedged app cannot block startup or teardown, retain semantic application identity across wrapper churn, reset shared observers with unprivileged process-unique identities across PID reuse, recover boundedly from transient registration failures, and reject the invalid PID-zero observer path.
-- Resolve point-owned applications from one native on-screen window snapshot, avoiding synchronous all-app Accessibility queries while keeping frontmost fallback limited to the compatibility API.
-- Preserve exact PID targets across CLI command conversion, reject conflicting application and PID selectors, and report point lookup misses as errors.
-- Refuse element-scoped typing when native focus cannot be established, preventing keyboard events from reaching an unrelated focused app.
-- Route the visitor, collection, element-search, UI-automation, and deep JSON-path walkers through one identity-aware traversal kernel while preserving their established order, depth, pruning, and match semantics.
-- Preserve middle and right mouse-button identity across clicks, holds, and drags, and build complete input sequences before posting so allocation failures cannot leave a button held down.
-- Build both release architectures in one SwiftPM invocation, then verify and package the reported universal binary without assuming a fixed build directory.
 - Keep observation subscriptions in one token registry with exact element ownership and deterministic cleanup across the library and CLI.
+- Resolve point-owned applications from one native on-screen window snapshot, avoiding synchronous all-app Accessibility queries while keeping frontmost fallback limited to the compatibility API.
 - Preserve attributed-string parameterized results and route both public generic accessors through one native conversion path.
-- Keep accessibility-tree traversal state local to each search and honor prefetched children, so repeated lookups cannot skip elements seen by earlier commands.
-- Stop probing or linking Apple Events for legacy automation-permission status; deprecated compatibility APIs now return unknown while Accessibility permission checks remain native AX-only.
 - Route the published `AXSetValue` compatibility command through the native value-attribute setter instead of treating it as a macOS accessibility action.
 - Execute accessibility actions directly through one system-call owner, preserving native AX failures without redundant action-discovery round trips.
 - Use the native macOS names for parameterized accessibility attributes instead of non-existent `Parameterized`-suffixed raw values.
-- Traverse menu bars during default searches so their items remain discoverable without `--scan-all`. Thanks @dalsoop.
-- Match generic accessibility criteria such as `AXTitle` against their real Core Foundation values. Thanks @dalsoop.
-- Discover element actions through the dedicated macOS Accessibility API so supported actions such as `AXPress` work in SwiftUI apps. Thanks @dalsoop.
+- Stop probing or linking Apple Events for legacy automation-permission status; deprecated compatibility APIs now return unknown while Accessibility permission checks remain native AX-only.
+- Route the visitor, collection, element-search, UI-automation, and deep JSON-path walkers through one identity-aware traversal kernel while preserving their established order, depth, pruning, and match semantics.
+- Build both release architectures in one SwiftPM invocation, then verify and package the reported universal binary without assuming a fixed build directory.
+
+### Added
+- Add a typed native setter for accessibility selected-text ranges.
+- Add immutable per-request accessibility traversal options while keeping the legacy process defaults source-compatible and thread-safe.
 
 ## [0.1.6] - 2026-07-15
 
