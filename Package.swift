@@ -1,7 +1,6 @@
 // swift-tools-version: 6.2
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
-import Foundation
 import PackageDescription
 
 let approachableConcurrencySettings: [SwiftSetting] = [
@@ -10,16 +9,6 @@ let approachableConcurrencySettings: [SwiftSetting] = [
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .defaultIsolation(MainActor.self),
 ]
-
-let packageDirectory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
-let localCommanderPath = packageDirectory.deletingLastPathComponent().appendingPathComponent("Commander").path
-let isSwiftPMCheckout = packageDirectory.path.contains("/.build/checkouts/")
-let commanderDependency: Package.Dependency =
-    if !isSwiftPMCheckout, FileManager.default.fileExists(atPath: localCommanderPath) {
-        .package(path: "../Commander")
-    } else {
-        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.4")
-    }
 
 let package = Package(
     name: "axPackage", // Renamed package slightly to avoid any confusion with executable name
@@ -31,7 +20,7 @@ let package = Package(
         .executable(name: "axorc", targets: ["axorc"]), // Product 'axorc' comes from target 'axorc'
     ],
     dependencies: [
-        commanderDependency,
+        .package(url: "https://github.com/steipete/Commander.git", exact: "0.2.4"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.4"),
     ],
     targets: [

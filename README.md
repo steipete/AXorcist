@@ -201,6 +201,21 @@ Run `axorc permissions` after installation. macOS will need Accessibility permis
 
 Maintainers: see [docs/releasing.md](docs/releasing.md) for the artifact and tap workflow.
 
+### Local Development
+
+AXorcist always declares the remote Commander dependency at exactly `0.2.4`, regardless of checkout location or sibling folders. To work on a sibling Commander checkout, explicitly override it from your root workspace (the AXorcist checkout, or the package consuming AXorcist):
+
+```bash
+swift package resolve
+swift package edit Commander --path ../Commander
+# Develop against the local checkout, then restore the released dependency:
+swift package unedit Commander
+```
+
+The edit belongs to that workspace and leaves AXorcist's manifest unchanged. A consuming package can also explicitly add `.package(path: "../Commander")` to its root manifest's dependencies; remove that entry to restore versioned resolution. Keep these local overrides out of published manifests.
+
+Run `make test-commander-dependency` for offline manifest and dependency-graph regression checks. They use disposable Git fixtures and isolated SwiftPM configuration and caches, including default and custom scratch paths, without building or running the app.
+
 ## Quick Start
 
 ### Swift API
