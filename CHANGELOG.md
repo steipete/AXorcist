@@ -2,6 +2,8 @@
 
 All notable changes to AXorcist will be documented in this file.
 
+## [0.1.8] - Unreleased
+
 ## [0.1.7] - 2026-08-28
 
 ### Highlights
