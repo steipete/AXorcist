@@ -1,6 +1,7 @@
 import ApplicationServices
 import Darwin
 import Foundation
+import os
 import Testing
 @testable import AXorcist
 
@@ -27,6 +28,24 @@ struct AXTimeoutHelperTests {
             Issue.record("Expected timeout but succeeded")
         } catch let error as AXTimeoutError {
             #expect(String(describing: error).contains("timed out"))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @MainActor
+    @Test
+    func `returns without joining uncooperative work`() async {
+        let stillRunning = OSAllocatedUnfairLock(initialState: true)
+        do {
+            _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
+                Self.sleepIgnoringCancellation(2)
+                stillRunning.withLock { $0 = false }
+                return 1
+            }
+            Issue.record("Expected timeout but succeeded")
+        } catch is AXTimeoutError {
+            #expect(stillRunning.withLock { $0 })
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
@@ -238,5 +257,10 @@ struct AXTimeoutHelperTests {
                 }
             }
         }
+    }
+
+    /// Blocks the calling thread. Cancellation does not interrupt this wait.
+    private nonisolated static func sleepIgnoringCancellation(_ seconds: TimeInterval) {
+        Thread.sleep(forTimeInterval: seconds)
     }
 }

@@ -192,28 +192,63 @@ public struct AXTimeoutWrapper {
 public enum AXTimeoutHelper {
     /// Async timeout helper reused by downstreams (e.g., ScreenCaptureService)
     /// to keep timeout logic in one place.
+    ///
+    /// Returns when `seconds` elapse even if `operation` ignores cancellation.
+    /// The leftover work is asked to cancel but is not joined.
     @MainActor
     public static func withTimeout<T: Sendable>(
         seconds: TimeInterval,
         operation: @escaping @Sendable () async throws -> T) async throws -> T
     {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask {
-                try await operation()
-            }
+        try await self.race(seconds: seconds, operation: operation)
+    }
 
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                throw AXTimeoutError.operationTimedOut(duration: seconds)
-            }
-
-            guard let result = try await group.next() else {
-                throw AXTimeoutError.operationTimedOut(duration: seconds)
-            }
-
-            group.cancelAll()
-            return result
+    /// Race a deadline against unstructured work. A throwing TaskGroup would
+    /// still join an uncooperative child after the timeout throw.
+    private nonisolated static func race<T: Sendable>(
+        seconds: TimeInterval,
+        operation: @escaping @Sendable () async throws -> T) async throws -> T
+    {
+        let timeoutError = AXTimeoutError.operationTimedOut(duration: seconds)
+        let work = Task.detached {
+            try await operation()
         }
+        let sleeper = Task.detached(priority: .utility) {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        }
+        let gateBox = OSAllocatedUnfairLock<FirstResultGate<Result<T, any Error>>?>(initialState: nil)
+
+        let result: Result<T, any Error> = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let gate = FirstResultGate(continuation: continuation)
+                gateBox.withLock { $0 = gate }
+                Task.detached {
+                    do {
+                        let value = try await work.value
+                        sleeper.cancel()
+                        gate.finish(with: .success(value))
+                    } catch {
+                        sleeper.cancel()
+                        gate.finish(with: .failure(error))
+                    }
+                }
+                Task.detached {
+                    do {
+                        try await sleeper.value
+                    } catch {
+                        return
+                    }
+                    gate.finish(with: .failure(timeoutError), fromTimeout: true)
+                    work.cancel()
+                }
+            }
+        } onCancel: {
+            work.cancel()
+            sleeper.cancel()
+            gateBox.withLock { $0 }?.finish(with: .failure(CancellationError()), fromTimeout: true)
+        }
+
+        return try result.get()
     }
 }
 
