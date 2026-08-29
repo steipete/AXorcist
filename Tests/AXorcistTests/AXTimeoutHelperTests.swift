@@ -239,4 +239,150 @@ struct AXTimeoutHelperTests {
             }
         }
     }
+
+    @Test
+    @MainActor
+    func `timeout wrapper arms and clears the messaging deadline`() async throws {
+        var timeoutHistory: [Float] = []
+        let wrapper = AXTimeoutWrapper(maxRetries: 1, retryDelay: 0, timeout: 0.5)
+
+        let result = try await wrapper.execute(
+            applyTimeout: { timeout in
+                timeoutHistory.append(timeout)
+                return .success
+            },
+            operation: { 42 })
+
+        #expect(result == 42)
+        #expect(timeoutHistory == [0.5, 0])
+    }
+
+    @Test
+    @MainActor
+    func `timeout wrapper skips the operation when the deadline cannot be armed`() async {
+        var armAttempts = 0
+        var dispatched = 0
+        let wrapper = AXTimeoutWrapper(maxRetries: 3, retryDelay: 0, timeout: 0.25)
+
+        do {
+            _ = try await wrapper.execute(
+                applyTimeout: { _ in
+                    armAttempts += 1
+                    return .failure
+                },
+                operation: { () -> Int? in
+                    dispatched += 1
+                    return 1
+                })
+            Issue.record("Expected systemFailure")
+        } catch let error as AXMessagingTimeoutError {
+            #expect(error == .systemFailure(code: AXError.failure.rawValue))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(armAttempts == 1)
+        #expect(dispatched == 0)
+    }
+
+    @Test
+    @MainActor
+    func `timeout wrapper retries a thrown operation with a fresh deadline`() async throws {
+        enum ProbeError: Error {
+            case failed
+        }
+
+        var timeoutHistory: [Float] = []
+        var attempts = 0
+        let wrapper = AXTimeoutWrapper(maxRetries: 2, retryDelay: 0, timeout: 0.25)
+
+        let result = try await wrapper.execute(
+            applyTimeout: { timeout in
+                timeoutHistory.append(timeout)
+                return .success
+            },
+            operation: { () -> Int? in
+                attempts += 1
+                if attempts == 1 {
+                    throw ProbeError.failed
+                }
+                return 7
+            })
+
+        #expect(result == 7)
+        #expect(attempts == 2)
+        #expect(timeoutHistory == [0.25, 0, 0.25, 0])
+    }
+
+    @Test
+    @MainActor
+    func `timeout wrapper does not retry a reset failure`() async {
+        var armAttempts = 0
+        let wrapper = AXTimeoutWrapper(maxRetries: 3, retryDelay: 0, timeout: 0.25)
+
+        do {
+            _ = try await wrapper.execute(
+                applyTimeout: { timeout in
+                    armAttempts += 1
+                    return timeout == 0 ? .failure : .success
+                },
+                operation: { 42 })
+            Issue.record("Expected resetFailure")
+        } catch let error as AXMessagingTimeoutError {
+            #expect(error == .resetFailure(code: AXError.failure.rawValue))
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(armAttempts == 2)
+    }
+
+    @Test(arguments: [Float.zero, -0.1, -.infinity, .infinity, .nan])
+    @MainActor
+    func `timeout wrapper rejects invalid deadlines before the system call`(timeout: Float) async {
+        var appliedTimeouts: [Float] = []
+        var dispatched = false
+        let wrapper = AXTimeoutWrapper(maxRetries: 1, retryDelay: 0, timeout: timeout)
+
+        do {
+            _ = try await wrapper.execute(
+                applyTimeout: { value in
+                    appliedTimeouts.append(value)
+                    return .success
+                },
+                operation: { () -> Int? in
+                    dispatched = true
+                    return 1
+                })
+            Issue.record("Expected invalidTimeout")
+        } catch let error as AXMessagingTimeoutError {
+            #expect(error == .invalidTimeout)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(appliedTimeouts.isEmpty)
+        #expect(!dispatched)
+    }
+
+    @Test
+    @MainActor
+    func `timeout wrapper execute rejects a zero deadline before running the operation`() async {
+        var dispatched = false
+        let wrapper = AXTimeoutWrapper(maxRetries: 1, retryDelay: 0, timeout: 0)
+
+        do {
+            _ = try await wrapper.execute { () -> Int? in
+                dispatched = true
+                return 1
+            }
+            Issue.record("Expected invalidTimeout")
+        } catch let error as AXMessagingTimeoutError {
+            #expect(error == .invalidTimeout)
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+
+        #expect(!dispatched)
+    }
 }

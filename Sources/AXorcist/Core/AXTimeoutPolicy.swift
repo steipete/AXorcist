@@ -154,22 +154,40 @@ public enum AXTimeoutConfiguration {
 public struct AXTimeoutWrapper {
     private let maxRetries: Int
     private let retryDelay: TimeInterval
+    private let timeout: Float
 
-    public init(maxRetries: Int = 3, retryDelay: TimeInterval = 0.5) {
+    public init(maxRetries: Int = 3, retryDelay: TimeInterval = 0.5, timeout: Float = 2.0) {
         self.maxRetries = maxRetries
         self.retryDelay = retryDelay
+        self.timeout = timeout
     }
 
-    /// Execute an AX operation with timeout protection and retry logic.
+    /// Execute an AX operation with a system-wide messaging deadline and retry on throw.
     @MainActor
     public func execute<T>(_ operation: () throws -> T?) async throws -> T? {
+        try await self.execute(
+            applyTimeout: { AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), $0) },
+            operation: operation)
+    }
+
+    @MainActor
+    func execute<T>(
+        applyTimeout: (Float) -> AXError,
+        operation: () throws -> T?) async throws -> T?
+    {
         var lastError: (any Error)?
 
         for attempt in 0..<self.maxRetries {
             do {
-                if let result = try operation() {
+                if let result = try AXMessagingTimeoutScope.perform(
+                    timeout: self.timeout,
+                    applyTimeout: applyTimeout,
+                    operation: operation)
+                {
                     return result
                 }
+            } catch let error as AXMessagingTimeoutError {
+                throw error
             } catch {
                 lastError = error
                 Logger(subsystem: "boo.peekaboo.axorcist", category: "AXTimeout")
