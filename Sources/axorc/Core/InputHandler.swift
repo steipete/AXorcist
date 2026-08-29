@@ -14,6 +14,12 @@ enum InputHandler {
 
     typealias Result = ParseResult
 
+    static func decodeCommands(from data: Data) throws -> [CommandEnvelope] {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(CommandInput.self, from: data).commands
+    }
+
     static func parseInput(
         stdin: Bool,
         file: String?,
@@ -49,6 +55,19 @@ enum InputHandler {
     }
 
     // MARK: Private
+
+    private struct CommandInput: Decodable {
+        let commands: [CommandEnvelope]
+
+        init(from decoder: any Decoder) throws {
+            // Probe only the container shape; a malformed array entry must keep its own decoding error.
+            if (try? decoder.unkeyedContainer()) != nil {
+                self.commands = try [CommandEnvelope](from: decoder)
+            } else {
+                self.commands = try [CommandEnvelope(from: decoder)]
+            }
+        }
+    }
 
     // MARK: - Helper Functions
 

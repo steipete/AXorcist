@@ -121,6 +121,22 @@ public struct Locator: Codable, Sendable {
         self.debugPathSearch = debugPathSearch
     }
 
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.matchAll = try container.decodeIfPresent(Bool.self, forKey: .matchAll)
+        self.criteria = try container.decodeIfPresent([Criterion].self, forKey: .criteria) ?? []
+        self.descendantCriteria = try container.decodeIfPresent([String: String].self, forKey: .descendantCriteria)
+        self.requireAction = try container.decodeIfPresent(String.self, forKey: .requireAction)
+        self.computedNameContains = try container.decodeIfPresent(String.self, forKey: .computedNameContains)
+        self.debugPathSearch = try container.decodeIfPresent(Bool.self, forKey: .debugPathSearch)
+
+        // Preserve the published default Codable key as well as the CLI's snake-case decoding strategy.
+        let pathContainer = try decoder.container(keyedBy: ConvertedPathCodingKeys.self)
+        self.rootElementPathHint = try container.decodeIfPresent(
+            [JSONPathHintComponent].self, forKey: .rootElementPathHint)
+            ?? pathContainer.decodeIfPresent([JSONPathHintComponent].self, forKey: .pathFromRoot)
+    }
+
     // MARK: Public
 
     public var matchAll: Bool? // For the top-level criteria, if path_from_root is not used or fails early.
@@ -142,5 +158,9 @@ public struct Locator: Codable, Sendable {
         case requireAction
         case computedNameContains
         case debugPathSearch
+    }
+
+    private enum ConvertedPathCodingKeys: String, CodingKey {
+        case pathFromRoot
     }
 }

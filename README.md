@@ -558,7 +558,24 @@ Run `axorc --help` or `axorc help find` for the complete terminal reference. Hum
 
 ### JSON Protocol
 
-Every JSON command requires `command_id` and `command`. Input can come from standard input, a file, an argument, or the legacy root-level syntax:
+Every JSON command requires `command_id` and `command`. JSON command names and fields differ from the human-readable CLI:
+
+| CLI | JSON protocol |
+| --- | --- |
+| `tree --app <app> --depth 3` | `"command":"collectAll", "application":"<app>", "max_depth":3` |
+| `find --app <app> --role AXButton` | `"command":"query", "application":"<app>", "locator":{"criteria":[{"attribute":"AXRole","value":"AXButton"}]}` |
+
+`tree` and `find` are not JSON command names. Use `application` and `max_depth`, not `app` and `depth`. For example, the raw equivalent of `axorc tree --app com.apple.mail --depth 3 --json` is:
+
+```bash
+axorc raw --json '{"command_id":"mail-tree","command":"collectAll","application":"com.apple.mail","max_depth":3,"attributes":["AXRole","AXTitle","AXDescription","AXIdentifier","AXValue"]}'
+```
+
+Protocol commands are `ping`, `query`, `getAttributes`, `describeElement`, `getElementAtPoint`, `getFocusedElement`, `performAction`, `batch`, `observe`, `collectAll`, `stopObservation`, `isProcessTrusted`, `isAXFeatureEnabled`, `setFocusedValue`, and `extractText`. The reserved names `setNotificationHandler`, `removeNotificationHandler`, and `getElementDescription` decode but return a not-implemented error.
+
+Locators may contain `criteria`, `path_from_root`, or both; omitted `criteria` defaults to an empty list. Invalid payloads return a nonzero exit code and a JSON error with the failing field path. An application-not-found or Accessibility error means decoding succeeded and the command reached execution.
+
+Input can come from standard input, a file, an argument, or the legacy root-level syntax:
 
 ```bash
 # Standard input

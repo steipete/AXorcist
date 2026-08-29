@@ -1,6 +1,6 @@
 import Foundation
 
-private final class PipeStreamBuffer: @unchecked Sendable {
+private final nonisolated class PipeStreamBuffer: @unchecked Sendable {
     private let queue = DispatchQueue(
         label: "axorcist.tests.pipe-stream.\(UUID().uuidString)",
         qos: .userInitiated)
@@ -18,7 +18,7 @@ private final class PipeStreamBuffer: @unchecked Sendable {
 }
 
 @discardableResult
-func startStreaming(pipe: Pipe) -> () -> Data {
+nonisolated func startStreaming(pipe: Pipe) -> () -> Data {
     let buffer = PipeStreamBuffer()
     let group = DispatchGroup()
 
