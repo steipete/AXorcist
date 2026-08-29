@@ -1,8 +1,9 @@
 import Foundation
 import Testing
 
-@Suite("Raw JSON wire protocol", .tags(.safe))
-struct RawProtocolTests {
+/// Subprocess waits must leave MainActor free for observer lifecycle tests running alongside this suite.
+@Suite("Raw JSON wire protocol", .tags(.safe), .serialized)
+nonisolated struct RawProtocolTests {
     @Test(arguments: ["json", "stdin", "file"])
     func `Every protocol command reaches dispatch through every input source`(source: String) throws {
         let commands = [
@@ -107,6 +108,7 @@ struct RawProtocolTests {
     }
 
     private func run(_ payload: String, source: String) throws -> CommandResult {
+        #expect(!Thread.isMainThread, "Blocking subprocess waits must not occupy the main actor")
         switch source {
         case "stdin":
             return try runAXORCCommandWithStdin(inputJSON: payload, arguments: ["raw", "--timeout", "1"])

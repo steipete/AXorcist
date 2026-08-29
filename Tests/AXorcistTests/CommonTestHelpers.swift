@@ -27,7 +27,7 @@ enum AXTestEnvironment {
 }
 
 /// Result struct for AXORC commands
-struct CommandResult {
+nonisolated struct CommandResult: Sendable {
     let output: String?
     let errorOutput: String?
     let exitCode: Int32
@@ -164,7 +164,7 @@ func closeTextEdit() async {
     }
 }
 
-func runAXORCCommand(arguments: [String]) throws -> CommandResult {
+nonisolated func runAXORCCommand(arguments: [String]) throws -> CommandResult {
     let axorcUrl = productsDirectory.appendingPathComponent("axorc")
 
     let process = Process()
@@ -195,7 +195,7 @@ func runAXORCCommand(arguments: [String]) throws -> CommandResult {
     return CommandResult(output: cleanOutput, errorOutput: errorOutput, exitCode: process.terminationStatus)
 }
 
-func createTempFile(content: String) throws -> String {
+nonisolated func createTempFile(content: String) throws -> String {
     let tempDir = FileManager.default.temporaryDirectory
     let fileName = UUID().uuidString + ".json"
     let fileURL = tempDir.appendingPathComponent(fileName)
@@ -203,7 +203,7 @@ func createTempFile(content: String) throws -> String {
     return fileURL.path
 }
 
-func stripJSONPrefix(from output: String?) -> String? {
+nonisolated func stripJSONPrefix(from output: String?) -> String? {
     guard let output else { return nil }
     let prefix = "AXORC_JSON_OUTPUT_PREFIX:::"
     if output.hasPrefix(prefix) {
@@ -212,7 +212,7 @@ func stripJSONPrefix(from output: String?) -> String? {
     return output
 }
 
-func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> CommandResult {
+nonisolated func runAXORCCommandWithStdin(inputJSON: String, arguments: [String]) throws -> CommandResult {
     let axorcUrl = productsDirectory.appendingPathComponent("axorc")
 
     let process = Process()
@@ -473,7 +473,7 @@ enum TestError: Error, CustomStringConvertible {
 
 // MARK: - Helper Properties
 
-var productsDirectory: URL {
+nonisolated var productsDirectory: URL {
     #if os(macOS)
     for bundle in Bundle.allBundles where bundle.bundlePath.hasSuffix(".xctest") {
         return bundle.bundleURL.deletingLastPathComponent()
