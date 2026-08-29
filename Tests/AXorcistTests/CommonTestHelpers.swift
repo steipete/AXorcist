@@ -10,8 +10,8 @@ extension Comment {
 }
 
 extension Tag {
-    @Tag static var safe: Self
-    @Tag static var automation: Self
+    @Tag nonisolated static var safe: Self
+    @Tag nonisolated static var automation: Self
 }
 
 @preconcurrency
