@@ -49,8 +49,12 @@ native-only:
 	@bash scripts/test-native-ax-only.sh
 	@bash scripts/test-native-ax-only-policy.sh
 
-# Run formatting, linting, and native-only policy checks
-check: format-check lint native-only
+.PHONY: test-commander-dependency
+test-commander-dependency:
+	python3 scripts/test-commander-dependency.py
+
+# Run formatting, linting, native-only policy, and dependency checks
+check: format-check lint native-only test-commander-dependency
 	@echo "All code checks complete."
 
 # Default target
