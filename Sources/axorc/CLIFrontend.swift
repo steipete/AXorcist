@@ -354,6 +354,8 @@ enum CLIFrontend {
 
     Every command requires command_id and command fields. Legacy root-level
     raw invocations remain supported.
+    JSON uses collectAll/query, not the tree/find CLI names, and application/
+    max_depth, not app/depth. See the README's JSON Protocol examples.
 
     EXAMPLE:
       echo '{"command_id":"health","command":"ping"}' | axorc raw --stdin

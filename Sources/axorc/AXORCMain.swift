@@ -237,8 +237,6 @@ struct AXORCCommand: ParsableCommand {
         axorcist: AXorcist,
         traversalOptions: AXTraversalOptions) throws
     {
-        let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         guard let data = jsonString.data(using: .utf8) else {
             axDebugLog("AXORCMain Test: Failed to convert jsonStringFromInput to data.")
             self.respondWithError(
@@ -250,19 +248,15 @@ struct AXORCCommand: ParsableCommand {
 
         let commands: [CommandEnvelope]
         do {
-            commands = try decoder.decode([CommandEnvelope].self, from: data)
-        } catch let arrayDecodeError {
-            self.logDebug("Array decode failed: \(arrayDecodeError). Trying a single command.")
-            do {
-                commands = try [decoder.decode(CommandEnvelope.self, from: data)]
-            } catch let singleDecodeError {
-                self.logDebug("Single-command decode failed: \(singleDecodeError).")
-                self.respondWithError(
-                    commandId: "decode_error",
-                    error: "Failed to decode JSON input: \(singleDecodeError.localizedDescription)",
-                    logs: self.debug ? axGetLogsAsStrings() : nil)
-                throw ExitCode.failure
-            }
+            commands = try InputHandler.decodeCommands(from: data)
+        } catch {
+            self.logDebug("Command decode failed: \(error).")
+            let detail = (error as? DecodingError)?.humanReadableDescription ?? error.localizedDescription
+            self.respondWithError(
+                commandId: "decode_error",
+                error: "Failed to decode JSON input: \(detail)",
+                logs: self.debug ? axGetLogsAsStrings() : nil)
+            throw ExitCode.failure
         }
 
         guard let command = commands.first else {
