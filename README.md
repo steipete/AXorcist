@@ -524,9 +524,11 @@ let watcher = NotificationWatcher(globalNotification: .focusedUIElementChanged) 
 try watcher.start()
 ```
 
-Workspace snapshots are reconciled after the KVO callback returns. Membership in `runningApplications` supplies
-termination state without querying every application's `isTerminated` property; queued callbacks are discarded when
-the watcher stops, including across a restart.
+Complete workspace snapshots are reconciled in order after KVO delivery. PID and launch-readiness reads, readiness
+subscription, and its cleanup run on one serial background queue; a blocked metadata read leaves the main actor and
+stop responsive. Membership supplies termination state without querying `isTerminated`. Session and membership
+generations discard late results after stop, restart, or replacement, including removal and re-addition of the same
+application. A blocked native read can delay subsequent metadata work until it returns; it does not spawn extra workers.
 
 Applications that do not support the requested notification are skipped. Starting installs lifecycle tracking and
 returns without waiting for per-application Accessibility endpoints; observer creation, registration, and cleanup run

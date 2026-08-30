@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import os
 
 @MainActor
 protocol AXGlobalApplicationMonitoring: AnyObject, Sendable {
@@ -59,10 +60,10 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
         self.sessionID = nil
         self.runningApplicationsObservation?.invalidate()
         self.runningApplicationsObservation = nil
-        for observation in self.readinessObservations.values {
-            observation.invalidate()
+        for request in self.metadataRequests.values {
+            request.cancel()
         }
-        self.readinessObservations = [:]
+        self.metadataRequests = [:]
         self.applicationsByIdentity = [:]
         self.onLaunch = nil
         self.onTermination = nil
@@ -72,91 +73,188 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
         (@escaping @Sendable ([NSRunningApplication]) -> Void) -> NSKeyValueObservation
     private var sessionID: UUID?
     private var runningApplicationsObservation: NSKeyValueObservation?
-    private var readinessObservations: [NSRunningApplication: NSKeyValueObservation] = [:]
+    // Reuse one serial worker across sessions: a blocked read never creates replacement workers.
+    private let metadataQueue = DispatchQueue(label: "AXorcist.workspace-application-metadata")
+    private var metadataRequests: [NSRunningApplication: AXApplicationMetadataRequest] = [:]
     // Retain AppKit's semantic application keys: separate wrappers for one process instance
     // compare equal, while a replacement process remains a distinct application identity.
     private var applicationsByIdentity: [NSRunningApplication: pid_t] = [:]
     private var onLaunch: (@MainActor (pid_t) -> Void)?
     private var onTermination: (@MainActor (pid_t) -> Void)?
 
+    isolated deinit {
+        for request in self.metadataRequests.values {
+            request.cancel()
+        }
+    }
+
     private func reconcile(_ runningApplications: [NSRunningApplication], sessionID: UUID) {
-        // Workspace membership already identifies running apps. Querying isTerminated
-        // for each entry can synchronously block on LaunchServices.
-        let currentApplications = runningApplications
-            .reduce(into: [NSRunningApplication: pid_t]()) { applications, app in
-                let processIdentifier = app.processIdentifier
-                if processIdentifier > 0 {
-                    applications[app] = processIdentifier
-                }
-            }
-        let changes = Self.lifecycleChanges(
-            previous: self.applicationsByIdentity,
-            current: currentApplications)
-        let removedApplications = self.applicationsByIdentity.keys.filter { currentApplications[$0] == nil }
-        let addedApplications = currentApplications.keys.filter { self.applicationsByIdentity[$0] == nil }
+        // Process every complete snapshot in order, even when an earlier metadata read is blocked.
+        // Membership removal invalidates its request before a late PID/readiness result can arrive.
+        let currentApplications = Set(runningApplications)
+        let removedApplications = self.metadataRequests.keys.filter { !currentApplications.contains($0) }
+        var terminations: [pid_t] = []
         for application in removedApplications {
-            self.readinessObservations.removeValue(forKey: application)?.invalidate()
-        }
-        self.applicationsByIdentity = currentApplications
-        for processIdentifier in changes.terminations {
-            guard self.sessionID == sessionID else { return }
-            self.onTermination?(processIdentifier)
-        }
-        for application in addedApplications {
-            guard self.sessionID == sessionID else { return }
-            self.observeReadiness(of: application, sessionID: sessionID)
-        }
-        for processIdentifier in changes.launches {
-            guard self.sessionID == sessionID else { return }
-            self.onLaunch?(processIdentifier)
-        }
-    }
-
-    private func observeReadiness(of application: NSRunningApplication, sessionID: UUID) {
-        guard !application.isFinishedLaunching else { return }
-        let observation = application.observe(\.isFinishedLaunching, options: [.new]) { [weak self] app, change in
-            guard change.newValue == true else { return }
-            DispatchQueue.main.async { [weak self] in
-                self?.applicationBecameReady(app, sessionID: sessionID)
+            self.metadataRequests.removeValue(forKey: application)?.cancel()
+            if let pid = self.applicationsByIdentity.removeValue(forKey: application) {
+                terminations.append(pid)
             }
         }
-        self.readinessObservations[application] = observation
-        if application.isFinishedLaunching {
-            self.applicationBecameReady(application, sessionID: sessionID)
+        for pid in terminations.sorted() {
+            guard self.sessionID == sessionID else { return }
+            self.onTermination?(pid)
+        }
+        for application in runningApplications {
+            guard self.sessionID == sessionID else { return }
+            let request: AXApplicationMetadataRequest
+            if let existing = self.metadataRequests[application] {
+                request = existing
+            } else {
+                let requestID = UUID()
+                request = AXApplicationMetadataRequest(
+                    id: requestID,
+                    queue: self.metadataQueue)
+                { [weak self] event in
+                    guard let self, self.sessionID == sessionID,
+                          self.metadataRequests[application]?.id == requestID else { return }
+                    self.receive(event, from: application)
+                }
+                self.metadataRequests[application] = request
+            }
+            request.refresh(application)
         }
     }
 
-    private func applicationBecameReady(_ application: NSRunningApplication, sessionID: UUID) {
-        guard self.sessionID == sessionID,
-              let processIdentifier = self.applicationsByIdentity[application],
-              let observation = Self.claimReadiness(
-                  for: application,
-                  activeApplications: Set(self.applicationsByIdentity.keys),
-                  observations: &self.readinessObservations)
-        else { return }
+    private func receive(_ event: AXApplicationMetadataRequest.Event, from application: NSRunningApplication) {
+        switch event {
+        case let .pid(pid):
+            guard pid > 0 else {
+                if let previous = self.applicationsByIdentity.removeValue(forKey: application) {
+                    self.onTermination?(previous)
+                }
+                return
+            }
+            let previous = self.applicationsByIdentity.updateValue(pid, forKey: application)
+            if previous == nil {
+                self.onLaunch?(pid)
+            }
+        case .ready:
+            guard let pid = self.applicationsByIdentity[application] else { return }
+            self.onLaunch?(pid)
+        }
+    }
+}
+
+/// AppKit documents NSRunningApplication as thread-safe and the SDK marks it Sendable.
+/// Only cancellation/observation ownership uses the lock; native calls always run outside it.
+private final nonisolated class AXApplicationMetadataRequest: Sendable {
+    enum Event: Sendable {
+        case pid(pid_t)
+        case ready
+    }
+
+    private struct State {
+        var cancelled = false
+        var readinessStarted = false
+        var observation: (id: UUID, token: NSKeyValueObservation)?
+    }
+
+    let id: UUID
+    private let queue: DispatchQueue
+    private let deliver: @MainActor @Sendable (Event) -> Void
+    private let state = OSAllocatedUnfairLock(initialState: State())
+
+    init(
+        id: UUID,
+        queue: DispatchQueue,
+        deliver: @escaping @MainActor @Sendable (Event) -> Void)
+    {
+        self.id = id
+        self.queue = queue
+        self.deliver = deliver
+    }
+
+    func cancel() {
+        let observation = self.state.withLock {
+            $0.cancelled = true
+            let observation = $0.observation
+            $0.observation = nil
+            return observation?.token
+        }
+        // Invalidation can contend with KVO delivery; stop must never join native work.
+        self.queue.async { observation?.invalidate() }
+    }
+
+    func refresh(_ application: NSRunningApplication) {
+        self.queue.async { [self] in
+            guard !self.isCancelled else { return }
+            let pid = application.processIdentifier
+            guard !self.isCancelled else { return }
+            self.send(.pid(pid))
+            guard pid > 0 else {
+                self.resetReadiness()
+                return
+            }
+            let shouldObserve = self.state.withLock {
+                guard !$0.cancelled, !$0.readinessStarted else { return false }
+                $0.readinessStarted = true
+                return true
+            }
+            if shouldObserve {
+                self.observeReadiness(of: application)
+            }
+        }
+    }
+
+    private var isCancelled: Bool {
+        self.state.withLock { $0.cancelled }
+    }
+
+    private func resetReadiness() {
+        let observation = self.state.withLock {
+            $0.readinessStarted = false
+            let observation = $0.observation
+            $0.observation = nil
+            return observation?.token
+        }
+        observation?.invalidate()
+    }
+
+    private func observeReadiness(of application: NSRunningApplication) {
+        guard !application.isFinishedLaunching, !self.isCancelled else { return }
+        let observationID = UUID()
+        // Do not request .new: KVO would fetch readiness synchronously on the notifying thread.
+        let observation = application.observe(\.isFinishedLaunching, options: []) { [weak self] application, _ in
+            guard let self else { return }
+            self.queue.async { self.checkReadiness(of: application, observationID: observationID) }
+        }
+        let installed = self.state.withLock {
+            guard !$0.cancelled else { return false }
+            $0.observation = (observationID, observation)
+            return true
+        }
+        guard installed else {
+            observation.invalidate()
+            return
+        }
+        self.checkReadiness(of: application, observationID: observationID)
+    }
+
+    private func checkReadiness(of application: NSRunningApplication, observationID: UUID) {
+        guard self.state.withLock({ !$0.cancelled && $0.observation?.id == observationID }),
+              application.isFinishedLaunching else { return }
+        let observation = self.state.withLock {
+            guard !$0.cancelled, $0.observation?.id == observationID else { return nil as NSKeyValueObservation? }
+            let observation = $0.observation
+            $0.observation = nil
+            return observation?.token
+        }
+        guard let observation else { return }
         observation.invalidate()
-        self.onLaunch?(processIdentifier)
+        self.send(.ready)
     }
 
-    static func claimReadiness<Identity: Hashable, Observation>(
-        for identity: Identity,
-        activeApplications: Set<Identity>,
-        observations: inout [Identity: Observation]) -> Observation?
-    {
-        guard activeApplications.contains(identity) else { return nil }
-        return observations.removeValue(forKey: identity)
-    }
-
-    static func lifecycleChanges<Identity: Hashable>(
-        previous: [Identity: pid_t],
-        current: [Identity: pid_t]) -> (terminations: [pid_t], launches: [pid_t])
-    {
-        let terminations = previous.compactMap { identity, processIdentifier in
-            current[identity] == nil ? processIdentifier : nil
-        }.sorted()
-        let launches = current.compactMap { identity, processIdentifier in
-            previous[identity] == nil ? processIdentifier : nil
-        }.sorted()
-        return (terminations, launches)
+    private func send(_ event: Event) {
+        DispatchQueue.main.async { [deliver] in deliver(event) }
     }
 }
