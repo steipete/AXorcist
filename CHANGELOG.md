@@ -6,6 +6,7 @@ All notable changes to AXorcist will be documented in this file.
 
 ### Fixed
 - Keep Commander pinned to the remote exact 0.2.4 release regardless of checkout or scratch path; use explicit workspace overrides for local development.
+- Avoid synchronous LaunchServices termination queries during global application monitoring, and defer lifecycle callbacks out of KVO while preserving application identity, readiness, and stop/restart safety.
 
 ## [0.1.7] - 2026-08-28
 
