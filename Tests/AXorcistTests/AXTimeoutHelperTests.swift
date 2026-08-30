@@ -39,7 +39,7 @@ struct AXTimeoutHelperTests {
         let stillRunning = OSAllocatedUnfairLock(initialState: true)
         do {
             _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
-                await Self.sleepIgnoringCancellation(2)
+                await Self.sleepIgnoringCancellation(30)
                 stillRunning.withLock { $0 = false }
                 return 1
             }
