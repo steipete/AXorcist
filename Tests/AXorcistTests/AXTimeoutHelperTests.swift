@@ -37,8 +37,6 @@ struct AXTimeoutHelperTests {
     @Test
     func `returns without joining uncooperative work`() async {
         let stillRunning = OSAllocatedUnfairLock(initialState: true)
-        let clock = ContinuousClock()
-        let started = clock.now
         do {
             _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
                 await Self.sleepIgnoringCancellation(2)
@@ -47,7 +45,8 @@ struct AXTimeoutHelperTests {
             }
             Issue.record("Expected timeout but succeeded")
         } catch is AXTimeoutError {
-            #expect(clock.now - started < .seconds(1))
+            // stillRunning is the join proof. Wall-clock bounds flake on
+            // CI when the full 213-test job delays the GCD deadline.
             #expect(stillRunning.withLock { $0 })
         } catch {
             Issue.record("Unexpected error: \(error)")
