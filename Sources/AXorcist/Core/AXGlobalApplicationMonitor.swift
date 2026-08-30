@@ -17,28 +17,46 @@ protocol AXGlobalApplicationMonitoring: AnyObject, Sendable {
 /// lifecycle events needed to attach and detach those observers without polling.
 @MainActor
 final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
+    convenience init() {
+        self.init(workspace: NSWorkspace.shared, runningApplications: \.runningApplications)
+    }
+
+    init<Workspace: NSObject>(
+        workspace: Workspace,
+        runningApplications: any KeyPath<Workspace, [NSRunningApplication]> & Sendable)
+    {
+        self.observeRunningApplications = { handler in
+            workspace.observe(runningApplications, options: [.initial]) { workspace, _ in
+                // Indexed KVO changes can contain only the changed entries. Capture the full
+                // membership snapshot here, without reading any application metadata.
+                handler(workspace[keyPath: runningApplications])
+            }
+        }
+    }
+
     var runningProcessIdentifiers: [pid_t] {
-        Self.eligibleApplications(NSWorkspace.shared.runningApplications).map(\.processIdentifier)
+        Array(self.applicationsByIdentity.values)
     }
 
     func start(
         onLaunch: @escaping @MainActor (pid_t) -> Void,
         onTermination: @escaping @MainActor (pid_t) -> Void)
     {
-        guard self.runningApplicationsObservation == nil else { return }
+        guard self.sessionID == nil else { return }
+        let sessionID = UUID()
+        self.sessionID = sessionID
         self.onLaunch = onLaunch
         self.onTermination = onTermination
-        self.runningApplicationsObservation = NSWorkspace.shared.observe(
-            \.runningApplications,
-            options: [.initial, .new])
-        { [weak self] _, _ in
-            MainActor.assumeIsolated {
-                self?.reconcile(NSWorkspace.shared.runningApplications)
+        self.runningApplicationsObservation = self.observeRunningApplications { [weak self] applications in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.sessionID == sessionID else { return }
+                self.reconcile(applications, sessionID: sessionID)
             }
         }
     }
 
     func stop() {
+        self.sessionID = nil
         self.runningApplicationsObservation?.invalidate()
         self.runningApplicationsObservation = nil
         for observation in self.readinessObservations.values {
@@ -50,6 +68,9 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
         self.onTermination = nil
     }
 
+    private let observeRunningApplications:
+        (@escaping @Sendable ([NSRunningApplication]) -> Void) -> NSKeyValueObservation
+    private var sessionID: UUID?
     private var runningApplicationsObservation: NSKeyValueObservation?
     private var readinessObservations: [NSRunningApplication: NSKeyValueObservation] = [:]
     // Retain AppKit's semantic application keys: separate wrappers for one process instance
@@ -58,11 +79,16 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
     private var onLaunch: (@MainActor (pid_t) -> Void)?
     private var onTermination: (@MainActor (pid_t) -> Void)?
 
-    private func reconcile(_ runningApplications: [NSRunningApplication]) {
-        let currentApplications = Dictionary(
-            uniqueKeysWithValues: Self.eligibleApplications(runningApplications).map {
-                ($0, $0.processIdentifier)
-            })
+    private func reconcile(_ runningApplications: [NSRunningApplication], sessionID: UUID) {
+        // Workspace membership already identifies running apps. Querying isTerminated
+        // for each entry can synchronously block on LaunchServices.
+        let currentApplications = runningApplications
+            .reduce(into: [NSRunningApplication: pid_t]()) { applications, app in
+                let processIdentifier = app.processIdentifier
+                if processIdentifier > 0 {
+                    applications[app] = processIdentifier
+                }
+            }
         let changes = Self.lifecycleChanges(
             previous: self.applicationsByIdentity,
             current: currentApplications)
@@ -71,40 +97,45 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
         for application in removedApplications {
             self.readinessObservations.removeValue(forKey: application)?.invalidate()
         }
+        self.applicationsByIdentity = currentApplications
         for processIdentifier in changes.terminations {
+            guard self.sessionID == sessionID else { return }
             self.onTermination?(processIdentifier)
         }
-        self.applicationsByIdentity = currentApplications
         for application in addedApplications {
-            self.observeReadiness(of: application)
+            guard self.sessionID == sessionID else { return }
+            self.observeReadiness(of: application, sessionID: sessionID)
         }
         for processIdentifier in changes.launches {
+            guard self.sessionID == sessionID else { return }
             self.onLaunch?(processIdentifier)
         }
     }
 
-    private func observeReadiness(of application: NSRunningApplication) {
+    private func observeReadiness(of application: NSRunningApplication, sessionID: UUID) {
         guard !application.isFinishedLaunching else { return }
         let observation = application.observe(\.isFinishedLaunching, options: [.new]) { [weak self] app, change in
             guard change.newValue == true else { return }
-            MainActor.assumeIsolated {
-                self?.applicationBecameReady(app)
+            DispatchQueue.main.async { [weak self] in
+                self?.applicationBecameReady(app, sessionID: sessionID)
             }
         }
         self.readinessObservations[application] = observation
         if application.isFinishedLaunching {
-            self.applicationBecameReady(application)
+            self.applicationBecameReady(application, sessionID: sessionID)
         }
     }
 
-    private func applicationBecameReady(_ application: NSRunningApplication) {
-        guard let observation = Self.claimReadiness(
-            for: application,
-            activeApplications: Set(self.applicationsByIdentity.keys),
-            observations: &self.readinessObservations)
+    private func applicationBecameReady(_ application: NSRunningApplication, sessionID: UUID) {
+        guard self.sessionID == sessionID,
+              let processIdentifier = self.applicationsByIdentity[application],
+              let observation = Self.claimReadiness(
+                  for: application,
+                  activeApplications: Set(self.applicationsByIdentity.keys),
+                  observations: &self.readinessObservations)
         else { return }
         observation.invalidate()
-        self.onLaunch?(application.processIdentifier)
+        self.onLaunch?(processIdentifier)
     }
 
     static func claimReadiness<Identity: Hashable, Observation>(
@@ -127,11 +158,5 @@ final class AXWorkspaceApplicationMonitor: AXGlobalApplicationMonitoring {
             previous[identity] == nil ? processIdentifier : nil
         }.sorted()
         return (terminations, launches)
-    }
-
-    private static func eligibleApplications(
-        _ runningApplications: [NSRunningApplication]) -> [NSRunningApplication]
-    {
-        runningApplications.filter { !$0.isTerminated && $0.processIdentifier > 0 }
     }
 }

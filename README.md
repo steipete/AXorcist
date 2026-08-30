@@ -524,6 +524,10 @@ let watcher = NotificationWatcher(globalNotification: .focusedUIElementChanged) 
 try watcher.start()
 ```
 
+Workspace snapshots are reconciled after the KVO callback returns. Membership in `runningApplications` supplies
+termination state without querying every application's `isTerminated` property; queued callbacks are discarded when
+the watcher stops, including across a restart.
+
 Applications that do not support the requested notification are skipped. Starting installs lifecycle tracking and
 returns without waiting for per-application Accessibility endpoints; observer creation, registration, and cleanup run
 off the main actor with bounded native messaging timeouts, so one wedged app cannot block startup or teardown. The
