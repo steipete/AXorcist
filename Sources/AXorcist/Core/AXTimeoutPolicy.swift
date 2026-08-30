@@ -195,25 +195,28 @@ public enum AXTimeoutHelper {
     ///
     /// Returns when `seconds` elapse even if `operation` ignores cancellation.
     /// The leftover work is asked to cancel but is not joined.
+    /// `operation` is `@concurrent` so `Thread.sleep` cannot hold MainActor
+    /// across the deadline under `defaultIsolation(MainActor.self)`.
     @MainActor
     public static func withTimeout<T: Sendable>(
         seconds: TimeInterval,
-        operation: @escaping @Sendable () async throws -> T) async throws -> T
+        operation: @escaping @concurrent @Sendable () async throws -> T) async throws -> T
     {
         try await self.race(seconds: seconds, operation: operation)
     }
 
     /// Race a deadline against unstructured work. A throwing TaskGroup would
     /// still join an uncooperative child after the timeout throw.
-    private nonisolated static func race<T: Sendable>(
+    @concurrent
+    private static func race<T: Sendable>(
         seconds: TimeInterval,
-        operation: @escaping @Sendable () async throws -> T) async throws -> T
+        operation: @escaping @concurrent @Sendable () async throws -> T) async throws -> T
     {
         let timeoutError = AXTimeoutError.operationTimedOut(duration: seconds)
-        let work = Task.detached {
+        let work = Task.detached { @concurrent in
             try await operation()
         }
-        let sleeper = Task.detached(priority: .utility) {
+        let sleeper = Task.detached(priority: .utility) { @concurrent in
             try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         }
         let gateBox = OSAllocatedUnfairLock<FirstResultGate<Result<T, any Error>>?>(initialState: nil)
@@ -222,7 +225,7 @@ public enum AXTimeoutHelper {
             await withCheckedContinuation { continuation in
                 let gate = FirstResultGate(continuation: continuation)
                 gateBox.withLock { $0 = gate }
-                Task.detached {
+                Task.detached { @concurrent in
                     do {
                         let value = try await work.value
                         sleeper.cancel()
@@ -232,7 +235,7 @@ public enum AXTimeoutHelper {
                         gate.finish(with: .failure(error))
                     }
                 }
-                Task.detached {
+                Task.detached { @concurrent in
                     do {
                         try await sleeper.value
                     } catch {

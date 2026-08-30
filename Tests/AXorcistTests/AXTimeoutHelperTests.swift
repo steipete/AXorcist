@@ -37,6 +37,8 @@ struct AXTimeoutHelperTests {
     @Test
     func `returns without joining uncooperative work`() async {
         let stillRunning = OSAllocatedUnfairLock(initialState: true)
+        let clock = ContinuousClock()
+        let started = clock.now
         do {
             _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
                 Self.sleepIgnoringCancellation(2)
@@ -45,6 +47,7 @@ struct AXTimeoutHelperTests {
             }
             Issue.record("Expected timeout but succeeded")
         } catch is AXTimeoutError {
+            #expect(clock.now - started < .seconds(1))
             #expect(stillRunning.withLock { $0 })
         } catch {
             Issue.record("Unexpected error: \(error)")
