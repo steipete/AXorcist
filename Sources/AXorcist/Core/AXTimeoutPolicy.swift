@@ -213,11 +213,8 @@ public enum AXTimeoutHelper {
         operation: @escaping @concurrent @Sendable () async throws -> T) async throws -> T
     {
         let timeoutError = AXTimeoutError.operationTimedOut(duration: seconds)
-        let work = Task.detached { @concurrent in
+        let work = Task.detached {
             try await operation()
-        }
-        let sleeper = Task.detached(priority: .utility) { @concurrent in
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
         }
         let gateBox = OSAllocatedUnfairLock<FirstResultGate<Result<T, any Error>>?>(initialState: nil)
 
@@ -225,29 +222,23 @@ public enum AXTimeoutHelper {
             await withCheckedContinuation { continuation in
                 let gate = FirstResultGate(continuation: continuation)
                 gateBox.withLock { $0 = gate }
-                Task.detached { @concurrent in
+                Task.detached {
                     do {
                         let value = try await work.value
-                        sleeper.cancel()
                         gate.finish(with: .success(value))
                     } catch {
-                        sleeper.cancel()
                         gate.finish(with: .failure(error))
                     }
                 }
-                Task.detached { @concurrent in
-                    do {
-                        try await sleeper.value
-                    } catch {
-                        return
-                    }
+                // GCD timer, not Task.sleep: CI Swift 6.2.1 serialized the
+                // sleeper Task behind the uncooperative work Task.
+                DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
                     gate.finish(with: .failure(timeoutError), fromTimeout: true)
                     work.cancel()
                 }
             }
         } onCancel: {
             work.cancel()
-            sleeper.cancel()
             gateBox.withLock { $0 }?.finish(with: .failure(CancellationError()), fromTimeout: true)
         }
 
