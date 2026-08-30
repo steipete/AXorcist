@@ -41,7 +41,7 @@ struct AXTimeoutHelperTests {
         let started = clock.now
         do {
             _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
-                Self.sleepIgnoringCancellation(2)
+                await Self.sleepIgnoringCancellation(2)
                 stillRunning.withLock { $0 = false }
                 return 1
             }
@@ -262,8 +262,15 @@ struct AXTimeoutHelperTests {
         }
     }
 
-    /// Blocks the calling thread. Cancellation does not interrupt this wait.
-    private nonisolated static func sleepIgnoringCancellation(_ seconds: TimeInterval) {
-        Thread.sleep(forTimeInterval: seconds)
+    /// Blocks a background thread. Cancellation does not interrupt this wait.
+    /// Must not Thread.sleep on the caller: CI Swift 6.2.1 still runs the
+    /// `@Sendable` operation on MainActor, which would stall the deadline.
+    private nonisolated static func sleepIgnoringCancellation(_ seconds: TimeInterval) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global().async {
+                Thread.sleep(forTimeInterval: seconds)
+                cont.resume()
+            }
+        }
     }
 }
