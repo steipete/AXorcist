@@ -4,8 +4,8 @@ set -euo pipefail
 
 swiftformat_version="0.62.1"
 swiftformat_sha256="7cb1cb1fae04932047c7015441c543848e8e60e1572d808d080e0a1f1661114a"
-swiftlint_version="0.65.0"
-swiftlint_sha256="d6cb0aa7a2f5f1ef306fc9e37bcb54dc9a26facc8f7784ac0c3dd3eccf5c6ba6"
+swiftlint_version="0.65.1"
+swiftlint_sha256="c1e429b0599cf1b516f369a2d9ec04eaf0e436f3c12b637df8851fa52ff694d0"
 
 if [[ $# -gt 1 || "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   echo "Usage: scripts/install-validation-tools.sh [destination]"
