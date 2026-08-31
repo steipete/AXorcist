@@ -7,6 +7,7 @@ All notable changes to AXorcist will be documented in this file.
 ### Fixed
 - Keep Commander pinned to the remote exact 0.2.4 release regardless of checkout or scratch path; use explicit workspace overrides for local development.
 - Keep global application PID and launch-readiness reads off the main actor and outside KVO callbacks, use workspace membership instead of termination queries, and discard stale metadata across stop, restart, and application replacement.
+- Retain each exact application wrapper until its readiness observation finishes unregistering, preventing premature deallocation during queued cleanup and semantic wrapper replacement.
 
 ## [0.1.7] - 2026-08-28
 

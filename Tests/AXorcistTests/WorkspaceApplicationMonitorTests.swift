@@ -387,6 +387,108 @@ struct WorkspaceApplicationMonitorTests {
 }
 
 @MainActor
+extension WorkspaceApplicationMonitorTests {
+    @Test(arguments: ObservationEnd.allCases)
+    private func `readiness lease retains the exact wrapper through queued invalidation`(_ end: ObservationEnd) async {
+        let probe = ApplicationMetadataProbe()
+        let lifetime = ApplicationLifetimeProbe()
+        let workspace = MonitorWorkspace(applications: [MonitorApplication(instance: "same", pid: 0, probe: probe)])
+        var monitor: AXWorkspaceApplicationMonitor? = AXWorkspaceApplicationMonitor(
+            workspace: workspace, runningApplications: \.applications)
+        monitor?.start(onLaunch: { _ in }, onTermination: { _ in })
+        await workspace.flushMetadata()
+
+        // The request's original semantic key is not the wrapper on which KVO is installed.
+        let observed = workspace.replaceWithLifetimeApplication(probe: probe, lifetime: lifetime)
+        await workspace.flushMetadata()
+        #expect(lifetime.registrations == 1)
+
+        let gate = MetadataGate(read: .pid)
+        workspace.applications.append(MonitorApplication(instance: "blocker", pid: 43, probe: probe, gate: gate))
+        await gate.waitUntilEntered()
+        workspace.applications = [MonitorApplication(instance: "same", pid: 42, probe: probe)]
+        await drainMainQueue()
+        #expect(observed.value != nil, "Semantic wrapper churn must retain the exact KVO target")
+
+        switch end {
+        case .removal:
+            workspace.applications = []
+            await drainMainQueue()
+        case .stop:
+            monitor?.stop()
+            workspace.applications = []
+        case .destruction:
+            monitor = nil
+            workspace.applications = []
+        }
+        #expect(gate.isBlocked)
+        #expect(
+            observed.value != nil,
+            "Queued invalidation must own the observed wrapper until unregistering completes")
+        #expect(lifetime.removals == 0)
+        gate.release()
+        await lifetime.waitForDeallocation()
+        #expect(observed.value == nil)
+        #expect(lifetime.removals == 1)
+        #expect(!lifetime.deallocatedWhileObserved)
+        monitor?.stop()
+    }
+
+    @Test(arguments: ObservationInvalidation.allCases)
+    private func `readiness lease survives invalidation completion and installation cancellation`(
+        _ invalidation: ObservationInvalidation) async
+    {
+        let probe = ApplicationMetadataProbe()
+        let installation = ObservationGate()
+        let removal = ObservationGate()
+        let lifetime = ApplicationLifetimeProbe(
+            afterRegistration: {
+                if invalidation == .cancelledInstallation {
+                    installation.hold()
+                }
+            },
+            beforeRemovalReturns: { removal.hold() })
+        let workspace = MonitorWorkspace(applications: [MonitorApplication(instance: "same", pid: 0, probe: probe)])
+        let monitor = AXWorkspaceApplicationMonitor(workspace: workspace, runningApplications: \.applications)
+        var launches: [pid_t] = []
+        monitor.start(onLaunch: { launches.append($0) }, onTermination: { _ in })
+        await workspace.flushMetadata()
+        let observed = workspace.replaceWithLifetimeApplication(probe: probe, lifetime: lifetime)
+
+        if invalidation == .cancelledInstallation {
+            await installation.waitUntilEntered()
+            monitor.stop()
+            workspace.applications = []
+            #expect(observed.value != nil)
+            installation.release()
+        } else {
+            await workspace.flushMetadata()
+            workspace.applications = [MonitorApplication(
+                instance: "same", pid: invalidation == .reset ? 0 : 42, probe: probe)]
+            if invalidation == .readiness {
+                observed.value?.finishLaunching()
+            }
+        }
+        await removal.waitUntilEntered()
+        monitor.stop()
+        workspace.applications = []
+        let launchesAtStop = launches
+        #expect(observed.value != nil, "The exact target must survive until invalidate returns")
+        #expect(lifetime.removals == 0)
+        #expect(monitor.runningProcessIdentifiers.isEmpty)
+        removal.release()
+        await lifetime.waitForDeallocation()
+        #expect(observed.value == nil)
+        #expect(lifetime.removals == 1)
+        #expect(!lifetime.deallocatedWhileObserved)
+        monitor.start(onLaunch: { launches.append($0) }, onTermination: { _ in })
+        await workspace.flushMetadata()
+        #expect(launches == launchesAtStop)
+        monitor.stop()
+    }
+}
+
+@MainActor
 private func drainMainQueue() async {
     await withCheckedContinuation { continuation in
         DispatchQueue.main.async { continuation.resume() }
@@ -431,6 +533,88 @@ private nonisolated enum MetadataRead: Sendable {
     case pid, readinessCheck, readinessRecheck, readinessNotification
 
     static let initialReads: [Self] = [.pid, .readinessCheck, .readinessRecheck]
+}
+
+private nonisolated enum ObservationEnd: CaseIterable, Sendable {
+    case removal, stop, destruction
+}
+
+private nonisolated enum ObservationInvalidation: CaseIterable, Sendable {
+    case reset, readiness, cancelledInstallation
+}
+
+private final nonisolated class ObservationGate: Sendable {
+    private let entry = AsyncStream<Void>.makeStream()
+    private let semaphore = DispatchSemaphore(value: 0)
+
+    func hold() {
+        #expect(!Thread.isMainThread)
+        self.entry.continuation.yield(())
+        if !Thread.isMainThread {
+            self.semaphore.wait()
+        }
+    }
+
+    func waitUntilEntered() async {
+        var iterator = self.entry.stream.makeAsyncIterator()
+        _ = await iterator.next()
+    }
+
+    func release() {
+        self.semaphore.signal()
+    }
+}
+
+private final nonisolated class ApplicationLifetimeProbe: Sendable {
+    private struct State {
+        var registrations = 0
+        var removals = 0
+        var deallocatedWhileObserved = false
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
+    private let deallocation = AsyncStream<Void>.makeStream()
+    private let afterRegistration: (@Sendable () -> Void)?
+    private let beforeRemovalReturns: (@Sendable () -> Void)?
+
+    init(afterRegistration: (@Sendable () -> Void)? = nil, beforeRemovalReturns: (@Sendable () -> Void)? = nil) {
+        self.afterRegistration = afterRegistration
+        self.beforeRemovalReturns = beforeRemovalReturns
+    }
+
+    var registrations: Int {
+        self.state.withLock { $0.registrations }
+    }
+
+    var removals: Int {
+        self.state.withLock { $0.removals }
+    }
+
+    var deallocatedWhileObserved: Bool {
+        self.state.withLock { $0.deallocatedWhileObserved }
+    }
+
+    func registered() {
+        #expect(!Thread.isMainThread)
+        self.state.withLock { $0.registrations += 1 }
+        self.afterRegistration?()
+    }
+
+    func removed() {
+        #expect(!Thread.isMainThread)
+        self.beforeRemovalReturns?()
+        self.state.withLock { $0.removals += 1 }
+    }
+
+    func deallocated() {
+        self.state.withLock { $0.deallocatedWhileObserved = $0.registrations > $0.removals }
+        self.deallocation.continuation.yield(())
+    }
+
+    func waitForDeallocation() async {
+        var iterator = self.deallocation.stream.makeAsyncIterator()
+        _ = await iterator.next()
+    }
 }
 
 private final nonisolated class MetadataGate: Sendable {
@@ -525,6 +709,22 @@ private final class MonitorWorkspace: NSObject {
         super.init()
     }
 
+    func replaceWithLifetimeApplication(
+        probe: ApplicationMetadataProbe,
+        lifetime: ApplicationLifetimeProbe) -> WeakMonitorApplication
+    {
+        autoreleasepool {
+            let application = MonitorApplication(
+                instance: "same",
+                pid: 42,
+                ready: false,
+                probe: probe,
+                lifetime: lifetime)
+            self.applications = [application]
+            return WeakMonitorApplication(application)
+        }
+    }
+
     /// A synthetic invalid-PID member is an observable fence behind earlier metadata work.
     /// No production queue/test hook or timing assumption is needed.
     func flushMetadata() async {
@@ -541,12 +741,25 @@ private final class MonitorWorkspace: NSObject {
     }
 }
 
+@MainActor
+private final class WeakMonitorApplication {
+    weak var value: MonitorApplication?
+
+    init(_ application: MonitorApplication) {
+        self.value = application
+    }
+}
+
 private final nonisolated class MonitorApplication: NSRunningApplication, @unchecked Sendable {
+    // Foundation may try to unregister during super.deinit, after Swift stored properties are gone.
+    // Keep the baseline regression an assertion failure instead of calling AppKit on that dead state.
+    private static let deallocating = OSAllocatedUnfairLock(initialState: Set<ObjectIdentifier>())
     private let instance: String
     private let pid: pid_t
     private let probe: ApplicationMetadataProbe
     private let ready: OSAllocatedUnfairLock<Bool>
     private let gate: MetadataGate?
+    private let lifetime: ApplicationLifetimeProbe?
     private let onPIDRead: (@Sendable () -> Void)?
 
     @MainActor
@@ -556,6 +769,7 @@ private final nonisolated class MonitorApplication: NSRunningApplication, @unche
         ready: Bool = true,
         probe: ApplicationMetadataProbe,
         gate: MetadataGate? = nil,
+        lifetime: ApplicationLifetimeProbe? = nil,
         onPIDRead: (@Sendable () -> Void)? = nil)
     {
         self.instance = instance
@@ -563,8 +777,33 @@ private final nonisolated class MonitorApplication: NSRunningApplication, @unche
         self.ready = OSAllocatedUnfairLock(initialState: ready)
         self.probe = probe
         self.gate = gate
+        self.lifetime = lifetime
         self.onPIDRead = onPIDRead
         super.init()
+        _ = Self.deallocating.withLock { $0.remove(ObjectIdentifier(self)) }
+    }
+
+    deinit {
+        if let lifetime = self.lifetime {
+            _ = Self.deallocating.withLock { $0.insert(ObjectIdentifier(self)) }
+            lifetime.deallocated()
+        }
+    }
+
+    override func addObserver(
+        _ observer: NSObject,
+        forKeyPath keyPath: String,
+        options: NSKeyValueObservingOptions = [],
+        context: UnsafeMutableRawPointer?)
+    {
+        super.addObserver(observer, forKeyPath: keyPath, options: options, context: context)
+        self.lifetime?.registered()
+    }
+
+    override func removeObserver(_ observer: NSObject, forKeyPath keyPath: String, context: UnsafeMutableRawPointer?) {
+        guard !Self.deallocating.withLock({ $0.contains(ObjectIdentifier(self)) }) else { return }
+        super.removeObserver(observer, forKeyPath: keyPath, context: context)
+        self.lifetime?.removed()
     }
 
     override var processIdentifier: pid_t {

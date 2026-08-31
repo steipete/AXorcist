@@ -156,7 +156,21 @@ private final nonisolated class AXApplicationMetadataRequest: Sendable {
     private struct State {
         var cancelled = false
         var readinessStarted = false
-        var observation: (id: UUID, token: NSKeyValueObservation)?
+        var observation: ReadinessObservation?
+    }
+
+    private struct ReadinessObservation: Sendable {
+        let id: UUID
+        let application: NSRunningApplication
+        let token: NSKeyValueObservation
+
+        func invalidate() {
+            // Foundation's token does not keep its target alive. Retain the exact wrapper
+            // through unregistering, even if ARC ends the lease's lifetime at this call.
+            withExtendedLifetime(self.application) {
+                self.token.invalidate()
+            }
+        }
     }
 
     let id: UUID
@@ -179,7 +193,7 @@ private final nonisolated class AXApplicationMetadataRequest: Sendable {
             $0.cancelled = true
             let observation = $0.observation
             $0.observation = nil
-            return observation?.token
+            return observation
         }
         // Invalidation can contend with KVO delivery; stop must never join native work.
         self.queue.async { observation?.invalidate() }
@@ -215,7 +229,7 @@ private final nonisolated class AXApplicationMetadataRequest: Sendable {
             $0.readinessStarted = false
             let observation = $0.observation
             $0.observation = nil
-            return observation?.token
+            return observation
         }
         observation?.invalidate()
     }
@@ -224,13 +238,14 @@ private final nonisolated class AXApplicationMetadataRequest: Sendable {
         guard !application.isFinishedLaunching, !self.isCancelled else { return }
         let observationID = UUID()
         // Do not request .new: KVO would fetch readiness synchronously on the notifying thread.
-        let observation = application.observe(\.isFinishedLaunching, options: []) { [weak self] application, _ in
+        let token = application.observe(\.isFinishedLaunching, options: []) { [weak self] application, _ in
             guard let self else { return }
             self.queue.async { self.checkReadiness(of: application, observationID: observationID) }
         }
+        let observation = ReadinessObservation(id: observationID, application: application, token: token)
         let installed = self.state.withLock {
             guard !$0.cancelled else { return false }
-            $0.observation = (observationID, observation)
+            $0.observation = observation
             return true
         }
         guard installed else {
@@ -244,10 +259,10 @@ private final nonisolated class AXApplicationMetadataRequest: Sendable {
         guard self.state.withLock({ !$0.cancelled && $0.observation?.id == observationID }),
               application.isFinishedLaunching else { return }
         let observation = self.state.withLock {
-            guard !$0.cancelled, $0.observation?.id == observationID else { return nil as NSKeyValueObservation? }
+            guard !$0.cancelled, $0.observation?.id == observationID else { return nil as ReadinessObservation? }
             let observation = $0.observation
             $0.observation = nil
-            return observation?.token
+            return observation
         }
         guard let observation else { return }
         observation.invalidate()

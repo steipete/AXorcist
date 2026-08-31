@@ -529,6 +529,8 @@ subscription, and its cleanup run on one serial background queue; a blocked meta
 stop responsive. Membership supplies termination state without querying `isTerminated`. Session and membership
 generations discard late results after stop, restart, or replacement, including removal and re-addition of the same
 application. A blocked native read can delay subsequent metadata work until it returns; it does not spawn extra workers.
+Each readiness observation retains its exact application wrapper until invalidation completes, including queued cleanup
+after stop or wrapper replacement.
 
 Applications that do not support the requested notification are skipped. Starting installs lifecycle tracking and
 returns without waiting for per-application Accessibility endpoints; observer creation, registration, and cleanup run
