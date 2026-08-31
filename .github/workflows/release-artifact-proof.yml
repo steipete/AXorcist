@@ -1,0 +1,50 @@
+name: AXorcist 0.1.8 clean install proof
+
+on:
+  push:
+    branches: [proof/axorcist-0.1.8-install]
+
+permissions:
+  contents: read
+
+jobs:
+  public-install:
+    runs-on: macos-26
+    timeout-minutes: 15
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      HOMEBREW_NO_INSTALL_CLEANUP: "1"
+    steps:
+      - name: Verify public archive and notarization
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --location --silent --show-error https://github.com/openclaw/AXorcist/releases/download/v0.1.8/axorc-0.1.8-macos-universal.zip --output axorc-0.1.8-macos-universal.zip
+          curl --fail --location --silent --show-error https://github.com/openclaw/AXorcist/releases/download/v0.1.8/axorc-0.1.8-macos-universal.zip.sha256 --output axorc-0.1.8-macos-universal.zip.sha256
+          shasum -a 256 -c axorc-0.1.8-macos-universal.zip.sha256
+          printf '%s  %s\n' '40e05ecfcfc5d6b1b7d96649b2a3eb7a916e4bf584e91d1535238eee5f3e75e4' axorc-0.1.8-macos-universal.zip | shasum -a 256 -c -
+          ditto -x -k axorc-0.1.8-macos-universal.zip released
+          lipo released/axorc -verify_arch arm64 x86_64
+          codesign --verify --strict released/axorc
+          codesign -vvvv -R="notarized" --check-notarization released/axorc
+          test "$(released/axorc --version)" = 'axorc 0.1.8'
+          released/axorc --help
+          released/axorc raw --json '{"command_id":"release-ping","command":"ping"}'
+      - name: Install and verify the public Homebrew formula
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew tap openclaw/tap
+          brew audit --strict openclaw/tap/axorc
+          brew install --build-from-source openclaw/tap/axorc
+          installed="$(brew --prefix axorc)/bin/axorc"
+          cmp "$RUNNER_TEMP/released/axorc" "$installed"
+          codesign --verify --strict "$installed"
+          codesign -vvvv -R="notarized" --check-notarization "$installed"
+          codesign -d -r- "$installed" 2>&1 | grep -F 'anchor apple generic'
+          codesign -dv "$installed" 2>&1 | grep -F 'TeamIdentifier=FWJYW4S8P8'
+          test "$("$installed" --version)" = 'axorc 0.1.8'
+          "$installed" --help
+          "$installed" permissions
+          brew test openclaw/tap/axorc
