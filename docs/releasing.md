@@ -12,12 +12,18 @@ The Homebrew formula consumes a Developer ID-signed universal binary. Do not pub
    AXORC_CODESIGN_IDENTITY='Developer ID Application: ...' scripts/build-release-artifact.sh 0.1.8
    ```
 
-4. Submit `dist/axorc-0.1.8-macos-universal.zip` to `notarytool` using the approved release credentials. Wait for acceptance. Zip archives cannot be stapled; verify the downloaded archive online with Gatekeeper after publication.
+4. Submit `dist/axorc-0.1.8-macos-universal.zip` to `notarytool` using the approved release credentials. Wait for acceptance. Zip archives cannot be stapled; verify the downloaded executable's notarization ticket online after publication.
 
 ## Publish and update Homebrew
 
 1. Upload the zip and `.sha256` file to the matching GitHub Release.
-2. Download the public artifact into a clean temporary directory. Verify its checksum, universal architectures, stable signature, `spctl` assessment, `--version`, and `--help`.
+2. Download the public artifact into a clean temporary directory. Verify its checksum, universal architectures, stable signature, `--version`, and `--help`. Verify the standalone executable's notarization ticket with:
+
+   ```bash
+   codesign -vvvv -R="notarized" --check-notarization axorc
+   ```
+
+   `spctl --assess --type execute` is an app assessment and can reject valid standalone executables as not being apps. Follow Apple's [Testing a Notarised Product](https://developer.apple.com/forums/thread/130560) guidance for other code, and also test the actual install and launch on a fresh Mac or VM. Keep networking enabled because the zip cannot carry a stapled ticket.
 3. Render the formula with the public artifact checksum:
 
    ```bash
