@@ -48,3 +48,87 @@ jobs:
           "$installed" --help
           "$installed" permissions
           brew test openclaw/tap/axorc
+
+  embedded-bridge:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - name: Check out the exact OpenClaw adoption candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: openclaw/openclaw
+          ref: 7ba9c46284bfad13fffae8eafc261d0cbc35d78c
+          persist-credentials: false
+      - name: Verify the released signed Peekaboo client
+        shell: bash
+        run: |
+          set -euo pipefail
+          client_root="$RUNNER_TEMP/peekaboo-client"
+          mkdir -p "$client_root"
+          curl --fail --location --silent --show-error https://github.com/openclaw/Peekaboo/releases/download/v4.2.2/peekaboo-macos-universal.tar.gz --output "$client_root/client.tar.gz"
+          printf '%s  %s\n' '80b1983a9a2468e715e176167b75aabb4f43feb4882d667ffccc9373d706602e' "$client_root/client.tar.gz" | shasum -a 256 -c -
+          tar -xzf "$client_root/client.tar.gz" -C "$client_root"
+          client="$client_root/peekaboo-macos-universal/peekaboo"
+          codesign --verify --strict "$client"
+          codesign -vvvv -R="notarized" --check-notarization "$client"
+          codesign -dv "$client" 2>&1 | grep -Fx 'Identifier=boo.peekaboo.peekaboo'
+          codesign -dv "$client" 2>&1 | grep -Fx 'TeamIdentifier=FWJYW4S8P8'
+          codesign -d -r- "$client" 2>&1 | grep -F 'anchor apple generic'
+          printf 'SIGNED_PEEKABOO=%s\n' "$client" >> "$GITHUB_ENV"
+      - name: Run the existing real coordinator handshake and teardown test
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          swift --version
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+          import signal
+          import subprocess
+          import tempfile
+
+          root = Path(tempfile.mkdtemp(prefix="openclaw-bridge-proof-", dir=os.environ["RUNNER_TEMP"]))
+          home = root / "home"
+          for directory in (home / "Library/Preferences", home / "state", root / "tmp", root / "peekaboo"):
+              directory.mkdir(parents=True, exist_ok=True)
+          environment = {
+              "PATH": os.environ["PATH"],
+              "HOME": str(home),
+              "CFFIXED_USER_HOME": str(home),
+              "TMPDIR": str(root / "tmp") + "/",
+              "TERM": "dumb",
+              "OPENCLAW_PROFILE": "bridge-proof",
+              "OPENCLAW_STATE_DIR": str(home / "state"),
+              "OPENCLAW_CONFIG_PATH": str(home / "state/openclaw.json"),
+              "OPENCLAW_PEEKABOO_HANDSHAKE_CLI": os.environ["SIGNED_PEEKABOO"],
+              "PEEKABOO_CONFIG_DIR": str(root / "peekaboo"),
+              "PEEKABOO_CONFIG_DISABLE_MIGRATION": "1",
+          }
+          for key in ("DEVELOPER_DIR", "SDKROOT", "TOOLCHAINS"):
+              if key in os.environ:
+                  environment[key] = os.environ[key]
+          command = [
+              "swift", "test", "--package-path", "apps/macos",
+              "--scratch-path", str(root / "custom scratch"),
+              "--build-system", "native", "--disable-automatic-resolution",
+              "--no-parallel", "--filter", "PeekabooBridgeHostCoordinatorTests",
+          ]
+          process = subprocess.Popen(command, env=environment, stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT, text=True, start_new_session=True)
+          try:
+              output, _ = process.communicate(timeout=900)
+          except subprocess.TimeoutExpired:
+              os.killpg(process.pid, signal.SIGKILL)
+              output, _ = process.communicate()
+              print(output, flush=True)
+              raise SystemExit("Bridge smoke exceeded its bounded process-group deadline")
+          print(output, flush=True)
+          if process.returncode:
+              raise SystemExit(process.returncode)
+          output = re.sub(r"\x1b\[[0-9;]*m", "", output)
+          if not re.search(r'Test "embedded runtime serves an exact socket handshake"[^\n]*passed', output):
+              raise SystemExit("The real handshake test did not report a pass; a skipped test is not proof")
+          print("Verified real coordinator startup, release-signed client handshake, and socket teardown.")
+          PY
