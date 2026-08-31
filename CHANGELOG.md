@@ -2,7 +2,7 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [0.1.8] - Unreleased
+## [0.1.8] - 2026-08-30
 
 ### Fixed
 - Keep Commander pinned to the remote exact 0.2.4 release regardless of checkout or scratch path; use explicit workspace overrides for local development.
