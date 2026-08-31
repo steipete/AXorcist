@@ -111,6 +111,7 @@ private enum AXMessagingTimeoutRegistry {
 enum AXMessagingTimeoutScope {
     static func perform<Value>(
         timeout: Float,
+        resetTo: Float = 0,
         applyTimeout: (Float) -> AXError,
         operation: () throws -> Value) throws -> Value
     {
@@ -126,7 +127,7 @@ enum AXMessagingTimeoutScope {
         let operationResult: Result<Value, any Error> = Result {
             try operation()
         }
-        let resetResult = applyTimeout(0)
+        let resetResult = applyTimeout(resetTo)
         guard resetResult == .success else {
             throw AXMessagingTimeoutError.resetFailure(code: resetResult.rawValue)
         }
@@ -136,6 +137,13 @@ enum AXMessagingTimeoutScope {
 
 /// Global timeout configuration for all AX operations.
 public enum AXTimeoutConfiguration {
+    /// Last value successfully installed by `setGlobalTimeout`.
+    ///
+    /// `0` means macOS default. `AXTimeoutWrapper.execute` restores this
+    /// after a temporary system-wide deadline so a prior global bound survives.
+    @MainActor
+    static var installedTimeout: Float = 0
+
     /// Set the global messaging timeout for all AX operations.
     @MainActor
     public static func setGlobalTimeout(_ timeout: Float) {
@@ -145,6 +153,7 @@ public enum AXTimeoutConfiguration {
         if error != .success {
             logger.warning("Failed to set global AX timeout: \(error.rawValue)")
         } else {
+            self.installedTimeout = timeout
             logger.info("Set global AX timeout to \(timeout, format: .fixed(precision: 2)) seconds")
         }
     }
@@ -181,6 +190,7 @@ public struct AXTimeoutWrapper {
             do {
                 if let result = try AXMessagingTimeoutScope.perform(
                     timeout: self.timeout,
+                    resetTo: AXTimeoutConfiguration.installedTimeout,
                     applyTimeout: applyTimeout,
                     operation: operation)
                 {

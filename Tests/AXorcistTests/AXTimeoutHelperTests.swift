@@ -259,6 +259,27 @@ struct AXTimeoutHelperTests {
 
     @Test
     @MainActor
+    func `timeout wrapper restores a previous global deadline instead of zero`() async throws {
+        let previous = AXTimeoutConfiguration.installedTimeout
+        AXTimeoutConfiguration.installedTimeout = 3.0
+        defer { AXTimeoutConfiguration.installedTimeout = previous }
+
+        var timeoutHistory: [Float] = []
+        let wrapper = AXTimeoutWrapper(maxRetries: 1, retryDelay: 0, timeout: 0.5)
+
+        let result = try await wrapper.execute(
+            applyTimeout: { timeout in
+                timeoutHistory.append(timeout)
+                return .success
+            },
+            operation: { 42 })
+
+        #expect(result == 42)
+        #expect(timeoutHistory == [0.5, 3.0])
+    }
+
+    @Test
+    @MainActor
     func `timeout wrapper skips the operation when the deadline cannot be armed`() async {
         var armAttempts = 0
         var dispatched = 0
