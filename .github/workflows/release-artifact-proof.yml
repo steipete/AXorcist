@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: openclaw/openclaw
-          ref: 7ba9c46284bfad13fffae8eafc261d0cbc35d78c
+          ref: eb98d0a13df9726c4b6c6e3ac9fd2c7e29e8d866
           persist-credentials: false
       - name: Verify the released signed Peekaboo client
         shell: bash
