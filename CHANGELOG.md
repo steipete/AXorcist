@@ -2,7 +2,7 @@
 
 All notable changes to AXorcist will be documented in this file.
 
-## [0.1.9] - Unreleased
+## [0.1.9] - 2026-08-31
 
 ### Fixed
 - Keep global application PID and launch-readiness reads off the main actor and outside KVO callbacks, use workspace membership instead of termination queries, and discard stale metadata across stop, restart, and application replacement.
