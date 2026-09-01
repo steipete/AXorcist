@@ -7,6 +7,7 @@ All notable changes to AXorcist will be documented in this file.
 ### Fixed
 - Keep global application PID and launch-readiness reads off the main actor and outside KVO callbacks, use workspace membership instead of termination queries, and discard stale metadata across stop, restart, and application replacement.
 - Retain each exact application wrapper until its readiness observation finishes unregistering, preventing premature deallocation during queued cleanup and semantic wrapper replacement.
+- Return promptly from async timeouts and caller cancellation without joining uncooperative work, and preserve cancellation received before the result gate is installed. Thanks @SebTardif.
 
 ## [0.1.8] - 2026-08-30
 

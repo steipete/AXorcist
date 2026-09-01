@@ -739,6 +739,11 @@ Existing invocations such as `axorc --stdin` and `axorc '{...}'` remain supporte
 
 All operations are MainActor-isolated for thread safety when interacting with the Accessibility API.
 
+`AXTimeoutHelper.withTimeout` runs its async operation concurrently and returns the first result, timeout, or caller
+cancellation without waiting for uncooperative work to finish. Cancellation received before the call starts is preserved
+as `CancellationError`. Timed-out or cancelled work may continue in the background; the helper does not undo its effects.
+Use `Element.withMessagingTimeout` to bound synchronous native Accessibility messages.
+
 ### Performance Optimizations
 
 - Early termination on first match
