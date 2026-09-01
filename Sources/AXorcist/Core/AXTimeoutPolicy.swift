@@ -192,28 +192,70 @@ public struct AXTimeoutWrapper {
 public enum AXTimeoutHelper {
     /// Async timeout helper reused by downstreams (e.g., ScreenCaptureService)
     /// to keep timeout logic in one place.
+    ///
+    /// Returns when `seconds` elapse even if `operation` ignores cancellation.
+    /// The leftover work is asked to cancel but is not joined.
+    /// `operation` is `@concurrent` so `Thread.sleep` cannot hold MainActor
+    /// across the deadline under `defaultIsolation(MainActor.self)`.
     @MainActor
     public static func withTimeout<T: Sendable>(
         seconds: TimeInterval,
-        operation: @escaping @Sendable () async throws -> T) async throws -> T
+        operation: @escaping @concurrent @Sendable () async throws -> T) async throws -> T
     {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask {
-                try await operation()
-            }
+        try await self.race(seconds: seconds, operation: operation)
+    }
 
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                throw AXTimeoutError.operationTimedOut(duration: seconds)
-            }
-
-            guard let result = try await group.next() else {
-                throw AXTimeoutError.operationTimedOut(duration: seconds)
-            }
-
-            group.cancelAll()
-            return result
+    /// Race a deadline against unstructured work. A throwing TaskGroup would
+    /// still join an uncooperative child after the timeout throw.
+    @concurrent
+    private static func race<T: Sendable>(
+        seconds: TimeInterval,
+        operation: @escaping @concurrent @Sendable () async throws -> T) async throws -> T
+    {
+        let timeoutError = AXTimeoutError.operationTimedOut(duration: seconds)
+        let work = Task.detached {
+            try await operation()
         }
+        typealias Gate = FirstResultGate<Result<T, any Error>>
+        let gateBox = OSAllocatedUnfairLock(initialState: (gate: Gate?.none, cancelled: false))
+
+        let result: Result<T, any Error> = await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let gate = FirstResultGate(continuation: continuation)
+                // Cancellation can arrive before the continuation publishes its gate.
+                let wasCancelled = gateBox.withLock {
+                    $0.gate = gate
+                    return $0.cancelled
+                }
+                if wasCancelled {
+                    gate.finish(with: .failure(CancellationError()), fromTimeout: true)
+                    return
+                }
+                Task.detached {
+                    do {
+                        let value = try await work.value
+                        gate.finish(with: .success(value))
+                    } catch {
+                        gate.finish(with: .failure(error))
+                    }
+                }
+                // GCD timer, not Task.sleep: CI Swift 6.2.1 serialized the
+                // sleeper Task behind the uncooperative work Task.
+                DispatchQueue.global().asyncAfter(deadline: .now() + seconds) {
+                    gate.finish(with: .failure(timeoutError), fromTimeout: true)
+                    work.cancel()
+                }
+            }
+        } onCancel: {
+            let gate = gateBox.withLock {
+                $0.cancelled = true
+                return $0.gate
+            }
+            gate?.finish(with: .failure(CancellationError()), fromTimeout: true)
+            work.cancel()
+        }
+
+        return try result.get()
     }
 }
 

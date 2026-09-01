@@ -4,6 +4,9 @@ All notable changes to AXorcist will be documented in this file.
 
 ## [0.1.9] - Unreleased
 
+### Fixed
+- Return promptly from async timeouts and caller cancellation without joining uncooperative work, and preserve cancellation received before the result gate is installed. Thanks @SebTardif.
+
 ## [0.1.8] - 2026-08-30
 
 ### Fixed

@@ -1,6 +1,7 @@
 import ApplicationServices
 import Darwin
 import Foundation
+import os
 import Testing
 @testable import AXorcist
 
@@ -30,6 +31,60 @@ struct AXTimeoutHelperTests {
         } catch {
             Issue.record("Unexpected error: \(error)")
         }
+    }
+
+    @MainActor
+    @Test
+    func `returns without joining uncooperative work`() async {
+        let stillRunning = OSAllocatedUnfairLock(initialState: true)
+        do {
+            _ = try await AXTimeoutHelper.withTimeout(seconds: 0.05) {
+                await Self.sleepIgnoringCancellation(30)
+                stillRunning.withLock { $0 = false }
+                return 1
+            }
+            Issue.record("Expected timeout but succeeded")
+        } catch is AXTimeoutError {
+            // stillRunning is the join proof. Wall-clock bounds flake on
+            // CI when the full 213-test job delays the GCD deadline.
+            #expect(stillRunning.withLock { $0 })
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @MainActor
+    @Test(arguments: [false, true])
+    func `cancellation returns without joining uncooperative work`(alreadyCancelled: Bool) async {
+        let started = ObserverAsyncStartGate()
+        let release = ObserverAsyncStartGate()
+        let finished = ObserverAsyncStartGate()
+        let task = Task { @MainActor in
+            if alreadyCancelled {
+                withUnsafeCurrentTask { $0?.cancel() }
+            }
+            do {
+                // Other suites may occupy MainActor before this test can request cancellation.
+                _ = try await AXTimeoutHelper.withTimeout(seconds: 30) {
+                    started.open()
+                    await release.wait()
+                    finished.open()
+                    return 1
+                }
+                Issue.record("Expected cancellation but succeeded")
+            } catch is CancellationError {
+                // The operation cannot finish until this test opens release.
+            } catch {
+                Issue.record("Expected CancellationError, got \(error)")
+            }
+        }
+        if !alreadyCancelled {
+            await started.wait()
+            task.cancel()
+        }
+        await task.value
+        release.open()
+        await finished.wait()
     }
 
     @Test(arguments: ["windows", "menu bar", "child element"])
@@ -236,6 +291,18 @@ struct AXTimeoutHelperTests {
                 try second.withMessagingTimeout(0.25) { _ in
                     Issue.record("The nested system-wide operation must not run")
                 }
+            }
+        }
+    }
+
+    /// Blocks a background thread. Cancellation does not interrupt this wait.
+    /// Must not Thread.sleep on the caller: CI Swift 6.2.1 still runs the
+    /// `@Sendable` operation on MainActor, which would stall the deadline.
+    private nonisolated static func sleepIgnoringCancellation(_ seconds: TimeInterval) async {
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global().async {
+                Thread.sleep(forTimeInterval: seconds)
+                cont.resume()
             }
         }
     }
