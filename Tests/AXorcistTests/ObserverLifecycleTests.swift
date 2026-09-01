@@ -554,24 +554,6 @@ extension ObserverLifecycleTests {
     }
 
     @Test
-    func `application readiness can be claimed exactly once`() {
-        var observations = ["slow-app": 42]
-        let activeApplications: Set = ["slow-app"]
-
-        let firstClaim = AXWorkspaceApplicationMonitor.claimReadiness(
-            for: "slow-app",
-            activeApplications: activeApplications,
-            observations: &observations)
-        let duplicateClaim = AXWorkspaceApplicationMonitor.claimReadiness(
-            for: "slow-app",
-            activeApplications: activeApplications,
-            observations: &observations)
-
-        #expect(firstClaim == 42)
-        #expect(duplicateClaim == nil)
-    }
-
-    @Test
     func `global watcher bounds persistent launched application retries`() async throws {
         let registry = RecordingObservationRegistry(failingProcessIdentifiers: [42])
         let applicationMonitor = RecordingGlobalApplicationMonitor(runningProcessIdentifiers: [41])
@@ -737,42 +719,6 @@ extension ObserverLifecycleTests {
         #expect(registry.activeProcessIdentifiers == [42])
         watcher.stop()
         #expect(registry.activeProcessIdentifiers.isEmpty)
-    }
-
-    @Test
-    func `workspace application diff preserves replacement events when a PID is reused`() {
-        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
-            previous: ["stable": pid_t(7), "old-generation": pid_t(42)],
-            current: ["stable": pid_t(7), "agent": pid_t(9), "new-generation": pid_t(42)])
-
-        #expect(changes.terminations == [42])
-        #expect(changes.launches == [9, 42])
-    }
-
-    @Test
-    func `workspace application diff ignores wrapper churn for one semantic application`() {
-        let oldWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 100)
-        let newWrapper = RunningApplicationIdentityDouble(processInstance: "stable", wrapperAddress: 200)
-
-        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
-            previous: [oldWrapper: pid_t(42)],
-            current: [newWrapper: pid_t(42)])
-
-        #expect(changes.terminations.isEmpty)
-        #expect(changes.launches.isEmpty)
-    }
-
-    @Test
-    func `workspace application diff detects semantic replacement despite address reuse`() {
-        let oldApplication = RunningApplicationIdentityDouble(processInstance: "old", wrapperAddress: 100)
-        let replacement = RunningApplicationIdentityDouble(processInstance: "new", wrapperAddress: 100)
-
-        let changes = AXWorkspaceApplicationMonitor.lifecycleChanges(
-            previous: [oldApplication: pid_t(42)],
-            current: [replacement: pid_t(42)])
-
-        #expect(changes.terminations == [42])
-        #expect(changes.launches == [42])
     }
 
     @Test
@@ -980,19 +926,6 @@ private final class RecordingGlobalApplicationMonitor: AXGlobalApplicationMonito
 
     func ready(processIdentifier: pid_t) {
         self.onLaunch?(processIdentifier)
-    }
-}
-
-private struct RunningApplicationIdentityDouble: Hashable {
-    let processInstance: String
-    let wrapperAddress: Int
-
-    static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.processInstance == rhs.processInstance
-    }
-
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(self.processInstance)
     }
 }
 

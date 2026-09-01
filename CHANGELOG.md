@@ -5,13 +5,14 @@ All notable changes to AXorcist will be documented in this file.
 ## [0.1.9] - Unreleased
 
 ### Fixed
+- Keep global application PID and launch-readiness reads off the main actor and outside KVO callbacks, use workspace membership instead of termination queries, and discard stale metadata across stop, restart, and application replacement.
+- Retain each exact application wrapper until its readiness observation finishes unregistering, preventing premature deallocation during queued cleanup and semantic wrapper replacement.
 - Return promptly from async timeouts and caller cancellation without joining uncooperative work, and preserve cancellation received before the result gate is installed. Thanks @SebTardif.
 
 ## [0.1.8] - 2026-08-30
 
 ### Fixed
 - Keep Commander pinned to the remote exact 0.2.4 release regardless of checkout or scratch path; use explicit workspace overrides for local development.
-- Avoid synchronous LaunchServices termination queries during global application monitoring, and defer lifecycle callbacks out of KVO while preserving application identity, readiness, and stop/restart safety.
 
 ## [0.1.7] - 2026-08-28
 
