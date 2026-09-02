@@ -216,6 +216,7 @@ nonisolated enum ObserverNativeWork {
 final nonisolated class ObserverNativeWorkerAdmission: @unchecked Sendable {
     static let maximumConcurrentWorkers = 8
     static let maximumRegularWorkers = ObserverNativeWorkerAdmission.maximumConcurrentWorkers - 1
+    static let cleanupAdmissionTimeout = ObserverNativeWork.notificationWorkTimeout
 
     private let lock = NSLock()
     private var activeWorkerCount = 0
@@ -242,12 +243,7 @@ final nonisolated class ObserverNativeWorkerAdmission: @unchecked Sendable {
         }
     }
 
-    func acquireCleanup() async {
-        let acquired = await self.acquireCleanup(timeout: .seconds(365 * 24 * 60 * 60))
-        precondition(acquired, "unbounded cleanup admission must eventually acquire")
-    }
-
-    func acquireCleanup(timeout: Duration) async -> Bool {
+    func acquireCleanup(timeout: Duration = cleanupAdmissionTimeout) async -> Bool {
         await withCheckedContinuation { continuation in
             let id = UUID()
             let acquired = self.lock.withLock {

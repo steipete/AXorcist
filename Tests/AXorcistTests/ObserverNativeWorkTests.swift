@@ -15,6 +15,26 @@ struct ObserverNativeWorkTests {
     }
 
     @Test
+    func `cleanup admission timeout matches notification work timeout`() {
+        #expect(
+            ObserverNativeWorkerAdmission.cleanupAdmissionTimeout
+                == ObserverNativeWork.notificationWorkTimeout)
+    }
+
+    @Test
+    func `parameterless cleanup admission fails closed when workers stay saturated`() async {
+        let admission = ObserverNativeWorkerAdmission()
+        for _ in 0..<ObserverNativeWorkerAdmission.maximumConcurrentWorkers {
+            #expect(admission.tryAcquireCleanup())
+        }
+
+        let acquired = await admission.acquireCleanup()
+
+        #expect(!acquired)
+        #expect(admission.activeCount == ObserverNativeWorkerAdmission.maximumConcurrentWorkers)
+    }
+
+    @Test
     func `native observer worker admission is process bounded`() {
         let admission = ObserverNativeWorkerAdmission()
         for _ in 0..<ObserverNativeWorkerAdmission.maximumRegularWorkers {
@@ -36,14 +56,16 @@ struct ObserverNativeWorkTests {
         }
         #expect(admission.tryAcquireCleanup())
         let waiter = Task {
-            await admission.acquireCleanup()
-            return admission.activeCount
+            let acquired = await admission.acquireCleanup()
+            return (acquired, admission.activeCount)
         }
         await Task.yield()
 
         admission.release()
 
-        #expect(await waiter.value == ObserverNativeWorkerAdmission.maximumConcurrentWorkers)
+        let (acquired, count) = await waiter.value
+        #expect(acquired)
+        #expect(count == ObserverNativeWorkerAdmission.maximumConcurrentWorkers)
         admission.release()
     }
 
