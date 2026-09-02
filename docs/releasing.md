@@ -2,6 +2,8 @@
 
 The Homebrew formula consumes a Developer ID-signed universal binary. Do not publish the ad-hoc artifact produced by `--adhoc`; a stable signature keeps the macOS Accessibility identity consistent across upgrades.
 
+`scripts/build-universal-binary.sh` restores executable mode `0755` after stripping and signing, regardless of the caller's umask. The release archive preserves that mode. Run `make test-universal-binary-mode` for the source-only permission regression; it mocks build/signing tools and does not replace native signature or archive verification.
+
 ## Prepare
 
 1. Update `axorcVersion` in `Sources/axorc/Models/AXORCModels.swift` and move the changelog entries into the matching release section.

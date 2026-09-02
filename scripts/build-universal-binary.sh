@@ -69,6 +69,9 @@ else
   codesign --force --options runtime --timestamp --sign "$AXORC_CODESIGN_IDENTITY" "$output_path"
 fi
 
+# Rewriting tools can narrow permissions under a restrictive caller umask.
+chmod 0755 "$output_path"
+
 codesign --verify --strict --verbose=2 "$output_path"
 file "$output_path" | grep -q 'universal binary'
 echo "Created universal binary $output_path"

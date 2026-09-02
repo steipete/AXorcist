@@ -53,8 +53,12 @@ native-only:
 test-commander-dependency:
 	python3 scripts/test-commander-dependency.py
 
-# Run formatting, linting, native-only policy, and dependency checks
-check: format-check lint native-only test-commander-dependency
+.PHONY: test-universal-binary-mode
+test-universal-binary-mode:
+	@bash scripts/test-universal-binary-mode.sh
+
+# Run formatting, linting, native-only policy, dependency, and binary-mode checks
+check: format-check lint native-only test-commander-dependency test-universal-binary-mode
 	@echo "All code checks complete."
 
 # Default target
