@@ -25,7 +25,7 @@ permissions:
   statuses: write
 
 env:
-  SWIFT_VERSION: "6.2.1"
+  SWIFT_VERSION: "6.2.4"
   XCODE_VERSION: "16.4"
 
 jobs:
