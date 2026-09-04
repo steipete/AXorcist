@@ -25,11 +25,11 @@ public func decodeExpectedArray(
                 else if let anyArray = try JSONSerialization.jsonObject(with: jsonData, options: []) as? [Any] {
                     return anyArray.compactMap { item -> String? in
                         if let strItem = item as? String {
-                            return strItem
+                            strItem
                         } else {
                             // For non-string items, convert to string representation
                             // This handles numbers, booleans if they were in the JSON array
-                            return String(describing: item)
+                            String(describing: item)
                         }
                     }
                 }

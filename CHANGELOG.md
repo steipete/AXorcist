@@ -2,6 +2,11 @@
 
 All notable changes to AXorcist will be documented in this file.
 
+## Unreleased
+
+### Changed
+- Refresh CI to Swift 6.2.4 and SwiftFormat 0.63.0 while retaining the Swift 6.2 and macOS 14 minimums.
+
 ## [0.1.9] - 2026-08-31
 
 ### Fixed
