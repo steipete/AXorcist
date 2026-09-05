@@ -40,9 +40,25 @@ public final class AXWindowResolver {
     /// Find AX window by CGWindowID in a specific app.
     @MainActor
     public func findWindow(by windowID: CGWindowID, in app: NSRunningApplication) -> Element? {
+        self.findWindow(by: windowID, in: app, messagingTimeout: 2.0)
+    }
+
+    /// Find AX window by CGWindowID across running apps.
+    @MainActor
+    public func findWindow(by windowID: CGWindowID) -> (window: Element, app: NSRunningApplication)? {
+        self.findWindow(by: windowID, messagingTimeout: 2.0)
+    }
+
+    @MainActor
+    func findWindow(
+        by windowID: CGWindowID,
+        in app: NSRunningApplication,
+        messagingTimeout: Float,
+        listWindows: (Element, Float) -> [Element]? = { $0.windowsWithTimeout(timeout: $1) }) -> Element?
+    {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         let element = Element(appElement)
-        guard let windows = element.windows() else { return nil }
+        guard let windows = listWindows(element, messagingTimeout) else { return nil }
 
         for window in windows {
             if let currentID = self.windowID(from: window), currentID == windowID {
@@ -52,23 +68,36 @@ public final class AXWindowResolver {
         return nil
     }
 
-    /// Find AX window by CGWindowID across running apps.
     @MainActor
-    public func findWindow(by windowID: CGWindowID) -> (window: Element, app: NSRunningApplication)? {
+    func findWindow(
+        by windowID: CGWindowID,
+        messagingTimeout: Float,
+        listWindows: (Element, Float) -> [Element]? = { $0.windowsWithTimeout(timeout: $1) })
+        -> (window: Element, app: NSRunningApplication)?
+    {
         // Fast path: CoreGraphics owner lookup
         let options: CGWindowListOption = [.optionIncludingWindow]
         if let windowInfoList = CGWindowListCopyWindowInfo(options, windowID) as? [[String: Any]],
            let windowInfo = windowInfoList.first,
            let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
            let app = NSWorkspace.shared.runningApplications.first(where: { $0.processIdentifier == ownerPID }),
-           let window = self.findWindow(by: windowID, in: app)
+           let window = self.findWindow(
+               by: windowID,
+               in: app,
+               messagingTimeout: messagingTimeout,
+               listWindows: listWindows)
         {
             return (window, app)
         }
 
         // Fallback: full AX enumeration (works without Screen Recording permission).
         for app in NSWorkspace.shared.runningApplications {
-            if let window = self.findWindow(by: windowID, in: app) {
+            if let window = self.findWindow(
+                by: windowID,
+                in: app,
+                messagingTimeout: messagingTimeout,
+                listWindows: listWindows)
+            {
                 return (window, app)
             }
         }
